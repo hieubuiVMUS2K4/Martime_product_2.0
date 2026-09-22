@@ -622,6 +622,37 @@ public class SyncConflictHandler : ISyncConflictHandler
             syncable.OriginNode = item.OriginNode;
             syncable.SyncVersion = item.SyncVersion;
             syncable.UpdatedAt = DateTime.UtcNow;
+            return;
+        }
+
+        // Ba thực thể danh mục SMS có đủ IsSynced/OriginNode/UpdatedAt nhưng KHÔNG khai báo
+        // ISyncableEntity, nên nhánh trên bỏ sót chúng — hàm này lặng lẽ không làm gì.
+        //
+        // Hệ quả: bản ghi bờ vừa phát xuống nằm lại với IsSynced = false và OriginNode
+        // "SHIP_01" (nhánh master data chép nguyên trạng từ payload của bờ qua
+        // CurrentValues.SetValues), tức là tàu tự nhận mình là nguồn của dữ liệu bờ.
+        // Trước đây cờ này chỉ tình cờ đúng nhờ vòng vọng ngược lên bờ — chính lỗi vừa được
+        // chặn ở EdgeDbContext.ProcessSyncQueue — nên phải đánh dấu tường minh ở đây.
+        var originNode = string.IsNullOrWhiteSpace(item.OriginNode) ? null : item.OriginNode;
+        var now = DateTime.UtcNow;
+
+        switch (entity)
+        {
+            case IsmElement ism:
+                ism.IsSynced = true;
+                ism.OriginNode = originNode ?? ism.OriginNode;
+                ism.UpdatedAt = now;
+                break;
+            case SmsProcedure procedure:
+                procedure.IsSynced = true;
+                procedure.OriginNode = originNode ?? procedure.OriginNode;
+                procedure.UpdatedAt = now;
+                break;
+            case SmsFormTemplate template:
+                template.IsSynced = true;
+                template.OriginNode = originNode ?? template.OriginNode;
+                template.UpdatedAt = now;
+                break;
         }
     }
 

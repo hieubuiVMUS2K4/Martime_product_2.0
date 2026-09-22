@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+﻿import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import { maritimeService } from '../../services/maritime.service'
@@ -8,11 +8,11 @@ type AddHealthDocumentModalProps = {
   crewMemberId: string
   onClose: () => void
   onSuccess: () => void
-  /** Có giá trị = đang SỬA tài liệu này; bỏ trống = thêm mới. */
+  /** CÃ³ giÃ¡ trá»‹ = Ä‘ang Sá»¬A tÃ i liá»‡u nÃ y; bá» trá»‘ng = thÃªm má»›i. */
   editingDocument?: any | null
 }
 
-/** Chuẩn hoá ngày về dạng yyyy-MM-dd cho input type="date". */
+/** Chuáº©n hoÃ¡ ngÃ y vá» dáº¡ng yyyy-MM-dd cho input type="date". */
 const toDateInput = (v?: string | null) => (v ? String(v).slice(0, 10) : '')
 
 const HEALTH_DOCUMENT_TYPES = [
@@ -35,7 +35,7 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
 
   const isEditing = !!editingDocument
 
-  // Nạp sẵn dữ liệu khi mở ở chế độ sửa, dọn form khi mở để thêm mới.
+  // Náº¡p sáºµn dá»¯ liá»‡u khi má»Ÿ á»Ÿ cháº¿ Ä‘á»™ sá»­a, dá»n form khi má»Ÿ Ä‘á»ƒ thÃªm má»›i.
   useEffect(() => {
     if (!isOpen) return
     setDocumentType(editingDocument?.documentType || '')
@@ -226,3 +226,4 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
     </div>
   )
 }
+

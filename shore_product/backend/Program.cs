@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
@@ -98,21 +98,21 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Authorization policies — role-based access for Crew Management
+// Authorization policies â€” role-based access for Crew Management
 builder.Services.AddAuthorizationBuilder()
-    // HR Admin + Crew Coordinator — full crew management
+    // HR Admin + Crew Coordinator â€” full crew management
     .AddPolicy("CrewManagement", policy =>
         policy.RequireRole("Admin", "HRAdmin", "CrewCoordinator", "SystemAdmin"))
-    // Compliance Officer — compliance rules, waivers, document verification
+    // Compliance Officer â€” compliance rules, waivers, document verification
     .AddPolicy("ComplianceManagement", policy =>
         policy.RequireRole("Admin", "ComplianceOfficer", "SystemAdmin"))
-    // Travel Coordinator — travel requests and itineraries
+    // Travel Coordinator â€” travel requests and itineraries
     .AddPolicy("TravelManagement", policy =>
         policy.RequireRole("Admin", "TravelCoordinator", "CrewCoordinator", "SystemAdmin"))
-    // Fleet Manager + Port Captain — planning, assignments, external requests
+    // Fleet Manager + Port Captain â€” planning, assignments, external requests
     .AddPolicy("FleetManagement", policy =>
         policy.RequireRole("Admin", "FleetManager", "PortCaptain", "CrewCoordinator", "SystemAdmin"))
-    // Master (edge) — onboard events, sign-on/sign-off
+    // Master (edge) â€” onboard events, sign-on/sign-off
     .AddPolicy("OnboardManagement", policy =>
         policy.RequireRole("Admin", "Master", "ChiefOfficer", "CrewCoordinator", "SystemAdmin"))
     // Read-only access for authenticated users
@@ -147,8 +147,8 @@ builder.Services.AddRateLimiter(options =>
         {
             success = false,
             answer = retryAfterSeconds.HasValue
-                ? $"Backend đang giới hạn tần suất yêu cầu. Vui lòng thử lại sau {retryAfterSeconds.Value}s."
-                : "Backend đang giới hạn tần suất yêu cầu. Vui lòng thử lại sau.",
+                ? $"Backend Ä‘ang giá»›i háº¡n táº§n suáº¥t yÃªu cáº§u. Vui lÃ²ng thá»­ láº¡i sau {retryAfterSeconds.Value}s."
+                : "Backend Ä‘ang giá»›i háº¡n táº§n suáº¥t yÃªu cáº§u. Vui lÃ²ng thá»­ láº¡i sau.",
             errorSource = "backend_rate_limiter",
             retryAfterSeconds
         });
@@ -330,7 +330,7 @@ if (autoMigrateDatabase)
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_voyage_reviews_VoyageId"" ON voyage_reviews (""VoyageId"");
                 CREATE INDEX IF NOT EXISTS ""IX_voyage_reviews_ReviewStatus"" ON voyage_reviews (""ReviewStatus"");
             ");
-            // ── Migration: Add IsRunning column to EngineData ──
+            // â”€â”€ Migration: Add IsRunning column to EngineData â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 ALTER TABLE ""EngineData""
                 ADD COLUMN IF NOT EXISTS ""IsRunning"" boolean NOT NULL DEFAULT false;
@@ -384,7 +384,7 @@ if (autoMigrateDatabase)
                     END IF;
                 END $$;
             ");
-            // ── PMS: add VesselId to equipment_assets & material_items ──
+            // â”€â”€ PMS: add VesselId to equipment_assets & material_items â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 ALTER TABLE equipment_assets
                 ADD COLUMN IF NOT EXISTS ""VesselId"" uuid;
@@ -418,7 +418,7 @@ if (autoMigrateDatabase)
                   AND v.""IMO"" = mt.""OriginNode"";
             ");
 
-            // ── Shore notifications table ──
+            // â”€â”€ Shore notifications table â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS shore_notifications (
                     ""Id""         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -439,7 +439,7 @@ if (autoMigrateDatabase)
                     ON shore_notifications (""IsRead"");
             ");
 
-            // ── Seed default admin user (idempotent) ──
+            // â”€â”€ Seed default admin user (idempotent) â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username""
                     ON ""Users"" (""Username"");
@@ -455,7 +455,7 @@ if (autoMigrateDatabase)
             ");
             logger.LogInformation("Default admin user seed completed.");
 
-            // ── Auto-create SMS tables if not present ──
+            // â”€â”€ Auto-create SMS tables if not present â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS ism_elements (
                     ""Id"" integer NOT NULL,
@@ -579,7 +579,7 @@ if (autoMigrateDatabase)
                 );
             ");
 
-            // ── Seed SMS initial data (ISM elements & procedures) ──
+            // â”€â”€ Seed SMS initial data (ISM elements & procedures) â”€â”€
             await SmsSeedData.SeedAsync(db);
             logger.LogInformation("SMS Seed Data completed.");
 
@@ -714,4 +714,5 @@ app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthC
 app.MapHealthChecks("/health/ready");
 
 app.Run();
+
 

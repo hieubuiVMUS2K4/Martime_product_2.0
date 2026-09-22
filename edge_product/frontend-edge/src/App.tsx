@@ -1,7 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+﻿import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { ToastContainer, Slide } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
 import { MainLayout } from './components/layouts/MainLayout'
 import { SettingsDialog } from './components/settings'
 import { AuthGuard } from './components/auth/AuthGuard'
@@ -74,8 +72,8 @@ function App() {
   return (
     <>
       {/* Global toast provider (sonner).
-          Mặc định sonner chỉ hiện ~4s và trượt vào rất nhanh nên thông báo thêm/sửa/xoá
-          nháy một cái là mất. Kéo dài thời gian hiện và bật nút đóng để đọc kịp. */}
+          Máº·c Ä‘á»‹nh sonner chá»‰ hiá»‡n ~4s vÃ  trÆ°á»£t vÃ o ráº¥t nhanh nÃªn thÃ´ng bÃ¡o thÃªm/sá»­a/xoÃ¡
+          nhÃ¡y má»™t cÃ¡i lÃ  máº¥t. KÃ©o dÃ i thá»i gian hiá»‡n vÃ  báº­t nÃºt Ä‘Ã³ng Ä‘á»ƒ Ä‘á»c ká»‹p. */}
       <Toaster
         position="top-right"
         duration={6000}
@@ -84,7 +82,7 @@ function App() {
         visibleToasts={4}
         toastOptions={{ style: { transition: 'all 320ms cubic-bezier(0.16, 1, 0.3, 1)' } }}
       />
-      {/* Hai modal tài liệu dùng react-toastify, để cùng thời lượng với sonner cho đồng nhất. */}
+      {/* Hai modal tÃ i liá»‡u dÃ¹ng react-toastify, Ä‘á»ƒ cÃ¹ng thá»i lÆ°á»£ng vá»›i sonner cho Ä‘á»“ng nháº¥t. */}
       <ToastContainer position="top-right" autoClose={6000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover draggable theme="colored" transition={Slide} />
       
       {/* Settings Dialog (renders as portal, controlled by zustand store) */}
@@ -139,7 +137,7 @@ function App() {
         <Route path="pms/logistics/material-requests" element={<MaterialRequestPage />} />
         <Route path="pms/logistics/stock-receipts" element={<StockReceiptPage />} />
         <Route path="pms/logistics/inventory" element={<InventoryPage />} />
-        {/* Schedule Config is now integrated into Work Planning page as "Cấu hình" tab */}
+        {/* Schedule Config is now integrated into Work Planning page as "Cáº¥u hÃ¬nh" tab */}
         <Route path="pms/master-schedule" element={<MasterSchedulePage />} />
         <Route path="pms/unassigned-tasks" element={<UnassignedTasksPage />} />
         <Route path="pms/approval-dashboard" element={<ApprovalDashboardPage />} />
@@ -180,3 +178,4 @@ function App() {
 }
 
 export default App
+
