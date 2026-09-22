@@ -187,6 +187,13 @@ namespace ProductApi.Data
         public DbSet<SmsFormTemplate> SmsFormTemplates { get; set; } = null!;
         public DbSet<SmsFilledRecord> SmsFilledRecords { get; set; } = null!;
 
+        // ============================================================
+        // DE4 WEATHER ROUTING
+        // ============================================================
+        public DbSet<ProductApi.Models.WeatherRouting.WeatherRoutingJob> WeatherRoutingJobs { get; set; } = null!;
+        public DbSet<ProductApi.Models.WeatherRouting.WeatherRoutingRoute> WeatherRoutingRoutes { get; set; } = null!;
+        public DbSet<ProductApi.Models.WeatherRouting.VesselFuelProfile> VesselFuelProfiles { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -1980,6 +1987,69 @@ namespace ProductApi.Data
                 entity.HasIndex(e => e.FormCode);
                 entity.HasIndex(e => e.SmsFormTemplateId);
                 entity.HasIndex(e => e.VesselName);
+            });
+
+            // ============================================================
+            // DE4 WEATHER ROUTING
+            // ============================================================
+            modelBuilder.Entity<ProductApi.Models.WeatherRouting.WeatherRoutingJob>(entity =>
+            {
+                entity.ToTable("weather_routing_jobs");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Status).HasMaxLength(32).IsRequired();
+                entity.Property(e => e.RequestJson).HasColumnType("jsonb");
+                entity.Property(e => e.HazardJson).HasColumnType("jsonb");
+                entity.Property(e => e.MetricsJson).HasColumnType("jsonb");
+                entity.Property(e => e.PlanJson).HasColumnType("jsonb");
+                entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+                entity.Property(e => e.CreatedAt)
+                    .HasConversion(v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+                entity.Property(e => e.UpdatedAt)
+                    .HasConversion(v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+                entity.Property(e => e.CompletedAt)
+                    .HasConversion(
+                        v => v.HasValue ? v.Value.ToUniversalTime() : (DateTime?)null,
+                        v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : (DateTime?)null);
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.VesselId);
+                entity.HasIndex(e => e.CreatedAt);
+                entity.HasMany(e => e.Routes)
+                    .WithOne(r => r.Job)
+                    .HasForeignKey(r => r.JobId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ProductApi.Models.WeatherRouting.WeatherRoutingRoute>(entity =>
+            {
+                entity.ToTable("weather_routing_routes");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Kind).HasMaxLength(32).IsRequired();
+                entity.Property(e => e.WaypointsJson).HasColumnType("jsonb");
+                entity.Property(e => e.MetricsJson).HasColumnType("jsonb");
+                entity.Property(e => e.CreatedAt)
+                    .HasConversion(v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+                entity.HasIndex(e => e.JobId);
+                entity.HasIndex(e => new { e.JobId, e.Version });
+                entity.HasIndex(e => e.Kind);
+            });
+
+            modelBuilder.Entity<ProductApi.Models.WeatherRouting.VesselFuelProfile>(entity =>
+            {
+                entity.ToTable("vessel_fuel_profiles");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.FuelType).HasMaxLength(20).IsRequired();
+                entity.Property(e => e.VesselName).HasMaxLength(100);
+                entity.Property(e => e.Source).HasMaxLength(20).IsRequired();
+                entity.Property(e => e.Notes).HasMaxLength(500);
+                entity.Property(e => e.CreatedAt)
+                    .HasConversion(v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+                entity.Property(e => e.UpdatedAt)
+                    .HasConversion(v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+                entity.HasIndex(e => e.VesselId).IsUnique();
+                entity.HasOne(e => e.Vessel)
+                    .WithMany()
+                    .HasForeignKey(e => e.VesselId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

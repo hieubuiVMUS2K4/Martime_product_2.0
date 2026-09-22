@@ -61,7 +61,20 @@ export default defineConfig({
       '/maps': {
         target: 'https://maps.vietmap.vn',
         changeOrigin: true,
-      }
+      },
+      // GDACS / RainViewer — same-origin proxy so browser gets JSON (not CORS/HTML)
+      '/gdacs': {
+        target: 'https://www.gdacs.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/gdacs/, ''),
+      },
+      '/rainviewer': {
+        target: 'https://api.rainviewer.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/rainviewer/, ''),
+      },
     }
   }
 })

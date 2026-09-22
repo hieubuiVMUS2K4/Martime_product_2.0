@@ -44,6 +44,7 @@ const navItems: NavItemDef[] = [
   },
   { type: 'link', path: '/vessels', label: 'Danh sách tàu' },
   { type: 'link', path: '/vessels/tracking', label: '🛰️ Tracking' },
+  { type: 'link', path: '/weather-routing', label: 'Tối ưu tuyến' },
   // {
   //   type: 'dropdown',
   //   label: 'Thông tin',
@@ -461,3 +462,4 @@ export const TopNavLayout: React.FC = () => {
     </div>
   );
 };
+

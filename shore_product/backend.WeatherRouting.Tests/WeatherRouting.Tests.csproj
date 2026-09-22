@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>WeatherRouting.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Services\WeatherRouting\RoutingPrimitives.cs" Link="Algo\RoutingPrimitives.cs" />
+    <Compile Include="..\..\Services\WeatherRouting\HazardProvider.cs" Link="Algo\HazardProvider.cs" />
+    <Compile Include="..\..\Services\WeatherRouting\GridBuilder.cs" Link="Algo\GridBuilder.cs" />
+    <Compile Include="..\..\Services\WeatherRouting\HeuristicCost.cs" Link="Algo\HeuristicCost.cs" />
+    <Compile Include="..\..\Services\WeatherRouting\AstStarRouter.cs" Link="Algo\AstStarRouter.cs" />
+    <Compile Include="..\..\Services\WeatherRouting\StraightBaselineRouter.cs" Link="Algo\StraightBaselineRouter.cs" />
+  </ItemGroup>
+</Project>

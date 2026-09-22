@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "adams-bridge-rameshwaram",
+        "note": "Bãi cạn Adam's Bridge / Palk Strait (sau 1-2 m) - tau khong qua duoc. Bo sung vi Natural Earth 110m khong co dao Rameswaram, khien tuyen cat qua dao."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [78.95, 8.98],
+            [80.15, 8.98],
+            [80.15, 9.72],
+            [78.95, 9.72],
+            [78.95, 8.98]
+          ]
+        ]
+      }
+    }
+  ]
+}

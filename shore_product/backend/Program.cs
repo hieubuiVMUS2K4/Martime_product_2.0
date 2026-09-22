@@ -275,6 +275,19 @@ builder.Services.AddSingleton<ProductApi.Services.AI.Conversation.IConversationH
 
 // Use V2 with enhancements - supports backward compatibility
 builder.Services.AddScoped<ProductApi.Services.AI.IAiChatService, ProductApi.Services.AI.AiChatServiceV2>();
+
+// DE4 Weather Routing (A* + baseline + mock hazard)
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IGridBuilder, ProductApi.Services.WeatherRouting.GridBuilder>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IHeuristicCost, ProductApi.Services.WeatherRouting.HeuristicCost>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IAstStarRouter, ProductApi.Services.WeatherRouting.AstStarRouter>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IStraightBaselineRouter, ProductApi.Services.WeatherRouting.StraightBaselineRouter>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IWeatherRoutingService, ProductApi.Services.WeatherRouting.WeatherRoutingService>();
+
+// DE4 Weather Routing — lập kế hoạch n chặng (bunkering / fuel plan)
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IVoyageLegPlanner, ProductApi.Services.WeatherRouting.VoyageLegPlanner>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IVoyageLegPlanService, ProductApi.Services.WeatherRouting.VoyageLegPlanService>();
+
+
 builder.Services.AddSingleton<ProductApi.Services.Background.ReportEvaluationQueue>();
 builder.Services.AddHostedService<ProductApi.Services.Background.ReportEvaluationWorker>();
 
@@ -437,6 +450,105 @@ if (autoMigrateDatabase)
                     ON shore_notifications (""CreatedAt"");
                 CREATE INDEX IF NOT EXISTS ""IX_shore_notifications_IsRead""
                     ON shore_notifications (""IsRead"");
+            ");
+
+            // ---- DE4 Weather Routing: hồ sơ nhiên liệu tàu + cột PlanJson ----
+            await db.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS vessel_fuel_profiles (
+                    ""Id"" uuid NOT NULL,
+                    ""VesselId"" uuid NOT NULL,
+                    ""VesselName"" character varying(100) NULL,
+                    ""FuelType"" character varying(20) NOT NULL DEFAULT 'VLSFO',
+                    ""FuelCapacityTons"" double precision NOT NULL DEFAULT 220,
+                    ""CurrentFuelTons"" double precision NULL,
+                    ""ReserveFraction"" double precision NOT NULL DEFAULT 0.2,
+                    ""ServiceSpeedKts"" double precision NOT NULL DEFAULT 11.5,
+                    ""ServicePowerKw"" double precision NOT NULL DEFAULT 900,
+                    ""SfocMainGPerKwh"" double precision NOT NULL DEFAULT 180,
+                    ""AuxLoadKw"" double precision NOT NULL DEFAULT 120,
+                    ""SfocAuxGPerKwh"" double precision NOT NULL DEFAULT 215,
+                    ""SeaMarginFraction"" double precision NOT NULL DEFAULT 0.15,
+                    ""SpeedExponent"" double precision NOT NULL DEFAULT 3.0,
+                    ""WeatherAllowanceFraction"" double precision NOT NULL DEFAULT 0.08,
+                    ""PortStayHours"" double precision NOT NULL DEFAULT 8.0,
+                    ""MaxDetourNm"" double precision NOT NULL DEFAULT 250,
+                    ""Source"" character varying(20) NOT NULL DEFAULT 'ESTIMATE',
+                    ""Notes"" character varying(500) NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NOT NULL,
+                    CONSTRAINT ""PK_vessel_fuel_profiles"" PRIMARY KEY (""Id"")
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_vessel_fuel_profiles_VesselId""
+                    ON vessel_fuel_profiles (""VesselId"");
+
+                ALTER TABLE weather_routing_jobs
+                ADD COLUMN IF NOT EXISTS ""PlanJson"" jsonb NOT NULL DEFAULT jsonb_build_object();
+
+                -- Seed hồ sơ nhiên liệu ước lượng cho các tàu hiện có (idempotent).
+                -- Bộ số dưới đây ứng với một tàu nhỏ (coaster ~1.500 GT, máy chính ~700 kW):
+                -- sức chứa 100 t, đang có 75 t, tốc độ khai thác 11 kn, SFOC 185/215 g/kWh.
+                INSERT INTO vessel_fuel_profiles (
+                    ""Id"", ""VesselId"", ""VesselName"", ""FuelType"", ""FuelCapacityTons"", ""CurrentFuelTons"",
+                    ""ReserveFraction"", ""ServiceSpeedKts"", ""ServicePowerKw"", ""SfocMainGPerKwh"",
+                    ""AuxLoadKw"", ""SfocAuxGPerKwh"", ""SeaMarginFraction"", ""SpeedExponent"",
+                    ""WeatherAllowanceFraction"", ""PortStayHours"", ""MaxDetourNm"", ""Source"", ""Notes"",
+                    ""CreatedAt"", ""UpdatedAt""
+                )
+                SELECT
+                    gen_random_uuid(), v.""Id"", v.""Name"", 'VLSFO', 100, 75,
+                    0.20, 11.0, 700, 185,
+                    100, 215, 0.15, 3.0,
+                    0.08, 8.0, 400, 'ESTIMATE',
+                    'Uoc luong cho demo DE4 - nen thay bang so lieu thuc tu ho so tau (SFOC, cong suat, suc chua nhien lieu).',
+                    NOW(), NOW()
+                FROM ""Vessels"" v
+                WHERE v.""Name"" NOT LIKE 'Vessel edge-%'
+                ON CONFLICT (""VesselId"") DO NOTHING;
+
+                -- Bổ sung thông số kỹ thuật còn thiếu cho tàu chở hàng (chỉ điền khi đang NULL,
+                -- không ghi đè số liệu thật nếu sau này nhập từ hồ sơ tàu).
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""MainEnginePowerKw"" double precision;
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""FuelCapacityTons"" double precision;
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""FuelConsumptionTonsPerDay"" double precision;
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""CruisingRangeNm"" double precision;
+
+                UPDATE ""Vessels"" SET
+                    ""VesselType""               = COALESCE(""VesselType"", 'General Cargo'),
+                    ""YearBuilt""                = COALESCE(""YearBuilt"", 2012),
+                    ""Flag""                     = COALESCE(""Flag"", 'Vietnam'),
+                    ""DeadWeight""               = COALESCE(""DeadWeight"", 2600),
+                    ""GrossTonnage""             = COALESCE(""GrossTonnage"", 1850),
+                    ""GrossTonnageInternational""= COALESCE(""GrossTonnageInternational"", 1850),
+                    ""GrossTonnagePanamaCanal""  = COALESCE(""GrossTonnagePanamaCanal"", 1850),
+                    ""GrossTonnageSuezCanal""    = COALESCE(""GrossTonnageSuezCanal"", 1850),
+                    ""NettTonnageInternational"" = COALESCE(""NettTonnageInternational"", 780),
+                    ""NettTonnagePanamaCanal""   = COALESCE(""NettTonnagePanamaCanal"", 780),
+                    ""NettTonnageSuezCanal""     = COALESCE(""NettTonnageSuezCanal"", 780),
+                    ""DepthMoulded""             = COALESCE(""DepthMoulded"", 7.0),
+                    ""DraftMoulded""             = COALESCE(""DraftMoulded"", 5.2),
+                    ""DraftFullBallast""         = COALESCE(""DraftFullBallast"", 2.8),
+                    ""DraftScantling""           = COALESCE(""DraftScantling"", 5.6),
+                    ""TpcAtSummerDraft""         = COALESCE(""TpcAtSummerDraft"", 12.5),
+                    ""GrainCbm""                 = COALESCE(""GrainCbm"", 3400),
+                    ""BalesCbm""                 = COALESCE(""BalesCbm"", 3250),
+                    ""NoOfCargoHolds""           = COALESCE(""NoOfCargoHolds"", 2),
+                    ""NoOfHatches""              = COALESCE(""NoOfHatches"", 2),
+                    ""NoOfCrewSafeManning""      = COALESCE(""NoOfCrewSafeManning"", 12),
+                    ""TeuTotal""                 = COALESCE(""TeuTotal"", 120),
+                    ""TeuOnDeck""                = COALESCE(""TeuOnDeck"", 40),
+                    ""TeuUnderDeck""             = COALESCE(""TeuUnderDeck"", 80),
+                    ""HMaxAirdraft""             = COALESCE(""HMaxAirdraft"", 18.5),
+                    ""AirdraftReductionMastFouled"" = COALESCE(""AirdraftReductionMastFouled"", 0),
+                    ""ServiceSpeedKts""          = COALESCE(""ServiceSpeedKts"", 11.0),
+                    ""MainEnginePowerKw""        = COALESCE(""MainEnginePowerKw"", 700),
+                    ""FuelCapacityTons""         = COALESCE(""FuelCapacityTons"", 100),
+                    ""FuelConsumptionTonsPerDay""= COALESCE(""FuelConsumptionTonsPerDay"", 4.17),
+                    ""CruisingRangeNm""          = COALESCE(""CruisingRangeNm"", 4695),
+                    ""HarbourGeneratorMaxPowerKW"" = COALESCE(""HarbourGeneratorMaxPowerKW"", 120),
+                    ""ClassSocietyName""         = COALESCE(""ClassSocietyName"", 'Vietnam Register'),
+                    ""ClassNotation""            = COALESCE(""ClassNotation"", 'General Cargo Ship, unrestricted navigation')
+                WHERE ""Name"" NOT LIKE 'Vessel edge-%';
             ");
 
             // â”€â”€ Seed default admin user (idempotent) â”€â”€
