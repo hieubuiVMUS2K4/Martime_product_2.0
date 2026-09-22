@@ -1,5 +1,7 @@
 ﻿import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
+import { ToastContainer, Slide } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import { MainLayout } from './components/layouts/MainLayout'
 import { SettingsDialog } from './components/settings'
 import { AuthGuard } from './components/auth/AuthGuard'
