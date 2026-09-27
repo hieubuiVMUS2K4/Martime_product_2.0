@@ -90,6 +90,13 @@ public class PlanVoyageLegsRequest
     [Range(0, 40)]
     public int? HazardCount { get; set; }
 
+    /// <summary>
+    /// Bước thời tiết (0 = bản đồ gốc, mỗi bước +24 h dự báo). Job tối ưu tuyến truyền vào để
+    /// kế hoạch chặng né ĐÚNG tập thiên tai của phiên bản đang chạy.
+    /// </summary>
+    [Range(0, 1000)]
+    public int? WeatherStep { get; set; }
+
     public DateTime? DepartureUtc { get; set; }
 }
 

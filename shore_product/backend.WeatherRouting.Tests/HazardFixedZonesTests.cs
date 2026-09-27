@@ -63,6 +63,39 @@ public class HazardFixedZonesTests
         Assert.Equal(DemoHazardGenerator.FixedZoneCount, VoyageHazardPlanner.Generate().Count);
     }
 
+    [Fact]
+    public void Weather_step_zero_is_the_base_map()
+    {
+        var baseZones = VoyageHazardPlanner.Generate();
+        var step0 = VoyageHazardPlanner.Generate(0);
+
+        Assert.Equal(baseZones.Select(z => (z.Center, z.RadiusNm)), step0.Select(z => (z.Center, z.RadiusNm)));
+    }
+
+    [Fact]
+    public void Weather_steps_move_storms_deterministically_and_stay_on_water()
+    {
+        LandMask.EnsureLoaded();
+        var baseZones = VoyageHazardPlanner.Generate(0);
+
+        for (var step = 1; step <= 5; step++)
+        {
+            var a = VoyageHazardPlanner.Generate(step);
+            var b = VoyageHazardPlanner.Generate(step);
+
+            // Tất định: cùng bước ⇒ cùng tập vùng (bản đồ và tuyến phải khớp nhau).
+            Assert.Equal(a.Select(z => (z.Id, z.Center, z.RadiusNm)), b.Select(z => (z.Id, z.Center, z.RadiusNm)));
+
+            // Vùng trôi vào đất liền đã bị bỏ.
+            Assert.DoesNotContain(a, z => LandMask.IsBlockedLand(z.Center));
+
+            // Bão thật sự di chuyển: ít nhất một cơn bão đã dịch khỏi vị trí gốc hơn 100 NM.
+            var moved = a.Count(z => z.Type is "TYPHOON" or "HURRICANE" or "TROPICAL_STORM" &&
+                baseZones.Any(o => z.Id.StartsWith(o.Id + "-t") && GeoMath.HaversineNm(o.Center, z.Center) > 100));
+            Assert.True(moved > 0, $"Bước {step}: không cơn bão nào di chuyển.");
+        }
+    }
+
     private static int OpenDirections(LatLon p, double radiusNm)
     {
         var d = radiusNm + 80.0;

@@ -131,7 +131,7 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
         var straightNm = GeoMath.HaversineNm(start, goal);
 
         // Vùng thiên tai: toạ độ CỨNG, không liên quan gì tới cảng đi / cảng đến / seed.
-        var zones = VoyageHazardPlanner.Generate();
+        var zones = VoyageHazardPlanner.Generate(request.WeatherStep ?? 0);
         IHazardProvider hazards = zones.Count > 0
             ? new ZoneHazardProvider(zones)
             : NoHazardProvider.Instance;
@@ -287,7 +287,11 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
         // Sinh polyline đường biển thật cho từng chặng (A* giữa hai cảng liên tiếp)
         // để bản đồ vẽ đúng tuyến hành trình thay vì nối thẳng qua lục địa.
         if (request.RefineLegDistances)
+        {
             AttachLegGeometry(plan, hazards, usedCorridor);
+            RepairReserveShortfalls(
+                plan, hazards, model, candidates, usedCorridor, request.MaxDetourNm ?? 400);
+        }
 
         var dto = MapPlan(plan, options, voyage?.Id, vesselId, profile);
         dto.CorridorSource = corridorSource;
@@ -506,41 +510,264 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
     /// </summary>
     private void AttachLegGeometry(VoyageLegPlan plan, IHazardProvider hazards, IReadOnlyList<LatLon>? corridor)
     {
+        foreach (var leg in plan.Legs)
+            AttachGeometry(leg, hazards, corridor);
+    }
+
+    /// <summary>Dựng polyline cho MỘT chặng (dùng cả cho chặng mới chèn khi bổ sung cảng nạp).</summary>
+    private void AttachGeometry(VoyageLegPlanLeg leg, IHazardProvider hazards, IReadOnlyList<LatLon>? corridor)
+    {
         var zones = (hazards as ZoneHazardProvider)?.Zones ?? (IReadOnlyList<HazardZone>)Array.Empty<HazardZone>();
 
-        foreach (var leg in plan.Legs)
+        var a = new LatLon(leg.FromLat ?? 0, leg.FromLon ?? 0);
+        var b = new LatLon(leg.ToLat ?? 0, leg.ToLon ?? 0);
+        var pts = BuildLegGeometry(a, b, hazards, corridor);
+
+        // Bước cuối, độc lập với mọi nhánh dự phòng ở trên: đoạn nào cắt vùng thiên tai thì
+        // vẽ đường vòng qua nó. A* chỉ né được ở độ phân giải ô lưới (15–100 NM) nên không
+        // bảo đảm — còn phép vòng này thì bảo đảm về mặt hình học.
+        if (zones.Count == 0) { leg.Waypoints = pts; return; }
+
+        // Truyền phép thử đất vào bộ vẽ vòng để nó chọn PHÍA BIỂN. Nếu không, cung ngắn hơn
+        // hay đụng bờ, và cảnh báo bên dưới bỏ toàn bộ đường vòng của chặng — tuyến quay về
+        // xuyên thẳng vùng thiên tai. Phép thử phải TRÙNG với phép đo ở đây, nếu không bộ vẽ
+        // chọn phía này còn chỗ kiểm tra lại chê phía kia.
+        var detoured = HazardDetour.Apply(
+            pts,
+            zones,
+            HazardDetour.DefaultMarginNm,
+            p => LandMask.CountLandCrossingSegments(p, skipEnds: false),
+            LandMask.IsBlockedLand);
+
+        // Đường vòng có thể đẩy tuyến lên đất liền, hoặc cắt đất nhiều hơn bản gốc — khi đó giữ bản gốc.
+        if (LandMask.CountLandCrossingSegments(detoured, skipEnds: false) >
+            LandMask.CountLandCrossingSegments(pts, skipEnds: false))
         {
-            var a = new LatLon(leg.FromLat ?? 0, leg.FromLon ?? 0);
-            var b = new LatLon(leg.ToLat ?? 0, leg.ToLon ?? 0);
-            var pts = BuildLegGeometry(a, b, hazards, corridor);
+            _logger.LogWarning(
+                "Chặng {A} -> {B}: đường vòng qua thiên tai cắt đất — giữ polyline gốc.", a, b);
+            detoured = pts;
+        }
 
-            // Bước cuối, độc lập với mọi nhánh dự phòng ở trên: đoạn nào cắt vùng thiên tai thì
-            // vẽ đường vòng qua nó. A* chỉ né được ở độ phân giải ô lưới (15–100 NM) nên không
-            // bảo đảm — còn phép vòng này thì bảo đảm về mặt hình học.
-            if (zones.Count == 0) { leg.Waypoints = pts; continue; }
+        leg.Waypoints = detoured;
+    }
 
-            // Truyền phép thử đất vào bộ vẽ vòng để nó chọn PHÍA BIỂN. Nếu không, cung ngắn hơn
-            // hay đụng bờ, và cảnh báo bên dưới bỏ toàn bộ đường vòng của chặng — tuyến quay về
-            // xuyên thẳng vùng thiên tai. Phép thử phải TRÙNG với phép đo ở đây, nếu không bộ vẽ
-            // chọn phía này còn chỗ kiểm tra lại chê phía kia.
-            var detoured = HazardDetour.Apply(
-                pts,
-                zones,
-                HazardDetour.DefaultMarginNm,
-                p => LandMask.CountLandCrossingSegments(p, skipEnds: false),
-                LandMask.IsBlockedLand);
+    /// <summary>
+    /// Tính lại quãng đường, thời gian và nhiên liệu từng chặng theo ĐÚNG polyline đang vẽ,
+    /// dưới trường sóng gió của thiên tai.
+    ///
+    /// Bộ chia chặng chọn cảng bằng quãng đường của lưới KHÔNG thiên tai và suất tiêu thụ cố định,
+    /// nên bảng kế hoạch trước đây không đổi dù thiên tai đổi (201.53 t cho cả 0 lẫn 39 vùng).
+    /// Ở đây GIỮ NGUYÊN mọi quyết định của nó (ghé cảng nào, nạp đầy ở đâu) và chỉ cập nhật số liệu:
+    ///  - quãng đường = độ dài polyline;
+    ///  - thời gian = giờ hải hành có tổn thất tốc độ do sóng gió;
+    ///  - nhiên liệu = quãng đường × suất kế hoạch × (giờ thời tiết / giờ nước lặng) — công suất
+    ///    không đổi nên nhiên liệu tỉ lệ thời gian; vẫn giữ dung sai thời tiết của suất kế hoạch
+    ///    làm biên an toàn.
+    /// Chặng không có polyline thật (đoạn thẳng dự phòng) giữ nguyên số liệu cũ.
+    /// Trả về chỉ số các chặng tới cảng dưới mức dự trữ (xem <see cref="RepairReserveShortfalls"/>).
+    /// </summary>
+    private static List<int> RefreshLegsFromGeometry(
+        VoyageLegPlan plan, IHazardProvider hazards, FuelModel model)
+    {
+        var belowReserve = new List<int>();
+        if (plan.Legs.Count == 0) return belowReserve;
 
-            // Đường vòng có thể đẩy tuyến lên đất liền, hoặc cắt đất nhiều hơn bản gốc — khi đó giữ bản gốc.
-            if (LandMask.CountLandCrossingSegments(detoured, skipEnds: false) >
-                LandMask.CountLandCrossingSegments(pts, skipEnds: false))
+        var q = model.PlanTonsPerNm();
+        var capacity = plan.FuelCapacityTons;
+        var reserve = plan.ReserveTons;
+        var portStay = model.Options.PortStayHours;
+
+        var fuel = plan.InitialFuelTons;
+        var clock = plan.DepartureUtc;
+
+        for (var i = 0; i < plan.Legs.Count; i++)
+        {
+            var leg = plan.Legs[i];
+            var pts = leg.Waypoints;
+
+            // Hai điểm = đoạn thẳng dự phòng (có thể xuyên đất) — không đáng tin hơn số cũ.
+            if (pts.Count >= 3)
             {
-                _logger.LogWarning(
-                    "Chặng {A} -> {B}: đường vòng qua thiên tai cắt đất — giữ polyline gốc.", a, b);
-                detoured = pts;
+                var distNm = GeoMath.PathLengthNm(pts);
+                var (hours, calmHours) = WeatherFuelCost.PolylineSailingHours(pts, hazards, model);
+                if (distNm > 0 && hours > 0 && calmHours > 0)
+                {
+                    leg.DistanceNm = distNm;
+                    leg.DurationHours = hours;
+                    leg.AverageSpeedKts = distNm / hours;
+                    leg.FuelConsumedTons = distNm * q * (hours / calmHours);
+                }
             }
 
-            leg.Waypoints = detoured;
+            leg.DepartureUtc = clock;
+            leg.ArrivalUtc = clock.AddHours(leg.DurationHours);
+            leg.FuelOnDepartureTons = fuel;
+            leg.FuelOnArrivalTons = Math.Max(0.0, fuel - leg.FuelConsumedTons);
+            leg.FuelOnArrivalPercent = capacity <= 0 ? 0 : leg.FuelOnArrivalTons / capacity * 100.0;
+
+            if (leg.FuelOnArrivalTons < reserve)
+                belowReserve.Add(i);
+
+            // Cùng quy tắc với bộ chia chặng: cảng nạp nhiên liệu và cảng bắt buộc ghé đều nạp đầy.
+            var refuels = leg.StopKind is LegStopKind.Bunker or LegStopKind.Mandatory;
+            if (refuels)
+            {
+                var oldBunker = leg.BunkerTons;
+                leg.BunkerTons = Math.Max(0.0, capacity - leg.FuelOnArrivalTons);
+                if (leg.Notes is not null)
+                    leg.Notes = leg.Notes.Replace(
+                        $"nạp {oldBunker:F1} t lên", $"nạp {leg.BunkerTons:F1} t lên");
+                fuel = capacity;
+                clock = leg.ArrivalUtc.AddHours(portStay);
+            }
+            else
+            {
+                fuel = leg.FuelOnArrivalTons;
+                clock = leg.ArrivalUtc;
+            }
         }
+
+        plan.TotalDistanceNm = plan.Legs.Sum(l => l.DistanceNm);
+        plan.TotalFuelTons = plan.Legs.Sum(l => l.FuelConsumedTons);
+        plan.TotalHours = plan.Legs.Sum(l => l.DurationHours)
+                          + plan.Legs.Count(l => l.IsBunkerStop) * portStay;
+        plan.FinalFuelTons = plan.Legs[^1].FuelOnArrivalTons;
+        plan.ArrivalUtc = plan.Legs[^1].ArrivalUtc;
+        return belowReserve;
+    }
+
+    /// <summary>Số cảng nạp tối đa được chèn thêm — chặn vòng lặp vô hạn khi không có cảng phù hợp.</summary>
+    private const int MaxReserveRepairs = 4;
+
+    /// <summary>
+    /// Tính lại số liệu theo tuyến thật, rồi với chặng nào tới cảng DƯỚI MỨC DỰ TRỮ thì chèn một
+    /// cảng nạp nhiên liệu nằm dọc tuyến thật của chặng đó và tính lại — lặp tối đa
+    /// <see cref="MaxReserveRepairs"/> lần.
+    ///
+    /// Vì sao cần: bộ chia chặng quyết định ghé cảng theo quãng đường ước lượng, ngắn hơn tuyến thật
+    /// (KWIQE→MAPTM ước lượng ngắn nhưng tuyến thật qua Biển Đỏ/Suez dài 5 188 NM, tới Tanger Med
+    /// chỉ còn 11.5 t so với dự trữ 20 t). Chỉ sửa đúng chặng hụt, các chặng an toàn giữ nguyên.
+    /// Không tìm được cảng phù hợp thì để nguyên kế hoạch và cảnh báo.
+    /// </summary>
+    private void RepairReserveShortfalls(
+        VoyageLegPlan plan, IHazardProvider hazards, FuelModel model,
+        IReadOnlyList<BunkerPort> candidates, IReadOnlyList<LatLon>? corridor, double maxDetourNm)
+    {
+        var belowReserve = RefreshLegsFromGeometry(plan, hazards, model);
+
+        for (var round = 0; round < MaxReserveRepairs && belowReserve.Count > 0; round++)
+        {
+            var leg = plan.Legs[belowReserve[0]];
+            var pick = PickBunkerOnLeg(plan, leg, candidates, maxDetourNm);
+            if (pick is null) break;
+
+            var (port, alongNm, offsetNm) = pick.Value;
+            var index = plan.Legs.IndexOf(leg);
+            var rate = leg.DistanceNm > 0 ? leg.FuelConsumedTons / leg.DistanceNm : model.PlanTonsPerNm();
+            var speed = leg.AverageSpeedKts > 0 ? leg.AverageSpeedKts : model.Options.ServiceSpeedKts;
+            var firstNm = alongNm + offsetNm;
+            var restNm = Math.Max(0.0, leg.DistanceNm - alongNm) + offsetNm;
+
+            // Chặng mới: điểm đầu cũ → cảng nạp. Số liệu ước lượng theo hình chiếu làm giá trị
+            // dự phòng; có polyline thật thì RefreshLegsFromGeometry ghi đè ngay sau đây.
+            var first = new VoyageLegPlanLeg
+            {
+                FromPortCode = leg.FromPortCode,
+                FromPortName = leg.FromPortName,
+                FromLat = leg.FromLat,
+                FromLon = leg.FromLon,
+                ToPortCode = port.Code,
+                ToPortName = port.Name,
+                ToLat = port.Lat,
+                ToLon = GeoMath.WrapLon(port.Lon),
+                DistanceNm = firstNm,
+                DurationHours = firstNm / speed,
+                AverageSpeedKts = speed,
+                FuelConsumedTons = firstNm * rate,
+                IsBunkerStop = true,
+                StopKind = LegStopKind.Bunker,
+                PortOffsetNm = offsetNm,
+                Notes = $"Tiếp nhiên liệu tại {port.Name} (cách tuyến {offsetNm:F0} NM) — bổ sung vì chặng "
+                        + $"{leg.FromPortCode}→{leg.ToPortCode} theo tuyến thật không đủ mức dự trữ"
+                        + $"; nạp {0.0:F1} t lên {plan.FuelCapacityTons:F0} t"
+            };
+
+            // Chặng cũ rút lại thành cảng nạp → điểm cuối cũ, giữ nguyên vai trò của điểm cuối.
+            leg.FromPortCode = port.Code;
+            leg.FromPortName = port.Name;
+            leg.FromLat = port.Lat;
+            leg.FromLon = GeoMath.WrapLon(port.Lon);
+            leg.DistanceNm = restNm;
+            leg.DurationHours = restNm / speed;
+            leg.FuelConsumedTons = restNm * rate;
+
+            plan.Legs.Insert(index, first);
+            AttachGeometry(first, hazards, corridor);
+            AttachGeometry(leg, hazards, corridor);
+            for (var i = 0; i < plan.Legs.Count; i++) plan.Legs[i].Sequence = i + 1;
+
+            plan.Warnings.Add(
+                $"Đã bổ sung cảng nạp {port.Name} ({port.Code}) giữa {first.FromPortCode} và {leg.ToPortCode}: "
+                + "tính theo tuyến thật và sóng gió, chặng cũ tới cảng dưới mức dự trữ.");
+
+            belowReserve = RefreshLegsFromGeometry(plan, hazards, model);
+        }
+
+        plan.Model += " + sóng gió dọc tuyến thật";
+
+        if (belowReserve.Count > 0)
+            plan.Warnings.Add(
+                $"Tính theo tuyến thật và sóng gió, chặng tới cảng dưới mức dự trữ {plan.ReserveTons:F1} t: "
+                + string.Join(", ", belowReserve.Select(i => plan.Legs[i]).Select(l =>
+                    $"{l.FromPortCode}→{l.ToPortCode} ({l.FuelOnArrivalTons:F1} t)"))
+                + " — không tìm được cảng nạp phù hợp dọc tuyến.");
+    }
+
+    /// <summary>
+    /// Chọn cảng nạp dọc polyline thật của một chặng hụt nhiên liệu.
+    /// Điều kiện: tới được cảng mà còn ≥ dự trữ; ưu tiên cảng mà từ đó (sau khi nạp đầy) đi tiếp
+    /// được tới cuối chặng; trong nhóm đó chọn cảng lệch tuyến ít nhất (đường vòng ngắn nhất).
+    /// </summary>
+    private static (BunkerPort Port, double AlongNm, double OffsetNm)? PickBunkerOnLeg(
+        VoyageLegPlan plan, VoyageLegPlanLeg leg, IReadOnlyList<BunkerPort> candidates, double maxDetourNm)
+    {
+        const double minLegNm = 120.0;
+        if (leg.Waypoints.Count < 3 || leg.DistanceNm <= 2 * minLegNm) return null;
+
+        var rate = leg.FuelConsumedTons / leg.DistanceNm;
+        if (rate <= 0) return null;
+
+        var reachNm = (leg.FuelOnDepartureTons - plan.ReserveTons) / rate;
+        var fullReachNm = (plan.FuelCapacityTons - plan.ReserveTons) / rate;
+        if (reachNm <= minLegNm) return null;
+
+        var inPlan = new HashSet<string>(
+            plan.Legs.SelectMany(l => new[] { l.FromPortCode, l.ToPortCode }).OfType<string>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        var route = RouteCorridor.Build(leg.Waypoints);
+        var feasible = new List<(BunkerPort Port, double AlongNm, double OffsetNm, bool Finishes)>();
+
+        foreach (var port in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(port.Code) || inPlan.Contains(port.Code)) continue;
+
+            var proj = route.Project(port.Position);
+            if (proj.OffsetNm > maxDetourNm) continue;
+            if (proj.AlongTrackNm < minLegNm || proj.AlongTrackNm > route.TotalNm - minLegNm) continue;
+            if (proj.AlongTrackNm + proj.OffsetNm > reachNm) continue;
+
+            var restNm = route.TotalNm - proj.AlongTrackNm + proj.OffsetNm;
+            feasible.Add((port, proj.AlongTrackNm, proj.OffsetNm, restNm <= fullReachNm));
+        }
+
+        if (feasible.Count == 0) return null;
+
+        var best = feasible.Any(f => f.Finishes)
+            ? feasible.Where(f => f.Finishes).OrderBy(f => f.OffsetNm).ThenByDescending(f => f.AlongNm).First()
+            : feasible.OrderByDescending(f => f.AlongNm).ThenBy(f => f.OffsetNm).First();
+
+        return (best.Port, best.AlongNm, best.OffsetNm);
     }
 
     /// <summary>Hệ số nới khung lưới cho từng chặng (xem chú thích trong thân hàm).</summary>

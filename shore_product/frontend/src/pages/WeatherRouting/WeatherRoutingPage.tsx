@@ -266,9 +266,13 @@ export const WeatherRoutingPage: React.FC = () => {
     void refreshHazards();
   }, [refreshHazards]);
 
+  // Đã có job thì vẽ đúng tập thiên tai mà job đó né (thời tiết động: mỗi lần "Cập nhật thời tiết"
+  // bão di chuyển). Chưa có job thì vẽ bản đồ gốc từ GET /hazards.
   const hazards = useMemo(
     () =>
-      demoZones.map((z) => ({
+      job && Array.isArray(job.hazards)
+        ? parseHazards(job.hazards)
+        : demoZones.map((z) => ({
         lat: z.center.lat,
         lon: z.center.lon,
         radiusNm: z.radiusNm,
@@ -279,7 +283,7 @@ export const WeatherRoutingPage: React.FC = () => {
         color: z.color,
         severity: z.severity,
       })),
-    [demoZones],
+    [demoZones, job],
   );
 
 
@@ -693,6 +697,10 @@ export const WeatherRoutingPage: React.FC = () => {
             <div className="text-sm space-y-3 text-slate-700 dark:text-slate-200">
               <div className="space-y-1">
                 <div>Trạng thái: <strong className="capitalize">{job.status}</strong> · phiên bản {job.version}</div>
+                <div className="text-xs text-slate-500">
+                  Thời tiết: T+{fmtNum(metrics.weatherHours ?? (job.version - 1) * 24, 0)} h ·{' '}
+                  {hazards.length} vùng thiên tai — mỗi lần “Cập nhật thời tiết” dự báo tiến thêm 24 h
+                </div>
                 <div className="text-xs text-slate-500 break-all">Mã job: {job.id}</div>
               </div>
 

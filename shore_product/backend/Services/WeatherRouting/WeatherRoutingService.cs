@@ -180,8 +180,10 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
             }
             anchors.Add(goal);
 
-            // Thiên tai: toạ độ CỨNG. Không cảng đi, không cảng đến, không seed, không số lượng.
-            var zones = VoyageHazardPlanner.Generate();
+            // Thiên tai: toạ độ CỨNG tại bước thời tiết của phiên bản này. Không cảng đi, không cảng
+            // đến, không seed. Mỗi lần replan (Version + 1) thời tiết tiến thêm một bước.
+            var weatherStep = WeatherStepOf(job);
+            var zones = VoyageHazardPlanner.Generate(weatherStep);
             IHazardProvider hazard = zones.Count > 0
                 ? new ZoneHazardProvider(zones)
                 : NoHazardProvider.Instance;
@@ -442,6 +444,9 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 gridCols = grid.Cols,
                 gridSize,
                 hazardZones = zones.Count,
+                // Thời điểm của trường thiên tai: bước thời tiết và số giờ dự báo tính từ bản đồ gốc.
+                weatherStep,
+                weatherHours = weatherStep * VoyageHazardPlanner.WeatherStepHours,
                 aStarFound = aStarResult.Found,
                 // true = tuyến được dựng theo hai tầng (chuỗi mốc biển + lưới riêng từng chặng)
                 // thay vì một lưới phủ cả hành trình. Khi đó pathCost là NM, không phải chi phí A*.
@@ -525,6 +530,7 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 MustVisitPortCodes = request.MustVisitPortCodes,
                 Persist = true,
                 RefineLegDistances = true,
+                WeatherStep = WeatherStepOf(job),
                 DepartureUtc = request.DepartureUtc
             };
 
@@ -545,6 +551,12 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
             }, JsonOpts);
         }
     }
+
+    /// <summary>
+    /// Bước thời tiết của một phiên bản job: lần chạy đầu (Version 1) dùng bản đồ gốc — khớp với
+    /// GET /hazards lúc mở trang; mỗi lần replan tiến thêm <see cref="VoyageHazardPlanner.WeatherStepHours"/> giờ.
+    /// </summary>
+    private static int WeatherStepOf(WeatherRoutingJob job) => Math.Max(0, job.Version - 1);
 
     private static CreateWeatherRoutingJobRequest? DeserializeRequest(string json)
     {

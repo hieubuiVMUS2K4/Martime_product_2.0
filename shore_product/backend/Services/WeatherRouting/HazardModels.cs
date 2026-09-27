@@ -451,6 +451,86 @@ public static class VoyageHazardPlanner
     /// </summary>
     public static IReadOnlyList<HazardZone> Generate() => DemoHazardGenerator.FixedZones();
 
+    /// <summary>Mỗi bước thời tiết là bấy nhiêu giờ dự báo.</summary>
+    public const double WeatherStepHours = 24.0;
+
+    /// <summary>
+    /// Trường thiên tai tại BƯỚC THỜI TIẾT <paramref name="step"/> (0 = bản đồ gốc, mỗi bước
+    /// +<see cref="WeatherStepHours"/> giờ). Đây là "luồng dữ liệu thời tiết cập nhật" cho việc
+    /// lập lại kế hoạch: mỗi lần replan, bão di chuyển và đổi cường độ nên kết luận cũ về tuyến
+    /// tối ưu có thể bị huỷ (suy lý không đơn điệu).
+    ///
+    /// Tất định: cùng một bước luôn ra cùng một tập vùng, nên bản đồ và tuyến luôn khớp nhau.
+    /// Chuyển động theo loại, lấy theo quy luật khí tượng phổ biến (không phải dự báo thật):
+    ///  • Bão (typhoon/hurricane/tropical storm): ~10 kn về tây-tây bắc (bắc bán cầu) hoặc
+    ///    tây-tây nam (nam bán cầu) — hướng dịch chuyển điển hình trong đới gió mậu dịch.
+    ///  • Gió mạnh / sóng lớn: theo gió tây ở vĩ độ trung bình (~18 kn về đông), theo gió mậu dịch
+    ///    ở vùng nhiệt đới (~12 kn về tây).
+    ///  • Băng trôi dạt về phía xích đạo ~3 kn; tro núi lửa theo gió ~8 kn về đông; sương mù trôi chậm.
+    ///  • Cướp biển, sóng thần: đứng yên.
+    /// Bán kính dao động theo thời gian (mạnh lên / yếu đi). Vùng trôi vào đất liền coi như tan
+    /// (bão đổ bộ suy yếu) và bị bỏ khỏi trường.
+    /// </summary>
+    public static IReadOnlyList<HazardZone> Generate(int step)
+    {
+        var baseZones = DemoHazardGenerator.FixedZones();
+        if (step <= 0) return baseZones;
+
+        LandMask.EnsureLoaded();
+        var hours = step * WeatherStepHours;
+        var zones = new List<HazardZone>(baseZones.Count);
+
+        for (var i = 0; i < baseZones.Count; i++)
+        {
+            var z = baseZones[i];
+            var (speedKts, bearingDeg, pulse) = Motion(z, i);
+
+            var center = Move(z.Center, bearingDeg, speedKts * hours);
+            if (LandMask.IsBlockedLand(center)) continue;   // đổ bộ ⇒ tan
+
+            // Pha lệch theo chỉ số để các vùng không cùng mạnh lên/yếu đi một lúc.
+            var scale = 1.0 + pulse * Math.Sin(step * 0.9 + i * 1.7);
+            var radius = Math.Round(z.RadiusNm * scale, 0);
+
+            zones.Add(z with
+            {
+                Id = $"{z.Id}-t{step}",
+                Center = center,
+                RadiusNm = radius
+            });
+        }
+
+        return zones;
+    }
+
+    /// <summary>(tốc độ kn, hướng di chuyển độ, biên độ dao động bán kính) theo loại thiên tai.</summary>
+    private static (double SpeedKts, double BearingDeg, double Pulse) Motion(HazardZone z, int index)
+    {
+        var north = z.Center.Lat >= 0;
+        var midLatitude = Math.Abs(z.Center.Lat) >= 25;
+
+        return z.Type.ToUpperInvariant() switch
+        {
+            "TYPHOON" or "HURRICANE" or "TROPICAL_STORM" => (10.0, north ? 300.0 : 240.0, 0.15),
+            "GALE" or "HIGH_WAVES" => midLatitude ? (18.0, 90.0, 0.20) : (12.0, 270.0, 0.20),
+            "ICEBERG" => (3.0, north ? 180.0 : 0.0, 0.10),
+            "VOLCANIC_ASH" => (8.0, 90.0, 0.25),
+            "SEA_FOG" => (5.0, index * 67 % 360, 0.25),
+            _ => (0.0, 0.0, 0.0)   // PIRACY, TSUNAMI: đứng yên
+        };
+    }
+
+    /// <summary>Dịch điểm theo hướng và quãng đường (NM) — xấp xỉ phẳng, đủ cho vài trăm NM.</summary>
+    private static LatLon Move(LatLon p, double bearingDeg, double distNm)
+    {
+        if (distNm <= 0) return p;
+        var rad = bearingDeg * Math.PI / 180.0;
+        var lat = p.Lat + Math.Cos(rad) * distNm / 60.0;
+        var cosLat = Math.Max(0.15, Math.Cos(p.Lat * Math.PI / 180.0));
+        var lon = p.Lon + Math.Sin(rad) * distNm / (60.0 * cosLat);
+        return new LatLon(Math.Clamp(lat, -70.0, 75.0), GeoMath.WrapLon(lon));
+    }
+
     /// <summary>Hành lang A* nối start→goal (không thiên tai) — dùng làm trục rải thiên tai.</summary>
     public static IReadOnlyList<LatLon> BuildCorridor(
         IGridBuilder gridBuilder, IAstStarRouter aStar, IHeuristicCost cost,

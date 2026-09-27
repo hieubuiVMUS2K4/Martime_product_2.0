@@ -124,4 +124,53 @@ public sealed class WeatherFuelCost : IHeuristicCost
 
         return total;
     }
+
+    /// <summary>
+    /// Số giờ hải hành dọc một polyline dưới trường thời tiết đã cho, kèm số giờ nếu biển lặng.
+    ///
+    /// Mô hình công suất không đổi: máy đốt cùng một lượng tấn/giờ, sóng gió chỉ làm tàu chậm
+    /// lại. Vì thế tỉ số <c>Hours / CalmHours</c> cũng chính là tỉ số nhiên liệu thời tiết / nước
+    /// lặng — dùng để hiệu chỉnh nhiên liệu của bảng kế hoạch chặng mà không đổi mô hình của nó.
+    /// Lấy mẫu giống <see cref="PolylineFuelTons"/>.
+    /// </summary>
+    public static (double Hours, double CalmHours) PolylineSailingHours(
+        IReadOnlyList<LatLon> pts, IHazardProvider hazards, FuelModel fuel)
+    {
+        var speed = fuel.Options.ServiceSpeedKts;
+        var hours = 0.0;
+        var calmHours = 0.0;
+
+        for (var i = 0; i < pts.Count - 1; i++)
+        {
+            var a = pts[i];
+            var b = pts[i + 1];
+            var distNm = GeoMath.HaversineNm(a, b);
+            if (distNm <= 0) continue;
+
+            calmHours += distNm / speed;
+
+            var samples = Math.Clamp((int)Math.Ceiling(distNm / 25.0), 1, 400);
+            var courseDeg = HazardWeatherField.BearingDeg(a, b);
+            var stepNm = distNm / samples;
+
+            for (var k = 0; k < samples; k++)
+            {
+                var t = (k + 0.5) / samples;
+                var p = new LatLon(a.Lat + (b.Lat - a.Lat) * t,
+                                   a.Lon + GeoMath.WrapLon(b.Lon - a.Lon) * t);
+
+                var (waveM, windMs, waveBearing) = hazards.WeatherAt(p);
+                if (waveM <= 0.0 && windMs <= 0.0)
+                {
+                    hours += stepNm / speed;
+                    continue;
+                }
+
+                var rel = HazardWeatherField.RelativeHeadingDeg(courseDeg, waveBearing);
+                hours += stepNm / Math.Max(0.5, fuel.Evaluate(waveM, windMs, rel).EffectiveSpeedKts);
+            }
+        }
+
+        return (hours, calmHours);
+    }
 }
