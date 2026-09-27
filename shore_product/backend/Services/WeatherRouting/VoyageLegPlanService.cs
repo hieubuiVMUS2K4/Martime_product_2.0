@@ -30,7 +30,7 @@ public interface IVoyageLegPlanService
     /// Vùng thiên tai demo rải dọc đường biển start→goal. Dùng CHUNG với GET /hazards
     /// để bản đồ hiển thị đúng tập vùng mà planner sẽ né.
     /// </summary>
-    IReadOnlyList<HazardZone> GenerateRouteHazards(LatLon start, LatLon goal, int seed, int count);
+    IReadOnlyList<HazardZone> GetHazardZones();
 }
 
 public sealed class VoyageLegPlanService : IVoyageLegPlanService
@@ -38,10 +38,15 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
     private const int CorridorGridSize = 160;
 
     /// <summary>Số vùng thiên tai demo mặc định khi lập kế hoạch chặng.</summary>
-    private const int DefaultHazardCount = 8;
-
     /// <summary>Hành trình ngắn hơn ngưỡng này coi là chặng ngắn (dùng hành lang A*).</summary>
     private const double ShortHaulNm = 3000;
+
+    /// <summary>
+    /// Hành trình dài hơn ngưỡng này mà hành lang một lưới hỏng thì chuyển sang tuyến hai tầng.
+    /// Dưới ngưỡng thì hành lang hai điểm (start, goal) là chuyện bình thường, không phải lỗi —
+    /// chèn mốc biển vào một chặng ngắn chỉ tạo đường vòng vô nghĩa.
+    /// </summary>
+    private const double LongHaulNm = 1500;
 
     /// <summary>Khoảng cách tối đa để coi một cảng là "cảng khởi hành/kết thúc".</summary>
     private const double MaxSnapNm = 50;
@@ -125,12 +130,8 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
         var departure = request.DepartureUtc ?? voyage?.DepartureTime ?? DateTime.UtcNow;
         var straightNm = GeoMath.HaversineNm(start, goal);
 
-        // Vùng thiên tai (cùng seed với job) — các chặng phải né.
-        // Phải rải DỌC ĐƯỜNG BIỂN và dùng chung hàm với GET /hazards, nếu không bản đồ
-        // hiển thị một đằng mà tuyến né một nẻo.
-        var zones = VoyageHazardPlanner.Generate(
-            _gridBuilder, _aStar, _heuristicCost,
-            start, goal, request.HazardSeed ?? 0, request.HazardCount ?? DefaultHazardCount);
+        // Vùng thiên tai: toạ độ CỨNG, không liên quan gì tới cảng đi / cảng đến / seed.
+        var zones = VoyageHazardPlanner.Generate();
         IHazardProvider hazards = zones.Count > 0
             ? new ZoneHazardProvider(zones)
             : NoHazardProvider.Instance;
@@ -145,10 +146,40 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
 
         // Bước 1 — hành lang phải ĐI QUA cảng bắt buộc: start → P1 → … → Pn → goal.
         // Bước 2 — nhờ đó RouteCorridor.Project cho offset ≈ 0, LegDistanceNm hết bị thổi phồng.
-        IReadOnlyList<LatLon> GuideVia(IReadOnlyList<LatLon> baseCorridor, IReadOnlyList<LatLon> leadingVia) =>
-            mustVisit.Count == 0 && leadingVia.Count == 0
+        IReadOnlyList<LatLon> GuideVia(IReadOnlyList<LatLon> baseCorridor, IReadOnlyList<LatLon> leadingVia)
+        {
+            // Hành lang dựng trên MỘT lưới phủ cả hành trình. Với hành trình dài, đáy lưới có
+            // thể không với tới eo biển bắt buộc phải qua (Le Havre → Tokyo: đáy lưới 16,1°N
+            // nhưng eo Bab el-Mandeb ở 12,6°N), A* không còn đường nào và BuildCorridor trả về
+            // đúng hai điểm start, goal — một đường thẳng xuyên lục địa. Mọi chặng con rồi sẽ
+            // thừa hưởng hành lang hỏng đó.
+            //
+            // Khi ấy chuyển sang tuyến HAI TẦNG qua mốc biển. Đây cũng là cách duy nhất bảo đảm
+            // hành lang đi qua ĐÚNG THỨ TỰ cảng bắt buộc A → C → D → … → B: lưới đơn không có
+            // khái niệm thứ tự ghé cảng, nó chỉ biết điểm đầu và điểm cuối.
+            if (baseCorridor.Count < 3 && GeoMath.HaversineNm(start, goal) > LongHaulNm)
+            {
+                var anchors = new List<LatLon> { start };
+                anchors.AddRange(leadingVia);
+                anchors.AddRange(mustVisit.Select(m => new LatLon(m.Lat, m.Lon)));
+                anchors.Add(goal);
+
+                var viaPassages = SeaRouteGraph.BuildRoute(
+                    _gridBuilder, _aStar, _heuristicCost, anchors, NoHazardProvider.Instance, _logger);
+
+                if (viaPassages is { Count: >= 3 })
+                {
+                    _logger.LogWarning(
+                        "Hành lang một lưới không dựng được tuyến {A} -> {B} — dùng tuyến hai tầng qua mốc biển ({N} điểm).",
+                        start, goal, viaPassages.Count);
+                    return viaPassages;
+                }
+            }
+
+            return mustVisit.Count == 0 && leadingVia.Count == 0
                 ? baseCorridor
                 : BuildGuideThroughMandatoryPorts(start, goal, leadingVia, mustVisit, baseCorridor);
+        }
 
         IReadOnlyList<LatLon> Guide(IReadOnlyList<LatLon> baseCorridor) =>
             GuideVia(baseCorridor, Array.Empty<LatLon>());
@@ -556,7 +587,10 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
                 var rawCrossings = LandMask.CountLandCrossingSegments(pts, skipEnds: false);
                 pts[0] = a;
                 pts[^1] = b;
-                var sanitized = PathSanitizer.Sanitize(pts);
+                // Truyền phép thử thiên tai vào bước làm mượt. Không truyền thì string-pulling chỉ
+                // tránh đất, kéo thẳng đường A* đã né xuyên ngược qua vùng thiên tai (MAPTM→PAPCN
+                // từng xuyên sâu 54 NM qua vùng sóng lớn ở 22°N 50°W dù A* thô không xuyên vùng nào).
+                var sanitized = PathSanitizer.Sanitize(pts, hazards.IsBlocked);
                 if (!Plausible(sanitized))
                 {
                     _logger.LogWarning(
@@ -1114,8 +1148,7 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
     /// <summary>
     /// Vùng thiên tai demo rải dọc đường biển start→goal (xem <see cref="VoyageHazardPlanner"/>).
     /// </summary>
-    public IReadOnlyList<HazardZone> GenerateRouteHazards(LatLon start, LatLon goal, int seed, int count) =>
-        VoyageHazardPlanner.Generate(_gridBuilder, _aStar, _heuristicCost, start, goal, seed, count);
+    public IReadOnlyList<HazardZone> GetHazardZones() => VoyageHazardPlanner.Generate();
 
     private static VoyageLegPlanDto MapPlan(
         VoyageLegPlan plan, FuelModelOptions options, Guid? voyageId, Guid? vesselId, VesselFuelProfile? profile)

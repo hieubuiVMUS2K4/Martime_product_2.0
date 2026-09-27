@@ -70,24 +70,12 @@ export const weatherRoutingApi = {
     });
   },
 
-  /** Sinh tập vùng thiên tai demo quanh hành trình (dùng khi chưa có dữ liệu thiên tai thật). */
-  getHazards(params: {
-    startLat: number;
-    startLon: number;
-    goalLat: number;
-    goalLon: number;
-    seed?: number;
-    count?: number;
-  }): Promise<HazardZoneSetDto> {
-    const q = new URLSearchParams({
-      startLat: String(params.startLat),
-      startLon: String(params.startLon),
-      goalLat: String(params.goalLat),
-      goalLon: String(params.goalLon),
-      count: String(params.count ?? 8),
-      ...(params.seed != null ? { seed: String(params.seed) } : {}),
-    });
-    return wrFetch<HazardZoneSetDto>(`${BASE}/hazards?${q.toString()}`);
+  /**
+   * Các vùng thiên tai ở toạ độ cứng. KHÔNG tham số — không cảng đi, không cảng đến,
+   * không seed, không số lượng. Thiên tai không dính líu gì tới cảng.
+   */
+  getHazards(): Promise<HazardZoneSetDto> {
+    return wrFetch<HazardZoneSetDto>(`${BASE}/hazards`);
   },
 
   /** Danh sách tàu kèm hồ sơ nhiên liệu (sức chứa, tấn/NM, tấn/ngày, SFOC, tầm hoạt động...). */

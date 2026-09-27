@@ -124,34 +124,19 @@ public class WeatherRoutingController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/weather-routing/hazards — sinh tập vùng thiên tai demo (đủ loại) quanh hành trình.
-    /// Dùng khi chưa có dữ liệu thiên tai thật: bản đồ vẫn hiển thị được thiên tai,
-    /// và truyền lại <c>seed</c> vào job để tuyến né đúng tập vùng này.
+    /// GET /api/weather-routing/hazards — các vùng thiên tai ở toạ độ CỨNG (DemoHazardGenerator.FixedZones).
+    ///
+    /// KHÔNG nhận tham số. Không cảng đi, không cảng đến, không seed, không số lượng.
+    /// Thiên tai không được ràng buộc hay dính líu gì tới cảng.
     /// </summary>
     [HttpGet("hazards")]
-    public ActionResult<HazardZoneSetDto> GetHazards(
-        [FromQuery] double startLat,
-        [FromQuery] double startLon,
-        [FromQuery] double goalLat,
-        [FromQuery] double goalLon,
-        [FromQuery] int? seed,
-        [FromQuery] int? count)
+    public ActionResult<HazardZoneSetDto> GetHazards()
     {
-        var effectiveSeed = seed ?? Random.Shared.Next(1, int.MaxValue);
-        var effectiveCount = Math.Clamp(count ?? 24, 0, 40);
-
-        var start = new LatLon(startLat, startLon);
-        var goal = new LatLon(goalLat, goalLon);
-
-        // Rải DỌC ĐƯỜNG BIỂN THẬT, không phải đường thẳng start→goal: đường thẳng chạy xuyên
-        // lục địa nên thiên tai rơi vào chỗ tuyến không hề đi qua (VNVUT→Le Havre, 28 vùng,
-        // tuyến xuyên qua 0 vùng, vùng gần nhất cách 374 NM) ⇒ không kiểm chứng được việc né.
-        // Dùng đúng hàm mà planner gọi nên bản đồ và đường né luôn khớp nhau.
-        var zones = _legPlanService.GenerateRouteHazards(start, goal, effectiveSeed, effectiveCount);
+        var zones = _legPlanService.GetHazardZones();
 
         return Ok(new HazardZoneSetDto
         {
-            Seed = effectiveSeed,
+            Seed = 0,
             Count = zones.Count,
             Zones = zones.Select(z => z.ToDto()).ToList(),
             Legend = HazardCatalog.All.Select(t => (object)new

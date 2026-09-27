@@ -114,6 +114,14 @@ public sealed class GridBuilder : IGridBuilder
         var previousDilation = LandMask.CorridorDilationDeg;
         LandMask.CorridorDilationDeg = dilation;
 
+        // Trường thời tiết chỉ cấp phát khi nguồn hazard thật sự mô tả được vùng ảnh hưởng.
+        // Hành lang tuyến và tinh chỉnh khoảng cách chặng dựng lưới với NoHazardProvider và
+        // gọi rất nhiều lần — cấp phát 3 mảng 200x200 cho mỗi lần đó là phí thuần tuý.
+        var hasWeather = hazards.Zones.Count > 0;
+        var waveM = hasWeather ? new double[rows, cols] : null;
+        var windMs = hasWeather ? new double[rows, cols] : null;
+        var waveBearing = hasWeather ? new double[rows, cols] : null;
+
         try
         {
             for (var r = 0; r < rows; r++)
@@ -123,6 +131,14 @@ public sealed class GridBuilder : IGridBuilder
                     var llU = CellUnwrapped(new GridCell(r, c));
                     var ll = new LatLon(llU.Lat, GeoMath.WrapLon(llU.Lon));
                     blocked[r, c] = hazards.IsBlocked(ll) || LandMask.IsBlockedLand(ll);
+
+                    // Ô bị chặn không bao giờ được A* mở rộng nên thời tiết ở đó không ai đọc.
+                    if (!hasWeather || blocked[r, c]) continue;
+
+                    var (w, v, b) = hazards.WeatherAt(ll);
+                    waveM![r, c] = w;
+                    windMs![r, c] = v;
+                    waveBearing![r, c] = b;
                 }
             }
         }
@@ -163,6 +179,9 @@ public sealed class GridBuilder : IGridBuilder
             Blocked = blocked,
             NearLand = BuildNearLandMask(blocked, rows, cols),
             Hazards = hazards,
+            WaveM = waveM,
+            WindMs = windMs,
+            WaveBearingDeg = waveBearing,
             CorridorDilationDeg = dilation,
             Start = SnapToWater(Nearest(start.Lat, startLon)),
             Goal = SnapToWater(Nearest(goal.Lat, goalLonU))

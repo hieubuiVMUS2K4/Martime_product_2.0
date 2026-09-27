@@ -16,6 +16,15 @@ public interface IHazardProvider
     /// Rỗng nếu hazard không biểu diễn được bằng vòng tròn.
     /// </summary>
     IReadOnlyList<HazardZone> Zones => Array.Empty<HazardZone>();
+
+    /// <summary>
+    /// Độ cao sóng (m), tốc độ gió (m/s) và hướng sóng truyền tới (độ, 0 = bắc) tại một điểm.
+    ///
+    /// Đây là phần LIÊN TỤC của trường thời tiết, khác với <see cref="IsBlocked"/> vốn chỉ
+    /// nhị phân. Chi phí nhiên liệu của A* đọc từ đây, nên nguồn nào không mô tả được sóng gió
+    /// thì trả về 0 — khi đó chi phí rút về đúng quãng đường như trước.
+    /// </summary>
+    (double WaveM, double WindMs, double WaveBearingDeg) WeatherAt(LatLon point) => (0.0, 0.0, 0.0);
 }
 
 /// <summary>Không có hazard — dùng khi chỉ cần khoảng cách đường biển (lập kế hoạch chặng).</summary>

@@ -10,8 +10,6 @@ namespace ProductApi.Services.WeatherRouting;
 public sealed class WeatherRoutingService : IWeatherRoutingService
 {
     /// <summary>Số vùng thiên tai demo mặc định (đủ loại thiên tai trên biển).</summary>
-    private const int DefaultHazardCount = 8;
-
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -160,19 +158,30 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
             var start = new LatLon(job.StartLat, job.StartLon);
             var goal = new LatLon(job.GoalLat, job.GoalLon);
 
-            // Thiên tai: sinh tập vùng thiên tai (đủ loại) theo seed. Cùng seed + cùng tuyến
-            // cho ra cùng tập vùng, nên bản đồ và đường né luôn khớp nhau.
-            // Rải DỌC ĐƯỜNG BIỂN THẬT (không phải đường thẳng start→goal) — đường thẳng chạy xuyên
-            // lục địa nên thiên tai rơi vào chỗ tuyến không đi qua, không kiểm chứng được việc né.
-            //
-            // Mặc định seed 0 — PHẢI khớp với VoyageLegPlanService. Trước đây chỗ này lấy
-            // Random.Shared.Next còn chỗ kia lấy 0, nên khi người gọi không truyền seed thì
-            // BẢN ĐỒ HIỂN THỊ MỘT TẬP VÙNG còn TUYẾN LẠI NÉ MỘT TẬP KHÁC — nhìn như tuyến
-            // “ăn trọn” vùng bão dù planner báo đã né hết.
-            var hazardSeed = request.HazardSeed ?? 0;
-            var hazardCount = Math.Clamp(request.HazardCount ?? DefaultHazardCount, 0, 40);
-            var zones = VoyageHazardPlanner.Generate(
-                _gridBuilder, _aStar, _heuristicCost, start, goal, hazardSeed, hazardCount);
+            // NEO = những điểm tàu BẮT BUỘC đi qua, theo đúng thứ tự: A → C → D → … → B.
+            // Giữ nguyên thứ tự người dùng nhập; cảng nào không tra được toạ độ thì bỏ ra
+            // chứ KHÔNG im lặng đổi thứ tự còn lại.
+            var anchors = new List<LatLon> { start };
+            if (request.MustVisitPortCodes is { Count: > 0 })
+            {
+                var codes = request.MustVisitPortCodes;
+                var rows = await _db.Ports.AsNoTracking()
+                    .Where(p => codes.Contains(p.PortCode) && p.Latitude != null && p.Longitude != null)
+                    .Select(p => new { p.PortCode, p.Latitude, p.Longitude })
+                    .ToListAsync(ct);
+
+                var ordered = codes
+                    .Select(c => rows.FirstOrDefault(r =>
+                        string.Equals(r.PortCode, c, StringComparison.OrdinalIgnoreCase)))
+                    .Where(r => r is not null)
+                    .Select(r => new LatLon(r!.Latitude!.Value, r.Longitude!.Value));
+
+                anchors.AddRange(ordered);
+            }
+            anchors.Add(goal);
+
+            // Thiên tai: toạ độ CỨNG. Không cảng đi, không cảng đến, không seed, không số lượng.
+            var zones = VoyageHazardPlanner.Generate();
             IHazardProvider hazard = zones.Count > 0
                 ? new ZoneHazardProvider(zones)
                 : NoHazardProvider.Instance;
@@ -203,7 +212,133 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                     }
                 }
             }
+            // Bộ tìm đường PHẢI trả ra đường. Né cứng thất bại không có nghĩa là không có đường
+            // biển — chỉ nghĩa là không có đường biển NÉ ĐƯỢC HẾT thiên tai. Thực tế tàu vẫn phải
+            // chạy, nên hạ thiên tai từ "cấm" xuống "đắt" rồi tìm lại: A* vẫn vòng tránh chừng nào
+            // còn vòng được, hết đường vòng thì xuyên qua chỗ nhẹ nhất.
+            var hazardsSoftened = false;
+            if (!aStarResult.Found && zones.Count > 0)
+            {
+                var soft = new SoftZoneHazardProvider(zones);
+                foreach (var paddingScale in new[] { 1.0 }.Concat(GridPaddingScales))
+                {
+                    var softGrid = _gridBuilder.Build(start, goal, soft, gridSize, paddingScale);
+                    var retry = _aStar.FindPath(softGrid, _heuristicCost);
+                    if (!retry.Found) continue;
+
+                    grid = softGrid;
+                    aStarResult = retry;
+                    hazardsSoftened = true;
+                    _logger.LogWarning(
+                        "Job {JobId}: thiên tai bịt kín hành lang — chuyển sang né mềm (đi xuyên chỗ nhẹ nhất).",
+                        job.Id);
+                    break;
+                }
+            }
+
+            // Lối thoát cuối: bỏ hẳn thiên tai, chỉ tránh đất liền. Tới đây mà vẫn không có đường
+            // thì đúng là hai cảng không thông nhau bằng đường biển trong khung lưới này.
+            if (!aStarResult.Found)
+            {
+                foreach (var paddingScale in new[] { 1.0 }.Concat(GridPaddingScales))
+                {
+                    var landGrid = _gridBuilder.Build(start, goal, NoHazardProvider.Instance, gridSize, paddingScale);
+                    var retry = _aStar.FindPath(landGrid, _heuristicCost);
+                    if (!retry.Found) continue;
+
+                    grid = landGrid;
+                    aStarResult = retry;
+                    hazardsSoftened = true;
+                    _logger.LogWarning(
+                        "Job {JobId}: không né được thiên tai — trả về đường biển ngắn nhất tránh đất liền.",
+                        job.Id);
+                    break;
+                }
+            }
+
+            // Lưới mịn hơn: túi nước quanh cảng có thể bị bịt kín ở độ phân giải thô.
+            // Cảng sông/cảng trong vịnh hẹp (Chattogram, Thâm Quyến) chỉ hở ra biển bằng một
+            // luồng rộng vài hải lý — ô lưới 30-40 NM nuốt trọn luồng đó thành đất.
+            if (!aStarResult.Found && gridSize < WeatherRoutingDemoDefaults.MaxGridSize)
+            {
+                foreach (var paddingScale in new[] { 1.0 }.Concat(GridPaddingScales))
+                {
+                    var fineGrid = _gridBuilder.Build(
+                        start, goal, NoHazardProvider.Instance, WeatherRoutingDemoDefaults.MaxGridSize, paddingScale);
+                    var retry = _aStar.FindPath(fineGrid, _heuristicCost);
+                    if (!retry.Found) continue;
+
+                    grid = fineGrid;
+                    aStarResult = retry;
+                    hazardsSoftened = true;
+                    _logger.LogWarning("Job {JobId}: phải tăng độ phân giải lưới mới thoát được cảng.", job.Id);
+                    break;
+                }
+            }
+
+            // --- Tuyến HAI TẦNG qua các mốc biển (xem SeaRouteGraph) ---
+            //
+            // Mọi tầng trên đều dựa vào MỘT lưới phủ cả hành trình, mà lưới đó suy ra từ dây
+            // cung start→goal: hành trình càng dài về kinh độ thì lưới càng rộng và ô lưới càng
+            // thô, đúng lúc cần mịn nhất. Le Havre→Hải Phòng luồn được Malacca với ô 44×73 NM,
+            // nhưng Le Havre→Tokyo cho lưới có đáy 16,1°N — nằm TRÊN eo Bab el-Mandeb (12,6°N)
+            // — nên Biển Đỏ thành ngõ cụt: A* mở rộng 215 ô rồi bỏ cuộc, và bản đồ đành vẽ đường
+            // thẳng xuyên lục địa.
+            //
+            // Hai tầng tách độ mịn ra khỏi tổng độ dài: tầng thô chọn chuỗi mốc, tầng mịn cho
+            // mỗi chặng một lưới riêng. Vì thế nó cũng là cách DUY NHẤT tôn trọng được danh sách
+            // cảng bắt buộc A → C → D → … → B: lưới đơn không có khái niệm thứ tự ghé cảng.
+            var routedViaSeaPassages = false;
+            var singleGridFound = aStarResult.Found;
+            if (anchors.Count > 2 || !aStarResult.Found)
+            {
+                var viaAnchors = SeaRouteGraph.BuildRoute(
+                    _gridBuilder, _aStar, _heuristicCost, anchors, hazard, _logger);
+
+                if (viaAnchors is { Count: >= 2 })
+                {
+                    var lengthNm = GeoMath.PathLengthNm(viaAnchors);
+                    aStarResult = new RouteResult
+                    {
+                        Found = true,
+                        Waypoints = viaAnchors,
+                        // Không phải chi phí A* mà là độ dài polyline — đơn vị NM, xem viaSeaPassages
+                        // trong metrics. Con số so sánh được vẫn là aStarFuelTons tính ở dưới.
+                        PathCost = lengthNm,
+                        DistanceNm = lengthNm,
+                        ExploredCells = aStarResult.ExploredCells,
+                        CellCount = viaAnchors.Count
+                    };
+                    routedViaSeaPassages = true;
+                    if (!singleGridFound) hazardsSoftened = true;
+                    _logger.LogWarning(
+                        "Job {JobId}: dùng tuyến hai tầng qua mốc biển ({Anchors} neo, {Pts} điểm).",
+                        job.Id, anchors.Count, viaAnchors.Count);
+                }
+            }
+
             var baselineResult = _baseline.Build(start, goal);
+
+            // BẢO ĐẢM CUỐI CÙNG: đã là tìm đường thì phải trả ra đường.
+            // Mọi tầng trên đều thất bại thì dùng chính đường baseline làm tuyến, đánh dấu là
+            // suy biến. Vẽ một tuyến thô còn hơn trả về màn hình trống 0.0 NM — người dùng ít
+            // nhất còn thấy hướng đi và biết hệ thống không né được gì.
+            if (!aStarResult.Found)
+            {
+                aStarResult = new RouteResult
+                {
+                    Found = true,
+                    Waypoints = baselineResult.Waypoints,
+                    PathCost = baselineResult.PathCost,
+                    DistanceNm = baselineResult.DistanceNm,
+                    ExploredCells = aStarResult.ExploredCells,
+                    CellCount = baselineResult.CellCount
+                };
+                hazardsSoftened = true;
+                _logger.LogWarning(
+                    "Job {JobId}: không dựng được tuyến trên lưới — trả về đường baseline làm tuyến suy biến.",
+                    job.Id);
+            }
 
             // Snap A* ends to exact requested coordinates, then sanitize spikes/land chords.
             if (aStarResult.Found && aStarResult.Waypoints.Count > 0)
@@ -212,7 +347,9 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 pts[0] = start;
                 pts[^1] = goal;
                 // Sanitize after snap; do not re-snap (re-snap reintroduces land chords to ports).
-                pts = PathSanitizer.Sanitize(pts);
+                // Còn né cứng thì làm mượt cũng phải né thiên tai, nếu không string-pulling kéo
+                // thẳng tuyến xuyên qua vùng mà A* vừa vòng tránh.
+                pts = PathSanitizer.Sanitize(pts, hazardsSoftened ? null : hazard.IsBlocked);
                 aStarResult = new RouteResult
                 {
                     Found = true,
@@ -222,6 +359,23 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                     ExploredCells = aStarResult.ExploredCells,
                     CellCount = pts.Count
                 };
+            }
+
+            // Đối chiếu hai tuyến bằng CÙNG một thước đo: nhiên liệu tiêu thụ dưới đúng trường
+            // sóng gió này. Đây là con số chứng minh việc tối ưu có tác dụng — so quãng đường
+            // thì tuyến né bão luôn DÀI HƠN baseline nên nhìn như tệ hơn, trong khi thực tế nó
+            // tốn ít nhiên liệu hơn vì không phải lết qua vùng sóng lớn.
+            //
+            // Tính lại từ polyline thay vì lấy PathCost của A*: PathCost chỉ là tấn khi
+            // WeatherFuelCost đang được đăng ký, còn nếu ai đổi DI về HeuristicCost thì nó là NM.
+            var fuelModel = (_heuristicCost as WeatherFuelCost)?.Fuel;
+            double? aStarFuelTons = null;
+            double? baselineFuelTons = null;
+            if (fuelModel is not null)
+            {
+                if (aStarResult.Found && aStarResult.Waypoints.Count >= 2)
+                    aStarFuelTons = WeatherFuelCost.PolylineFuelTons(aStarResult.Waypoints, hazard, fuelModel);
+                baselineFuelTons = WeatherFuelCost.PolylineFuelTons(baselineResult.Waypoints, hazard, fuelModel);
             }
 
             // Kế hoạch n chặng: chia hành trình thành các chặng con, chọn cảng tiếp nhiên liệu
@@ -250,9 +404,13 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                     MetricsJson = JsonSerializer.Serialize(new
                     {
                         distanceNm = aStarResult.DistanceNm,
+                        // Chi phí thô của A* — đơn vị THEO hàm đánh giá đang đăng ký
+                        // (tấn với WeatherFuelCost, NM với HeuristicCost). Dùng fuelTons để so sánh.
                         pathCost = aStarResult.PathCost,
+                        fuelTons = aStarFuelTons,
                         cellCount = aStarResult.CellCount,
                         exploredCells = aStarResult.ExploredCells,
+                        viaSeaPassages = routedViaSeaPassages,
                         avoidedHazard = true
                     }, JsonOpts),
                     CreatedAt = DateTime.UtcNow
@@ -270,6 +428,7 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 {
                     distanceNm = baselineResult.DistanceNm,
                     pathCost = baselineResult.PathCost,
+                    fuelTons = baselineFuelTons,
                     cellCount = baselineResult.CellCount,
                     crossesHazard = baselineResult.Waypoints.Any(hazard.IsBlocked)
                 }, JsonOpts),
@@ -282,13 +441,31 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 gridRows = grid.Rows,
                 gridCols = grid.Cols,
                 gridSize,
-                hazardSeed,
-                hazardCount,
-                hazardBlockedCells = zones.Count,
+                hazardZones = zones.Count,
                 aStarFound = aStarResult.Found,
+                // true = tuyến được dựng theo hai tầng (chuỗi mốc biển + lưới riêng từng chặng)
+                // thay vì một lưới phủ cả hành trình. Khi đó pathCost là NM, không phải chi phí A*.
+                viaSeaPassages = routedViaSeaPassages,
+                // true = thiên tai bịt kín hành lang nên tuyến phải đi xuyên chỗ nhẹ nhất
+                // thay vì né hết. Giao diện nên nói rõ chỗ này cho người dùng.
+                hazardsSoftened,
                 aStarExplored = aStarResult.ExploredCells,
                 aStarDistanceNm = aStarResult.DistanceNm,
                 baselineDistanceNm = baselineResult.DistanceNm,
+
+                // Kết quả tối ưu, đo bằng nhiên liệu. Tuyến A* thường DÀI HƠN baseline mà vẫn
+                // tốn ít hơn — đó chính là điều cần chứng minh, và là lý do không thể đánh giá
+                // module này bằng quãng đường.
+                costModel = fuelModel is null ? "distance-only" : "fuel-tons (wave/wind resistance)",
+                aStarFuelTons = aStarFuelTons,
+                baselineFuelTons = baselineFuelTons,
+                fuelSavedTons = aStarFuelTons is { } af && baselineFuelTons is { } bf
+                    ? bf - af
+                    : (double?)null,
+                fuelSavedPercent = aStarFuelTons is { } af2 && baselineFuelTons is { } bf2 && bf2 > 0
+                    ? (bf2 - af2) / bf2 * 100.0
+                    : (double?)null,
+
                 elapsedMs = sw.ElapsedMilliseconds,
                 version = job.Version
             }, JsonOpts);
@@ -346,8 +523,6 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 RoutePreference = request.RoutePreference,
                 CorridorViaPortCodes = request.CorridorViaPortCodes,
                 MustVisitPortCodes = request.MustVisitPortCodes,
-                HazardSeed = request.HazardSeed,
-                HazardCount = request.HazardCount,
                 Persist = true,
                 RefineLegDistances = true,
                 DepartureUtc = request.DepartureUtc

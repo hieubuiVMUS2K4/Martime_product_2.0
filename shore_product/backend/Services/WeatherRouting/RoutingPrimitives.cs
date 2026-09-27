@@ -18,6 +18,30 @@ public sealed class RoutingGrid
     public required GridCell Goal { get; init; }
 
     /// <summary>
+    /// Trường thời tiết gắn vào từng NÚT của lưới: độ cao sóng (m), tốc độ gió (m/s)
+    /// và hướng sóng truyền tới (độ, 0 = bắc).
+    ///
+    /// Tách thành ba mảng song song thay vì một mảng struct để tránh sinh rác khi A*
+    /// đọc hàng trăm nghìn lượt, và để lưới không có thời tiết chỉ tốn ba con trỏ null.
+    /// Null = không có dữ liệu thời tiết ⇒ <see cref="WeatherAt"/> trả về 0 và chi phí
+    /// rút về đúng quãng đường.
+    /// </summary>
+    public double[,]? WaveM { get; init; }
+
+    public double[,]? WindMs { get; init; }
+
+    public double[,]? WaveBearingDeg { get; init; }
+
+    /// <summary>Thời tiết tại một ô. Trả (0,0,0) nếu lưới được dựng không kèm thời tiết.</summary>
+    public (double WaveM, double WindMs, double WaveBearingDeg) WeatherAt(GridCell c)
+    {
+        if (WaveM is null || !InBounds(c)) return (0.0, 0.0, 0.0);
+        return (WaveM[c.Row, c.Col],
+                WindMs?[c.Row, c.Col] ?? 0.0,
+                WaveBearingDeg?[c.Row, c.Col] ?? 0.0);
+    }
+
+    /// <summary>
     /// Ô nằm sát đất (lân cận 8 hướng có ô bị chặn). Cạnh nối hai ô đều KHÔNG gần đất
     /// chắc chắn không cắt bờ, nên bỏ qua kiểm tra để tiết kiệm CPU.
     /// </summary>
@@ -92,6 +116,12 @@ public sealed class RouteResult
 {
     public required bool Found { get; init; }
     public required IReadOnlyList<LatLon> Waypoints { get; init; }
+    /// <summary>
+    /// Tổng chi phí theo ĐÚNG đơn vị của hàm đánh giá đã dùng — tấn nhiên liệu với
+    /// <see cref="WeatherFuelCost"/>, hải lý với <see cref="HeuristicCost"/>.
+    /// Không so sánh trực tiếp giá trị này giữa hai tuyến trừ khi chắc chắn cùng một hàm chi phí;
+    /// để đối chiếu hãy dùng <see cref="WeatherFuelCost.PolylineFuelTons"/>.
+    /// </summary>
     public required double PathCost { get; init; }
     public required double DistanceNm { get; init; }
     public required int ExploredCells { get; init; }

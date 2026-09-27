@@ -278,7 +278,15 @@ builder.Services.AddScoped<ProductApi.Services.AI.IAiChatService, ProductApi.Ser
 
 // DE4 Weather Routing (A* + baseline + mock hazard)
 builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IGridBuilder, ProductApi.Services.WeatherRouting.GridBuilder>();
-builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IHeuristicCost, ProductApi.Services.WeatherRouting.HeuristicCost>();
+// Hàm đánh giá tính bằng NHIÊN LIỆU (tấn), có kể sức cản sóng gió — thay cho khoảng cách thuần.
+// Dùng tham số nhiên liệu mặc định: hình dạng tuyến tối ưu chỉ phụ thuộc các hệ số tổn thất
+// tốc độ (sóng/gió), còn sức chứa hay công suất của từng tàu chỉ co giãn chi phí theo một hệ số
+// chung nên không đổi thứ tự các tuyến. Cá thể hoá theo vessel_fuel_profiles là bước sau.
+// Đổi về HeuristicCost nếu cần so sánh với đường ngắn nhất thuần tuý.
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IHeuristicCost>(_ =>
+    new ProductApi.Services.WeatherRouting.WeatherFuelCost(
+        new ProductApi.Services.WeatherRouting.FuelModel(
+            new ProductApi.Services.WeatherRouting.FuelModelOptions())));
 builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IAstStarRouter, ProductApi.Services.WeatherRouting.AstStarRouter>();
 builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IStraightBaselineRouter, ProductApi.Services.WeatherRouting.StraightBaselineRouter>();
 builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IWeatherRoutingService, ProductApi.Services.WeatherRouting.WeatherRoutingService>();

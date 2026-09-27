@@ -67,6 +67,100 @@ public static class HazardCatalog
 public static class DemoHazardGenerator
 {
     /// <summary>
+    /// Vị trí CỐ ĐỊNH trên bản đồ, kèm loại thiên tai. Không random runtime, không seed, không phụ
+    /// thuộc cảng đi / cảng đến. Toạ độ ghi thẳng ở đây, chạy bao nhiêu lần cũng ra đúng bằng đấy chỗ.
+    ///
+    /// Rải khắp các đại dương để nhìn bản đồ không dồn cục; thêm một số vùng nằm trên các tuyến hay
+    /// đi (Biển Đông, vịnh Bengal, biển Ả Rập, Địa Trung Hải, Caribe, Bắc Thái Bình Dương) để thấy
+    /// rõ A* vòng tránh. Không đặt ở eo hẹp (Malacca, Biển Đỏ, Gibraltar): chắn ở đó là bịt kín lối.
+    /// Mọi tâm vùng phải nằm trên biển và còn chỗ vòng qua — xem test HazardFixedZonesTests.
+    /// </summary>
+    private static readonly (double Lat, double Lon, string Type)[] FixedZonePositions =
+    [
+        // Bắc Đại Tây Dương + Caribe
+        (  58.0,  -30.0, "ICEBERG"),
+        (  45.0,  -45.0, "SEA_FOG"),
+        (  35.0,  -60.0, "HURRICANE"),
+        (  28.0,  -25.0, "GALE"),
+        (  15.0,  -40.0, "HURRICANE"),
+        (  22.0,  -50.0, "HIGH_WAVES"),       // tuyến Gibraltar → Caribe
+        (  14.5,  -76.0, "GALE"),             // tuyến vào Colón (Panama)
+        // Nam Đại Tây Dương + vịnh Guinea
+        (   2.0,    4.0, "PIRACY"),
+        (  -5.0,  -22.0, "TSUNAMI"),
+        ( -20.0,  -10.0, "HIGH_WAVES"),
+        ( -35.0,  -30.0, "GALE"),
+        ( -48.0,  -45.0, "HIGH_WAVES"),
+        ( -30.0,    5.0, "SEA_FOG"),
+        // Địa Trung Hải
+        (  34.5,   20.0, "SEA_FOG"),          // tuyến Suez → Gibraltar
+        // Ấn Độ Dương
+        (  15.0,   62.0, "TROPICAL_STORM"),
+        (   9.0,   64.0, "PIRACY"),           // tuyến Sri Lanka → vịnh Aden
+        (   5.0,   86.0, "TROPICAL_STORM"),   // tuyến Malacca → Sri Lanka
+        (   0.0,   75.0, "HIGH_WAVES"),
+        ( -15.0,   88.0, "TYPHOON"),
+        ( -32.0,   68.0, "GALE"),
+        ( -45.0,   85.0, "HIGH_WAVES"),
+        // Tây Thái Bình Dương / Biển Đông
+        (  14.0,  114.5, "TYPHOON"),          // Biển Đông
+        (  20.0,  132.0, "TYPHOON"),
+        (  30.5,  135.0, "HIGH_WAVES"),       // tuyến Đài Loan → Tokyo
+        (  35.0,  145.0, "TSUNAMI"),
+        (   2.0,  155.0, "TROPICAL_STORM"),
+        ( -18.0,  172.0, "VOLCANIC_ASH"),
+        ( -40.0,  158.0, "GALE"),
+        // Bắc + Đông Thái Bình Dương
+        (  46.0, -178.0, "GALE"),             // tuyến Tokyo → Seattle
+        (  40.0, -150.0, "HIGH_WAVES"),
+        (  22.0, -135.0, "TROPICAL_STORM"),
+        (   5.0, -115.0, "HURRICANE"),
+        ( -12.0, -100.0, "TSUNAMI"),
+        ( -30.0, -125.0, "SEA_FOG"),
+        // Vĩ độ cao
+        (  67.0,   -5.0, "ICEBERG"),
+        (  57.0, -178.0, "VOLCANIC_ASH"),
+        ( -55.0,   40.0, "ICEBERG"),
+        ( -58.0,  -80.0, "ICEBERG"),
+        ( -50.0,  120.0, "HIGH_WAVES")
+    ];
+
+    /// <summary>Số vùng thiên tai cố định.</summary>
+    public static int FixedZoneCount => FixedZonePositions.Length;
+
+    /// <summary>
+    /// Các vùng ở vị trí cố định trong <see cref="FixedZonePositions"/>. Không tham số.
+    /// </summary>
+    public static IReadOnlyList<HazardZone> FixedZones()
+    {
+        var zones = new List<HazardZone>(FixedZonePositions.Length);
+
+        for (var i = 0; i < FixedZonePositions.Length; i++)
+        {
+            var (lat, lon, type) = FixedZonePositions[i];
+            var spec = HazardCatalog.All.First(t => t.Type == type);
+
+            // Bán kính cố định theo loại: lấy giữa dải min–max để khỏi phụ thuộc random.
+            var radius = (spec.MinNm + spec.MaxNm) * 0.5;
+
+            var severity = radius >= spec.MaxNm * 0.8 ? "Red"
+                         : radius >= spec.MaxNm * 0.55 ? "Orange"
+                         : "Green";
+
+            zones.Add(new HazardZone(
+                Id: $"fixed-{i}",
+                Type: spec.Type,
+                Name: $"{spec.Label} #{i + 1}",
+                Center: new LatLon(lat, lon),
+                RadiusNm: Math.Round(radius, 0),
+                Severity: severity,
+                Source: "DEMO"));
+        }
+
+        return zones;
+    }
+
+    /// <summary>
     /// Sinh <paramref name="count"/> vùng thiên tai quanh hành trình start → goal.
     /// Mỗi loại thiên tai được dùng ít nhất một lần khi count ≥ số loại.
     /// </summary>
@@ -173,8 +267,19 @@ public static class DemoHazardGenerator
             bbMaxLon = Math.Max(bbMaxLon, lonU);
         }
 
-        var padLat = Math.Max(6.0, (bbMaxLat - bbMinLat) * regionPadFraction);
-        var padLon = Math.Max(6.0, (bbMaxLon - bbMinLon) * regionPadFraction);
+        // Pad phải tính theo CHIỀU DÀI HÀNH TRÌNH, không theo riêng chiều cao hộp.
+        //
+        // Tuyến đông–tây có chiều cao hộp gần bằng 0 (Chattogram 22.34°N → Thâm Quyến 22.48°N,
+        // chênh 0.15°), nên pad tối thiểu 6° cho ra một dải ngang mỏng dính 16°–28°. Dải đó
+        // gần như toàn đất: Ấn Độ, Myanmar, Thái Lan, Nam Trung Quốc. RandomOceanPoint loại hết
+        // điểm trên đất nên thiên tai chỉ còn đẻ được ở đúng hai vũng nước cạnh hai cảng —
+        // đổi seed bao nhiêu lần cũng vẫn nằm đè lên cảng.
+        //
+        // Lấy cạnh dài nhất của hộp làm thước cho CẢ HAI chiều thì vùng rải mới ra hình vuông
+        // phủ được biển thật quanh tuyến.
+        var span = Math.Max(bbMaxLat - bbMinLat, bbMaxLon - bbMinLon);
+        var padLat = Math.Max(12.0, span * regionPadFraction);
+        var padLon = Math.Max(8.0, span * regionPadFraction);
         bbMinLat = Math.Max(-70.0, bbMinLat - padLat);
         bbMaxLat = Math.Min(75.0, bbMaxLat + padLat);
         bbMinLon -= padLon;
@@ -335,11 +440,16 @@ public static class VoyageHazardPlanner
     /// <summary>Cỡ lưới A* khi dựng trục rải thiên tai (khớp CorridorGridSize của service).</summary>
     public const int CorridorGridSize = 160;
 
-    public static IReadOnlyList<HazardZone> Generate(
-        IGridBuilder gridBuilder, IAstStarRouter aStar, IHeuristicCost cost,
-        LatLon start, LatLon goal, int seed, int count)
-        => DemoHazardGenerator.GenerateAlongRoute(
-            BuildCorridor(gridBuilder, aStar, cost, start, goal), seed, count);
+    /// <summary>
+    /// Thiên tai ở vị trí CỐ ĐỊNH (<see cref="DemoHazardGenerator.FixedZones"/>), không bám theo
+    /// đường đi, không phụ thuộc cảng đi / cảng đến.
+    ///
+    /// Trước đây hàm này dựng trước một hành lang A* rồi cố tình đặt vùng CHẮN NGANG tuyến.
+    /// Làm thế thì thiên tai luôn nằm đúng chỗ tàu phải đi, và ở các hành lang hẹp
+    /// (Malacca, vịnh Bengal, cửa vịnh Thâm Quyến) nó bịt kín lối — A* không còn đường nào,
+    /// job Failed, bản đồ trắng. Thiên tai thật không mọc theo tuyến của tàu.
+    /// </summary>
+    public static IReadOnlyList<HazardZone> Generate() => DemoHazardGenerator.FixedZones();
 
     /// <summary>Hành lang A* nối start→goal (không thiên tai) — dùng làm trục rải thiên tai.</summary>
     public static IReadOnlyList<LatLon> BuildCorridor(
@@ -384,6 +494,47 @@ public sealed class ZoneHazardProvider : IHazardProvider
         }
         return false;
     }
+
+    /// <summary>
+    /// Trường sóng/gió suy ra từ chính các vùng này (xem <see cref="HazardWeatherField"/>).
+    /// Vùng bên trong vẫn bị chặn cứng bởi <see cref="IsBlocked"/>; trường này mô tả vành
+    /// ảnh hưởng bên ngoài — nơi tàu đi được nhưng tốn thêm nhiên liệu.
+    /// </summary>
+    public (double WaveM, double WindMs, double WaveBearingDeg) WeatherAt(LatLon point) =>
+        HazardWeatherField.Sample(_zones, point);
+
+    public IReadOnlyList<object> DescribeHazards() => _zones.Select(z => z.ToDto()).ToList();
+
+    public IReadOnlyList<LatLon> InfluencePoints() => _zones.Select(z => z.Center).ToList();
+}
+
+/// <summary>
+/// Vùng thiên tai ở chế độ MỀM: không cấm đi, chỉ rất đắt.
+///
+/// Dùng khi né cứng làm mất hết lối đi. Với hành lang hẹp (Malacca, vịnh Bengal, Gibraltar),
+/// vài vùng bán kính lớn đủ nối thành tường kín — A* duyệt hết lưới rồi trả về "No path around
+/// hazards", tức là bộ tìm đường không trả ra đường nào cả. Đó là kết quả vô dụng: thực tế tàu
+/// vẫn phải đi, chỉ là đi qua chỗ xấu.
+///
+/// Ở chế độ này <see cref="IsBlocked"/> luôn false nên đồ thị không bao giờ bị chia cắt bởi
+/// thiên tai (chỉ còn đất liền chia cắt), trong khi trường sóng/gió vẫn nguyên vẹn — nên chi phí
+/// nhiên liệu qua vùng bão vẫn cao gấp bội và A* vẫn tự vòng tránh CHỪNG NÀO CÒN VÒNG ĐƯỢC.
+/// Hết đường vòng thì nó xuyên qua chỗ nhẹ nhất thay vì bó tay.
+/// </summary>
+public sealed class SoftZoneHazardProvider : IHazardProvider
+{
+    private readonly List<HazardZone> _zones;
+
+    public SoftZoneHazardProvider(IEnumerable<HazardZone> zones) => _zones = zones.ToList();
+
+    /// <summary>Vẫn công bố danh sách vùng để lưới cấp phát trường sóng/gió.</summary>
+    public IReadOnlyList<HazardZone> Zones => _zones;
+
+    /// <summary>Không cấm gì — đây là toàn bộ điểm khác biệt so với <see cref="ZoneHazardProvider"/>.</summary>
+    public bool IsBlocked(LatLon point) => false;
+
+    public (double WaveM, double WindMs, double WaveBearingDeg) WeatherAt(LatLon point) =>
+        HazardWeatherField.Sample(_zones, point);
 
     public IReadOnlyList<object> DescribeHazards() => _zones.Select(z => z.ToDto()).ToList();
 

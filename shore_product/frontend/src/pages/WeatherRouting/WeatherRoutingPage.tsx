@@ -241,13 +241,47 @@ export const WeatherRoutingPage: React.FC = () => {
   const [job, setJob] = useState<WeatherRoutingJobDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showDisasters, setShowDisasters] = useState(true);
+  /** Hộp thoại "Thông số dùng để tính toán" — mở từ nút cạnh ô chọn tàu. */
+  const [showSpecs, setShowSpecs] = useState(false);
 
-  /** Vùng thiên tai demo: hiển thị sẵn trên bản đồ và truyền seed vào job để tuyến né đúng. */
   const [demoZones, setDemoZones] = useState<HazardZoneDto[]>([]);
   const [legend, setLegend] = useState<HazardLegendDto[]>([]);
   const [hazardSeed, setHazardSeed] = useState<number | null>(null);
-  const [hazardCount, setHazardCount] = useState(HAZARD_COUNT_DEFAULT);
+
+  const refreshHazards = useCallback(async () => {
+    try {
+      const res = await weatherRoutingApi.getHazards();
+      setDemoZones(res.zones ?? []);
+      setLegend(res.legend ?? []);
+      setHazardSeed(res.seed);
+    } catch (e: any) {
+      setDemoZones([]);
+      setLegend([]);
+      setHazardSeed(null);
+      setError(`Không tải được thiên tai: ${e?.message || String(e)}`);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshHazards();
+  }, [refreshHazards]);
+
+  const hazards = useMemo(
+    () =>
+      demoZones.map((z) => ({
+        lat: z.center.lat,
+        lon: z.center.lon,
+        radiusNm: z.radiusNm,
+        name: z.name,
+        hazardType: z.hazardType,
+        label: z.label,
+        icon: z.icon,
+        color: z.color,
+        severity: z.severity,
+      })),
+    [demoZones],
+  );
+
 
   const startPort = useMemo(
     () => ports.find((p) => p.code === startPortCode) ?? null,
@@ -285,32 +319,6 @@ export const WeatherRoutingPage: React.FC = () => {
     };
   }, []);
 
-  const refreshHazards = useCallback(
-    async (seed?: number) => {
-      if (!startPort || !endPort) return;
-      try {
-        const res = await weatherRoutingApi.getHazards({
-          startLat: startPort.lat,
-          startLon: startPort.lon,
-          goalLat: endPort.lat,
-          goalLon: endPort.lon,
-          seed,
-          count: hazardCount,
-        });
-        setDemoZones(res.zones ?? []);
-        setLegend(res.legend ?? []);
-        setHazardSeed(res.seed);
-      } catch {
-        /* không có dữ liệu thiên tai cũng không chặn chức năng chính */
-      }
-    },
-    [startPort, endPort, hazardCount],
-  );
-
-  useEffect(() => {
-    void refreshHazards();
-  }, [refreshHazards]);
-
   const optimized = useMemo(
     () => unwrapEastboundForMap(toGps(job?.routes?.find((r) => r.kind === 'astar')?.waypoints ?? [])),
     [job],
@@ -319,21 +327,6 @@ export const WeatherRoutingPage: React.FC = () => {
     () => unwrapEastboundForMap(toGps(job?.routes?.find((r) => r.kind === 'baseline')?.waypoints ?? [])),
     [job],
   );
-  const hazards = useMemo(() => {
-    const fromJob = parseHazards(job?.hazards);
-    if (fromJob.length > 0) return fromJob;
-    return demoZones.map((z) => ({
-      lat: z.center.lat,
-      lon: z.center.lon,
-      radiusNm: z.radiusNm,
-      name: z.name,
-      hazardType: z.hazardType,
-      label: z.label,
-      icon: z.icon,
-      color: z.color,
-      severity: z.severity,
-    }));
-  }, [job, demoZones]);
   const metrics = useMemo(() => asRecord(job?.metrics), [job]);
   const aStarRoute = job?.routes?.find((r) => r.kind === 'astar');
   const baseRoute = job?.routes?.find((r) => r.kind === 'baseline');
@@ -444,8 +437,6 @@ export const WeatherRoutingPage: React.FC = () => {
         routePreference: 'auto',
         // Cảng BẮT BUỘC ghé (nhập hàng / thủ tục) do người dùng chọn.
         ...(mustVisit.length > 0 ? { mustVisitPortCodes: mustVisit } : {}),
-        hazardCount,
-        ...(hazardSeed != null ? { hazardSeed } : {}),
       };
       const res = await weatherRoutingApi.createJob(payload);
       setJob(res);
@@ -476,39 +467,66 @@ export const WeatherRoutingPage: React.FC = () => {
   const canRun = !!vesselId && !!startPort && !!endPort && startPortCode !== endPortCode;
 
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tối ưu tuyến tránh bão</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-          Cảng đi: Vũng Tàu (Việt Nam) → Cảng đến: Colón / kênh Panama (Panama). Khi có kế hoạch chặng,
-          bản đồ vẽ tuyến hành trình theo đường biển thật qua từng cảng tiếp nhiên liệu (tím).
+    <div className="p-3 md:p-4 space-y-3">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Tối ưu tuyến tránh bão</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Chọn tàu, cảng đi và cảng đến rồi bấm <strong>Chạy tuyến</strong> — bản đồ vẽ tuyến theo
+          đường biển thật qua từng cảng tiếp nhiên liệu.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-1 space-y-3">
-          {/* 1. Chọn tàu + thông số dùng để tính toán */}
-          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[350px_minmax(0,1fr)] gap-3 items-start">
+        <div className="min-w-0 space-y-3">
+          {/* 1. Chọn tàu — thông số tính toán nằm trong hộp thoại riêng */}
+          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-2">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">1 · Chọn tàu</h2>
-            <select
-              value={vesselId}
-              onChange={(e) => setVesselId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+            <div className="flex gap-2">
+              <select
+                value={vesselId}
+                onChange={(e) => setVesselId(e.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+              >
+                <option value="">— Chọn tàu —</option>
+                {vessels.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                    {v.imo ? ` · IMO ${v.imo}` : ''}
+                    {v.hasProfile ? '' : ' (chưa có hồ sơ nhiên liệu)'}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!vessel}
+                onClick={() => setShowSpecs(true)}
+                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Xem thông số dùng để tính toán"
+              >
+                ⚙ Thông số
+              </button>
+            </div>
+          </section>
+          {/* Hộp thoại "Thông số dùng để tính toán" — mở từ nút cạnh ô chọn tàu */}
+          {showSpecs && vessel && (
+            <div
+              className="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+              onClick={() => setShowSpecs(false)}
             >
-              <option value="">— Chọn tàu —</option>
-              {vessels.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                  {v.imo ? ` · IMO ${v.imo}` : ''}
-                  {v.hasProfile ? '' : ' (chưa có hồ sơ nhiên liệu)'}
-                </option>
-              ))}
-            </select>
-
-            {vessel && (
-              <div className="rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
-                <div className="px-3 py-2 font-semibold bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
-                  Thông số dùng để tính toán
+              <div
+                className="mt-10 w-full max-w-lg rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl text-xs"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-3 px-3 py-2 font-semibold bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                  <span>Thông số dùng để tính toán</span>
+                  <button
+                    type="button"
+                    className="rounded px-1 text-lg leading-none text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                    onClick={() => setShowSpecs(false)}
+                    title="Đóng"
+                  >
+                    ×
+                  </button>
                 </div>
                 <dl className="divide-y divide-slate-100 dark:divide-slate-800">
                   {([
@@ -539,11 +557,11 @@ export const WeatherRoutingPage: React.FC = () => {
                   {vessel.specs?.flag || '—'}
                 </div>
               </div>
-            )}
-          </section>
+            </div>
+          )}
 
           {/* 2. Cảng bắt đầu / kết thúc */}
-          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-2">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">2 · Hành trình</h2>
             <div className="space-y-1">
               <span className="text-xs text-slate-500">Cảng bắt đầu</span>
@@ -573,7 +591,7 @@ export const WeatherRoutingPage: React.FC = () => {
           </section>
 
           {/* 3. Cảng bắt buộc ghé */}
-          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-2">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
               3 · Cảng bắt buộc ghé <span className="font-normal text-slate-500">(tuỳ chọn)</span>
             </h2>
@@ -621,7 +639,7 @@ export const WeatherRoutingPage: React.FC = () => {
           </section>
 
           {/* 4. Chạy tuyến */}
-          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-2">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -639,47 +657,7 @@ export const WeatherRoutingPage: React.FC = () => {
               >
                 ↻ Cập nhật thời tiết
               </button>
-              <button
-                type="button"
-                disabled={loading || !startPort || !endPort}
-                className="px-3 py-2 rounded-lg bg-slate-700 text-white text-sm font-semibold disabled:opacity-50"
-                onClick={() => {
-                  setJob(null);
-                  void refreshHazards();
-                }}
-              >
-                🎲 Đổi thiên tai
-              </button>
-              <label className="flex items-center gap-1 text-xs text-slate-500">
-                <span>Số vùng</span>
-                <select
-                  className="rounded border border-slate-300 dark:border-slate-600 bg-transparent px-1 py-1.5"
-                  value={hazardCount}
-                  onChange={(e) => {
-                    // Đổi số vùng thì tập thiên tai cũ không còn đúng — bỏ kết quả job
-                    // để bản đồ hiển thị tập vùng mới thay vì tập đã lưu trong job.
-                    setJob(null);
-                    setHazardCount(Number(e.target.value));
-                  }}
-                >
-                  {HAZARD_COUNT_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
-
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm cursor-pointer select-none">
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={showDisasters}
-              onChange={(e) => setShowDisasters(e.target.checked)}
-            />
-            <span>{showDisasters ? 'Ẩn thiên tai trên biển' : 'Hiện thiên tai trên biển'}</span>
-          </label>
 
           <details className="text-xs">
             <summary className="cursor-pointer text-slate-500">Tuỳ chọn nâng cao</summary>
@@ -741,44 +719,16 @@ export const WeatherRoutingPage: React.FC = () => {
           )}
           </section>
 
-          {/* 5. Danh sách thiên tai */}
-          {showDisasters && (
-            <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-slate-700">
-                <span className="text-slate-500">
-                  {hazards.length} vùng thiên tai · seed {hazardSeed ?? '—'}
-                </span>
-              </div>
-              <div className="px-3 py-2 space-y-1 max-h-48 overflow-y-auto">
-                {hazards.map((h, i) => (
-                  <div key={`${h.hazardType}-${i}`} className="flex items-center gap-2">
-                    <span
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] text-white shrink-0"
-                      style={{ backgroundColor: h.color || '#dc2626' }}
-                    >
-                      {h.icon || '⚠️'}
-                    </span>
-                    <span className="flex-1 truncate">{h.label || h.hazardType || 'Thiên tai'}</span>
-                    <span className="text-slate-500 shrink-0">{Math.round(h.radiusNm)} NM</span>
-                  </div>
-                ))}
-                {hazards.length === 0 && <span className="text-slate-400">Không có thiên tai.</span>}
-              </div>
-              {legend.length > 0 && (
-                <p className="px-3 py-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
-                  Tuyến và từng chặng sẽ né các vùng này.
-                </p>
-              )}
-            </section>
-          )}
         </div>
 
-        <div className="lg:col-span-2 min-h-[560px]">
+        {/* Bản đồ chiếm hết phần còn lại và cao gần trọn màn hình.
+            `relative z-0` tạo stacking context riêng: Leaflet dùng z-index nội bộ tới 1000
+            cho các pane/control, không nhốt lại thì chúng đè lên mọi hộp thoại của trang. */}
+        <div className="min-w-0 relative z-0">
           <VesselMap
-            height="560px"
+            height="max(520px, calc(100vh - 250px))"
             autoFit
-            showDisasters={showDisasters}
-            onShowDisastersChange={setShowDisasters}
+            hideDisasterToggle
             currentPosition={
               optimized[0]
                 ? { ...optimized[0], longitude: ((((optimized[0].longitude + 180) % 360) + 360) % 360) - 180 }
@@ -790,8 +740,9 @@ export const WeatherRoutingPage: React.FC = () => {
             baselineRoute={hasPlan ? [] : baseline}
             planRoute={planRoute}
             planPorts={planPorts}
+            allPorts={ports}
             fitPoints={fitPoints}
-            hazards={showDisasters ? hazards : []}
+            hazards={hazards}
           />
 
           {/* Chú thích màu cảng */}
