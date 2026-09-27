@@ -63,14 +63,7 @@ public sealed class AstStarRouter : IAstStarRouter
 
         var explored = 0;
         var goalIdx = goal.Row * cols + goal.Col;
-
-        // Khoảng cách lấy mẫu khi kiểm tra cạnh cắt đất: ~1/2 độ dài cạnh, tối thiểu 2 NM.
-        var cellStepNm = Math.Max(
-            Math.Abs(grid.CellToLatLon(new GridCell(Math.Min(1, rows - 1), 0)).Lat -
-                     grid.CellToLatLon(new GridCell(0, 0)).Lat) * 60.0,
-            0.1);
-        var edgeSampleNm = Math.Clamp(cellStepNm * 0.5, 2.0, 8.0);
-        const int maxEdgeSamples = 24;
+        var edgeSampleNm = GridEdges.SampleNm(grid);
 
         while (open.Count > 0)
         {
@@ -82,21 +75,7 @@ public sealed class AstStarRouter : IAstStarRouter
             if (currentIdx == goalIdx)
             {
                 var cells = Reconstruct(parent, cols, currentIdx);
-                // Ô lưới rộng nên tâm ô trong hành lang kênh/eo có thể rơi vào đất (ví dụ kênh Suez).
-                // Kéo các điểm đó về tim hành lang để polyline bám kênh thay vì cắt ngang qua đất.
-                var waypoints = new List<LatLon>(cells.Count);
-                foreach (var c in cells)
-                {
-                    var ll = grid.CellToLatLon(c);
-                    if (LandMask.IsRawLand(ll))
-                        ll = LandMask.ProjectToCorridor(ll) ?? ll;
-                    if (waypoints.Count == 0 ||
-                        Math.Abs(waypoints[^1].Lat - ll.Lat) > 1e-9 ||
-                        Math.Abs(waypoints[^1].Lon - ll.Lon) > 1e-9)
-                        waypoints.Add(ll);
-                }
-                // Truyền cả vật cản để string-pulling không cắt qua vùng bão.
-                waypoints = PathSanitizer.Sanitize(waypoints, p => !grid.IsPassable(grid.LatLonToCell(p)));
+                var waypoints = ToWaypoints(grid, cells);
                 return new RouteResult
                 {
                     Found = true,
@@ -126,16 +105,7 @@ public sealed class AstStarRouter : IAstStarRouter
                 var nIdx = nr * cols + nc;
                 if (closed[nIdx]) continue;
 
-                // Chỉ kiểm tra cắt khi ít nhất một đầu cạnh nằm sát vùng bị chặn: giữa biển mở
-                // chắc chắn không cắt gì nên bỏ qua để giữ tốc độ. Mask NearLand được dựng từ
-                // mảng `blocked` nên đã bao gồm CẢ thiên tai, không chỉ đất liền.
-                //
-                // Phải kiểm tra cả thiên tai ở mức CẠNH, không chỉ mức tâm ô: hai tâm ô đều nằm
-                // ngoài vòng tròn vẫn có thể nối với nhau bằng một cạnh chui qua giữa nó.
-                var nextLl = grid.CellToLatLon(next);
-                if ((currentNearLand || grid.IsNearLand(next)) &&
-                    (LandMask.SegmentCrossesLand(currentLl, nextLl, edgeSampleNm, maxEdgeSamples) ||
-                     grid.SegmentCrossesHazard(currentLl, nextLl, edgeSampleNm)))
+                if (!GridEdges.Traversable(grid, current, currentLl, currentNearLand, next, edgeSampleNm))
                     continue;
 
                 var tentative = currentG + cost.StepCost(grid, current, next);
@@ -166,5 +136,67 @@ public sealed class AstStarRouter : IAstStarRouter
             path.Add(new GridCell(i / cols, i % cols));
         path.Reverse();
         return path;
+    }
+
+    /// <summary>
+    /// Chuỗi ô lưới → polyline. Dùng chung cho A* và D* Lite để hai bộ tìm đường cho ra cùng
+    /// một kiểu tuyến từ cùng một chuỗi ô.
+    /// </summary>
+    public static List<LatLon> ToWaypoints(RoutingGrid grid, IReadOnlyList<GridCell> cells)
+    {
+        // Ô lưới rộng nên tâm ô trong hành lang kênh/eo có thể rơi vào đất (ví dụ kênh Suez).
+        // Kéo các điểm đó về tim hành lang để polyline bám kênh thay vì cắt ngang qua đất.
+        var waypoints = new List<LatLon>(cells.Count);
+        foreach (var c in cells)
+        {
+            var ll = grid.CellToLatLon(c);
+            if (LandMask.IsRawLand(ll))
+                ll = LandMask.ProjectToCorridor(ll) ?? ll;
+            if (waypoints.Count == 0 ||
+                Math.Abs(waypoints[^1].Lat - ll.Lat) > 1e-9 ||
+                Math.Abs(waypoints[^1].Lon - ll.Lon) > 1e-9)
+                waypoints.Add(ll);
+        }
+        // Truyền cả vật cản để string-pulling không cắt qua vùng bão.
+        return PathSanitizer.Sanitize(waypoints, p => !grid.IsPassable(grid.LatLonToCell(p)));
+    }
+}
+
+/// <summary>
+/// Quy tắc cạnh của đồ thị lưới — DÙNG CHUNG cho A* và D* Lite. Hai bộ tìm đường phải thấy
+/// cùng một đồ thị thì mới so sánh được (cùng chi phí tối ưu, khác nhau số ô phải duyệt).
+/// </summary>
+public static class GridEdges
+{
+    private const int MaxEdgeSamples = 24;
+
+    /// <summary>Khoảng cách lấy mẫu khi kiểm tra cạnh cắt đất: ~1/2 độ dài cạnh, 2–8 NM.</summary>
+    public static double SampleNm(RoutingGrid grid)
+    {
+        var cellStepNm = Math.Max(
+            Math.Abs(grid.CellToLatLon(new GridCell(Math.Min(1, grid.Rows - 1), 0)).Lat -
+                     grid.CellToLatLon(new GridCell(0, 0)).Lat) * 60.0,
+            0.1);
+        return Math.Clamp(cellStepNm * 0.5, 2.0, 8.0);
+    }
+
+    /// <summary>
+    /// Cạnh a→b có đi được không (b phải là ô kề và không bị chặn — người gọi bảo đảm).
+    ///
+    /// Chỉ kiểm tra cắt khi ít nhất một đầu cạnh nằm sát vùng bị chặn: giữa biển mở chắc chắn
+    /// không cắt gì nên bỏ qua để giữ tốc độ. Mask NearLand được dựng từ mảng `blocked` nên đã
+    /// bao gồm CẢ thiên tai, không chỉ đất liền.
+    ///
+    /// Phải kiểm tra cả thiên tai ở mức CẠNH, không chỉ mức tâm ô: hai tâm ô đều nằm ngoài vòng
+    /// tròn vẫn có thể nối với nhau bằng một cạnh chui qua giữa nó.
+    /// </summary>
+    public static bool Traversable(
+        RoutingGrid grid, GridCell a, LatLon aLl, bool aNearLand, GridCell b, double sampleNm)
+    {
+        if (!aNearLand && !grid.IsNearLand(b)) return true;
+
+        var bLl = grid.CellToLatLon(b);
+        return !LandMask.SegmentCrossesLand(aLl, bLl, sampleNm, MaxEdgeSamples) &&
+               !grid.SegmentCrossesHazard(aLl, bLl, sampleNm);
     }
 }

@@ -178,9 +178,19 @@ public static class LandMask
     /// Nới rộng thêm hành lang (độ) trong lúc dựng lưới. Khi lưới thô hơn chiều rộng eo biển,
     /// có thể không có ô lưới nào lọt vào eo dù eo có trong dữ liệu → A* phải đi vòng rất xa.
     /// GridBuilder set giá trị này theo kích thước ô lưới rồi reset về 0.
-    /// (Chỉ ghi/đọc trong lúc dựng lưới nên va chạm giữa các request là không đáng kể.)
+    ///
+    /// RIÊNG THEO LUỒNG ([ThreadStatic]): GridBuilder, A* và D* Lite đều gán tạm rồi trả lại giá
+    /// trị này trong CÙNG một lời gọi đồng bộ. Để dùng chung một biến tĩnh thì hai request (hoặc
+    /// hai test chạy song song) giẫm lên nhau — đã gặp thật: test D* Lite lệch chi phí khi chạy
+    /// chung với test khác nhưng đúng khi chạy riêng.
     /// </summary>
-    public static double CorridorDilationDeg { get; set; }
+    public static double CorridorDilationDeg
+    {
+        get => _corridorDilationDeg;
+        set => _corridorDilationDeg = value;
+    }
+
+    [ThreadStatic] private static double _corridorDilationDeg;
 
     public static bool IsBlockedLand(LatLon p) => IsInteriorLand(p);
 

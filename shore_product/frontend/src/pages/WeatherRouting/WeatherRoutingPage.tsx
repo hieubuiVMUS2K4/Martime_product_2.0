@@ -332,6 +332,7 @@ export const WeatherRoutingPage: React.FC = () => {
     [job],
   );
   const metrics = useMemo(() => asRecord(job?.metrics), [job]);
+  const replanStats = useMemo(() => asRecord(metrics.replan), [metrics]);
   const aStarRoute = job?.routes?.find((r) => r.kind === 'astar');
   const baseRoute = job?.routes?.find((r) => r.kind === 'baseline');
   const aStarM = asRecord(aStarRoute?.metrics);
@@ -723,6 +724,43 @@ export const WeatherRoutingPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Lập lại kế hoạch tăng dần (D* Lite) so với A* chạy lại từ đầu — chỉ có từ lần "Cập nhật thời tiết" */}
+              {replanStats.mode ? (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700">
+                  <div className="px-3 py-2 font-semibold bg-slate-50 dark:bg-slate-800/80">
+                    Lập lại kế hoạch (T+{fmtNum(Number(replanStats.fromStep) * 24, 0)} h → T+{fmtNum(Number(replanStats.toStep) * 24, 0)} h)
+                  </div>
+                  <div className="px-3 py-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                    <span className="text-slate-500">Thuật toán</span>
+                    <span className="font-medium text-right">
+                      {replanStats.mode === 'dstar-lite' ? 'D* Lite (tăng dần)' : 'A* (D* Lite thất bại)'}
+                    </span>
+                    <span className="text-slate-500">Ô thời tiết thay đổi</span>
+                    <span className="font-medium text-right">
+                      {fmtNum(replanStats.changedCells, 0)} / {fmtNum(replanStats.gridCells, 0)}
+                    </span>
+                    <span className="text-slate-500">Ô duyệt: D* Lite / A* từ đầu</span>
+                    <span className="font-medium text-right">
+                      {fmtNum(replanStats.incrementalExpanded, 0)} / {fmtNum(replanStats.fullAStarExplored, 0)}
+                    </span>
+                    <span className="text-slate-500">Thời gian: D* Lite / A*</span>
+                    <span className="font-medium text-right">
+                      {fmtNum(replanStats.incrementalMs, 0)} / {fmtNum(replanStats.fullAStarMs, 0)} ms
+                    </span>
+                    <span className="text-slate-500">Chi phí tối ưu trùng A*</span>
+                    <span className={`font-medium text-right ${replanStats.sameCost ? 'text-green-600' : 'text-red-600'}`}>
+                      {replanStats.sameCost ? '✓ trùng' : '✗ lệch'} ({fmtNum(replanStats.incrementalCost, 2)} t)
+                    </span>
+                  </div>
+                  {!replanStats.reusedState && (
+                    <div className="px-3 py-2 text-xs text-slate-500">
+                      Chưa có trạng thái D* Lite trong bộ nhớ (lần cập nhật đầu hoặc backend vừa khởi động lại) —
+                      đã dựng lại từ thời tiết bước trước ({fmtNum(replanStats.initExpanded, 0)} ô, không tính vào so sánh).
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           )}
           </section>
@@ -866,6 +904,33 @@ export const WeatherRoutingPage: React.FC = () => {
                   );
                 })}
               </tbody>
+              {plan.legs.length > 0 && (
+                <tfoot className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/60 font-semibold">
+                  <tr>
+                    <td className="px-3 py-2" colSpan={4}>
+                      Tổng cộng ({plan.legs.length} chặng)
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {fmtNum(plan.legs.reduce((s, l) => s + (l.distanceNm ?? 0), 0), 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {fmtNum(plan.legs.reduce((s, l) => s + (l.durationHours ?? 0), 0), 0)}
+                    </td>
+                    <td className="px-3 py-2 text-right">—</td>
+                    <td className="px-3 py-2 text-right">
+                      {fmtNum(plan.legs.reduce((s, l) => s + (l.fuelConsumedTons ?? 0), 0), 1)}
+                    </td>
+                    <td className="px-3 py-2 text-right">—</td>
+                    <td className="px-3 py-2 text-right">—</td>
+                    <td className="px-3 py-2 text-right">
+                      {fmtNum(plan.legs.reduce((s, l) => s + (l.bunkerTons ?? 0), 0), 1)} t
+                    </td>
+                    <td className="px-3 py-2 text-xs whitespace-nowrap">
+                      {fmtDate(plan.legs[plan.legs.length - 1].arrivalUtc)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 

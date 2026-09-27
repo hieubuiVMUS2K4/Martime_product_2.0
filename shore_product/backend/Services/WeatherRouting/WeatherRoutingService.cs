@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using ProductApi.Data;
 using ProductApi.DTOs.WeatherRouting;
 using ProductApi.Models.WeatherRouting;
@@ -22,7 +23,22 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
     private readonly IAstStarRouter _aStar;
     private readonly IStraightBaselineRouter _baseline;
     private readonly IVoyageLegPlanService _legPlanService;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<WeatherRoutingService> _logger;
+
+    /// <summary>Trạng thái D* Lite giữ giữa các lần replan của MỘT job (trong bộ nhớ).</summary>
+    private sealed class DStarSession
+    {
+        public required DStarLiteRouter Router { get; init; }
+        public required int GridSize { get; init; }
+        public required LatLon Start { get; init; }
+        public required LatLon Goal { get; init; }
+        /// <summary>Bước thời tiết mà Router đang phản ánh.</summary>
+        public int Step { get; set; }
+        public object Lock { get; } = new();
+    }
+
+    private static string DStarKey(Guid jobId) => $"wr-dstar:{jobId}";
 
     /// <summary>
     /// Hệ số nới khung lưới thử lần lượt khi A* không tìm được đường với khung mặc định.
@@ -38,6 +54,7 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
         IAstStarRouter aStar,
         IStraightBaselineRouter baseline,
         IVoyageLegPlanService legPlanService,
+        IMemoryCache cache,
         ILogger<WeatherRoutingService> logger)
     {
         _db = db;
@@ -46,7 +63,92 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
         _aStar = aStar;
         _baseline = baseline;
         _legPlanService = legPlanService;
+        _cache = cache;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Lập lại kế hoạch TĂNG DẦN bằng D* Lite khi thời tiết tiến sang <paramref name="step"/>.
+    ///
+    /// Có phiên của bước ngay trước ⇒ dùng lại nguyên trạng thái tìm kiếm. Không có (lần replan
+    /// đầu, backend vừa khởi động lại, hoặc nhảy bước) ⇒ dựng phiên từ thời tiết bước trước rồi
+    /// mới cập nhật sang bước này, để lần replan nào cũng là một lần cập nhật tăng dần thật sự.
+    ///
+    /// Đồng thời chạy A* TỪ ĐẦU trên CÙNG lưới làm đối chứng: hai bên phải cùng chi phí tối ưu,
+    /// khác nhau ở số ô phải duyệt — đó là số liệu so sánh của nhiệm vụ A* động.
+    /// </summary>
+    private (RoutingGrid Grid, RouteResult Route, object Stats) ReplanIncremental(
+        Guid jobId, int step, int gridSize, LatLon start, LatLon goal, IHazardProvider hazard)
+    {
+        var key = DStarKey(jobId);
+        var session = _cache.Get<DStarSession>(key);
+        var reused = session is not null && session.Step == step - 1 && session.GridSize == gridSize &&
+                     session.Start == start && session.Goal == goal;
+
+        int? initExpanded = null;
+        long? initMs = null;
+        if (!reused)
+        {
+            var swInit = Stopwatch.StartNew();
+            var prevZones = VoyageHazardPlanner.Generate(step - 1);
+            IHazardProvider prevHazard = prevZones.Count > 0
+                ? new ZoneHazardProvider(prevZones)
+                : NoHazardProvider.Instance;
+            var router = new DStarLiteRouter(_gridBuilder.Build(start, goal, prevHazard, gridSize), _heuristicCost);
+            initExpanded = router.Plan().Expanded;
+            initMs = swInit.ElapsedMilliseconds;
+            session = new DStarSession
+            {
+                Router = router, GridSize = gridSize, Start = start, Goal = goal, Step = step - 1
+            };
+        }
+
+        lock (session!.Lock)
+        {
+            var grid = _gridBuilder.Rebuild(session.Router.Grid, hazard);
+
+            var swInc = Stopwatch.StartNew();
+            var inc = session.Router.Replan(grid);
+            swInc.Stop();
+
+            var swFull = Stopwatch.StartNew();
+            var full = _aStar.FindPath(grid, _heuristicCost);
+            swFull.Stop();
+
+            session.Step = step;
+            if (inc.Route.Found)
+                _cache.Set(key, session, new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromHours(2) });
+            else
+                _cache.Remove(key);
+
+            var stats = new
+            {
+                mode = inc.Route.Found ? "dstar-lite" : "astar-fallback",
+                fromStep = step - 1,
+                toStep = step,
+                // false = phải dựng lại trạng thái từ bước trước (lần replan đầu / backend khởi động lại).
+                reusedState = reused,
+                initExpanded,
+                initMs,
+                changedCells = inc.ChangedCells,
+                gridCells = grid.Rows * grid.Cols,
+                incrementalExpanded = inc.Expanded,
+                incrementalMs = swInc.ElapsedMilliseconds,
+                fullAStarExplored = full.ExploredCells,
+                fullAStarMs = swFull.ElapsedMilliseconds,
+                incrementalCost = inc.Route.Found ? inc.Route.PathCost : (double?)null,
+                fullAStarCost = full.Found ? full.PathCost : (double?)null,
+                sameCost = inc.Route.Found && full.Found &&
+                           Math.Abs(inc.Route.PathCost - full.PathCost) <= 1e-6 * Math.Max(1.0, full.PathCost)
+            };
+
+            _logger.LogInformation(
+                "Job {JobId}: replan bước {From}->{To} — D* Lite {Inc} ô ({IncMs} ms), A* từ đầu {Full} ô ({FullMs} ms), {Changed} ô thời tiết đổi",
+                jobId, step - 1, step, inc.Expanded, swInc.ElapsedMilliseconds, full.ExploredCells,
+                swFull.ElapsedMilliseconds, inc.ChangedCells);
+
+            return (grid, inc.Route.Found ? inc.Route : full, stats);
+        }
     }
 
     public async Task<WeatherRoutingJobDto> CreateAndRunAsync(CreateWeatherRoutingJobRequest request, CancellationToken ct = default)
@@ -193,8 +295,32 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
             var gridSize = request.GridSize ?? WeatherRoutingDemoDefaults.DefaultGridSize;
             // Keep caller gridSize (auto-densify caused 30s FE timeouts on Pacific).
             gridSize = Math.Clamp(gridSize, WeatherRoutingDemoDefaults.MinGridSize, WeatherRoutingDemoDefaults.MaxGridSize);
-            var grid = _gridBuilder.Build(start, goal, hazard, gridSize);
-            var aStarResult = _aStar.FindPath(grid, _heuristicCost);
+            // Replan (bước thời tiết > 0) trên một lưới duy nhất: lập lại kế hoạch TĂNG DẦN bằng
+            // D* Lite. Có cảng bắt buộc ghé thì tuyến đi hai tầng qua mốc biển (xem dưới), không
+            // dùng lưới đơn — khi đó giữ A* như cũ. D* lỗi thì cũng quay về A* thay vì làm hỏng job.
+            RoutingGrid grid;
+            RouteResult aStarResult;
+            object? replanStats = null;
+            if (weatherStep > 0 && anchors.Count == 2)
+            {
+                try
+                {
+                    (grid, aStarResult, replanStats) =
+                        ReplanIncremental(job.Id, weatherStep, gridSize, start, goal, hazard);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Job {JobId}: D* Lite lỗi — chạy lại A* từ đầu.", job.Id);
+                    _cache.Remove(DStarKey(job.Id));
+                    grid = _gridBuilder.Build(start, goal, hazard, gridSize);
+                    aStarResult = _aStar.FindPath(grid, _heuristicCost);
+                }
+            }
+            else
+            {
+                grid = _gridBuilder.Build(start, goal, hazard, gridSize);
+                aStarResult = _aStar.FindPath(grid, _heuristicCost);
+            }
             // Khung lưới mặc định bám sát start→goal nên tuyến phải vòng ra ngoài sẽ không có đường
             // (ví dụ Vũng Tàu → Le Havre: bbox tới lon −4.89 nhưng Gibraltar ở −5.6).
             // Thử lại với khung rộng dần trước khi báo thất bại.
@@ -447,6 +573,8 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
                 // Thời điểm của trường thiên tai: bước thời tiết và số giờ dự báo tính từ bản đồ gốc.
                 weatherStep,
                 weatherHours = weatherStep * VoyageHazardPlanner.WeatherStepHours,
+                // Lập lại kế hoạch tăng dần (D* Lite) so với A* chạy lại từ đầu — null ở lần chạy đầu.
+                replan = replanStats,
                 aStarFound = aStarResult.Found,
                 // true = tuyến được dựng theo hai tầng (chuỗi mốc biển + lưới riêng từng chặng)
                 // thay vì một lưới phủ cả hành trình. Khi đó pathCost là NM, không phải chi phí A*.

@@ -7,6 +7,13 @@ public interface IGridBuilder
     /// phạm vi mặc định (ví dụ tới cảng Đại Tây Dương phải qua Gibraltar).
     /// </param>
     RoutingGrid Build(LatLon start, LatLon goal, IHazardProvider hazards, int gridSize, double paddingScale = 1.0);
+
+    /// <summary>
+    /// Dựng lại lưới cho trường thiên tai MỚI trên ĐÚNG khung, kích thước, ô xuất phát/đích của
+    /// <paramref name="template"/>. D* Lite cần đồ thị cố định giữa các lần lập lại kế hoạch —
+    /// <see cref="Build"/> tự nới khung theo vị trí thiên tai nên không dùng được cho việc đó.
+    /// </summary>
+    RoutingGrid Rebuild(RoutingGrid template, IHazardProvider hazards);
 }
 
 public sealed class GridBuilder : IGridBuilder
@@ -185,6 +192,71 @@ public sealed class GridBuilder : IGridBuilder
             CorridorDilationDeg = dilation,
             Start = SnapToWater(Nearest(start.Lat, startLon)),
             Goal = SnapToWater(Nearest(goal.Lat, goalLonU))
+        };
+    }
+
+    public RoutingGrid Rebuild(RoutingGrid template, IHazardProvider hazards)
+    {
+        LandMask.EnsureLoaded();
+        if (LandMask.LoadError is not null)
+            throw new InvalidOperationException("Land mask failed to load: " + LandMask.LoadError);
+
+        var rows = template.Rows;
+        var cols = template.Cols;
+        var blocked = new bool[rows, cols];
+        var hasWeather = hazards.Zones.Count > 0;
+        var waveM = hasWeather ? new double[rows, cols] : null;
+        var windMs = hasWeather ? new double[rows, cols] : null;
+        var waveBearing = hasWeather ? new double[rows, cols] : null;
+
+        // Cùng độ nới hành lang kênh/eo như lúc dựng lưới gốc, nếu không đất liền lệch đi.
+        var previousDilation = LandMask.CorridorDilationDeg;
+        LandMask.CorridorDilationDeg = template.CorridorDilationDeg;
+        try
+        {
+            for (var r = 0; r < rows; r++)
+            {
+                for (var c = 0; c < cols; c++)
+                {
+                    var llU = template.CellToLatLon(new GridCell(r, c));
+                    var ll = new LatLon(llU.Lat, GeoMath.WrapLon(llU.Lon));
+                    blocked[r, c] = hazards.IsBlocked(ll) || LandMask.IsBlockedLand(ll);
+                    if (!hasWeather || blocked[r, c]) continue;
+
+                    var (w, v, b) = hazards.WeatherAt(ll);
+                    waveM![r, c] = w;
+                    windMs![r, c] = v;
+                    waveBearing![r, c] = b;
+                }
+            }
+        }
+        finally
+        {
+            LandMask.CorridorDilationDeg = previousDilation;
+        }
+
+        // Ô xuất phát/đích giữ nguyên: cảng không di chuyển. Thiên tai có trôi đè lên cảng thì vẫn
+        // phải rời/cập được — giống cách Build mở ô khi không tìm được ô nước lân cận.
+        blocked[template.Start.Row, template.Start.Col] = false;
+        blocked[template.Goal.Row, template.Goal.Col] = false;
+
+        return new RoutingGrid
+        {
+            Rows = rows,
+            Cols = cols,
+            MinLat = template.MinLat,
+            MaxLat = template.MaxLat,
+            MinLon = template.MinLon,
+            MaxLon = template.MaxLon,
+            Blocked = blocked,
+            NearLand = BuildNearLandMask(blocked, rows, cols),
+            Hazards = hazards,
+            WaveM = waveM,
+            WindMs = windMs,
+            WaveBearingDeg = waveBearing,
+            CorridorDilationDeg = template.CorridorDilationDeg,
+            Start = template.Start,
+            Goal = template.Goal
         };
     }
 

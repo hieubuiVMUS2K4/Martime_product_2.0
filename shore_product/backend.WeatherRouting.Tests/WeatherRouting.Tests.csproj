@@ -33,6 +33,7 @@
     <Compile Include="..\backend\Services\WeatherRouting\FuelModel.cs" Link="Algo\FuelModel.cs" />
     <Compile Include="..\backend\Services\WeatherRouting\WeatherFuelCost.cs" Link="Algo\WeatherFuelCost.cs" />
     <Compile Include="..\backend\Services\WeatherRouting\AstStarRouter.cs" Link="Algo\AstStarRouter.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\DStarLiteRouter.cs" Link="Algo\DStarLiteRouter.cs" />
     <Compile Include="..\backend\Services\WeatherRouting\StraightBaselineRouter.cs" Link="Algo\StraightBaselineRouter.cs" />
     <Compile Include="..\backend\Services\WeatherRouting\PathSanitizer.cs" Link="Algo\PathSanitizer.cs" />
     <Compile Include="..\backend\Services\WeatherRouting\LandMask.cs" Link="Algo\LandMask.cs" />
