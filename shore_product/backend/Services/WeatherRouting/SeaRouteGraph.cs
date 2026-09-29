@@ -58,6 +58,7 @@ public static class SeaRouteGraph
         ["PSD"] = new LatLon(31.26, 32.30),   // Port Said (cửa bắc kênh Suez)
         ["SUZ"] = new LatLon(29.90, 32.55),   // cửa nam kênh Suez
         ["BAM"] = new LatLon(12.60, 43.35),   // Bab el-Mandeb
+        ["HOR"] = new LatLon(26.55, 56.45),   // eo Hormuz (cửa vịnh Ba Tư)
 
         // --- Đại Tây Dương ---
         ["CAN"] = new LatLon(28.50, -15.00),  // quần đảo Canary
@@ -114,6 +115,10 @@ public static class SeaRouteGraph
         // Ấn Độ Dương
         ("BAM", "CMB"), ("BAM", "MOZ"), ("MOZ", "GHA"), ("MOZ", "MIO"),
         ("CMB", "MIO"), ("CMB", "MLK"), ("MIO", "SUN"),
+
+        // Vịnh Ba Tư — cảng trong vịnh chỉ ra biển qua Hormuz. Thiếu mốc này thì chặng
+        // KWIQE→EGPSD (thẳng 833 NM, đường biển thật ~3 600 NM) không có chuỗi nào đi được.
+        ("HOR", "BAM"), ("HOR", "CMB"),
 
         // Eo Malacca và các eo thay thế
         ("MLK", "SIN"), ("SIN", "SUN"), ("SUN", "LOM"), ("LOM", "TOR"), ("SIN", "TOR"),

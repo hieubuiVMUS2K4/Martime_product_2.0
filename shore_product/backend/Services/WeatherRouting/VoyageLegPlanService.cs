@@ -845,6 +845,13 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
         _logger.LogWarning("A* không tìm được đường biển cho chặng {A} -> {B} ({Nm:F0} NM)",
             a, b, straightNm);
 
+        // Tuyến HAI TẦNG qua mốc biển. Lưới đơn thua khi đường biển thật dài gấp nhiều lần
+        // đường thẳng: KWIQE→EGPSD thẳng 833 NM nhưng phải vòng Hormuz – Bab el-Mandeb – Suez
+        // ~3 600 NM, vượt ngưỡng Plausible nên bị loại, rồi rơi xuống nối thẳng qua bán đảo
+        // Ả Rập. Mỗi chặng con của tuyến hai tầng đã được A* kiểm chứng nên không cần ngưỡng đó.
+        var twoTier = TwoTierLegGeometry(a, b, hazards);
+        if (twoTier is not null) return twoTier;
+
         // Dự phòng 1 — bỏ thiên tai khỏi lưới rồi thử lại. Khi thiên tai được rải dọc tuyến,
         // các vùng có thể nối thành một bức tường chắn hết lối đi, trong khi đường biển vẫn tồn
         // tại — chỉ là không né được thiên tai. Vẽ đúng hình dạng đường biển vẫn hơn hẳn rơi vào
@@ -871,6 +878,19 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
             catch
             {
                 break;
+            }
+        }
+
+        // Tuyến hai tầng không né thiên tai — vẫn là đường biển thật, hơn hẳn lát cắt hay nối thẳng.
+        if (hazards is not NoHazardProvider)
+        {
+            twoTier = TwoTierLegGeometry(a, b, NoHazardProvider.Instance);
+            if (twoTier is not null)
+            {
+                _logger.LogWarning(
+                    "Chặng {A} -> {B}: tuyến hai tầng chỉ dựng được khi bỏ thiên tai — không né thiên tai.",
+                    a, b);
+                return twoTier;
             }
         }
 
@@ -907,6 +927,41 @@ public sealed class VoyageLegPlanService : IVoyageLegPlanService
         }
 
         return new List<LatLon> { a, b };
+    }
+
+    /// <summary>
+    /// Polyline chặng bằng tuyến hai tầng qua mốc biển (<see cref="SeaRouteGraph"/>).
+    /// Trả null khi không dựng được hoặc kết quả vẫn cắt đất — để lớp gọi dùng dự phòng tiếp theo.
+    /// </summary>
+    private List<LatLon>? TwoTierLegGeometry(LatLon a, LatLon b, IHazardProvider hazards)
+    {
+        try
+        {
+            var route = SeaRouteGraph.BuildRoute(
+                _gridBuilder, _aStar, _heuristicCost, new[] { a, b }, hazards, _logger);
+            if (route is not { Count: >= 3 }) return null;
+
+            route[0] = a;
+            route[^1] = b;
+
+            var crossings = LandMask.CountLandCrossingSegments(route, skipEnds: true);
+            if (crossings > 0)
+            {
+                _logger.LogWarning(
+                    "Chặng {A} -> {B}: tuyến hai tầng cắt đất {Cross} đoạn — không dùng.", a, b, crossings);
+                return null;
+            }
+
+            _logger.LogInformation(
+                "Chặng {A} -> {B}: dùng tuyến hai tầng qua mốc biển ({Pts} điểm, {Nm:F0} NM).",
+                a, b, route.Count, GeoMath.PathLengthNm(route));
+            return route;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Chặng {A} -> {B}: không dựng được tuyến hai tầng.", a, b);
+            return null;
+        }
     }
 
     /// <summary>
