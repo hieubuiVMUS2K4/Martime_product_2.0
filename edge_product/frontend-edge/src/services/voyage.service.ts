@@ -1,7 +1,5 @@
 import type {
   Port,
-  CreatePortDto,
-  UpdatePortDto,
   PortSearchQuery,
   PortCall,
   CreatePortCallDto,
@@ -114,20 +112,7 @@ class VoyageManagementService {
     getById: (id: number) =>
       this.request<Port>(`/ports/${id}`),
 
-    create: (data: CreatePortDto) =>
-      this.request<Port>('/ports', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
-    update: (id: number, data: UpdatePortDto) =>
-      this.request<Port>(`/ports/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
-
-    delete: (id: number) =>
-      this.request<void>(`/ports/${id}`, { method: 'DELETE' }),
+    // Không có create/update/delete: danh mục cảng do bờ làm chủ, tàu chỉ đọc.
 
     getCountries: () =>
       this.request<string[]>('/ports/countries'),

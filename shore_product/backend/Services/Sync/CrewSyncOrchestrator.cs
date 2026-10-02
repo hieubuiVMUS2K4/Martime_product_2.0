@@ -87,6 +87,12 @@ public class CrewSyncOrchestrator : ICrewSyncOrchestrator
         foreach (var rc in rankCerts)
             batch.Add(("rank_certificate", rc.Id.ToString(), SyncActionType.SNAPSHOT, rc));
 
+        // 1c. Danh mục cảng — bờ làm chủ. Tàu khớp theo PortCode (UN/LOCODE), không theo Id.
+        // Gồm cả cảng đã ngừng dùng để tàu cũng cập nhật IsActive = false.
+        var ports = await _context.Ports.AsNoTracking().OrderBy(p => p.Id).ToListAsync();
+        foreach (var p in ports)
+            batch.Add(("port", p.Id.ToString(), SyncActionType.SNAPSHOT, p));
+
         // 2. Crew members
         var crew = await _context.CrewMembers.AsNoTracking().Include(c => c.Rank).ToListAsync();
         foreach (var c in crew)

@@ -61,7 +61,7 @@ DI registration                      → AuditInterceptor, EdgeDbContext, HttpCl
 app.Build()
 → Tự động chạy EF Core Migrations (nếu Database:AutoMigrate)
 → Patch thủ công: ALTER TABLE engine_data ADD COLUMN is_running (raw SQL, NGOÀI hệ thống migration)
-→ Seed cảng biển (seed_ports.sql) + SmsSeedData.SeedAsync()
+→ SmsSeedData.SeedAsync() (danh mục cảng do bờ phát xuống, tàu không tự nạp)
 Middleware pipeline (ĐÚNG THỨ TỰ):
   1. GlobalExceptionMiddleware        (bắt mọi exception, trả JSON an toàn)
   2. Swagger (chỉ Development)

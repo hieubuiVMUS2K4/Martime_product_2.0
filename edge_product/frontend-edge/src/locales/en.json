@@ -1440,7 +1440,8 @@
     "title": "Voyage & Cargo",
     "portMgmt": {
       "title": "Port Management",
-      "subtitle": "Manage port master data (UN/LOCODE standard) — {count} ports",
+      "subtitle": "Port catalog (UN/LOCODE standard) — {count} ports",
+      "shoreManaged": "The port catalog is managed by the Shore office and synced to the vessel automatically. To add, edit or deactivate a port, please contact the shore office.",
       "addPort": "Add Port",
       "searchPlaceholder": "Search by port code, name, or country...",
       "allCountries": "All Countries",
@@ -1453,7 +1454,7 @@
       "timeZone": "Time Zone",
       "actions": "Actions",
       "loading": "Loading ports...",
-      "noPortsFound": "No ports found. Add ports or run seed_ports.sql to populate.",
+      "noPortsFound": "No ports found. The port catalog will appear after the vessel syncs with shore.",
       "editPort": "Edit Port — {code}",
       "addNewPort": "Add New Port",
       "portCodeLabel": "Port Code (UN/LOCODE)",

@@ -3065,6 +3065,12 @@ public class EdgeDbContext : DbContext
             if (entry.Entity is IsmElement || entry.Entity is SmsProcedure || entry.Entity is SmsFormTemplate)
                 continue;
 
+            // 5. Danh mục cảng cũng do BỜ làm chủ, đi một chiều Bờ → Tàu, cùng lý do như trên:
+            //    ghi cảng nhận từ bờ không được vọng ngược lên. Endpoint tạo/sửa/xoá cảng của
+            //    tàu (PortController) đã bị khoá.
+            if (entry.Entity is Port)
+                continue;
+
             // 2. Check if entity is syncable (has IsSynced property)
             var entityType = entry.Entity.GetType();
             var isSyncedProp = entityType.GetProperty("IsSynced");

@@ -23,7 +23,6 @@
 | `SeedDrillTypes.sql`, `seed-drill-schedules.sql` | Seed loại drill (SOLAS/ISPS) và lịch drill mẫu cho timeline. |
 | `SeedEmploymentDocuments.sql`, `SeedHealthDocuments.sql`, `SeedSeafarerDocuments.sql`, `SeedTravelDocuments.sql` | Seed hồ sơ mẫu cho 6 thuyền viên demo (hợp đồng, khám sức khỏe, sổ thuyền viên, hộ chiếu). |
 | `seed-equipment-assets.sql` | Dựng cây phân cấp thiết bị tàu (Equipment Breakdown Structure) 6 hệ thống gốc (Động lực, Điện, Boong, An toàn, Điều hướng, PCCC) + các cấp con. |
-| `seed_ports.sql` | Seed danh mục cảng UN/LOCODE (kèm toạ độ + timezone IANA) — được `Program.cs` tự chạy lúc khởi động nếu số cảng &lt; 80 (`EnsurePortSeedDataAsync`). |
 
 ## Luồng hoạt động chính
 
@@ -79,7 +78,7 @@ private void ProcessSyncQueue()
 - **`Services/Core/README.md`** — `SyncBackgroundWorker`/`SyncService` là bên **tiêu thụ** `SyncQueue` do `ProcessSyncQueue()` tạo ra; `AuditInterceptor` (đăng ký qua `AddInterceptors()` trong `Program.cs`) chạy song song ở cùng thời điểm `SaveChanges` nhưng độc lập, ghi vào `SystemLog` chứ không phải `SyncQueue`.
 - **`Services/Voyage/README.md`** — `PositionSyncEnqueuerService`/`EngineSyncEnqueuerService`/`AlertSyncEnqueuerService` enqueue **thêm một lần thủ công nữa** cho `PositionData`/`EngineData`/`SafetyAlarm`/`EngineEvent`, khả năng trùng với outbox tự động ở đây — xem phân tích chi tiết tại `Services/Core/README.md` mục "SyncQueue được nạp từ đâu?".
 - **`Models/README.md`** — mọi `DbSet<>` trong `EdgeDbContext` tương ứng 1-1 với 1 entity class mô tả ở đây.
-- **`Program.cs`** — nơi đăng ký `AddDbContext<EdgeDbContext>(...).AddInterceptors(AuditInterceptor)`, gọi `dbContext.Database.MigrateAsync()`, `EnsurePortSeedDataAsync()`, và `SmsSeedData.SeedAsync()` mỗi lần khởi động.
+- **`Program.cs`** — nơi đăng ký `AddDbContext<EdgeDbContext>(...).AddInterceptors(AuditInterceptor)`, gọi `dbContext.Database.MigrateAsync()` và `SmsSeedData.SeedAsync()` mỗi lần khởi động. Danh mục cảng không nạp ở tàu — bờ làm chủ và phát xuống qua đồng bộ.
 
 ## Ghi chú khi đọc/dạy
 

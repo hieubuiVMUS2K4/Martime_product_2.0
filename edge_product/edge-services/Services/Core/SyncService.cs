@@ -242,8 +242,7 @@ public class SyncService : ISyncService
     ///
     /// Hàng đợi chỉ được nạp bởi interceptor của EdgeDbContext khi có SaveChanges. Dữ liệu
     /// seed thẳng vào cơ sở dữ liệu (script SQL, dump khởi tạo) không đi qua đường đó, nên nằm
-    /// lại vĩnh viễn với IsSynced = false mà không bao giờ được đẩy đi — 80 cảng của tàu này
-    /// đã kẹt như vậy, khiến bờ trống danh mục cảng.
+    /// lại vĩnh viễn với IsSynced = false mà không bao giờ được đẩy đi.
     ///
     /// Chạy mỗi chu kỳ đồng bộ, chỉ xếp thêm những gì CHƯA có trong hàng đợi nên không nhân đôi.
     /// Dùng SNAPSHOT (upsert) để lặp lại bao nhiêu lần vẫn ra một bản ghi bên nhận.
@@ -258,10 +257,9 @@ public class SyncService : ISyncService
             //
             // Thứ tự quan trọng: phiếu cha phải lên trước dòng chi tiết, vì bờ nối khoá ngoại
             // của dòng chi tiết bằng cách tra mã phiếu cha.
+            //
+            // Danh mục cảng KHÔNG đối soát ở đây: bờ làm chủ, tàu chỉ nhận.
             var added = 0;
-            added += await ReconcileTableAsync(context, "port",
-                context.Ports.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
-
             added += await ReconcileTableAsync(context, "material_category",
                 context.MaterialCategories.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "material_item",

@@ -113,91 +113,26 @@ public class PortController : ControllerBase
         return Ok(port);
     }
 
-    /// <summary>
-    /// Create a new port
-    /// </summary>
+    // ==========================================
+    // TẠO / SỬA / XOÁ CẢNG (LOCKED AT EDGE)
+    // Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý và phát xuống tàu qua đồng bộ.
+    // ==========================================
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreatePortDto dto)
+    public IActionResult Create()
     {
-        try
-        {
-            var code = dto.PortCode.ToUpper().Trim();
-            
-            if (code.Length != 5)
-                return BadRequest(new { error = "UN/LOCODE must be exactly 5 characters (e.g., VNSGN)" });
-
-            var exists = await _context.Ports.AnyAsync(p => p.PortCode == code);
-            if (exists)
-                return Conflict(new { error = $"Port with code {code} already exists" });
-
-            var port = new Port
-            {
-                PortCode = code,
-                PortName = dto.PortName.Trim(),
-                Country = dto.Country,
-                CountryCode = dto.CountryCode?.ToUpper(),
-                Latitude = dto.Latitude,
-                Longitude = dto.Longitude,
-                TimeZone = dto.TimeZone
-            };
-
-            _context.Ports.Add(port);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetById), new { id = port.Id }, port);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating port");
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return BadRequest(new { message = "Chức năng thêm cảng đã bị khóa tại nút Tàu (Edge). Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý." });
     }
 
-    /// <summary>
-    /// Update a port
-    /// </summary>
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UpdatePortDto dto)
+    public IActionResult Update(int id)
     {
-        try
-        {
-            var port = await _context.Ports.FindAsync(id);
-            if (port == null) return NotFound();
-
-            if (dto.PortName != null) port.PortName = dto.PortName;
-            if (dto.Country != null) port.Country = dto.Country;
-            if (dto.CountryCode != null) port.CountryCode = dto.CountryCode.ToUpper();
-            if (dto.Latitude.HasValue) port.Latitude = dto.Latitude;
-            if (dto.Longitude.HasValue) port.Longitude = dto.Longitude;
-            if (dto.TimeZone != null) port.TimeZone = dto.TimeZone;
-            if (dto.IsActive.HasValue) port.IsActive = dto.IsActive.Value;
-            
-            port.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            return Ok(port);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating port {PortId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return BadRequest(new { message = "Chức năng sửa cảng đã bị khóa tại nút Tàu (Edge). Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý." });
     }
 
-    /// <summary>
-    /// Delete a port (soft delete - set inactive)
-    /// </summary>
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public IActionResult Delete(int id)
     {
-        var port = await _context.Ports.FindAsync(id);
-        if (port == null) return NotFound();
-
-        port.IsActive = false;
-        port.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        return BadRequest(new { message = "Chức năng ngừng sử dụng cảng đã bị khóa tại nút Tàu (Edge). Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý." });
     }
 
     /// <summary>

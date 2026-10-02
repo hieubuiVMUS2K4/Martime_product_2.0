@@ -15,28 +15,6 @@ public class PortDto
     public bool IsActive { get; set; }
 }
 
-public class CreatePortDto
-{
-    public string PortCode { get; set; } = string.Empty;
-    public string PortName { get; set; } = string.Empty;
-    public string? Country { get; set; }
-    public string? CountryCode { get; set; }
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
-    public string? TimeZone { get; set; }
-}
-
-public class UpdatePortDto
-{
-    public string? PortName { get; set; }
-    public string? Country { get; set; }
-    public string? CountryCode { get; set; }
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
-    public string? TimeZone { get; set; }
-    public bool? IsActive { get; set; }
-}
-
 public class PortSearchQuery
 {
     public string? Search { get; set; }

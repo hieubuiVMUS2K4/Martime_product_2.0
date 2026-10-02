@@ -9,7 +9,7 @@ Nhóm controller lớn nhất theo số lượng nghiệp vụ khác nhau trong 
 | File | Route | Vai trò |
 |---|---|---|
 | `VoyageController.cs` (620 dòng) | `api/voyages`, `api/port-calls`, `api/crew-assignments`, `api/cargo` | Controller trung tâm domain Voyage: CRUD voyage, port call, crew assignment (embark/disembark), cargo operations, sinh số hiệu chuyến tự động (`VN-{year}-{seq:D3}`), xuất **FAL Form 5** (Crew List theo Công ước IMO FAL — văn bản pháp lý phải trình khi cập cảng). |
-| `PortController.cs` | `api/ports` | Master data cảng biển chuẩn **UN/LOCODE** (mã 5 ký tự, vd `VNSGN`), kèm toạ độ/timezone. Validate mã cảng đúng 5 ký tự, chặn trùng. |
+| `PortController.cs` | `api/ports` | Master data cảng biển chuẩn **UN/LOCODE** (mã 5 ký tự, vd `VNSGN`), kèm toạ độ/timezone. **Chỉ đọc** tại tàu: danh mục do bờ làm chủ và phát xuống qua đồng bộ; tạo/sửa/xoá trả về lỗi "đã bị khóa". |
 | `VoyageLogController.cs` | `api/voyage-log` | Nhật ký hành trình SOLAS Chapter V (DEP/ARR/COSP/EOSP/NOON/PILOT_ON-OFF...) — uỷ quyền hoàn toàn cho `IVoyageLogService`. Entry **bất biến sau khi Master ký** (sửa/xoá đều trả lỗi "not found or already signed"). |
 | `VoyageCockpitController.cs` (71 dòng) | `api/voyage-cockpit` | Dashboard "buồng lái" — timeline hợp nhất kế hoạch-vs-thực tế cho 1 chuyến. Uỷ quyền hoàn toàn `IVoyageCockpitService`. |
 | `VoyageEfficiencyController.cs` (37 dòng — nhỏ nhất repo) | `api/voyage-efficiency` | 1 endpoint duy nhất, pass-through `IVoyageEfficiencyService.GetEfficiencyReportAsync`. |
