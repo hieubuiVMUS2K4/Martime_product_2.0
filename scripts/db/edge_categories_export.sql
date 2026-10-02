@@ -1,4 +1,4 @@
-﻿--
+--
 -- PostgreSQL database dump
 --
 
@@ -64,45 +64,45 @@ INSERT INTO public.drill_types VALUES ('ea0104b4-0b83-4f2a-9635-7fb3ec8c983e', '
 -- Data for Name: equipment_groups; Type: TABLE DATA; Schema: public; Owner: edge_user
 --
 
-INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000001', 'GRP-LIFESAVING', 'Thiß║┐t Bß╗ï Cß╗⌐u Sinh', 'SAFETY_EQUIPMENT', 'DECK', 'C/O', 'CREW002', 'Tß║Ñt cß║ú thiß║┐t bß╗ï cß╗⌐u sinh (xuß╗ông v├á b├¿ cß╗⌐u sinh)', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
-INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000002', 'GRP-FIREFIGHTING', 'Thiß║┐t Bß╗ï PCCC', 'SAFETY_EQUIPMENT', 'ENGINE', 'C/E', 'CREW005', 'Hß╗ç thß╗æng chß╗»a ch├íy cß╗æ ─æß╗ïnh', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
-INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000003', 'GRP-MOORING', 'Thiß║┐t Bß╗ï Bu-l├┤ng', 'DECK_MACHINERY', 'DECK', 'Bosun', 'CREW009', 'Tß║Ñt cß║ú tß╗¥i neo (m┼⌐i v├á ─æu├┤i)', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
-INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000004', 'GRP-DECK-PAINT', 'Khu Vß╗▒c S╞ín Boong', 'DECK_STRUCTURE', 'DECK', 'Bosun', 'CREW009', 'Khu vß╗▒c boong cß║ºn chß╗æng gß╗ë v├á s╞ín ─æß╗ïnh kß╗│', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
+INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000001', 'GRP-LIFESAVING', 'Thiết Bị Cứu Sinh', 'SAFETY_EQUIPMENT', 'DECK', 'C/O', 'CREW002', 'Tất cả thiết bị cứu sinh (xuồng và bè cứu sinh)', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
+INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000002', 'GRP-FIREFIGHTING', 'Thiết Bị PCCC', 'SAFETY_EQUIPMENT', 'ENGINE', 'C/E', 'CREW005', 'Hệ thống chữa cháy cố định', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
+INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000003', 'GRP-MOORING', 'Thiết Bị Bu-lông', 'DECK_MACHINERY', 'DECK', 'Bosun', 'CREW009', 'Tất cả tời neo (mũi và đuôi)', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
+INSERT INTO public.equipment_groups VALUES ('cccccccc-1111-1111-1111-000000000004', 'GRP-DECK-PAINT', 'Khu Vực Sơn Boong', 'DECK_STRUCTURE', 'DECK', 'Bosun', 'CREW009', 'Khu vực boong cần chống gỉ và sơn định kỳ', true, false, '2026-01-13 18:43:07.083825+00', '2026-01-13 18:43:07.083825+00', 'SHIP_01');
 
 
 --
 -- Data for Name: material_categories; Type: TABLE DATA; Schema: public; Owner: edge_user
 --
 
-INSERT INTO public.material_categories VALUES (1, 'ENGINE', 'Phß╗Ñ T├╣ng ─Éß╗Öng C╞í', 'Phß╗Ñ t├╣ng v├á linh kiß╗çn cho ─æß╗Öng c╞í ch├¡nh v├á ─æß╗Öng c╞í phß╗Ñ', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (2, 'ELECTRICAL', 'Vß║¡t T╞░ ─Éiß╗çn', 'Thiß║┐t bß╗ï ─æiß╗çn, c├íp, c├┤ng tß║»c, ─æ├¿n chiß║┐u s├íng', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (31, 'PLUMBING', 'Dß╗Ñng Cß╗Ñ ß╗Éng Nß╗æi', 'Van, ß╗æng, ─æß║ºu nß╗æi, gasket cho hß╗ç thß╗æng ─æ╞░ß╗¥ng ß╗æng', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (4, 'PAINT-COAT', 'S╞ín & Chß╗æng ─én M├▓n', 'S╞ín t├áu biß╗ân, s╞ín l├│t, dung m├┤i, vß║¡t liß╗çu chß╗æng ─ân m├▓n', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (5, 'LUBRICANTS', 'Dß║ºu Mß╗í & Chß║Ñt Lß╗Ång', 'Dß║ºu nhß╗¥n, mß╗í b├┤i tr╞ín, dß║ºu thß╗ºy lß╗▒c, chß║Ñt l├ám m├ít', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (6, 'SAFETY', 'Thiß║┐t Bß╗ï An To├án', 'Thiß║┐t bß╗ï bß║úo hß╗Ö c├í nh├ón, thiß║┐t bß╗ï cß╗⌐u sinh, PCCC', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (7, 'TOOLS', 'Dß╗Ñng Cß╗Ñ & C├┤ng Cß╗Ñ', 'Dß╗Ñng cß╗Ñ cß║ºm tay, dß╗Ñng cß╗Ñ ─æiß╗çn, thiß║┐t bß╗ï ─æo l╞░ß╗¥ng', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (8, 'DECK-SUPPLIES', 'Vß║¡t T╞░ Boong', 'D├óy c├íp, x├¡ch, m├│c, thiß║┐t bß╗ï boong', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (9, 'CLEANING', 'Vß║¡t T╞░ L├ám Sß║ích', 'H├│a chß║Ñt l├ám sß║ích, giß║╗ lau, b├án chß║úi, thiß║┐t bß╗ï vß╗ç sinh', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (10, 'OFFICE', 'V─ân Ph├▓ng & V─ân Phß║⌐m', 'Giß║Ñy tß╗¥, b├║t, mß╗▒c in, thiß║┐t bß╗ï v─ân ph├▓ng', NULL, true, false, '2026-01-13 18:40:54.24721+00');
-INSERT INTO public.material_categories VALUES (11, 'ENGINE-FILTERS', 'Lß╗ìc ─Éß╗Öng C╞í', 'Lß╗ìc dß║ºu, lß╗ìc nhi├¬n liß╗çu, lß╗ìc kh├┤ng kh├¡', 1, true, false, '2026-01-13 18:41:00.356414+00');
-INSERT INTO public.material_categories VALUES (12, 'ENGINE-GASKETS', 'Gio─âng & ─Éß╗çm', 'Gio─âng ─æß║ºu m├íy, gio─âng b├┤, O-ring', 1, true, false, '2026-01-13 18:41:00.356414+00');
-INSERT INTO public.material_categories VALUES (13, 'ENGINE-BEARINGS', 'ß╗ö Trß╗Ñc & Bß║íc', 'Bß║íc trß╗Ñc khuß╗╖u, bß║íc ─æß║íi, ß╗ò bi', 1, true, false, '2026-01-13 18:41:00.356414+00');
-INSERT INTO public.material_categories VALUES (14, 'ENGINE-VALVES', 'Van & Xupap', 'Van xupap, l├▓ xo van, cß║ºn ─æß║⌐y', 1, true, false, '2026-01-13 18:41:00.356414+00');
-INSERT INTO public.material_categories VALUES (15, 'ENGINE-COOLING', 'Hß╗ç Thß╗æng L├ám M├ít', 'B╞ím n╞░ß╗¢c, nhiß╗çt kß║┐, van ─æiß╗üu nhiß╗çt', 1, true, false, '2026-01-13 18:41:00.356414+00');
-INSERT INTO public.material_categories VALUES (21, 'ELEC-LIGHTING', 'Chiß║┐u S├íng', '─É├¿n LED, b├│ng ─æ├¿n, ─æ├¿n pha, ─æ├¿n t├¡n hiß╗çu', 2, true, false, '2026-01-13 18:41:04.776727+00');
-INSERT INTO public.material_categories VALUES (22, 'ELEC-CABLES', 'C├íp & D├óy ─Éiß╗çn', 'C├íp nguß╗ôn, c├íp t├¡n hiß╗çu, ─æß║ºu nß╗æi c├íp', 2, true, false, '2026-01-13 18:41:04.776727+00');
-INSERT INTO public.material_categories VALUES (23, 'ELEC-SWITCHES', 'C├┤ng Tß║»c & ß╗ö Cß║»m', 'C├┤ng tß║»c, ß╗ò cß║»m, MCB, MCCB', 2, true, false, '2026-01-13 18:41:04.776727+00');
-INSERT INTO public.material_categories VALUES (24, 'ELEC-BATTERIES', 'ß║«c Quy & Pin', 'ß║«c quy khß╗ƒi ─æß╗Öng, pin sß║íc, bß╗Ö sß║íc', 2, true, false, '2026-01-13 18:41:04.776727+00');
-INSERT INTO public.material_categories VALUES (41, 'PAINT-PRIMERS', 'S╞ín L├│t', 'S╞ín l├│t chß╗æng gß╗ë, s╞ín l├│t epoxy, s╞ín l├│t kß║╜m', 4, true, false, '2026-01-13 18:41:10.149152+00');
-INSERT INTO public.material_categories VALUES (42, 'PAINT-TOPCOATS', 'S╞ín Phß╗º', 'S╞ín phß╗º ngoß║íi thß║Ñt, s╞ín boong, s╞ín chß╗æng tr╞░ß╗út', 4, true, false, '2026-01-13 18:41:10.149152+00');
-INSERT INTO public.material_categories VALUES (43, 'PAINT-SUPPLIES', 'Phß╗Ñ Kiß╗çn S╞ín', 'Cß╗ì, l─ân, dung m├┤i, giß║Ñy nh├ím', 4, true, false, '2026-01-13 18:41:10.149152+00');
-INSERT INTO public.material_categories VALUES (51, 'LUBE-ENGINE-OIL', 'Dß║ºu ─Éß╗Öng C╞í', 'Dß║ºu ─æß╗Öng c╞í diesel, dß║ºu 2 th├¼, dß║ºu turbo', 5, true, false, '2026-01-13 18:41:14.828413+00');
-INSERT INTO public.material_categories VALUES (52, 'LUBE-GREASE', 'Mß╗í B├┤i Tr╞ín', 'Mß╗í lithium, mß╗í chß╗ïu nhiß╗çt, mß╗í chß╗æng n╞░ß╗¢c', 5, true, false, '2026-01-13 18:41:14.828413+00');
-INSERT INTO public.material_categories VALUES (53, 'LUBE-HYDRAULIC', 'Dß║ºu Thß╗ºy Lß╗▒c', 'Dß║ºu thß╗ºy lß╗▒c ISO, dß║ºu b├ính r─âng', 5, true, false, '2026-01-13 18:41:14.828413+00');
-INSERT INTO public.material_categories VALUES (54, 'LUBE-COOLANT', 'Chß║Ñt L├ám M├ít', 'N╞░ß╗¢c l├ám m├ít ─æß╗Öng c╞í, chß╗æng ─æ├┤ng', 5, true, false, '2026-01-13 18:41:14.828413+00');
-INSERT INTO public.material_categories VALUES (61, 'SAFETY-PPE', 'Bß║úo Hß╗Ö Lao ─Éß╗Öng', 'M┼⌐, g─âng tay, gi├áy, ├ío phao, k├¡nh bß║úo hß╗Ö', 6, true, false, '2026-01-13 18:41:19.029639+00');
-INSERT INTO public.material_categories VALUES (62, 'SAFETY-FIRE', 'Ph├▓ng Ch├íy Chß╗»a Ch├íy', 'B├¼nh cß╗⌐u hß╗Åa, kh─ân chß╗»a ch├íy, ph├ío s├íng', 6, true, false, '2026-01-13 18:41:19.029639+00');
-INSERT INTO public.material_categories VALUES (63, 'SAFETY-MEDICAL', 'Y Tß║┐ & S╞í Cß╗⌐u', 'Hß╗Öp s╞í cß╗⌐u, b─âng b├│, thuß╗æc men', 6, true, false, '2026-01-13 18:41:19.029639+00');
+INSERT INTO public.material_categories VALUES (1, 'ENGINE', 'Phụ Tùng Động Cơ', 'Phụ tùng và linh kiện cho động cơ chính và động cơ phụ', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (2, 'ELECTRICAL', 'Vật Tư Điện', 'Thiết bị điện, cáp, công tắc, đèn chiếu sáng', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (31, 'PLUMBING', 'Dụng Cụ Ống Nối', 'Van, ống, đầu nối, gasket cho hệ thống đường ống', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (4, 'PAINT-COAT', 'Sơn & Chống Ăn Mòn', 'Sơn tàu biển, sơn lót, dung môi, vật liệu chống ăn mòn', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (5, 'LUBRICANTS', 'Dầu Mỡ & Chất Lỏng', 'Dầu nhờn, mỡ bôi trơn, dầu thủy lực, chất làm mát', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (6, 'SAFETY', 'Thiết Bị An Toàn', 'Thiết bị bảo hộ cá nhân, thiết bị cứu sinh, PCCC', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (7, 'TOOLS', 'Dụng Cụ & Công Cụ', 'Dụng cụ cầm tay, dụng cụ điện, thiết bị đo lường', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (8, 'DECK-SUPPLIES', 'Vật Tư Boong', 'Dây cáp, xích, móc, thiết bị boong', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (9, 'CLEANING', 'Vật Tư Làm Sạch', 'Hóa chất làm sạch, giẻ lau, bàn chải, thiết bị vệ sinh', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (10, 'OFFICE', 'Văn Phòng & Văn Phẩm', 'Giấy tờ, bút, mực in, thiết bị văn phòng', NULL, true, false, '2026-01-13 18:40:54.24721+00');
+INSERT INTO public.material_categories VALUES (11, 'ENGINE-FILTERS', 'Lọc Động Cơ', 'Lọc dầu, lọc nhiên liệu, lọc không khí', 1, true, false, '2026-01-13 18:41:00.356414+00');
+INSERT INTO public.material_categories VALUES (12, 'ENGINE-GASKETS', 'Gioăng & Đệm', 'Gioăng đầu máy, gioăng bô, O-ring', 1, true, false, '2026-01-13 18:41:00.356414+00');
+INSERT INTO public.material_categories VALUES (13, 'ENGINE-BEARINGS', 'Ổ Trục & Bạc', 'Bạc trục khuỷu, bạc đại, ổ bi', 1, true, false, '2026-01-13 18:41:00.356414+00');
+INSERT INTO public.material_categories VALUES (14, 'ENGINE-VALVES', 'Van & Xupap', 'Van xupap, lò xo van, cần đẩy', 1, true, false, '2026-01-13 18:41:00.356414+00');
+INSERT INTO public.material_categories VALUES (15, 'ENGINE-COOLING', 'Hệ Thống Làm Mát', 'Bơm nước, nhiệt kế, van điều nhiệt', 1, true, false, '2026-01-13 18:41:00.356414+00');
+INSERT INTO public.material_categories VALUES (21, 'ELEC-LIGHTING', 'Chiếu Sáng', 'Đèn LED, bóng đèn, đèn pha, đèn tín hiệu', 2, true, false, '2026-01-13 18:41:04.776727+00');
+INSERT INTO public.material_categories VALUES (22, 'ELEC-CABLES', 'Cáp & Dây Điện', 'Cáp nguồn, cáp tín hiệu, đầu nối cáp', 2, true, false, '2026-01-13 18:41:04.776727+00');
+INSERT INTO public.material_categories VALUES (23, 'ELEC-SWITCHES', 'Công Tắc & Ổ Cắm', 'Công tắc, ổ cắm, MCB, MCCB', 2, true, false, '2026-01-13 18:41:04.776727+00');
+INSERT INTO public.material_categories VALUES (24, 'ELEC-BATTERIES', 'Ắc Quy & Pin', 'Ắc quy khởi động, pin sạc, bộ sạc', 2, true, false, '2026-01-13 18:41:04.776727+00');
+INSERT INTO public.material_categories VALUES (41, 'PAINT-PRIMERS', 'Sơn Lót', 'Sơn lót chống gỉ, sơn lót epoxy, sơn lót kẽm', 4, true, false, '2026-01-13 18:41:10.149152+00');
+INSERT INTO public.material_categories VALUES (42, 'PAINT-TOPCOATS', 'Sơn Phủ', 'Sơn phủ ngoại thất, sơn boong, sơn chống trượt', 4, true, false, '2026-01-13 18:41:10.149152+00');
+INSERT INTO public.material_categories VALUES (43, 'PAINT-SUPPLIES', 'Phụ Kiện Sơn', 'Cọ, lăn, dung môi, giấy nhám', 4, true, false, '2026-01-13 18:41:10.149152+00');
+INSERT INTO public.material_categories VALUES (51, 'LUBE-ENGINE-OIL', 'Dầu Động Cơ', 'Dầu động cơ diesel, dầu 2 thì, dầu turbo', 5, true, false, '2026-01-13 18:41:14.828413+00');
+INSERT INTO public.material_categories VALUES (52, 'LUBE-GREASE', 'Mỡ Bôi Trơn', 'Mỡ lithium, mỡ chịu nhiệt, mỡ chống nước', 5, true, false, '2026-01-13 18:41:14.828413+00');
+INSERT INTO public.material_categories VALUES (53, 'LUBE-HYDRAULIC', 'Dầu Thủy Lực', 'Dầu thủy lực ISO, dầu bánh răng', 5, true, false, '2026-01-13 18:41:14.828413+00');
+INSERT INTO public.material_categories VALUES (54, 'LUBE-COOLANT', 'Chất Làm Mát', 'Nước làm mát động cơ, chống đông', 5, true, false, '2026-01-13 18:41:14.828413+00');
+INSERT INTO public.material_categories VALUES (61, 'SAFETY-PPE', 'Bảo Hộ Lao Động', 'Mũ, găng tay, giày, áo phao, kính bảo hộ', 6, true, false, '2026-01-13 18:41:19.029639+00');
+INSERT INTO public.material_categories VALUES (62, 'SAFETY-FIRE', 'Phòng Cháy Chữa Cháy', 'Bình cứu hỏa, khăn chữa cháy, pháo sáng', 6, true, false, '2026-01-13 18:41:19.029639+00');
+INSERT INTO public.material_categories VALUES (63, 'SAFETY-MEDICAL', 'Y Tế & Sơ Cứu', 'Hộp sơ cứu, băng bó, thuốc men', 6, true, false, '2026-01-13 18:41:19.029639+00');
 
 
 --
