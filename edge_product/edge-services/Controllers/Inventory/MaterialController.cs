@@ -1107,14 +1107,21 @@ public class MaterialController : ControllerBase
             var created = 0;
             var skipped = 0;
 
-            foreach (var rawMatId in dto.MaterialItemIds)
+            var equipmentIds = dto.EquipmentAssetIds.Distinct().ToArray();
+            if (await _context.EquipmentAssets.CountAsync(a => equipmentIds.Contains(a.Id) && a.IsActive)
+                != equipmentIds.Length)
+                return BadRequest(new { error = "Thiết bị không tồn tại hoặc đã ngừng sử dụng." });
+            var pendingLinks = new HashSet<(Guid Material, Guid Equipment)>();
+
+            foreach (var rawMatId in dto.MaterialItemIds.Distinct())
             {
                 // FE gửi id của vật tư (có thể là material_item_ship) → quy về DANH MỤC (material_items).
                 var catId = await ResolveCatalogItemIdAsync(rawMatId);
                 if (catId == null) { skipped++; continue; }
 
-                foreach (var eqId in dto.EquipmentAssetIds)
+                foreach (var eqId in equipmentIds)
                 {
+                    if (!pendingLinks.Add((catId.Value, eqId))) { skipped++; continue; }
                     var exists = await _context.MaterialItemEquipments
                         .AnyAsync(x => x.MaterialItemId == catId.Value && x.EquipmentAssetId == eqId);
 
@@ -1139,6 +1146,10 @@ public class MaterialController : ControllerBase
                 created,
                 skipped
             });
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        {
+            return Conflict(new { error = "Liên kết vật tư–thiết bị đã được tạo bởi yêu cầu khác." });
         }
         catch (Exception ex)
         {

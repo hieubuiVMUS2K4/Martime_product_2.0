@@ -8,7 +8,13 @@ import { toast } from 'sonner';
 import type { CreateEquipmentAssetDto, EquipmentAsset } from '@/types/pms.types';
 
 const STATUS_VALUES = ['', 'ACTIVE', 'STANDBY', 'UNDER_MAINTENANCE', 'DECOMMISSIONED', 'IN_STORAGE'] as const;
-const ASSET_CATEGORIES = ['SYSTEM', 'ENGINE', 'GENERATOR', 'PUMP', 'COMPRESSOR', 'SEPARATOR', 'BOILER', 'DECK_MACHINERY', 'NAVIGATION', 'SAFETY', 'ELECTRICAL', 'HVAC'];
+const ASSET_CATEGORIES = ['SYSTEM', 'UNCLASSIFIED', 'ENGINE', 'GENERATOR', 'PUMP', 'COMPRESSOR', 'SEPARATOR', 'BOILER', 'DECK_MACHINERY', 'NAVIGATION', 'SAFETY', 'ELECTRICAL', 'HVAC'];
+const ASSET_CATEGORY_LABELS: Record<string, string> = {
+  SYSTEM: 'Tiêu đề', UNCLASSIFIED: 'Chưa phân loại', ENGINE: 'Động cơ', GENERATOR: 'Máy phát điện',
+  PUMP: 'Bơm', COMPRESSOR: 'Máy nén', SEPARATOR: 'Máy phân ly', BOILER: 'Nồi hơi',
+  DECK_MACHINERY: 'Thiết bị boong', NAVIGATION: 'Thiết bị hàng hải', SAFETY: 'Thiết bị an toàn',
+  ELECTRICAL: 'Thiết bị điện', HVAC: 'Điều hòa / thông gió',
+};
 const CRITICALITY_VALUES = ['CRITICAL', 'HIGH', 'NORMAL', 'LOW'];
 type CreateNodeMode = 'folder' | 'asset';
 type AssetDetailTab = 'info' | 'materials' | 'maintenance';
@@ -420,7 +426,10 @@ export default function AssetsPage() {
           ) : (
             <Package className="w-3 h-3 flex-shrink-0 text-slate-400" />
           )}
-          <span className="flex-1 text-left leading-snug truncate">{node.assetName}</span>
+          <span className="flex-1 text-left leading-snug truncate" title={`${node.assetCode} — ${node.assetName}`}>
+            {isFolder && node.assetCode && <span className="mr-1.5 font-semibold text-slate-500">{node.assetCode}</span>}
+            {node.assetName}
+          </span>
           {childCount > 0 && (
             <span className="text-gray-400 text-[10px] flex-shrink-0">{childCount}</span>
           )}
@@ -488,22 +497,25 @@ export default function AssetsPage() {
           >
             <FolderOpen className="w-4 h-4 flex-shrink-0" />
             <span className="flex-1 text-left truncate">
-              {t('pms.assets.allEquipment')} ({t('pms.assets.childCount', { count: assets.length })})
+              {t('pms.assets.allEquipment')}
             </span>
           </button>
-          {editMode && (
             <button
-              onClick={() => startInlineNew(null)}
-              className={`flex-shrink-0 mr-2 p-1 rounded transition-colors ${
+              type="button"
+              onClick={() => {
+                setSelectedNodeId(null);
+                setCreateNodeMode('folder');
+              }}
+              className={`flex-shrink-0 mr-2 p-1.5 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                 selectedNodeId === null
                   ? 'text-blue-200 hover:text-white hover:bg-blue-700'
                   : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
               }`}
-              title={t('pms.assets.addRootAsset')}
+              title="Thêm tiêu đề"
+              aria-label="Thêm tiêu đề"
             >
               <Plus className="w-4 h-4" />
             </button>
-          )}
         </div>
 
         {/* Header phải: title + action buttons */}
@@ -532,14 +544,6 @@ export default function AssetsPage() {
               </>
             )}
             <button
-              onClick={() => setCreateNodeMode('folder')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
-              title="Thêm thư mục"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Thêm thư mục
-            </button>
-            <button
               onClick={() => setCreateNodeMode('asset')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-blue-600 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               title="Thêm thiết bị"
@@ -558,11 +562,11 @@ export default function AssetsPage() {
       </div>
 
       {/* ── BODY: tree trái + bảng phải ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
 
         {/* LEFT: cây phân cấp thiết bị */}
         <div
-          className="w-64 flex-shrink-0 border-r border-gray-200 overflow-y-auto bg-white"
+          className="w-64 flex-shrink-0 flex flex-col min-h-0 border-r border-gray-200 bg-white"
           onContextMenu={editMode ? (e) => {
             // chỉ trigger khi click vào vùng trống (không phải node)
             if ((e.target as HTMLElement).closest('[data-asset-node]') === null) {
@@ -571,6 +575,7 @@ export default function AssetsPage() {
             }
           } : undefined}
         >
+          <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {treeRoots.length === 0 && !inlineNew ? (
             <div className="px-4 py-6 text-xs text-gray-400 text-center">
               {editMode ? t('pms.assets.rightClickToAdd') : t('pms.assets.noEquipmentTree')}
@@ -600,6 +605,7 @@ export default function AssetsPage() {
               <button onClick={() => setInlineNew(null)} className="text-gray-400 hover:text-gray-600 text-xs px-1 flex-shrink-0">✕</button>
             </div>
           )}
+          </div>
         </div>
 
         {/* RIGHT: table (view mode) OR detail form (edit mode) */}
@@ -1067,7 +1073,7 @@ function EditAssetModal({ asset, onClose, onSuccess }: EditAssetModalProps) {
           </Field>
           <Field label={t('pms.assets.categoryLabel')} required>
             <select value={formData.category || 'ENGINE'} onChange={e => handleChange('category', e.target.value)} className="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-              {ASSET_CATEGORIES.map(category => <option key={category} value={category}>{category}</option>)}
+              {ASSET_CATEGORIES.map(category => <option key={category} value={category}>{ASSET_CATEGORY_LABELS[category]}</option>)}
             </select>
           </Field>
           <Field label={t('pms.assets.locationLabel')}>
@@ -1122,7 +1128,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
   const [formData, setFormData] = useState<CreateEquipmentAssetDto>({
     assetCode: '',
     assetName: '',
-    category: 'SYSTEM',
+    category: isFolderMode ? 'SYSTEM' : 'UNCLASSIFIED',
     parentId: defaultParentId || undefined,
     criticality: 'NORMAL',
     status: 'ACTIVE',
@@ -1139,7 +1145,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
     setFormData({
       assetCode: '',
       assetName: '',
-      category: isFolderMode ? 'SYSTEM' : 'ENGINE',
+      category: isFolderMode ? 'SYSTEM' : 'UNCLASSIFIED',
       parentId: defaultParentId || undefined,
       criticality: 'NORMAL',
       status: 'ACTIVE',
@@ -1157,7 +1163,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
     const rows: Array<{ id: string; label: string }> = [];
     const walk = (nodes: EquipmentAsset[], depth = 0) => {
       nodes.forEach((node) => {
-        const typeLabel = isFolderNode(node) ? 'Thư mục' : 'Thiết bị';
+        const typeLabel = isFolderNode(node) ? 'Tiêu đề' : 'Thiết bị';
         rows.push({ id: node.id, label: `${'  '.repeat(depth)}[${typeLabel}] ${node.assetCode ? `${node.assetCode} - ` : ''}${node.assetName}` });
         if (node.children?.length) walk(node.children, depth + 1);
       });
@@ -1168,12 +1174,9 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
 
   if (!mode) return null;
 
-  const title = isFolderMode ? 'Thêm thư mục' : 'Thêm thiết bị';
-  const subtitle = isFolderMode
-    ? 'Tạo thư mục trong cấp gốc, trong thư mục khác hoặc bên trong một thiết bị'
-    : 'Khai báo thiết bị thật dưới cấp gốc, thư mục hoặc một thiết bị cha';
-  const codeLabel = isFolderMode ? 'Mã thư mục' : 'Mã thiết bị';
-  const nameLabel = isFolderMode ? 'Tên thư mục' : 'Tên thiết bị';
+  const title = isFolderMode ? 'Thêm tiêu đề' : 'Thêm thiết bị';
+  const codeLabel = isFolderMode ? 'Mã tiêu đề' : 'Mã thiết bị';
+  const nameLabel = isFolderMode ? 'Tên tiêu đề' : 'Tên thiết bị';
 
   const handleChange = (field: keyof CreateEquipmentAssetDto, value: string) => {
     setFormData(prev => ({
@@ -1185,7 +1188,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!formData.assetCode.trim() || !formData.assetName.trim()) {
-      toast.error('Vui lòng nhập mã và tên thiết bị');
+      toast.error(isFolderMode ? 'Vui lòng nhập mã và tên tiêu đề' : 'Vui lòng nhập mã và tên thiết bị');
       return;
     }
 
@@ -1195,7 +1198,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
         ...formData,
         assetCode: formData.assetCode.trim(),
         assetName: formData.assetName.trim(),
-        category: isFolderMode ? 'SYSTEM' : formData.category,
+        category: isFolderMode ? 'SYSTEM' : 'UNCLASSIFIED',
         criticality: formData.criticality || 'NORMAL',
         status: formData.status || 'ACTIVE',
         manufacturer: isFolderMode ? '' : formData.manufacturer?.trim(),
@@ -1205,10 +1208,10 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
         technicalSpecs: isFolderMode ? '' : formData.technicalSpecs?.trim(),
         notes: formData.notes?.trim(),
       });
-      toast.success(`Đã thêm thiết bị ${created.assetName}`);
+      toast.success(`Đã thêm ${isFolderMode ? 'tiêu đề' : 'thiết bị'} ${created.assetName}`);
       await onSuccess(created.id, formData.parentId);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || error?.response?.data?.error || 'Không thể thêm thiết bị');
+      toast.error(error?.response?.data?.message || error?.response?.data?.error || `Không thể thêm ${isFolderMode ? 'tiêu đề' : 'thiết bị'}`);
     } finally {
       setSaving(false);
     }
@@ -1216,76 +1219,37 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-equipment-title" className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-            <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+            <h2 id="create-equipment-title" className="text-base font-semibold text-slate-900">{title}</h2>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" type="button">
+          <button onClick={onClose} aria-label="Đóng" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" type="button">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="max-h-[72vh] overflow-y-auto px-5 py-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-col">
+          <div className="min-h-0 overflow-y-auto px-5 py-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label={codeLabel} required>
-                <input value={formData.assetCode} onChange={e => handleChange('assetCode', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder={isFolderMode ? 'ER-SYS' : 'AE-01'} />
+                <input autoFocus required value={formData.assetCode} onChange={e => handleChange('assetCode', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder={isFolderMode ? 'E' : 'E001'} />
               </Field>
               <Field label={nameLabel} required>
-                <input value={formData.assetName} onChange={e => handleChange('assetName', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder={isFolderMode ? 'Engine Room System' : 'Auxiliary Engine No.1'} />
+                <input required value={formData.assetName} onChange={e => handleChange('assetName', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder={isFolderMode ? 'Air condition plant' : 'Compressor & motor No.1'} />
               </Field>
-              <Field label={isFolderMode ? 'Tạo trong node cha' : 'Đặt dưới node cha'}>
+              <Field label="Thuộc tiêu đề / thiết bị cha" className="md:col-span-2">
                 <select value={formData.parentId || ''} onChange={e => handleChange('parentId', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                  <option value="">Cấp gốc</option>
+                  <option value="">Cấp gốc (không có cha)</option>
                   {parentOptions.map(option => (
                     <option key={option.id} value={option.id}>{option.label}</option>
                   ))}
                 </select>
               </Field>
-              {!isFolderMode && (
-                <Field label="Phân loại">
-                  <select value={formData.category} onChange={e => handleChange('category', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                    {ASSET_CATEGORIES.filter(category => category !== 'SYSTEM').map(category => <option key={category} value={category}>{category}</option>)}
-                  </select>
-                </Field>
-              )}
-              <Field label="Vị trí">
-                <input value={formData.location || ''} onChange={e => handleChange('location', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Engine Room" />
-              </Field>
-              {!isFolderMode && (
-                <Field label="Trạng thái">
-                  <select value={formData.status || 'ACTIVE'} onChange={e => handleChange('status', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                    <option value="ACTIVE">Đang hoạt động</option>
-                    <option value="STANDBY">Chờ sẵn</option>
-                    <option value="UNDER_MAINTENANCE">Đang bảo trì</option>
-                    <option value="DECOMMISSIONED">Ngừng sử dụng</option>
-                    <option value="IN_STORAGE">Trong kho</option>
-                  </select>
-                </Field>
-              )}
-              {!isFolderMode && <Field label="Hãng sản xuất"><input value={formData.manufacturer || ''} onChange={e => handleChange('manufacturer', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" /></Field>}
-              {!isFolderMode && <Field label="Model"><input value={formData.model || ''} onChange={e => handleChange('model', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" /></Field>}
-              {!isFolderMode && <Field label="Serial"><input value={formData.serialNumber || ''} onChange={e => handleChange('serialNumber', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" /></Field>}
-              {!isFolderMode && (
-                <Field label="Mức độ quan trọng">
-                  <select value={formData.criticality || 'NORMAL'} onChange={e => handleChange('criticality', e.target.value)} className="h-9 w-full rounded border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                    {CRITICALITY_VALUES.map(value => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                </Field>
-              )}
-              {!isFolderMode && (
-                <Field label="Thông số kỹ thuật" className="md:col-span-2">
-                  <textarea value={formData.technicalSpecs || ''} onChange={e => handleChange('technicalSpecs', e.target.value)} rows={3} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-                </Field>
-              )}
-              <Field label="Ghi chú" className="md:col-span-2">
-                <textarea value={formData.notes || ''} onChange={e => handleChange('notes', e.target.value)} rows={3} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-              </Field>
+              {/* Additional attributes remain available in the equipment edit form. */}
             </div>
           </div>
-          <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
+          <div className="flex flex-shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
             <button type="button" onClick={onClose} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
               Hủy
             </button>
@@ -1376,7 +1340,7 @@ function AssetInfoPanel({ asset }: { asset: EquipmentAsset }) {
         <InfoCard title="Thông tin cơ bản">
           <InfoRow label="Mã thiết bị" value={asset.assetCode} />
           <InfoRow label="Tên thiết bị" value={asset.assetName} />
-          <InfoRow label="Phân loại" value={asset.category} />
+          <InfoRow label="Loại thiết bị" value={ASSET_CATEGORY_LABELS[asset.category] || asset.category} />
           <InfoRow label="Vị trí" value={asset.location} />
           <InfoRow label="Trạng thái" value={assetStatusLabel(asset.status)} />
           <InfoRow label="Mức độ quan trọng" value={asset.criticality} />

@@ -1799,6 +1799,8 @@ namespace ProductApi.Data
             modelBuilder.Entity<MaterialItemEquipment>(entity =>
             {
                 entity.ToTable("material_item_equipments");
+                entity.HasOne<EquipmentAsset>().WithMany()
+                    .HasForeignKey(e => e.EquipmentAssetId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasIndex(e => new { e.MaterialItemId, e.EquipmentAssetId }).IsUnique();
                 // Liên kết vật tư–thiết bị tham chiếu DANH MỤC vật tư (material_items).
                 entity.HasOne<MaterialItem>().WithMany()
@@ -1850,6 +1852,8 @@ namespace ProductApi.Data
             modelBuilder.Entity<StockReceiptItem>(entity =>
             {
                 entity.ToTable("stock_receipt_items");
+                entity.HasOne<StoreLocation>().WithMany()
+                    .HasForeignKey(e => e.StoreLocationId).OnDelete(DeleteBehavior.Restrict);
                 entity.Property(e => e.QuantityRequested).HasPrecision(18, 4);
                 entity.Property(e => e.QuantityReceived).HasPrecision(18, 4);
                 entity.Property(e => e.UnitCost).HasPrecision(18, 4);
@@ -1861,7 +1865,15 @@ namespace ProductApi.Data
 
             modelBuilder.Entity<InventoryStock>(entity =>
             {
-                entity.ToTable("inventory_stocks");
+                entity.ToTable("inventory_stocks", t =>
+                {
+                    t.HasCheckConstraint("ck_inventory_quantity_nonnegative", "\"Quantity\" >= 0");
+                    t.HasCheckConstraint("ck_inventory_unit_cost_nonnegative", "\"UnitCost\" >= 0");
+                });
+                entity.HasOne<MaterialItemShip>().WithMany()
+                    .HasForeignKey(e => e.MaterialItemId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne<StoreLocation>().WithMany()
+                    .HasForeignKey(e => e.StoreLocationId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasIndex(e => new { e.MaterialItemId, e.StoreLocationId }).IsUnique();
                 entity.Property(e => e.Quantity).HasPrecision(18, 4);
                 entity.Property(e => e.UnitCost).HasPrecision(18, 4);

@@ -1,5 +1,6 @@
 using MaritimeEdge.Models;
 using MaritimeEdge.Data;
+using MaritimeEdge.Services.Inventory;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -169,6 +170,8 @@ public class StockReceiptController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> Create([FromBody] CreateStockReceiptDto dto)
     {
+        if (!await HasValidLocationsAsync(dto.Items))
+            return BadRequest("Vị trí kho không tồn tại hoặc đã ngừng sử dụng.");
         // Generate code: NK-YYYYMMDD-XXX
         var today = DateTime.UtcNow.ToString("yyyyMMdd");
         var countToday = await _context.StockReceipts
@@ -220,11 +223,20 @@ public class StockReceiptController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult> Update(int id, [FromBody] UpdateStockReceiptDto dto)
     {
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
         var receipt = await _context.StockReceipts
             .Include(r => r.Items)
             .FirstOrDefaultAsync(r => r.Id == id && r.IsActive);
 
         if (receipt == null) return NotFound();
+
+        if (dto.Items != null && !await HasValidLocationsAsync(dto.Items))
+            return BadRequest("Vị trí kho không tồn tại hoặc đã ngừng sử dụng.");
+        if (receipt.Status == "Completed")
+            return BadRequest("Không thể sửa phiếu nhập đã hoàn tất.");
+        if (dto.Status != null && dto.Status != receipt.Status &&
+            !(receipt.Status == "Draft" && dto.Status == "Approved"))
+            return BadRequest("Chỉ được duyệt phiếu Draft; hoàn tất qua API complete.");
 
         if (dto.VesselName != null) receipt.VesselName = dto.VesselName;
         if (dto.VoyageId.HasValue) receipt.VoyageId = dto.VoyageId;
@@ -242,6 +254,7 @@ public class StockReceiptController : ControllerBase
         if (dto.Items != null)
         {
             _context.StockReceiptItems.RemoveRange(receipt.Items);
+            receipt.Items.Clear();
             foreach (var item in dto.Items)
             {
                 receipt.Items.Add(new StockReceiptItem
@@ -262,6 +275,7 @@ public class StockReceiptController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return Ok(new { receipt.Id, receipt.ReceiptCode, receipt.Status });
     }
 
@@ -269,28 +283,47 @@ public class StockReceiptController : ControllerBase
     [HttpPut("{id}/complete")]
     public async Task<ActionResult> Complete(int id)
     {
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
         var receipt = await _context.StockReceipts
             .Include(r => r.Items)
             .FirstOrDefaultAsync(r => r.Id == id && r.IsActive);
 
         if (receipt == null) return NotFound();
         if (receipt.Status == "Completed") return BadRequest("Already completed.");
+        if (receipt.Status != "Draft" && receipt.Status != "Approved")
+            return BadRequest("Trạng thái phiếu không cho phép hoàn tất.");
+        if (receipt.Items.Any(i => i.QuantityReceived < 0 || i.UnitCost < 0) ||
+            !receipt.Items.Any(i => i.QuantityReceived > 0))
+            return BadRequest("Phiếu phải có số lượng thực nhập dương và không chứa số âm.");
+
+        // Validate all received lines before resolving/creating ship materials.
+        var receivedItems = receipt.Items.Where(i => i.QuantityReceived > 0).ToList();
+        var locationIds = receivedItems.Where(i => i.StoreLocationId.HasValue)
+            .Select(i => i.StoreLocationId!.Value).Distinct().ToArray();
+        var validLocations = await _context.StoreLocations
+            .Where(l => locationIds.Contains(l.Id) && l.IsActive).CountAsync();
+        if (receivedItems.Any(i => !i.StoreLocationId.HasValue) || validLocations != locationIds.Length)
+            return BadRequest("Mỗi dòng thực nhập phải có vị trí kho đang hoạt động.");
 
         // Update inventory_stock for each item
-        foreach (var item in receipt.Items)
+        var affectedMaterials = new HashSet<Guid>();
+        foreach (var item in receivedItems)
         {
-            if (item.StoreLocationId == null) continue;
 
             // Dòng phiếu tham chiếu DANH MỤC vật tư (material_items), còn tồn kho nằm ở
             // material_item_ship. Quy đổi qua ItemCode; tàu chưa có mã này thì tạo mới —
             // đó chính là nghiệp vụ nhập kho lần đầu.
             var shipItemId = await ResolveShipStockItemIdAsync(item);
-            if (shipItemId == null) continue;
+            if (shipItemId == null)
+                return BadRequest($"Không xác định được vật tư cho dòng {item.Id} ({item.ItemCode}).");
+            affectedMaterials.Add(shipItemId.Value);
 
-            var stock = await _context.InventoryStocks
+            var stock = _context.InventoryStocks.Local.FirstOrDefault(s =>
+                    s.MaterialItemId == shipItemId.Value && s.StoreLocationId == item.StoreLocationId!.Value)
+                ?? await _context.InventoryStocks
                 .FirstOrDefaultAsync(s =>
                     s.MaterialItemId == shipItemId.Value &&
-                    s.StoreLocationId == item.StoreLocationId.Value);
+                    s.StoreLocationId == item.StoreLocationId!.Value);
 
             if (stock != null)
             {
@@ -304,7 +337,7 @@ public class StockReceiptController : ControllerBase
                 _context.InventoryStocks.Add(new InventoryStock
                 {
                     MaterialItemId = shipItemId.Value,
-                    StoreLocationId = item.StoreLocationId.Value,
+                    StoreLocationId = item.StoreLocationId!.Value,
                     Quantity = item.QuantityReceived,
                     UnitCost = item.UnitCost ?? 0,
                     LastReceiptDate = DateTime.UtcNow
@@ -315,12 +348,12 @@ public class StockReceiptController : ControllerBase
             var materialItem = await _context.MaterialItems.FindAsync(shipItemId.Value);
             if (materialItem != null)
             {
-                materialItem.OnHandQuantity += (double)item.QuantityReceived;
                 if (item.UnitCost.HasValue) materialItem.UnitCost = item.UnitCost.Value;
                 materialItem.UpdatedAt = DateTime.UtcNow;
             }
         }
 
+        await InventoryWriteScope.RefreshTotalsAsync(_context, affectedMaterials);
         receipt.Status = "Completed";
         receipt.UpdatedAt = DateTime.UtcNow;
 
@@ -336,6 +369,7 @@ public class StockReceiptController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return Ok(new { receipt.Id, receipt.Status });
     }
 
@@ -358,8 +392,13 @@ public class StockReceiptController : ControllerBase
         var itemCode = !string.IsNullOrWhiteSpace(item.ItemCode) ? item.ItemCode!.Trim() : catalogItem?.ItemCode;
         if (string.IsNullOrWhiteSpace(itemCode)) return null;
 
-        var shipItem = await _context.MaterialItems.FirstOrDefaultAsync(m => m.ItemCode == itemCode);
+        var shipItem = _context.MaterialItems.Local.FirstOrDefault(m => m.ItemCode == itemCode)
+            ?? await _context.MaterialItems.FirstOrDefaultAsync(m => m.ItemCode == itemCode);
         if (shipItem != null) return shipItem.Id;
+
+        // A newly created ship item must reference an existing catalog code.
+        catalogItem = await _context.MaterialCatalogItems.FirstOrDefaultAsync(c => c.ItemCode == itemCode);
+        if (catalogItem == null) return null;
 
         shipItem = new MaterialItem
         {
@@ -378,20 +417,30 @@ public class StockReceiptController : ControllerBase
         };
 
         _context.MaterialItems.Add(shipItem);
-        await _context.SaveChangesAsync();
         return shipItem.Id;
+    }
+
+    private async Task<bool> HasValidLocationsAsync(IEnumerable<CreateStockReceiptItemDto> items)
+    {
+        var ids = items.Where(i => i.StoreLocationId.HasValue)
+            .Select(i => i.StoreLocationId!.Value).Distinct().ToArray();
+        return await _context.StoreLocations.CountAsync(l => ids.Contains(l.Id) && l.IsActive) == ids.Length;
     }
 
     /// <summary>DELETE soft-delete</summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(int id)
     {
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
         var receipt = await _context.StockReceipts.FindAsync(id);
         if (receipt == null || !receipt.IsActive) return NotFound();
+        if (receipt.Status == "Completed")
+            return BadRequest("Không thể xóa phiếu nhập đã hoàn tất.");
 
         receipt.IsActive = false;
         receipt.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return NoContent();
     }
 }

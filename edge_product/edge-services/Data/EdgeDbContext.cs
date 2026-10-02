@@ -1516,6 +1516,13 @@ public class EdgeDbContext : DbContext
         });
 
         // ========== TASK STATUS HISTORY ==========
+        modelBuilder.Entity<TaskRiskAssessment>().HasOne<MaintenanceTask>().WithMany()
+            .HasForeignKey(e => e.TaskId).HasPrincipalKey(t => t.TaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TaskInspectionReport>().HasOne<MaintenanceTask>().WithMany()
+            .HasForeignKey(e => e.TaskId).HasPrincipalKey(t => t.TaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<TaskStatusHistory>(entity =>
         {
             entity.ToTable("task_status_history");
@@ -1619,6 +1626,8 @@ public class EdgeDbContext : DbContext
         modelBuilder.Entity<EquipmentGroupMember>(entity =>
         {
             entity.ToTable("equipment_group_members");
+            entity.HasIndex(e => new { e.GroupId, e.AssetId }).IsUnique()
+                .HasDatabaseName("uk_equipment_group_asset");
             
             entity.HasOne(e => e.Group)
                 .WithMany()
@@ -2210,6 +2219,10 @@ public class EdgeDbContext : DbContext
 
         modelBuilder.Entity<MaterialItemEquipment>(entity =>
         {
+            entity.HasIndex(e => new { e.MaterialItemId, e.EquipmentAssetId }).IsUnique()
+                .HasDatabaseName("uk_material_equipment");
+            entity.HasOne<EquipmentAsset>().WithMany()
+                .HasForeignKey(e => e.EquipmentAssetId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<MaterialCatalogItem>()
                 .WithMany()
                 .HasForeignKey(e => e.MaterialItemId)
@@ -2238,6 +2251,8 @@ public class EdgeDbContext : DbContext
         modelBuilder.Entity<StockReceiptItem>(entity =>
         {
             entity.ToTable("stock_receipt_items");
+            entity.HasOne<StoreLocation>().WithMany()
+                .HasForeignKey(e => e.StoreLocationId).OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Receipt)
                 .WithMany(e => e.Items)
@@ -2252,7 +2267,15 @@ public class EdgeDbContext : DbContext
         // ========== INVENTORY STOCK ==========
         modelBuilder.Entity<InventoryStock>(entity =>
         {
-            entity.ToTable("inventory_stock");
+            entity.ToTable("inventory_stock", t =>
+            {
+                t.HasCheckConstraint("ck_inventory_quantity_nonnegative", "quantity >= 0");
+                t.HasCheckConstraint("ck_inventory_unit_cost_nonnegative", "unit_cost >= 0");
+            });
+            entity.HasOne<MaterialItem>().WithMany()
+                .HasForeignKey(e => e.MaterialItemId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoreLocation>().WithMany()
+                .HasForeignKey(e => e.StoreLocationId).OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => new { e.MaterialItemId, e.StoreLocationId })
                 .IsUnique()
@@ -3048,10 +3071,10 @@ public class EdgeDbContext : DbContext
                 || entry.Entity is ReportAmendment)
                 continue;
 
-            // 2. Check if entity is syncable (has IsSynced property)
+            // Material-equipment links are syncable without a schema-level IsSynced flag.
             var entityType = entry.Entity.GetType();
             var isSyncedProp = entityType.GetProperty("IsSynced");
-            if (isSyncedProp == null) continue;
+            if (isSyncedProp == null && entry.Entity is not MaterialItemEquipment) continue;
 
             // 3. Get Primary Key
             // Assumption: All our models use "Id" as Key (Guid or Long)

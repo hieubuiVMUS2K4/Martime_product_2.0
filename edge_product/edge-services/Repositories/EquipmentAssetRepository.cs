@@ -60,7 +60,8 @@ public class EquipmentAssetRepository : IEquipmentAssetRepository
     public async Task<List<EquipmentAsset>> GetByGroupIdAsync(Guid groupId)
     {
         return await _context.EquipmentAssets
-            .Where(a => a.EquipmentGroupId == groupId && a.IsActive)
+            .Where(a => a.IsActive && (a.EquipmentGroupId == groupId ||
+                _context.EquipmentGroupMembers.Any(m => m.GroupId == groupId && m.AssetId == a.Id)))
             .OrderBy(a => a.AssetCode)
             .ToListAsync();
     }
