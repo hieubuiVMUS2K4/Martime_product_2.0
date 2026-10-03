@@ -4321,6 +4321,9 @@ namespace productapi.Migrations
                     b.Property<string>("Instructions")
                         .HasColumnType("text");
 
+                    b.Property<int?>("IntervalMonths").HasColumnType("integer");
+                    b.Property<int?>("IntervalYears").HasColumnType("integer");
+                    b.Property<string>("WorkCode").HasMaxLength(50).HasColumnType("character varying(50)");
                     b.Property<int?>("IntervalDays")
                         .HasColumnType("integer");
 

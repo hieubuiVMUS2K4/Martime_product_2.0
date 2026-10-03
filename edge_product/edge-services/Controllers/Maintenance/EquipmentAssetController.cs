@@ -245,6 +245,9 @@ public class EquipmentAssetController : ControllerBase
     {
         try
         {
+            if (await _context.EquipmentAssets.AnyAsync(a => a.ParentId == id && a.IsActive))
+                return Conflict(new { error = "Không thể xóa khi còn thiết bị hoặc nhóm con. Hãy chuyển các mục con sang nhóm khác hoặc xóa chúng trước." });
+
             var result = await _assetRepository.DeleteAsync(id);
             if (!result)
                 return NotFound(new { error = "Equipment asset not found" });
@@ -655,13 +658,47 @@ public class EquipmentAssetController : ControllerBase
     {
         try
         {
-            var assets = await _context.EquipmentAssets
-                .Where(a => a.IsActive)
-                .OrderBy(a => a.AssetCode)
-                .ToListAsync();
+            var assets = await (
+                from asset in _context.EquipmentAssets.AsNoTracking()
+                where asset.IsActive
+                join equipmentGroup in _context.EquipmentGroups.AsNoTracking()
+                    on asset.EquipmentGroupId equals (Guid?)equipmentGroup.Id into groups
+                from equipmentGroup in groups.DefaultIfEmpty()
+                join crew in _context.CrewMembers.AsNoTracking()
+                    on equipmentGroup.PicCrewId equals crew.CrewId into crews
+                from crew in crews.DefaultIfEmpty()
+                orderby asset.AssetCode
+                select new EquipmentAssetDto
+                {
+                    Id = asset.Id,
+                    AssetCode = asset.AssetCode,
+                    AssetName = asset.AssetName,
+                    Category = asset.Category,
+                    Manufacturer = asset.Manufacturer,
+                    Model = asset.Model,
+                    SerialNumber = asset.SerialNumber,
+                    InstallationDate = asset.InstallationDate,
+                    CurrentRunningHours = asset.CurrentRunningHours,
+                    LastRunningHoursUpdate = asset.LastRunningHoursUpdate,
+                    EquipmentGroupId = asset.EquipmentGroupId,
+                    PicCrewId = equipmentGroup == null ? null : equipmentGroup.PicCrewId,
+                    PicCrewName = crew == null ? null : crew.FullName,
+                    ParentId = asset.ParentId,
+                    Location = asset.Location,
+                    Criticality = asset.Criticality,
+                    Status = asset.Status,
+                    TechnicalSpecs = asset.TechnicalSpecs,
+                    Notes = asset.Notes,
+                    IsActive = asset.IsActive,
+                    DefaultExecutorRole = asset.DefaultExecutorRole,
+                    ApproverRole = asset.ApproverRole,
+                    IsSynced = asset.IsSynced,
+                    CreatedAt = asset.CreatedAt,
+                    UpdatedAt = asset.UpdatedAt,
+                    OriginNode = asset.OriginNode
+                }).ToListAsync();
 
-            await LoadGroups(assets);
-            return Ok(assets.Select(MapToDto).ToList());
+            return Ok(assets);
         }
         catch (Exception ex)
         {

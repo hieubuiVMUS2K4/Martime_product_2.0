@@ -166,7 +166,7 @@ public class MaintenanceSchedulerService : BackgroundService
                            s.NextDueDate.HasValue && 
                            s.NextDueDate.Value.Date < today &&
                            s.IntervalType == "CALENDAR" &&
-                           s.IntervalDays.HasValue)
+                           (s.IntervalDays.HasValue || s.IntervalMonths.HasValue || s.IntervalYears.HasValue))
                 .ToListAsync();
 
             if (!pastDueSchedules.Any())
@@ -182,19 +182,14 @@ public class MaintenanceSchedulerService : BackgroundService
             int fixedCount = 0;
             foreach (var schedule in pastDueSchedules)
             {
-                if (!schedule.NextDueDate.HasValue || !schedule.IntervalDays.HasValue)
+                if (!schedule.NextDueDate.HasValue || !MaintenanceCalendar.HasInterval(schedule))
                 {
                     continue;
                 }
 
                 var oldDueDate = schedule.NextDueDate.Value;
-                var intervalDays = schedule.IntervalDays.Value;
-                var daysPast = (today - oldDueDate.Date).Days;
-                
-                // Calculate how many intervals to skip to get to future
-                var intervalsToSkip = (int)Math.Ceiling((double)daysPast / intervalDays);
-
-                schedule.NextDueDate = oldDueDate.AddDays(intervalsToSkip * intervalDays);
+                var intervalDays = schedule.IntervalDays;
+                schedule.NextDueDate = MaintenanceCalendar.AdvanceTo(schedule, oldDueDate, today, out var intervalsToSkip);
                 schedule.UpdatedAt = DateTime.UtcNow;
                 
                 _logger.LogInformation(
@@ -471,15 +466,11 @@ public class MaintenanceSchedulerService : BackgroundService
                     else if (schedule.EquipmentGroupId.HasValue)
                         pastDueAsset = GetPrimaryAssetForGroup(schedule.EquipmentGroupId.Value);
                     
-                    if (pastDueAsset != null && schedule.IntervalDays.HasValue)
+                    if (pastDueAsset != null && MaintenanceCalendar.HasInterval(schedule))
                     {
                         // Skip forward to next future occurrence
-                        var intervalDays = schedule.IntervalDays.Value;
-                        var daysPast = Math.Abs(daysUntilDue);
-                        var intervalsToSkip = (int)Math.Ceiling((double)daysPast / intervalDays);
-                        
                         var oldDueDate = schedule.NextDueDate.Value;
-                        schedule.NextDueDate = oldDueDate.AddDays(intervalsToSkip * intervalDays);
+                        schedule.NextDueDate = MaintenanceCalendar.AdvanceTo(schedule, oldDueDate, now, out var intervalsToSkip);
                         
                         await scheduleRepo.UpdateAsync(schedule);
                         
@@ -841,14 +832,14 @@ public class MaintenanceSchedulerService : BackgroundService
 
     private void CalculateNextDueDate(MaintenanceSchedule schedule, EquipmentAsset asset)
     {
-        if (schedule.IntervalType == "CALENDAR" && schedule.IntervalDays.HasValue)
+        if (schedule.IntervalType == "CALENDAR" && MaintenanceCalendar.HasInterval(schedule))
         {
             // Use LastExecutedAt as base to maintain interval consistency
             // If never executed, use current NextDueDate or UtcNow as fallback
             var baseDate = schedule.LastExecutedAt 
                 ?? schedule.NextDueDate 
                 ?? DateTime.UtcNow;
-            schedule.NextDueDate = baseDate.AddDays(schedule.IntervalDays.Value);
+            schedule.NextDueDate = MaintenanceCalendar.AddInterval(schedule, baseDate);
         }
         else if (schedule.IntervalType == "RUNNING_HOURS" && schedule.IntervalHours.HasValue)
         {
@@ -866,12 +857,12 @@ public class MaintenanceSchedulerService : BackgroundService
             DateTime? calendarDue = null;
             DateTime? runningHoursDue = null;
 
-            if (schedule.IntervalDays.HasValue)
+            if (MaintenanceCalendar.HasInterval(schedule))
             {
                 var baseDate = schedule.LastExecutedAt 
                     ?? schedule.NextDueDate 
                     ?? DateTime.UtcNow;
-                calendarDue = baseDate.AddDays(schedule.IntervalDays.Value);
+                calendarDue = MaintenanceCalendar.AddInterval(schedule, baseDate);
             }
 
             if (schedule.IntervalHours.HasValue)

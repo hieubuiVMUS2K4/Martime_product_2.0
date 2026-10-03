@@ -495,6 +495,8 @@ namespace MaritimeEdge
                     await EnsurePortSeedDataAsync(dbContext, logger, app.Environment.ContentRootPath);
                     logger.LogInformation("Seeding SMS Document Management system data...");
                     await SmsSeedData.SeedAsync(dbContext);
+                    var crewAccountsCreated = await CrewAccountProvisioning.BackfillApprovedCrewAsync(dbContext);
+                    logger.LogInformation("Provisioned {Count} missing crew accounts with CREW role", crewAccountsCreated);
                 }
                 catch (Exception ex)
                 {

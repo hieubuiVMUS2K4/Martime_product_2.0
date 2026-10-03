@@ -1,0 +1,13 @@
+{
+  "assets": 753,
+  "groups": 91,
+  "equipment": 662,
+  "jobs": 680,
+  "review": 54,
+  "categories": {
+    "PERIODIC": 626,
+    "ON_DEMAND": 14,
+    "DRY_DOCK": 36,
+    "VOYAGE": 4
+  }
+}

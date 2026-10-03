@@ -74,6 +74,7 @@ public class SyncOutboxService : ISyncOutboxService
 
         try
         {
+            targetNode = await VesselSyncIdentity.CanonicalTargetAsync(_context, targetNode);
             var serializedPayload = JsonSerializer.Serialize(payload, _jsonOptions);
 
             // Deduplication: if an undelivered item for the same (node, table, key) already exists,
@@ -137,6 +138,7 @@ public class SyncOutboxService : ISyncOutboxService
             throw new ArgumentNullException(nameof(targetNode));
         if (items == null || items.Count == 0) return;
 
+        targetNode = await VesselSyncIdentity.CanonicalTargetAsync(_context, targetNode);
         var now = DateTime.UtcNow;
         var version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -175,9 +177,11 @@ public class SyncOutboxService : ISyncOutboxService
             if (!string.IsNullOrEmpty(cursor) && long.TryParse(cursor, out var parsedCursor))
                 afterId = parsedCursor;
 
+            var legacyImo = await VesselSyncIdentity.LegacyImoAsync(_context, nodeId);
+            await EnsurePendingCrewReferencesAsync(nodeId, legacyImo);
             var query = _context.SyncOutbox
                 .Where(o => o.DeliveredAt == null)
-                .Where(o => o.TargetNode == nodeId || o.TargetNode == "*")
+                .Where(o => o.TargetNode == nodeId || (legacyImo != null && o.TargetNode == legacyImo) || o.TargetNode == "*")
                 .Where(o => o.Id > afterId);
 
             if (since.HasValue)
@@ -233,6 +237,34 @@ public class SyncOutboxService : ISyncOutboxService
             _logger.LogError(ex, "Error fetching pending items for node {NodeId}", nodeId);
             throw;
         }
+    }
+
+    private async Task EnsurePendingCrewReferencesAsync(string nodeId, string? legacyImo)
+    {
+        var payloads = await _context.SyncOutbox.AsNoTracking()
+            .Where(o => o.DeliveredAt == null && o.TableName == "crew_member" &&
+                (o.TargetNode == nodeId || (legacyImo != null && o.TargetNode == legacyImo) || o.TargetNode == "*"))
+            .Select(o => o.Payload).Take(1000).ToListAsync();
+        var rankIds = new HashSet<int>(); var countryIds = new HashSet<int>();
+        foreach (var payload in payloads)
+        {
+            try {
+                using var json = JsonDocument.Parse(payload);
+                if (json.RootElement.ValueKind != JsonValueKind.Object) continue;
+                foreach (var property in json.RootElement.EnumerateObject())
+                {
+                    if (!int.TryParse(property.Value.ToString(), out var id)) continue;
+                    if (property.Name.Equals("RankId", StringComparison.OrdinalIgnoreCase)) rankIds.Add(id);
+                    if (property.Name.Equals("CountryId", StringComparison.OrdinalIgnoreCase)) countryIds.Add(id);
+                }
+            } catch (JsonException) { /* The malformed crew item is handled separately by the receiver. */ }
+        }
+        foreach (var rank in await _context.Ranks.AsNoTracking().Where(r => rankIds.Contains(r.Id)).ToListAsync())
+            if (!await _context.SyncOutbox.AnyAsync(o => o.TargetNode == nodeId && o.TableName == "rank" && o.RecordKey == rank.Id.ToString()))
+                await EnqueueAsync(nodeId, "rank", rank.Id.ToString(), SyncActionType.SNAPSHOT, rank);
+        foreach (var country in await _context.Countries.AsNoTracking().Where(c => countryIds.Contains(c.Id)).ToListAsync())
+            if (!await _context.SyncOutbox.AnyAsync(o => o.TargetNode == nodeId && o.TableName == "country" && o.RecordKey == country.Id.ToString()))
+                await EnqueueAsync(nodeId, "country", country.Id.ToString(), SyncActionType.SNAPSHOT, country);
     }
 
     private async Task<List<SyncFileReferenceDto>> BuildOutgoingFileReferencesAsync(SyncQueueItemDto dto, string sourceNodeId)
@@ -367,10 +399,11 @@ public class SyncOutboxService : ISyncOutboxService
         try
         {
             // Try matching by exact outbox IDs first
+            var legacyImo = await VesselSyncIdentity.LegacyImoAsync(_context, nodeId);
             var baseQuery = _context.SyncOutbox
                 .AsTracking()
                 .Where(o => o.DeliveredAt == null)
-                .Where(o => o.TargetNode == nodeId || o.TargetNode == "*");
+                .Where(o => o.TargetNode == nodeId || (legacyImo != null && o.TargetNode == legacyImo) || o.TargetNode == "*");
 
             // Only exact positive IDs may be acknowledged. Repeated/stale ACKs must never
             // mark a different pending batch as delivered.

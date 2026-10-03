@@ -7078,6 +7078,9 @@ namespace MaritimeEdge.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
+                    b.Property<int?>("IntervalMonths").HasColumnType("integer").HasColumnName("interval_months");
+                    b.Property<int?>("IntervalYears").HasColumnType("integer").HasColumnName("interval_years");
+                    b.Property<string>("WorkCode").HasMaxLength(50).HasColumnType("character varying(50)").HasColumnName("work_code");
                     b.Property<int?>("IntervalDays")
                         .HasColumnType("integer")
                         .HasColumnName("interval_days");

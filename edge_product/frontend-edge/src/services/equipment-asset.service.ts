@@ -3,6 +3,11 @@ import type { EquipmentAsset, CreateEquipmentAssetDto } from '@/types/pms.types'
 import { getAuthToken } from './api.client';
 
 const API_BASE_URL = '/api';
+let treeSnapshot: EquipmentAsset[] | null = null;
+let treeSnapshotJson = '';
+let treeRequest: Promise<EquipmentAsset[]> | null = null;
+
+export const getCachedEquipmentTree = () => treeSnapshot;
 
 // Inject auth token into all axios requests (for audit trail)
 axios.interceptors.request.use((config) => {
@@ -22,8 +27,16 @@ export const equipmentAssetService = {
 
   /** Lấy tất cả assets dưới dạng flat list có parentId, frontend tự build tree */
   async getTree(): Promise<EquipmentAsset[]> {
-    const response = await axios.get(`${API_BASE_URL}/equipment-assets/tree`);
-    return response.data;
+    if (treeRequest) return treeRequest;
+    const request = axios.get<EquipmentAsset[]>(`${API_BASE_URL}/equipment-assets/tree`).then(response => {
+      const serialized = JSON.stringify(response.data);
+      if (treeSnapshot && serialized === treeSnapshotJson) return treeSnapshot;
+      treeSnapshot = response.data;
+      treeSnapshotJson = serialized;
+      return response.data;
+    });
+    treeRequest = request;
+    try { return await request; } finally { if (treeRequest === request) treeRequest = null; }
   },
 
   async getById(id: string): Promise<EquipmentAsset> {

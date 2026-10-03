@@ -4965,6 +4965,12 @@ public class EquipmentAsset
 /// </summary>
 public class MaintenanceSchedule
 {
+    [MaxLength(50)]
+    public string? WorkCode { get; set; }
+
+    public int? IntervalMonths { get; set; }
+    public int? IntervalYears { get; set; }
+
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
     

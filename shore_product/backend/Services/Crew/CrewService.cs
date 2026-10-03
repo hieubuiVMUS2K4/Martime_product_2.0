@@ -448,6 +448,10 @@ public class CrewService : ICrewService
             {
                 // Target sync to the specific vessel's edge node using its IMO
                 var targetNode = vessel.IMO;
+                if (crew.Country != null)
+                    await _syncOutbox.EnqueueAsync(targetNode, "country", crew.Country.Id.ToString(), SyncActionType.SNAPSHOT, crew.Country);
+                if (crew.Rank != null)
+                    await _syncOutbox.EnqueueAsync(targetNode, "rank", crew.Rank.Id.ToString(), SyncActionType.SNAPSHOT, crew.Rank);
 
                 // Sync crew member to the specific vessel
                 await _syncOutbox.EnqueueAsync(targetNode, "crew_member", crew.Id.ToString(), SyncActionType.UPDATE, crew);
@@ -470,6 +474,10 @@ public class CrewService : ICrewService
                     .ToListAsync();
                 foreach (var cc in crewCerts)
                 {
+                    if (cc.Certificate != null)
+                        await _syncOutbox.EnqueueAsync(targetNode, "certificate", cc.Certificate.Id.ToString(), SyncActionType.SNAPSHOT, cc.Certificate);
+                    if (cc.Country != null)
+                        await _syncOutbox.EnqueueAsync(targetNode, "country", cc.Country.Id.ToString(), SyncActionType.SNAPSHOT, cc.Country);
                     await _syncOutbox.EnqueueAsync(targetNode, "crew_certificate", cc.Id.ToString(), SyncActionType.SNAPSHOT, cc);
                 }
 

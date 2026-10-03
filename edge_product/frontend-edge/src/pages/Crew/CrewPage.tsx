@@ -35,6 +35,15 @@ export function CrewPage() {
     loadCrewData()
     loadPendingCrew()
     loadShoreChangeSummary()
+    const refreshPending = () => { if (!document.hidden) void loadPendingCrew(false) }
+    const interval = window.setInterval(refreshPending, 15000)
+    window.addEventListener('focus', refreshPending)
+    document.addEventListener('visibilitychange', refreshPending)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refreshPending)
+      document.removeEventListener('visibilitychange', refreshPending)
+    }
   }, [])
 
   const loadShoreChangeSummary = async () => {
@@ -69,15 +78,15 @@ export function CrewPage() {
     }
   }
 
-  const loadPendingCrew = async () => {
+  const loadPendingCrew = async (showSpinner = true) => {
     try {
-      setPendingLoading(true)
+      if (showSpinner) setPendingLoading(true)
       const data = await maritimeService.crew.getPending()
       setPendingCrew(data)
     } catch (error) {
       console.error('Failed to load pending crew:', error)
     } finally {
-      setPendingLoading(false)
+      if (showSpinner) setPendingLoading(false)
     }
   }
 

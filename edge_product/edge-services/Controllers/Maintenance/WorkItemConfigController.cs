@@ -152,6 +152,93 @@ public class WorkItemConfigController : ControllerBase
             dto.EstimatedDurationHours,
             dto.IntervalDays);
     }
+
+    private static string? ValidateInterval(CreateMaintenanceScheduleDto dto)
+    {
+        if (MaintenanceCategories.IsEventDriven(dto.MaintenanceCategory) || dto.MaintenanceCategory == "AD_HOC") return null;
+        if (dto.IntervalType is not ("CALENDAR" or "RUNNING_HOURS" or "HYBRID")) return "Kiểu chu kỳ không hợp lệ.";
+        if (dto.IntervalType == "CALENDAR" && dto.IntervalHours.HasValue) return "Chu kỳ lịch không dùng IntervalHours.";
+        if (dto.IntervalType == "RUNNING_HOURS" && (dto.IntervalDays.HasValue || dto.IntervalMonths.HasValue || dto.IntervalYears.HasValue))
+            return "Chu kỳ giờ chạy không dùng ngày/tháng/năm.";
+        if (dto.IntervalType is "CALENDAR" or "HYBRID")
+        {
+            var units = new[] { dto.IntervalDays, dto.IntervalMonths, dto.IntervalYears };
+            if (units.Count(v => v.HasValue) != 1 || units.Any(v => v.HasValue && v <= 0))
+                return "Chọn đúng một chu kỳ lịch dương: ngày, tháng hoặc năm.";
+        }
+        if (dto.IntervalType is "RUNNING_HOURS" or "HYBRID" && dto.IntervalHours is not > 0)
+            return "Chu kỳ giờ chạy phải lớn hơn 0.";
+        return null;
+    }
+
+    [HttpPost("import")]
+    public async Task<ActionResult> Import([FromBody] ImportMaintenanceRequest request)
+    {
+        if (request.Rows.Count is < 1 or > 1000)
+            return BadRequest(new { error = "File phải có từ 1 đến 1000 công việc." });
+
+        var errors = new List<object>();
+        var assets = await _context.EquipmentAssets.AsNoTracking().Where(a => a.IsActive).ToDictionaryAsync(a => a.AssetCode);
+        var existing = (await _context.MaintenanceSchedules.Select(s => s.ScheduleCode).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var schedules = new List<MaintenanceSchedule>();
+        foreach (var row in request.Rows)
+        {
+            row.ScheduleCode = (row.ScheduleCode ?? "").Trim(); row.AssetCode = (row.AssetCode ?? "").Trim();
+            row.ScheduleName = (row.ScheduleName ?? "").Trim();
+            row.MaintenanceCategory = (row.MaintenanceCategory ?? "PERIODIC").Trim().ToUpperInvariant();
+            row.IntervalType = (row.IntervalType ?? "CALENDAR").Trim().ToUpperInvariant();
+            var issues = new List<string>();
+            var validation = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+            System.ComponentModel.DataAnnotations.Validator.TryValidateObject(row,
+                new System.ComponentModel.DataAnnotations.ValidationContext(row), validation, true);
+            issues.AddRange(validation.Select(v => v.ErrorMessage!));
+            if (!assets.TryGetValue(row.AssetCode, out var asset) || asset.Category == "SYSTEM")
+                issues.Add($"Mã thiết bị '{row.AssetCode}' chưa tồn tại hoặc là nhóm. Nhập thiết bị trước.");
+            if (!codes.Add(row.ScheduleCode)) issues.Add("Mã cấu hình bị trùng trong file.");
+            if (existing.Contains(row.ScheduleCode)) issues.Add("Mã cấu hình đã tồn tại; import không ghi đè dữ liệu cũ.");
+            if (!MaintenanceCategories.IsSupported(row.MaintenanceCategory)) issues.Add("Loại bảo trì không hợp lệ.");
+            if (!string.IsNullOrWhiteSpace(row.Review)) issues.Add("Dòng nguồn cần rà soát: " + row.Review);
+            if (row.HoursMinimum.HasValue || row.HoursMaximum.HasValue) issues.Add("Chọn một chu kỳ giờ chạy cụ thể và bỏ khoảng giờ trước khi nhập.");
+            var intervalError = ValidateInterval(row);
+            if (intervalError != null) issues.Add(intervalError);
+            if (row.LastExecutedRunningHours < 0) issues.Add("Giờ chạy lần cuối không được âm.");
+            if (row.LastExecutedAt > DateTime.UtcNow) issues.Add("Ngày thực hiện lần cuối không được nằm trong tương lai.");
+            if (issues.Count > 0) { errors.Add(new { row = row.RowNumber, scheduleCode = row.ScheduleCode, errors = issues }); continue; }
+            var isEvent = MaintenanceCategories.IsEventDriven(row.MaintenanceCategory);
+            var schedule = new MaintenanceSchedule {
+                ScheduleCode = row.ScheduleCode, WorkCode = row.WorkCode?.Trim(), ScheduleName = row.ScheduleName,
+                EquipmentAssetId = asset!.Id, MaintenanceCategory = row.MaintenanceCategory,
+                IntervalType = isEvent ? "CALENDAR" : row.IntervalType,
+                IntervalDays = isEvent ? null : row.IntervalDays, IntervalMonths = isEvent ? null : row.IntervalMonths,
+                IntervalYears = isEvent ? null : row.IntervalYears, IntervalHours = isEvent ? null : row.IntervalHours,
+                LastExecutedAt = row.LastExecutedAt?.ToUniversalTime(), LastExecutedRunningHours = row.LastExecutedRunningHours,
+                Instructions = row.Instructions, Priority = row.Priority, DaysBeforeDue = ValidateScheduleLeadTime(row),
+                EstimatedDurationHours = row.EstimatedDurationHours, AutoGenerate = false,
+                CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+            };
+            try { CalculateNextDueDate(schedule, asset); }
+            catch (ArgumentOutOfRangeException) {
+                errors.Add(new { row = row.RowNumber, scheduleCode = row.ScheduleCode, errors = new[] { "Chu kỳ hoặc mốc thực hiện vượt phạm vi ngày hợp lệ." } });
+                continue;
+            }
+            schedules.Add(schedule);
+        }
+        if (errors.Count > 0) return BadRequest(new { error = "File có lỗi; chưa nhập dòng nào.", errors, imported = 0 });
+        if (request.ValidateOnly) return Ok(new { valid = true, imported = 0, count = schedules.Count });
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try {
+            _context.MaintenanceSchedules.AddRange(schedules);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return Ok(new { valid = true, imported = schedules.Count });
+        } catch (DbUpdateException ex) {
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "Maintenance import rolled back");
+            return Conflict(new { error = "Không thể nhập; dữ liệu có thể đã thay đổi hoặc mã bị trùng. Kiểm tra lại file.", imported = 0 });
+        }
+    }
     /// <summary>
     /// Get all maintenance schedules (OPTIMIZED - single query with includes)
     /// </summary>
@@ -252,6 +339,7 @@ public class WorkItemConfigController : ControllerBase
                     IntervalType = schedule.IntervalType,
                     IntervalHours = schedule.IntervalHours,
                     IntervalDays = schedule.IntervalDays,
+                    IntervalMonths = schedule.IntervalMonths, IntervalYears = schedule.IntervalYears, WorkCode = schedule.WorkCode,
                     DaysBeforeDue = schedule.DaysBeforeDue,
                     LastExecutedAt = schedule.LastExecutedAt,
                     LastExecutedRunningHours = schedule.LastExecutedRunningHours,
@@ -369,6 +457,7 @@ public class WorkItemConfigController : ControllerBase
                     IntervalType = schedule.IntervalType,
                     IntervalHours = schedule.IntervalHours,
                     IntervalDays = schedule.IntervalDays,
+                    IntervalMonths = schedule.IntervalMonths, IntervalYears = schedule.IntervalYears, WorkCode = schedule.WorkCode,
                     DaysBeforeDue = schedule.DaysBeforeDue,
                     LastExecutedAt = schedule.LastExecutedAt,
                     LastExecutedRunningHours = schedule.LastExecutedRunningHours,
@@ -471,13 +560,22 @@ public class WorkItemConfigController : ControllerBase
                 return BadRequest(new { error = $"Schedule code '{dto.ScheduleCode}' already exists" });
 
             // Validate interval (skip for AD_HOC — one-time tasks don't need intervals)
-            bool isAdHoc = dto.MaintenanceCategory == "AD_HOC";
+            dto.MaintenanceCategory = (dto.MaintenanceCategory ?? "PERIODIC").Trim().ToUpperInvariant();
+            if (!MaintenanceCategories.IsSupported(dto.MaintenanceCategory))
+                return BadRequest(new { error = "Loại bảo trì không hợp lệ." });
+            if (MaintenanceCategories.IsEventDriven(dto.MaintenanceCategory)) {
+                dto.AutoGenerate = false; dto.IntervalType = "CALENDAR";
+                dto.IntervalDays = null; dto.IntervalHours = null; dto.IntervalMonths = null; dto.IntervalYears = null;
+            }
+            bool isAdHoc = dto.MaintenanceCategory == "AD_HOC" || MaintenanceCategories.IsEventDriven(dto.MaintenanceCategory);
             if (!isAdHoc && dto.IntervalType == "RUNNING_HOURS" && !dto.IntervalHours.HasValue)
                 return BadRequest(new { error = "IntervalHours is required for RUNNING_HOURS interval type" });
             
-            if (!isAdHoc && dto.IntervalType == "CALENDAR" && !dto.IntervalDays.HasValue)
+            if (!isAdHoc && dto.IntervalType == "CALENDAR" && !dto.IntervalDays.HasValue && !dto.IntervalMonths.HasValue && !dto.IntervalYears.HasValue)
                 return BadRequest(new { error = "IntervalDays is required for CALENDAR interval type" });
 
+            var intervalError = ValidateInterval(dto);
+            if (intervalError != null) return BadRequest(new { error = intervalError });
             var validatedDaysBeforeDue = ValidateScheduleLeadTime(dto);
 
             var schedule = new MaintenanceSchedule
@@ -490,6 +588,8 @@ public class WorkItemConfigController : ControllerBase
                 IntervalType = dto.IntervalType,
                 IntervalHours = dto.IntervalHours,
                 IntervalDays = dto.IntervalDays,
+                IntervalMonths = dto.IntervalMonths, IntervalYears = dto.IntervalYears, WorkCode = dto.WorkCode,
+                LastExecutedAt = dto.LastExecutedAt, LastExecutedRunningHours = dto.LastExecutedRunningHours,
                 DaysBeforeDue = validatedDaysBeforeDue,
                 Priority = dto.Priority,
                 EstimatedDurationHours = dto.EstimatedDurationHours,
@@ -564,6 +664,8 @@ public class WorkItemConfigController : ControllerBase
     {
         var today = DateTime.UtcNow.Date;
         var lastExecuted = schedule.LastExecutedAt?.Date ?? today;
+        if (schedule.IntervalType == "CALENDAR" && MaintenanceCalendar.HasInterval(schedule))
+            return MaintenanceCalendar.AddInterval(schedule, lastExecuted);
         
         var intervalDays = schedule.IntervalType?.ToUpper() switch
         {
@@ -595,7 +697,7 @@ public class WorkItemConfigController : ControllerBase
 
             foreach (var schedule in schedules)
             {
-                if (!schedule.EquipmentAssetId.HasValue) continue;
+                if (!schedule.EquipmentAssetId.HasValue || MaintenanceCategories.IsEventDriven(schedule.MaintenanceCategory)) continue;
 
                 var asset = await _context.EquipmentAssets.FindAsync(schedule.EquipmentAssetId);
                 var assetName = asset?.AssetName ?? "Unknown Asset";
@@ -686,13 +788,22 @@ public class WorkItemConfigController : ControllerBase
                 return BadRequest(new { error = $"Schedule code '{dto.ScheduleCode}' already exists" });
 
             // Validate interval (skip for AD_HOC)
-            bool isAdHocUpdate = dto.MaintenanceCategory == "AD_HOC";
+            dto.MaintenanceCategory = (dto.MaintenanceCategory ?? "PERIODIC").Trim().ToUpperInvariant();
+            if (!MaintenanceCategories.IsSupported(dto.MaintenanceCategory))
+                return BadRequest(new { error = "Loại bảo trì không hợp lệ." });
+            if (MaintenanceCategories.IsEventDriven(dto.MaintenanceCategory)) {
+                dto.AutoGenerate = false; dto.IntervalType = "CALENDAR";
+                dto.IntervalDays = null; dto.IntervalHours = null; dto.IntervalMonths = null; dto.IntervalYears = null;
+            }
+            bool isAdHocUpdate = dto.MaintenanceCategory == "AD_HOC" || MaintenanceCategories.IsEventDriven(dto.MaintenanceCategory);
             if (!isAdHocUpdate && dto.IntervalType == "RUNNING_HOURS" && !dto.IntervalHours.HasValue)
                 return BadRequest(new { error = "IntervalHours is required for RUNNING_HOURS interval type" });
             
-            if (!isAdHocUpdate && dto.IntervalType == "CALENDAR" && !dto.IntervalDays.HasValue)
+            if (!isAdHocUpdate && dto.IntervalType == "CALENDAR" && !dto.IntervalDays.HasValue && !dto.IntervalMonths.HasValue && !dto.IntervalYears.HasValue)
                 return BadRequest(new { error = "IntervalDays is required for CALENDAR interval type" });
 
+            var intervalError = ValidateInterval(dto);
+            if (intervalError != null) return BadRequest(new { error = intervalError });
             var validatedDaysBeforeDue = ValidateScheduleLeadTime(dto);
 
             // Update schedule fields
@@ -702,14 +813,20 @@ public class WorkItemConfigController : ControllerBase
             schedule.ScheduleName = dto.ScheduleName;
             schedule.MaintenanceCategory = dto.MaintenanceCategory ?? "PERIODIC";
             schedule.IntervalType = dto.IntervalType;
+            schedule.IntervalMonths = dto.IntervalMonths; schedule.IntervalYears = dto.IntervalYears;
+            schedule.WorkCode = dto.WorkCode ?? schedule.WorkCode;
+            if (dto.IntervalMonths.HasValue || dto.IntervalYears.HasValue) schedule.IntervalDays = null;
             schedule.DaysBeforeDue = validatedDaysBeforeDue;
             schedule.Priority = dto.Priority;
             schedule.AutoGenerate = dto.AutoGenerate;
             schedule.Instructions = dto.Instructions;
 
+            if (MaintenanceCategories.IsEventDriven(schedule.MaintenanceCategory)) {
+                schedule.IntervalDays = null; schedule.IntervalHours = null;
+            }
             // Update nullable fields - only if provided
-            if (dto.IntervalHours.HasValue) schedule.IntervalHours = dto.IntervalHours;
-            if (dto.IntervalDays.HasValue) schedule.IntervalDays = dto.IntervalDays;
+            schedule.IntervalHours = dto.IntervalHours;
+            schedule.IntervalDays = dto.IntervalDays;
             if (dto.EstimatedDurationHours.HasValue) schedule.EstimatedDurationHours = dto.EstimatedDurationHours;
             schedule.UpdatedAt = DateTime.UtcNow;
 
@@ -862,6 +979,7 @@ public class WorkItemConfigController : ControllerBase
             IntervalType = schedule.IntervalType,
             IntervalHours = schedule.IntervalHours,
             IntervalDays = schedule.IntervalDays,
+                    IntervalMonths = schedule.IntervalMonths, IntervalYears = schedule.IntervalYears, WorkCode = schedule.WorkCode,
             DaysBeforeDue = schedule.DaysBeforeDue,
             LastExecutedAt = schedule.LastExecutedAt,
             LastExecutedRunningHours = schedule.LastExecutedRunningHours,
@@ -1046,7 +1164,8 @@ public class WorkItemConfigController : ControllerBase
             {
                 _logger.LogDebug("No active tasks found for schedule {ScheduleCode}, creating initial task", schedule.ScheduleCode);
                 // If no task exists yet, create one
-                await GenerateInitialTask(schedule, isPerAsset, firstAsset, dto);
+                if (schedule.AutoGenerate && schedule.NextDueDate.HasValue && !MaintenanceCategories.IsEventDriven(schedule.MaintenanceCategory))
+                    await GenerateInitialTask(schedule, isPerAsset, firstAsset, dto);
                 return;
             }
 
@@ -1120,7 +1239,7 @@ public class WorkItemConfigController : ControllerBase
                 task.Priority = schedule.Priority ?? "MEDIUM";
                 task.IntervalHours = schedule.IntervalHours;
                 task.IntervalDays = schedule.IntervalDays;
-                task.TaskType = (schedule.MaintenanceCategory == "AD_HOC" || schedule.MaintenanceCategory == "CORRECTIVE") ? schedule.MaintenanceCategory : (schedule.IntervalType ?? "RUNNING_HOURS");
+                task.TaskType = MaintenanceCategories.TaskType(schedule.MaintenanceCategory, schedule.IntervalType);
                 task.RequiredSpareParts = sparePartsJson;
                 task.EstimatedDuration = schedule.EstimatedDurationHours.HasValue ? (int)schedule.EstimatedDurationHours.Value : task.EstimatedDuration;
                 task.EquipmentGroupId = isPerAsset ? null : schedule.EquipmentGroupId;
@@ -1274,7 +1393,7 @@ public class WorkItemConfigController : ControllerBase
                 EquipmentAssetName = isPerAsset ? firstAsset.AssetName : null,
                 EquipmentId = isPerAsset ? firstAsset.AssetCode : null,
                 EquipmentName = isPerAsset ? firstAsset.AssetName : group?.GroupName,
-                TaskType = (schedule.MaintenanceCategory == "AD_HOC" || schedule.MaintenanceCategory == "CORRECTIVE") ? schedule.MaintenanceCategory : (schedule.IntervalType ?? "RUNNING_HOURS"),
+                TaskType = MaintenanceCategories.TaskType(schedule.MaintenanceCategory, schedule.IntervalType),
                 TaskDescription = string.IsNullOrWhiteSpace(cleanInstructions)
                     ? schedule.ScheduleName
                     : schedule.ScheduleName + "\n\n" + cleanInstructions,
@@ -1422,6 +1541,10 @@ public class WorkItemConfigController : ControllerBase
 
     private void CalculateNextDueDate(MaintenanceSchedule schedule, EquipmentAsset asset)
     {
+        if (MaintenanceCategories.IsEventDriven(schedule.MaintenanceCategory)) {
+            schedule.NextDueDate = null; schedule.NextDueRunningHours = null;
+            return;
+        }
         // AD_HOC: due immediately
         if (schedule.MaintenanceCategory == "AD_HOC")
         {
@@ -1429,10 +1552,11 @@ public class WorkItemConfigController : ControllerBase
             return;
         }
         
-        if (schedule.IntervalType == "CALENDAR" && schedule.IntervalDays.HasValue)
+        if (schedule.IntervalType == "CALENDAR" && MaintenanceCalendar.HasInterval(schedule))
         {
             var baseDate = schedule.LastExecutedAt ?? DateTime.UtcNow;
-            schedule.NextDueDate = baseDate.AddDays(schedule.IntervalDays.Value);
+            schedule.NextDueDate = MaintenanceCalendar.AddInterval(schedule, baseDate);
+            schedule.NextDueRunningHours = null;
         }
         else if (schedule.IntervalType == "RUNNING_HOURS" && schedule.IntervalHours.HasValue)
         {
@@ -1450,10 +1574,10 @@ public class WorkItemConfigController : ControllerBase
             DateTime? calendarDue = null;
             DateTime? runningHoursDue = null;
 
-            if (schedule.IntervalDays.HasValue)
+            if (MaintenanceCalendar.HasInterval(schedule))
             {
                 var baseDate = schedule.LastExecutedAt ?? DateTime.UtcNow;
-                calendarDue = baseDate.AddDays(schedule.IntervalDays.Value);
+                calendarDue = MaintenanceCalendar.AddInterval(schedule, baseDate);
             }
 
             if (schedule.IntervalHours.HasValue)

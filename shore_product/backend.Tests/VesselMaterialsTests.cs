@@ -197,4 +197,107 @@ public class VesselMaterialsTests
         await inbox.ProcessIncomingAsync(item); await context.SaveChangesAsync(); context.ChangeTracker.Clear();
         Assert.True((await context.MaterialItemShips.SingleAsync(s => s.Id == activeId)).IsActive);
     }
+
+    [ShorePostgresFact]
+    public async Task MaintenanceUpload_PreservesOriginalWorkCodeAndCalendarUnits()
+    {
+        await using var context = Database(); await context.Database.EnsureCreatedAsync();
+        var vessel = Vessel(); context.Vessels.Add(vessel);
+        context.SyncNodeTrackers.Add(new() { NodeId = vessel.IMO, VesselId = vessel.Id, IsRegistered = true });
+        var asset = new EquipmentAsset { AssetCode = Guid.NewGuid().ToString("N"), AssetName = "Device", Category = "ENGINE", VesselId = vessel.Id };
+        context.EquipmentAssets.Add(asset); await context.SaveChangesAsync();
+        var inbox = new SyncInboxService(context, Mock.Of<IConflictResolverService>(), NullLogger<SyncInboxService>.Instance,
+            Mock.Of<INotificationService>(), new ConfigurationBuilder().Build(), Mock.Of<ISyncFileStorageService>(), new ReportEvaluationQueue());
+        var id = Guid.NewGuid();
+        var result = await inbox.ProcessBatchAsync([new() {
+            TableName = "maintenance_schedule", RecordKey = id.ToString(), ActionType = "CREATE", OriginNode = vessel.IMO,
+            SyncVersion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Payload = JsonSerializer.Serialize(new {
+                id, scheduleCode = Guid.NewGuid().ToString("N"), workCode = "E001", scheduleName = "Monthly work", equipmentAssetId = asset.Id,
+                maintenanceCategory = "PERIODIC", intervalType = "CALENDAR", intervalMonths = 3, intervalYears = (int?)null, intervalDays = (int?)null,
+                autoGenerate = false, isActive = true, priority = "NORMAL", createdAt = DateTime.UtcNow, updatedAt = DateTime.UtcNow,
+            })
+        }]);
+        Assert.Equal(1, result.Succeeded); Assert.Equal(0, result.Failed);
+        context.ChangeTracker.Clear();
+        var schedule = await context.MaintenanceSchedules.SingleAsync(s => s.Id == id);
+        Assert.Equal("E001", schedule.WorkCode); Assert.Equal(3, schedule.IntervalMonths);
+        Assert.Null(schedule.IntervalDays); Assert.Null(schedule.IntervalYears); Assert.Equal(vessel.Id, schedule.VesselId);
+    }
+    [ShorePostgresFact]
+    public async Task EquipmentUpload_UsesRegisteredNodeVessel_InsteadOfTreatingNodeIdAsImo()
+    {
+        await using var context = Database(); await context.Database.EnsureCreatedAsync();
+        var vessel = Vessel(); var other = Vessel(); context.Vessels.AddRange(vessel, other);
+        var nodeId = $"edge-{vessel.IMO}-main";
+        context.SyncNodeTrackers.Add(new() { NodeId = nodeId, ImoNumber = vessel.IMO, VesselId = vessel.Id, IsRegistered = true });
+        await context.SaveChangesAsync();
+        var inbox = new SyncInboxService(context, Mock.Of<IConflictResolverService>(), NullLogger<SyncInboxService>.Instance,
+            Mock.Of<INotificationService>(), new ConfigurationBuilder().Build(), Mock.Of<ISyncFileStorageService>(), new ReportEvaluationQueue());
+        var id = Guid.NewGuid();
+        var result = await inbox.ProcessBatchAsync([new() { TableName = "equipment_asset", RecordKey = id.ToString(), ActionType = "CREATE", OriginNode = nodeId,
+            SyncVersion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Payload = JsonSerializer.Serialize(new {
+                id, assetCode = Guid.NewGuid().ToString("N"), assetName = "Imported device", category = "ENGINE", vesselId = other.Id, originNode = "SHIP_01",
+                isActive = true, createdAt = DateTime.UtcNow, updatedAt = DateTime.UtcNow,
+            }) }]);
+        Assert.Equal(1, result.Succeeded); Assert.Equal(0, result.Failed);
+        context.ChangeTracker.Clear();
+        Assert.Equal(vessel.Id, (await context.EquipmentAssets.SingleAsync(a => a.Id == id)).VesselId);
+    }
+
+    [ShorePostgresFact]
+    public async Task CrewPull_AcceptsLegacyImoTarget_QueuesReferences_AndKeepsAckScopedToVessel()
+    {
+        await using var context = Database(); await context.Database.EnsureCreatedAsync();
+        var vessel = Vessel(); var other = Vessel(); context.Vessels.AddRange(vessel, other);
+        var nodeId = $"edge-{vessel.IMO}-main"; var otherNode = $"edge-{other.IMO}-main";
+        context.SyncNodeTrackers.AddRange(new() { NodeId = nodeId, VesselId = vessel.Id, ImoNumber = vessel.IMO, IsRegistered = true },
+            new() { NodeId = otherNode, VesselId = other.Id, ImoNumber = other.IMO, IsRegistered = true });
+        var rank = new Maritime.Shared.Models.Crew.Rank { RankCode = Guid.NewGuid().ToString("N")[..8], RankName = "Captain" };
+        var country = new Maritime.Shared.Models.Crew.Country { CountryCode = Guid.NewGuid().ToString("N")[..3], CountryName = "Test" };
+        context.Ranks.Add(rank); context.Countries.Add(country); await context.SaveChangesAsync();
+        var crewKey = Guid.NewGuid().ToString();
+        var pending = new Maritime.Shared.Models.Sync.SyncOutbox { TargetNode = vessel.IMO, TableName = "crew_member", RecordKey = crewKey,
+            Payload = JsonSerializer.Serialize(new { rankId = rank.Id, countryId = country.Id, onboardStatus = "PendingReview" }) };
+        context.SyncOutbox.Add(pending); await context.SaveChangesAsync();
+        var outbox = new SyncOutboxService(context, NullLogger<SyncOutboxService>.Instance, Mock.Of<ISyncFileStorageService>());
+        var pull = await outbox.GetPendingItemsAsync(nodeId, null, null, 1000);
+        Assert.Contains(pull.Items, i => i.OutboxId == pending.Id);
+        Assert.Contains(pull.Items, i => i.TableName == "rank" && i.RecordKey == rank.Id.ToString());
+        Assert.Contains(pull.Items, i => i.TableName == "country" && i.RecordKey == country.Id.ToString());
+        await outbox.GetPendingItemsAsync(nodeId, null, null, 1000);
+        Assert.Equal(1, await context.SyncOutbox.CountAsync(o => o.TargetNode == nodeId && o.TableName == "rank" && o.RecordKey == rank.Id.ToString()));
+        await outbox.AcknowledgeDeliveryAsync(otherNode, [pending.Id]);
+        context.ChangeTracker.Clear();
+        Assert.Null((await context.SyncOutbox.SingleAsync(o => o.Id == pending.Id)).DeliveredAt);
+        await outbox.AcknowledgeDeliveryAsync(nodeId, [pending.Id]);
+        context.ChangeTracker.Clear();
+        Assert.NotNull((await context.SyncOutbox.SingleAsync(o => o.Id == pending.Id)).DeliveredAt);
+        var newKey = Guid.NewGuid().ToString();
+        await outbox.EnqueueAsync(vessel.IMO, "crew_member", newKey, Maritime.Shared.Models.Sync.SyncActionType.UPDATE, new { id = newKey });
+        Assert.Equal(nodeId, (await context.SyncOutbox.SingleAsync(o => o.RecordKey == newKey)).TargetNode);
+    }
+
+    [ShorePostgresFact]
+    public async Task RepairEquipmentOwnership_UsesSuccessfulSyncLogs_AndSkipsAmbiguousOrExistingOwners()
+    {
+        await using var context = Database(); await context.Database.EnsureCreatedAsync();
+        var vessel = Vessel(); var other = Vessel(); context.Vessels.AddRange(vessel, other);
+        var node = $"edge-{vessel.IMO}-main"; var otherNode = $"edge-{other.IMO}-main";
+        context.SyncNodeTrackers.AddRange(new() { NodeId = node, VesselId = vessel.Id, IsRegistered = true },
+            new() { NodeId = otherNode, VesselId = other.Id, IsRegistered = true });
+        EquipmentAsset Asset(Guid? owner = null) => new() { AssetCode = Guid.NewGuid().ToString("N"), AssetName = "Device", Category = "ENGINE", VesselId = owner };
+        var repair = Asset(); var ambiguous = Asset(); var existing = Asset(other.Id); var noEvidence = Asset();
+        context.EquipmentAssets.AddRange(repair, ambiguous, existing, noEvidence);
+        Maritime.Shared.Models.Sync.SyncLog Log(EquipmentAsset asset, string source) => new() { TableName = "equipment_asset", RecordKey = asset.Id.ToString(), OriginNode = source, Status = "SUCCESS", Direction = "EDGE_TO_SHORE" };
+        context.SyncLogs.AddRange(Log(repair, node), Log(ambiguous, node), Log(ambiguous, otherNode), Log(existing, node));
+        await context.SaveChangesAsync();
+        var migration = new ProductApi.Migrations.RepairSyncedEquipmentVesselOwnership();
+        var sql = Assert.IsType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>(Assert.Single(migration.UpOperations)).Sql;
+        await context.Database.ExecuteSqlRawAsync(sql);
+        context.ChangeTracker.Clear();
+        Assert.Equal(vessel.Id, (await context.EquipmentAssets.SingleAsync(a => a.Id == repair.Id)).VesselId);
+        Assert.Null((await context.EquipmentAssets.SingleAsync(a => a.Id == ambiguous.Id)).VesselId);
+        Assert.Equal(other.Id, (await context.EquipmentAssets.SingleAsync(a => a.Id == existing.Id)).VesselId);
+        Assert.Null((await context.EquipmentAssets.SingleAsync(a => a.Id == noEvidence.Id)).VesselId);
+    }
 }

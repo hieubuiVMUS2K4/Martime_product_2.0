@@ -1,7 +1,7 @@
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 
-part 'sync_item.g.dart';
+part 'sync_item_adapter.dart';
 
 @HiveType(typeId: 0)
 class SyncItem extends HiveObject {

@@ -3,7 +3,7 @@ import { Plus, Upload, Download, Search, Package, Trash2, ChevronDown, ChevronRi
 import { getOnboardCrew, type CrewMember } from '@/services/crew.service';
 import { EquipmentAssetsTable } from '@/components/pms/EquipmentAssetsTable';
 import { emptyEquipmentFilters, matchesEquipmentFilters, type EquipmentFilters } from '@/components/pms/equipment-assets-filters';
-import { equipmentAssetService } from '@/services/equipment-asset.service';
+import { equipmentAssetService, getCachedEquipmentTree } from '@/services/equipment-asset.service';
 import { ImportAssetsModal } from '@/components/pms/ImportAssetsModal';
 import { materialService, type EquipmentMaterialLink, type MaterialCatalogItem } from '@/services/materialService';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -38,18 +38,6 @@ function buildTree(items: EquipmentAsset[]): EquipmentAsset[] {
   return roots;
 }
 
-/** Lấy tất cả descendant IDs của 1 node (bao gồm chính nó) */
-function getDescendantIds(node: EquipmentAsset): Set<string> {
-  const ids = new Set<string>();
-  const stack = [node];
-  while (stack.length) {
-    const n = stack.pop()!;
-    ids.add(n.id);
-    n.children?.forEach(c => stack.push(c));
-  }
-  return ids;
-}
-
 function isFolderNode(node?: EquipmentAsset | null): boolean {
   return !!node && node.category === 'SYSTEM';
 }
@@ -57,8 +45,8 @@ function isFolderNode(node?: EquipmentAsset | null): boolean {
 export default function AssetsPage() {
   const { t } = useTranslationSafe();
 
-  const [assets, setAssets] = useState<EquipmentAsset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [assets, setAssets] = useState<EquipmentAsset[]>(() => getCachedEquipmentTree() ?? []);
+  const [loading, setLoading] = useState(() => !getCachedEquipmentTree());
   const [showImportModal, setShowImportModal] = useState(false);
   const [createNodeMode, setCreateNodeMode] = useState<CreateNodeMode | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -93,7 +81,7 @@ export default function AssetsPage() {
 
   const loadData = async () => {
     try {
-      setLoading(true);
+      if (!getCachedEquipmentTree()) setLoading(true);
       const data = await equipmentAssetService.getTree();
       setAssets(data);
     } catch (error) {
@@ -118,6 +106,17 @@ export default function AssetsPage() {
     return m;
   }, [assets]);
 
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const asset of assets) {
+      if (!asset.parentId) continue;
+      const children = map.get(asset.parentId) ?? [];
+      children.push(asset.id);
+      map.set(asset.parentId, children);
+    }
+    return map;
+  }, [assets]);
+
   const toggleNode = useCallback((id: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
@@ -132,17 +131,19 @@ export default function AssetsPage() {
     let data = assets.filter(a => !isFolderNode(a));
     
     if (selectedNodeId) {
-      const buildFromFlat = (id: string): EquipmentAsset => {
-        const node = { ...assetMap.get(id)!, children: [] as EquipmentAsset[] };
-        assets.filter(a => a.parentId === id).forEach(child => { node.children!.push(buildFromFlat(child.id)); });
-        return node;
-      };
-      const ids = getDescendantIds(buildFromFlat(selectedNodeId));
+      const ids = new Set<string>();
+      const stack = [selectedNodeId];
+      while (stack.length) {
+        const id = stack.pop()!;
+        if (ids.has(id)) continue;
+        ids.add(id);
+        stack.push(...(childrenByParent.get(id) ?? []));
+      }
       data = data.filter(a => ids.has(a.id));
     }
     
     return data.filter(asset => matchesEquipmentFilters(asset, filters));
-  }, [assets, selectedNodeId, filters, assetMap]);
+  }, [assets, selectedNodeId, filters, childrenByParent]);
 
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const paginatedAssets = useMemo(() => filteredAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredAssets, currentPage, itemsPerPage]);
@@ -192,6 +193,7 @@ export default function AssetsPage() {
           try {
             await equipmentAssetService.delete(asset.id);
             if (selectedNodeId === asset.id) setSelectedNodeId(null);
+            setEditingAsset(current => current?.id === asset.id ? null : current);
             await loadAssets();
             toast.success(t('pms.assets.deleteSuccess', { name: asset.assetName }));
           } catch (err: any) {
@@ -339,8 +341,7 @@ export default function AssetsPage() {
           ) : (
             <Package className="w-3 h-3 flex-shrink-0 text-slate-400" />
           )}
-          <span className="flex-1 text-left leading-snug truncate" title={`${node.assetCode} — ${node.assetName}`}>
-            {isFolder && node.assetCode && <span className="mr-1.5 font-semibold text-slate-500">{node.assetCode}</span>}
+          <span className="flex-1 text-left leading-snug truncate" title={node.assetName}>
             {node.assetName}
           </span>
           {childCount > 0 && (
@@ -605,6 +606,7 @@ export default function AssetsPage() {
 
       <EditAssetModal
         asset={editingAsset}
+        onDelete={handleDelete}
         onClose={() => setEditingAsset(null)}
         onSuccess={async (updated) => {
           await loadAssets();
@@ -676,11 +678,12 @@ interface CreateAssetModalProps {
 
 interface EditAssetModalProps {
   asset: EquipmentAsset | null;
+  onDelete: (asset: EquipmentAsset) => void;
   onClose: () => void;
   onSuccess: (asset: EquipmentAsset) => void | Promise<void>;
 }
 
-function EditAssetModal({ asset, onClose, onSuccess }: EditAssetModalProps) {
+function EditAssetModal({ asset, onDelete, onClose, onSuccess }: EditAssetModalProps) {
   const { t } = useTranslationSafe();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<EquipmentAsset>>({});
@@ -797,6 +800,9 @@ function EditAssetModal({ asset, onClose, onSuccess }: EditAssetModalProps) {
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
+          {isFolderNode(asset) && <button type="button" disabled={saving} onClick={() => onDelete(asset)} className="mr-auto inline-flex items-center gap-2 rounded border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60">
+            <Trash2 className="h-4 w-4" /> Xóa nhóm thiết bị
+          </button>}
           <button type="button" onClick={onClose} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             {t('common.cancel')}
           </button>

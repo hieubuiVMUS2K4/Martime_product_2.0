@@ -2128,11 +2128,11 @@ public class SyncInboxService : ISyncInboxService
 
         Vessel? vessel = null;
 
-        // Always remap VesselId to shore's vessel GUID based on IMO.
+        // Resolve registered node ownership first; legacy senders may still use IMO as NodeId.
         // Do NOT skip when VesselId is already set — ConflictResolver may have copied
         // the edge vessel GUID (different from shore's GUID) into the entity, causing an
         // FK violation. Overwriting with shore's lookup ensures correct FK every time.
-        // If the vessel is not found on shore yet, null out VesselId to prevent the FK violation.
+        // Unknown senders must fail instead of creating invisible rows with no vessel owner.
         switch (entity)
         {
             case CrewMember:
@@ -2148,42 +2148,42 @@ public class SyncInboxService : ISyncInboxService
                 // (CrewService.AssignToVesselAsync), không bao giờ bởi đồng bộ.
                 break;
             case ProductApi.Models.EquipmentAsset asset:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 asset.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.MaterialItemShip mat:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 mat.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.MaintenanceTask task:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 task.VesselId = vessel?.Id;
                 break;
 
             // Nghiệp vụ vật tư/PMS dưới tàu — bờ chỉ xem, nhưng phải biết của tàu nào
             // thì mới tách được theo từng tàu trong màn chi tiết tàu.
             case ProductApi.Models.MaterialRequest req:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 req.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.StockReceipt receipt:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 receipt.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.InventoryStock stock:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 stock.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.StoreLocation loc:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 loc.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.EquipmentGroup grp:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 grp.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.MaintenanceSchedule sched:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 sched.VesselId = vessel?.Id;
                 break;
         }
@@ -2194,6 +2194,13 @@ public class SyncInboxService : ISyncInboxService
     /// The edge DB may still have "SHIP_01" defaults, but the sync item
     /// correctly carries the vessel IMO. Always trust the item-level value.
     /// </summary>
+    private async Task<Vessel> ResolveOriginVesselAsync(string originNode)
+    {
+        var id = await VesselSyncIdentity.ResolveVesselIdAsync(_context, originNode);
+        if (!id.HasValue) throw new InvalidOperationException($"Unknown vessel for sync node '{originNode}'");
+        return (await _context.Vessels.AsNoTracking().SingleAsync(v => v.Id == id.Value));
+    }
+
     private static void SetOriginNodeFromItem(object entity, string originNode)
     {
         if (string.IsNullOrWhiteSpace(originNode)) return;
