@@ -2095,10 +2095,7 @@ public class EdgeDbContext : DbContext
                 .HasDatabaseName("idx_material_catalog_active")
                 .HasFilter("is_active = true");
 
-            entity.HasOne<MaterialCategory>()
-                .WithMany()
-                .HasForeignKey(e => e.CategoryId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // CategoryId is retained only for historical data; definitions no longer require a category.
         });
 
         // ========== MATERIAL ITEM SHIP (material_item_ship) ==========
@@ -2135,10 +2132,7 @@ public class EdgeDbContext : DbContext
                 .HasDatabaseName("idx_material_item_ship_synced")
                 .HasFilter("is_synced = false");
 
-            entity.HasOne<MaterialCategory>()
-                .WithMany()
-                .HasForeignKey(e => e.CategoryId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // CategoryId is retained only for historical data; definitions no longer require a category.
 
             // FK trỏ danh mục qua mã vật tư (ItemCode là alternate key của material_items).
             entity.HasOne<MaterialCatalogItem>()
@@ -3070,6 +3064,9 @@ public class EdgeDbContext : DbContext
                 || entry.Entity is ReportDistribution || entry.Entity is ReportTransmissionLog
                 || entry.Entity is ReportAmendment)
                 continue;
+
+            // Material definitions are owned by Shore. Stock movements and equipment links remain operational data.
+            if (entry.Entity is MaterialItem or MaterialCatalogItem or MaterialCategory) continue;
 
             // Material-equipment links are syncable without a schema-level IsSynced flag.
             var entityType = entry.Entity.GetType();

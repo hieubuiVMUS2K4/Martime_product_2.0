@@ -335,6 +335,10 @@ public class SyncInboxService : ISyncInboxService
         "hsqe_document_read_logs",
     };
 
+    private static bool IsShoreManagedMaterial(string table) => table.ToLowerInvariant() is
+        "material_item" or "material_item_ship" or "material_category" or "material_catalog_item" or
+        "material_item_catalog" or "material_items" or "vessel_material_definition";
+
     private static string CanonicalizeTableName(string? tableName)
     {
         if (string.IsNullOrWhiteSpace(tableName))
@@ -508,6 +512,12 @@ public class SyncInboxService : ISyncInboxService
         foreach (var group in grouped)
         {
             var canonicalTable = CanonicalizeTableName(group.Key);
+            if (IsShoreManagedMaterial(canonicalTable))
+            {
+                _logger.LogInformation("Ignored {Count} obsolete Edge material-definition uploads", group.Count());
+                result.Succeeded += group.Count(); // Acknowledge old queues without mutating Shore definitions.
+                continue;
+            }
 
             // ── Special handler: ship_data → Vessels table (field mapping required) ──
             if (canonicalTable.Equals("ship_data", StringComparison.OrdinalIgnoreCase))
@@ -1081,6 +1091,11 @@ public class SyncInboxService : ISyncInboxService
     public async Task ProcessIncomingAsync(SyncQueueItemDto item)
     {
         item.TableName = CanonicalizeTableName(item.TableName);
+        if (IsShoreManagedMaterial(item.TableName))
+        {
+            await LogSyncOperation(item, "IGNORED", "Material definitions only synchronize from Shore to Edge.");
+            return;
+        }
 
         if (!_tableEntityMap.TryGetValue(item.TableName, out var entityType))
         {
@@ -1150,6 +1165,11 @@ public class SyncInboxService : ISyncInboxService
         var existing = await FindEntityByKeyAsync(entityType, item.RecordKey);
         if (existing != null)
         {
+            if (existing is ProductApi.Models.MaterialItemShip material)
+            {
+                await ApplyMaterialStockFromEdgeAsync(material, item);
+                return;
+            }
             // For vessel-scoped entities (MaterialItem, EquipmentAsset, MaintenanceTask):
             // if the existing record already belongs to a DIFFERENT vessel, treat the incoming
             // data as a NEW record for that vessel (create a copy with a new ID).
@@ -1225,6 +1245,12 @@ public class SyncInboxService : ISyncInboxService
         // a key miss is a renamed key, not a new record. ProcessCreateAsync deliberately does
         // NOT do this — there, a key miss really is a new record.
         var existing = await FindEntityByKeyAsync(entityType, item.RecordKey, item.Payload);
+
+        if (existing is ProductApi.Models.MaterialItemShip material)
+        {
+            await ApplyMaterialStockFromEdgeAsync(material, item);
+            return;
+        }
 
         // For vessel-scoped tables: if the existing record belongs to a DIFFERENT vessel,
         // treat this as a new record creation (same seed ID, different vessel).
@@ -2021,6 +2047,27 @@ public class SyncInboxService : ISyncInboxService
     /// This prevents overwriting existing good data with deserialization defaults
     /// (e.g. ReportNumber="", ReportTypeId=0, IsTransmitted=false).
     /// </summary>
+    private async Task ApplyMaterialStockFromEdgeAsync(ProductApi.Models.MaterialItemShip material, SyncQueueItemDto item)
+    {
+        var vesselId = await _context.SyncNodeTrackers.Where(n => n.NodeId == item.OriginNode && !n.IsRevoked)
+            .Select(n => n.VesselId).FirstOrDefaultAsync()
+            ?? await _context.Vessels.Where(v => v.IMO == item.OriginNode).Select(v => (Guid?)v.Id).FirstOrDefaultAsync();
+        if (!vesselId.HasValue || (material.VesselId.HasValue && material.VesselId != vesselId))
+            throw new InvalidOperationException("Material stock upload belongs to another vessel or an unknown node.");
+        if (_context.Entry(material).State == EntityState.Detached) _context.Attach(material);
+        material.VesselId ??= vesselId;
+        using var payload = JsonDocument.Parse(NormalizePayloadToCamelCase(item.Payload, typeof(ProductApi.Models.MaterialItemShip)));
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "OnHandQuantity", "MinStock", "MaxStock", "ReorderLevel", "ReorderQuantity" };
+        foreach (var value in payload.RootElement.EnumerateObject())
+        {
+            var property = typeof(ProductApi.Models.MaterialItemShip).GetProperties()
+                .FirstOrDefault(p => allowed.Contains(p.Name) && p.Name.Equals(value.Name, StringComparison.OrdinalIgnoreCase));
+            if (property != null) property.SetValue(material, JsonSerializer.Deserialize(value.Value.GetRawText(), property.PropertyType, _jsonOptions));
+        }
+        // Definitions and deletion are authored on Shore. Old offline snapshots must not undo them.
+    }
+
     private void CopyNonDefaultProperties(object target, object source, Type entityType)
     {
         var entry = _context.Entry(target);

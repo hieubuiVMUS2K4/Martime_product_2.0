@@ -163,10 +163,14 @@ public class SyncConflictHandler : ISyncConflictHandler
     public async Task HandleIncomingAsync(
         EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
     {
+        if (item.TableName == "vessel_material_definition")
+        {
+            await ApplyVesselMaterialAsync(context, item, token);
+            return;
+        }
         if (!_tableEntityMap.TryGetValue(item.TableName, out var entityType))
         {
-            _logger.LogWarning("Unknown table from shore: {Table}", item.TableName);
-            return;
+            throw new InvalidOperationException($"Unsupported Shore sync table: {item.TableName}. Update the Edge backend before acknowledging this item.");
         }
 
         var action = item.ActionType?.ToUpperInvariant() ?? "CREATE";
@@ -198,6 +202,54 @@ public class SyncConflictHandler : ISyncConflictHandler
                 await HandleClearEdgeChangesAsync(context, entityType, item);
                 break;
         }
+    }
+
+    private static async Task ApplyVesselMaterialAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
+    {
+        var incoming = JsonSerializer.Deserialize<VesselMaterialDefinition>(item.Payload, _jsonOptions)
+            ?? throw new InvalidOperationException("Invalid vessel material payload");
+        if (incoming.Id == Guid.Empty || incoming.CatalogId == Guid.Empty || incoming.VesselId == Guid.Empty ||
+            item.RecordKey != incoming.Id.ToString() || string.IsNullOrWhiteSpace(incoming.ItemCode) ||
+            string.IsNullOrWhiteSpace(incoming.MaterialItemCode) || string.IsNullOrWhiteSpace(incoming.Name))
+            throw new InvalidOperationException("Invalid vessel material identity");
+        var catalog = await context.MaterialCatalogItems.AsTracking().SingleOrDefaultAsync(c => c.Id == incoming.CatalogId, token);
+        if (catalog != null && catalog.UpdatedAt > incoming.UpdatedAt) return;
+        if (catalog == null)
+        {
+            catalog = new MaterialCatalogItem { Id = incoming.CatalogId, ItemCode = incoming.MaterialItemCode };
+            context.MaterialCatalogItems.Add(catalog);
+        }
+        catalog.Name = incoming.Name;
+        catalog.UnitPrice = incoming.UnitCost;
+        catalog.IsActive = incoming.IsActive;
+        catalog.UpdatedAt = incoming.UpdatedAt;
+        var ship = await context.MaterialItems.AsTracking().SingleOrDefaultAsync(s => s.Id == incoming.Id, token);
+        if (ship == null)
+        {
+            ship = new MaterialItem { Id = incoming.Id, IsSynced = true };
+            context.MaterialItems.Add(ship);
+        }
+        else if (ship.MaterialItemCode != incoming.MaterialItemCode && !string.IsNullOrEmpty(ship.MaterialItemCode)
+            && !await context.MaterialItems.AnyAsync(s => s.Id != ship.Id && s.MaterialItemCode == ship.MaterialItemCode, token))
+        {
+            var previousCatalog = await context.MaterialCatalogItems.SingleOrDefaultAsync(c => c.ItemCode == ship.MaterialItemCode, token);
+            if (previousCatalog != null)
+                foreach (var link in await context.MaterialItemEquipments.AsTracking().Where(l => l.MaterialItemId == previousCatalog.Id).ToListAsync(token))
+                    link.MaterialItemId = incoming.CatalogId;
+        }
+        ship.ItemCode = incoming.ItemCode;
+        ship.Name = incoming.Name;
+        ship.MaterialItemCode = incoming.MaterialItemCode;
+        ship.Unit = incoming.Unit;
+        ship.Specification = incoming.Specification;
+        ship.Manufacturer = incoming.Manufacturer;
+        ship.PartNumber = incoming.PartNumber;
+        ship.Supplier = incoming.Supplier;
+        ship.Notes = incoming.Notes;
+        ship.UnitCost = incoming.UnitCost;
+        ship.IsActive = incoming.IsActive;
+        // Ignore legacy catalog payload links as well: assignments are maintained on Edge.
+        // Keep quantities, min/max stock and pending operational uploads owned by Edge.
     }
 
     private async Task HandleCreateAsync(EdgeDbContext context, Type entityType, SyncQueueItemDto item)

@@ -733,7 +733,7 @@ export default function WorkPlanningPage() {
 
   // Config: selected equipment names from tree
   const cfgSelectedEquipmentNames = useMemo(() => {
-    return assets.filter(a => cfgTreeSelectedIds.has(a.id)).map(a => ({ id: a.id, code: a.assetCode, name: a.assetName }));
+    return assets.filter(a => !isEquipmentFolder(a) && cfgTreeSelectedIds.has(a.id)).map(a => ({ id: a.id, code: a.assetCode, name: a.assetName }));
   }, [assets, cfgTreeSelectedIds]);
 
   // Config: schedules filtered for left list

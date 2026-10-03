@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Package, Eye, Edit2, Trash2, ChevronsUpDown, Upload, Link2 } from 'lucide-react';
-import { materialService } from '@/services/materialService';
-import type { CreateMaterialItemDto, UpdateMaterialItemDto } from '@/services/materialService';
+import { Search, Package, Eye, Edit2, Trash2, ChevronsUpDown, Upload, Plus, Download, RefreshCw } from 'lucide-react';
+import type { VesselMaterialInput } from '@/services/vesselMaterialService';
+import { VesselMaterialFormModal } from './VesselMaterialFormModal';
 import { ItemFormModal } from './ItemFormModal';
-import { CategoryFormModal } from './CategoryFormModal';
-import { ImportReceiptModal } from './ImportReceiptModal';
-import { AssignEquipmentModal } from './AssignEquipmentModal';
+import { VesselMaterialImportModal } from './VesselMaterialImportModal';
+import { vesselMaterialService, downloadVesselMaterialTemplate } from '@/services/vesselMaterialService';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { MaterialItem, MaterialCategory } from '@/types/maritime.types';
 
@@ -18,14 +18,18 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
   const [searchParams] = useSearchParams();
   const vesselId = vesselIdProp ?? (searchParams.get('vesselId') ?? undefined);
 
+  const materialRequest = useRef(0);
   const [items, setItems] = useState<MaterialItem[]>([]);
-  const [categories, setCategories] = useState<MaterialCategory[]>([]);
+  const categories: MaterialCategory[] = [];
   const [loading, setLoading] = useState(true);
 
   // Filters
   const [searchName, setSearchName] = useState('');
   const [searchCode, setSearchCode] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [searchPartNumber, setSearchPartNumber] = useState('');
+  const [filterSync, setFilterSync] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [filterUnit, setFilterUnit] = useState<string>('');
 
   // Pagination
@@ -37,46 +41,44 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
 
   // Modals
   const [itemModalOpen, setItemModalOpen] = useState(false);
-  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [importReceiptModalOpen, setImportReceiptModalOpen] = useState(false);
-  const [assignEquipmentModalOpen, setAssignEquipmentModalOpen] = useState(false);
+  const [catalogImportOpen, setCatalogImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MaterialItem | null>(null);
   const [viewingItem, setViewingItem] = useState<MaterialItem | null>(null);
-  const [editingCategory, setEditingCategory] = useState<MaterialCategory | null>(null);
-  const [equipmentCounts, setEquipmentCounts] = useState<Map<string, number>>(new Map());
-  const [singleAssignItemId, setSingleAssignItemId] = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, [vesselId]);
+  useEffect(() => { setSelectedRows(new Set()); setItemModalOpen(false); setCatalogImportOpen(false); loadData(); return () => { materialRequest.current++; }; }, [vesselId]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (quiet = false) => {
+    const request = ++materialRequest.current;
     try {
-      setLoading(true);
-      const [its, cats, eqCounts] = await Promise.all([
-        materialService.getItems({ onlyActive: true, vesselId }),
-        materialService.getCategories(true),
-        materialService.getEquipmentCounts(),
-      ]);
-      setItems(its);
-      setCategories(cats);
-      setEquipmentCounts(new Map(eqCounts.map(e => [e.materialItemId, e.count])));
+      if (!quiet) setLoading(true);
+      const its = vesselId ? await vesselMaterialService.list(vesselId) : [];
+      if (request !== materialRequest.current) return;
+      setItems(its.map(row => ({ ...row, categoryId: 0, isActive: true, createdAt: row.updatedAt, batchTracked: false, serialTracked: false, expiryRequired: false, currency: 'USD', isSynced: row.syncStatus === 'Synced', syncedAt: row.syncedAt ?? undefined })));
+      setLoadError('');
     } catch (e) {
-      console.error('Failed to load material data:', e);
+      if (request !== materialRequest.current) return;
+      setLoadError(e instanceof Error ? e.message : 'Không thể tải vật tư của tàu.');
     } finally {
-      setLoading(false);
+      if (request === materialRequest.current) setLoading(false);
     }
   }, [vesselId]);
 
+
+  useEffect(() => { const timer = window.setInterval(() => loadData(true), 15000); return () => window.clearInterval(timer); }, [loadData]);
+
   // ---------- Handlers ----------
-  const handleCreateItem = async (data: CreateMaterialItemDto) => {
+  const handleCreateItem = async (data: VesselMaterialInput) => {
     if (readOnly) return;
-    await materialService.createItem(data);
+    if (!vesselId) throw new Error('Cần chọn tàu.');
+    await vesselMaterialService.create(vesselId, { ...data, unit: data.unit ?? 'PCS' });
     await loadData();
   };
 
-  const handleUpdateItem = async (data: UpdateMaterialItemDto) => {
+  const handleUpdateItem = async (data: VesselMaterialInput) => {
     if (readOnly) return;
     if (!editingItem) return;
-    await materialService.updateItem(editingItem.id, data);
+    if (!vesselId) throw new Error('Cần chọn tàu.');
+    await vesselMaterialService.update(vesselId, editingItem.id, { ...data, unit: data.unit ?? 'PCS' });
     setEditingItem(null);
     await loadData();
   };
@@ -85,7 +87,8 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
     if (readOnly) return;
     if (!confirm(t('materials.page.confirmDelete', { name: item.name }))) return;
     try {
-      await materialService.deleteItem(item.id);
+      if (!vesselId) return;
+      await vesselMaterialService.remove(vesselId, [item.id]);
       await loadData();
     } catch (error: any) {
       alert(error.message || 'Failed to delete item');
@@ -93,11 +96,13 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
   };
 
   const handleBulkDelete = async () => {
+    if (readOnly) return;
     if (selectedRows.size === 0) return;
     if (!confirm(`Bạn có chắc muốn xóa ${selectedRows.size} vật tư đã chọn?`)) return;
     try {
       const ids = Array.from(selectedRows);
-      await Promise.all(ids.map(id => materialService.deleteItem(id)));
+      if (!vesselId) return;
+      await vesselMaterialService.remove(vesselId, ids);
       setSelectedRows(new Set());
       await loadData();
     } catch (error: any) {
@@ -105,32 +110,8 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
     }
   };
 
-  const handleAssignEquipment = () => {
-    if (selectedRows.size === 0) {
-      alert('Vui lòng chọn ít nhất 1 vật tư để gán thiết bị');
-      return;
-    }
-    setAssignEquipmentModalOpen(true);
-  };
-
-  // Category handlers (for modal)
-  const handleCreateCategory = async (data: any) => {
-    await materialService.createCategory(data);
-    await loadData();
-  };
-  const handleUpdateCategory = async (data: any) => {
-    if (!editingCategory) return;
-    await materialService.updateCategory(editingCategory.id, data);
-    setEditingCategory(null);
-    await loadData();
-  };
 
   // ---------- Derived ----------
-  const categoryMap = useMemo(() => {
-    const m = new Map<number, string>();
-    categories.forEach(c => m.set(c.id, c.name));
-    return m;
-  }, [categories]);
 
   const uniqueUnits = useMemo(() => [...new Set(items.map(i => i.unit))].sort(), [items]);
 
@@ -144,14 +125,13 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
       const q = searchCode.toLowerCase();
       data = data.filter(i => i.itemCode.toLowerCase().includes(q));
     }
-    if (filterCategory) {
-      data = data.filter(i => String(i.categoryId) === filterCategory);
-    }
+    if (searchPartNumber) data = data.filter(i => (i.partNumber ?? '').toLowerCase().includes(searchPartNumber.toLowerCase()));
+    if (filterSync) data = data.filter(i => i.syncStatus === filterSync);
     if (filterUnit) {
       data = data.filter(i => i.unit === filterUnit);
     }
     return data;
-  }, [items, searchName, searchCode, filterCategory, filterUnit]);
+  }, [items, searchName, searchCode, searchPartNumber, filterSync, filterUnit]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
 
@@ -160,7 +140,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
     return filteredItems.slice(start, start + itemsPerPage);
   }, [filteredItems, currentPage, itemsPerPage]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchName, searchCode, filterCategory, filterUnit]);
+  useEffect(() => { setCurrentPage(1); }, [searchName, searchCode, filterSync, filterUnit]);
 
   const toggleRow = (id: string) => {
     setSelectedRows(prev => {
@@ -175,11 +155,14 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
     else setSelectedRows(new Set(paginatedItems.map(i => i.id)));
   };
 
+
   const formatDate = (dateStr: string) => {
     try { return new Date(dateStr).toLocaleDateString('vi-VN'); } catch { return dateStr; }
   };
 
   // ---------- Render ----------
+  if (!vesselId) return <div className="p-6 text-sm text-gray-600">Vào Danh sách tàu, chọn tàu rồi mở Danh sách vật tư để quản lý.</div>;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -198,46 +181,47 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-gray-700">
-            ≡ {t('materials.page.materialList')}
+            ≡ {vesselId ? 'Vật tư của tàu' : t('materials.page.materialList')}
           </span>
           <span className="text-xs bg-[#dce9f8] text-[#16375f] px-2 py-0.5 rounded-full font-semibold">
             {filteredItems.length}
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button title="Thêm vật tư" aria-label="Thêm vật tư" onClick={() => { setEditingItem(null); setItemModalOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-[#0b2545] text-white hover:bg-[#16375f]"><Plus className="w-3.5 h-3.5" /> Thêm vật tư</button>
           <button
-            onClick={handleAssignEquipment}
-            disabled={selectedRows.size === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Link2 className="w-3.5 h-3.5" /> Gán thiết bị
-          </button>
-          <button
-            onClick={handleBulkDelete}
-            disabled={selectedRows.size === 0}
+            title="Xóa nhiều" aria-label="Xóa nhiều" onClick={handleBulkDelete}
+            disabled={readOnly || selectedRows.size === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Trash2 className="w-3.5 h-3.5" /> Xóa nhiều
           </button>
+          <button title="Tải mẫu import" aria-label="Tải mẫu import" onClick={downloadVesselMaterialTemplate} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Download className="w-3.5 h-3.5" /></button>
           <button
-            onClick={() => setCategoryModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
-          >
-            {t('materials.page.manageCategories')}
-          </button>
-          <button
-            onClick={() => setImportReceiptModalOpen(true)}
+            onClick={() => setCatalogImportOpen(true)}
             className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50"
-            title={t('materials.importReceipt')}
+            title="Import vật tư" aria-label="Import vật tư"
           >
             <Upload className="w-3.5 h-3.5" />
           </button>
+          <button title="Đồng bộ vật tư xuống tàu" aria-label="Đồng bộ vật tư xuống tàu" disabled={syncing || !vesselId} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50 disabled:opacity-40" onClick={async () => {
+            if (!vesselId) return;
+            setSyncing(true);
+            try { const result = await vesselMaterialService.sync(vesselId); toast.success(result.message, { duration: 6000 }); await loadData(); }
+            catch (e) { toast.error(e instanceof Error ? e.message : 'Đồng bộ thất bại.'); }
+            finally { setSyncing(false); }
+          }}><RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Đang đồng bộ...' : 'Đồng bộ'}</button>
         </div>
       </div>
-
+      {loadError && <p role="alert" className="bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</p>}
       {/* ── TABLE ── */}
       <div className="flex-1 overflow-auto">
-        <table className="min-w-full text-sm border-collapse">
+        <table className="w-full min-w-[1440px] table-fixed text-sm border-collapse">
+          <colgroup>
+            <col className="w-10" /><col className="w-10" /><col className="w-[150px]" />
+            <col className="w-[280px]" /><col className="w-[170px]" /><col className="w-[110px]" />
+            <col /><col className="w-[170px]" /><col className="w-[140px]" /><col className="w-[100px]" />
+          </colgroup>
           <thead className="sticky top-0 z-10">
 
             {/* Row 1: Column headers */}
@@ -263,12 +247,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
                   <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
                 </div>
               </th>
-              <th className="w-40 px-3 py-2 text-left border-b border-r border-gray-200">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-semibold text-gray-600">{t('materials.page.colCategory')}</span>
-                  <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                </div>
-              </th>
+              <th className="w-40 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200">Mã phụ tùng</th>
               <th className="w-24 px-3 py-2 text-left border-b border-r border-gray-200">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-xs font-semibold text-gray-600">{t('materials.page.colUnit')}</span>
@@ -280,8 +259,11 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
                   <span className="text-xs font-semibold text-gray-600">{t('materials.page.colDescription')}</span>
                 </div>
               </th>
-              <th className="w-24 px-3 py-2 text-center border-b border-r border-gray-200">
-                <span className="text-xs font-semibold text-gray-600">Thiết bị</span>
+              <th className="w-40 px-3 py-2 text-left border-b border-r border-gray-200">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-semibold text-gray-600">Trạng thái đồng bộ</span>
+                  <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                </div>
               </th>
               <th className="w-28 px-3 py-2 text-left border-b border-r border-gray-200">
                 <div className="flex items-center justify-between gap-1">
@@ -324,17 +306,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
                   <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
                 </div>
               </th>
-              {/* Category filter */}
-              <th className="px-2 py-1 border-r border-gray-200">
-                <select
-                  value={filterCategory}
-                  onChange={e => setFilterCategory(e.target.value)}
-                  className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white"
-                >
-                  <option value="">{t('materials.allCategories')}</option>
-                  {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                </select>
-              </th>
+              <th className="px-2 py-1 border-r border-gray-200"><input aria-label="Lọc mã phụ tùng" placeholder={t('common.search')} value={searchPartNumber} onChange={e => setSearchPartNumber(e.target.value)} className="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 outline-none" /></th>
               {/* Unit filter */}
               <th className="px-2 py-1 border-r border-gray-200">
                 <select
@@ -348,8 +320,16 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
               </th>
               {/* Description - no filter */}
               <th className="border-r border-gray-200"></th>
-              {/* Equipment - no filter */}
-              <th className="border-r border-gray-200"></th>
+              {/* Sync filter */}
+              <th className="px-2 py-1 border-r border-gray-200">
+                <select
+                  value={filterSync}
+                  onChange={e => setFilterSync(e.target.value)}
+                  className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white"
+                >
+                  <option value="">Tất cả trạng thái</option><option value="NotSynced">Chưa đồng bộ</option><option value="Pending">Chờ tàu nhận</option><option value="Synced">Đã đồng bộ</option>
+                </select>
+              </th>
               {/* Date - no filter */}
               <th className="border-r border-gray-200"></th>
               <th className="border-gray-200"></th>
@@ -390,61 +370,39 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
                     </td>
                     {/* Mã vật tư */}
                     <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100 font-mono">
-                      {item.itemCode}
+                      <span title={item.itemCode} className="block truncate">{item.itemCode}</span>
                     </td>
                     {/* Tên vật tư */}
                     <td className="px-3 py-2 border-r border-gray-100">
                       <button
                         onClick={() => { setEditingItem(item); setItemModalOpen(true); }}
-                        className="text-[#0b2545] hover:underline font-medium text-xs text-left w-full"
+                        title={item.name}
+                        className="block truncate text-[#0b2545] hover:underline font-medium text-xs text-left w-full"
                       >
-                        <span className="marquee-cell flex-1 min-w-0">
-                          <span className="marquee-text">{item.name}</span>
-                        </span>
+                        {item.name}
                       </button>
                       {low && (
                         <span className="ml-4 text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">LOW</span>
                       )}
                     </td>
-                    {/* Loại vật tư */}
-                    <td className="px-3 py-2 text-xs border-r border-gray-100">
-                      <span className="px-2 py-0.5 rounded-full bg-[#eef2f7] text-[#16375f] whitespace-nowrap">
-                        {categoryMap.get(item.categoryId) || '—'}
-                      </span>
-                    </td>
+                    <td className="px-3 py-2 text-xs font-mono text-gray-600 border-r border-gray-100"><span title={item.partNumber || ''} className="block truncate">{item.partNumber || '—'}</span></td>
                     {/* Đơn vị tính */}
                     <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100 text-center">
                       {item.unit}
                     </td>
                     {/* Mô tả */}
-                    <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 max-w-[200px]">
-                      <div className="marquee-cell">
-                        <span className="marquee-text">{item.specification || item.notes || ''}</span>
-                      </div>
+                    <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 ">
+                      <div title={item.specification || item.notes || ''} className="truncate">{item.specification || item.notes || '—'}</div>
                     </td>
-                    {/* Thiết bị */}
-                    <td className="px-3 py-2 text-center border-r border-gray-100">
-                      {(() => {
-                        const count = equipmentCounts.get(item.id) || 0;
-                        return (
-                          <button
-                            onClick={() => { setSingleAssignItemId(item.id); setSelectedRows(new Set([item.id])); setAssignEquipmentModalOpen(true); }}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                              count > 0
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                            }`}
-                            title={count > 0 ? `${count} thiết bị đã gán — click để xem/sửa` : 'Chưa gán thiết bị — click để gán'}
-                          >
-                            <Link2 className="w-3 h-3" />
-                            {count}
-                          </button>
-                        );
-                      })()}
+                    {/* Trạng thái đồng bộ */}
+                    <td className="px-3 py-2 text-xs border-r border-gray-100">
+                      <span title={item.syncedAt ? `Tàu xác nhận: ${new Date(item.syncedAt).toLocaleString('vi-VN')}` : undefined} className={`px-2 py-0.5 rounded-full whitespace-nowrap ${item.syncStatus === 'Synced' ? 'bg-green-100 text-green-700' : item.syncStatus === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {item.syncStatus === 'Synced' ? 'Đã đồng bộ' : item.syncStatus === 'Pending' ? 'Chờ tàu nhận' : 'Chưa đồng bộ'}
+                      </span>
                     </td>
                     {/* Ngày cập nhật */}
                     <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 text-center">
-                      {formatDate(item.createdAt)}
+                      {formatDate(item.updatedAt ?? item.createdAt)}
                     </td>
                     {/* Actions */}
                     <td className="px-2 py-2">
@@ -550,14 +508,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
       </div>
 
       {/* ── MODALS ── */}
-      <ItemFormModal
-        isOpen={itemModalOpen}
-        onClose={() => { setItemModalOpen(false); setEditingItem(null); }}
-        onSubmit={editingItem ? handleUpdateItem : handleCreateItem}
-        item={editingItem}
-        categories={categories}
-        title={editingItem ? t('materials.editItem') : t('materials.addItem')}
-      />
+      {itemModalOpen && <VesselMaterialFormModal item={editingItem} onClose={() => { setItemModalOpen(false); setEditingItem(null); }} onSubmit={editingItem ? handleUpdateItem : handleCreateItem} />}
 
       {/* View-only detail modal */}
       <ItemFormModal
@@ -570,33 +521,8 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
         viewMode
       />
 
-      <CategoryFormModal
-        isOpen={categoryModalOpen}
-        onClose={() => { setCategoryModalOpen(false); setEditingCategory(null); }}
-        onSubmit={editingCategory ? handleUpdateCategory : handleCreateCategory}
-        category={editingCategory}
-        categories={categories}
-        title={editingCategory ? t('materials.editCategory') : t('materials.addCategory')}
-      />
+      {catalogImportOpen && vesselId && <VesselMaterialImportModal vesselId={vesselId} onClose={() => setCatalogImportOpen(false)} onSuccess={() => { loadData(); }} />}
 
-      <ImportReceiptModal
-        isOpen={importReceiptModalOpen}
-        onClose={() => setImportReceiptModalOpen(false)}
-        onSuccess={() => { loadData(); }}
-      />
-
-      <AssignEquipmentModal
-        isOpen={assignEquipmentModalOpen}
-        onClose={() => { setAssignEquipmentModalOpen(false); setSingleAssignItemId(null); }}
-        onSuccess={() => { loadData(); }}
-        selectedMaterialIds={singleAssignItemId ? [singleAssignItemId] : [...selectedRows]}
-        selectedMaterialNames={
-          singleAssignItemId
-            ? items.filter(i => i.id === singleAssignItemId).map(i => i.name || i.itemCode)
-            : items.filter(i => selectedRows.has(i.id)).map(i => i.name || i.itemCode)
-        }
-      />
     </div>
   );
 }
-

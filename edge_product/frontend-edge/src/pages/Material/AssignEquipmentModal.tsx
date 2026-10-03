@@ -57,6 +57,7 @@ export function AssignEquipmentModal({
 
   // Load existing links when single item selected
   const [existingLinks, setExistingLinks] = useState<MaterialItemEquipmentLink[]>([])
+  const [linksLoaded, setLinksLoaded] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -66,11 +67,15 @@ export function AssignEquipmentModal({
     setNotes('')
     setError(null)
     setExistingLinks([])
+    setEquipmentList([])
+    setLinksLoaded(false)
+    let cancelled = false
 
     const load = async () => {
       setLoading(true)
       try {
         const list = await equipmentAssetService.getTree()
+        if (cancelled) return
         setEquipmentList(list)
         // Auto-expand root
         const roots = list.filter(e => !e.parentId)
@@ -78,18 +83,25 @@ export function AssignEquipmentModal({
 
         // Load existing links for the first selected item
         if (selectedMaterialIds.length === 1) {
-          const links = await materialService.getItemEquipment(selectedMaterialIds[0])
-          setExistingLinks(links)
-          // Pre-select already-linked equipment
-          setSelectedEquipment(new Set(links.map(l => l.equipmentAssetId)))
+          try {
+            const links = await materialService.getItemEquipment(selectedMaterialIds[0])
+            if (cancelled) return
+            setExistingLinks(links)
+            setSelectedEquipment(new Set(links.map(l => l.equipmentAssetId)))
+          } catch (err: any) {
+            if (!cancelled) setError(err?.message || 'Không thể tải liên kết vật tư–thiết bị. Vui lòng mở lại để thử lại.')
+            return
+          }
         }
+        setLinksLoaded(true)
       } catch {
-        setError(t('materials.assignEquip.loadFailed'))
+        if (!cancelled) setError(t('materials.assignEquip.loadFailed'))
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => { cancelled = true }
   }, [isOpen, selectedMaterialIds])
 
   const tree = useMemo(() => buildTree(equipmentList), [equipmentList])
@@ -128,6 +140,7 @@ export function AssignEquipmentModal({
   }
 
   const handleSubmit = async () => {
+    if (loading || !linksLoaded || saving) return
     if (selectedEquipment.size === 0) {
       setError(t('materials.assignEquip.selectAtLeastOne'))
       return
@@ -320,7 +333,7 @@ export function AssignEquipmentModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={saving || selectedEquipment.size === 0}
+              disabled={saving || loading || !linksLoaded || selectedEquipment.size === 0}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? t('materials.saving') : t('materials.assignEquip.submit')}

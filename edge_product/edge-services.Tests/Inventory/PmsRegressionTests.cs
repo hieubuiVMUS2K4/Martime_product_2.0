@@ -95,6 +95,51 @@ public class PmsRegressionTests(PmsDatabaseFixture database)
     };
 
     [Fact]
+    public async Task Assignment_LegacyShipWithoutCatalogLink_MatchesExistingCatalogCode()
+    {
+        await using var context = database.CreateContext();
+        var (catalog, ship, _) = await SeedMaterialAsync(context);
+        (await context.MaterialItems.FindAsync(ship.Id))!.MaterialItemCode = null;
+        var asset = new EquipmentAsset { AssetCode = Code(), AssetName = "Test", Category = "ENGINE" };
+        context.EquipmentAssets.Add(asset);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var controller = new MaterialController(context,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MaterialController>.Instance);
+        Assert.IsType<OkObjectResult>(await controller.GetItemEquipment(ship.Id));
+        Assert.IsType<OkObjectResult>(await controller.AssignEquipment(new()
+        {
+            MaterialItemIds = [ship.Id], EquipmentAssetIds = [asset.Id]
+        }));
+        var link = await context.MaterialItemEquipments.SingleAsync(x => x.EquipmentAssetId == asset.Id);
+        Assert.Equal(catalog.Id, link.MaterialItemId);
+    }
+
+    [Fact]
+    public async Task Assignment_MissingShoreCatalog_RejectsWholeBatchWithoutFalseSuccess()
+    {
+        await using var context = database.CreateContext();
+        var (catalog, _, _) = await SeedMaterialAsync(context);
+        var unmatched = new MaterialItem { ItemCode = Code(), Name = "Local only", CategoryId = catalog.CategoryId };
+        var asset = new EquipmentAsset { AssetCode = Code(), AssetName = "Test", Category = "ENGINE" };
+        context.MaterialItems.Add(unmatched);
+        context.EquipmentAssets.Add(asset);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var controller = new MaterialController(context,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MaterialController>.Instance);
+        var error = Assert.IsType<ConflictObjectResult>(await controller.GetItemEquipment(unmatched.Id));
+        Assert.Contains("MATERIAL_CATALOG_REQUIRED", System.Text.Json.JsonSerializer.Serialize(error.Value));
+        Assert.IsType<ConflictObjectResult>(await controller.AssignEquipment(new()
+        {
+            MaterialItemIds = [catalog.Id, unmatched.Id], EquipmentAssetIds = [asset.Id]
+        }));
+        await context.SaveChangesAsync();
+        Assert.False(await context.MaterialItemEquipments.AnyAsync(x => x.EquipmentAssetId == asset.Id));
+        Assert.False(await context.MaterialCatalogItems.AnyAsync(x => x.ItemCode == unmatched.ItemCode));
+    }
+
+    [Fact]
     public async Task Adjust_RefreshesTotalIncludingUnchangedLocations()
     {
         await using var context = database.CreateContext();

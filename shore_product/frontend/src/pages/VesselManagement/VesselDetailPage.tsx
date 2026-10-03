@@ -537,7 +537,7 @@ export const VesselDetailPage: React.FC = () => {
         return <WorkPlanningPage vesselId={id!} readOnly />;
 
       case 'materials-list':
-        return <MaterialPage vesselId={id!} readOnly />;
+        return <MaterialPage vesselId={id!} />;
 
       case 'materials-requests':
         return <MaterialRequestPage vesselId={id!} readOnly />;

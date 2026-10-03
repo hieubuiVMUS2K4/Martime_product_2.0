@@ -1,6 +1,12 @@
 // PMS Types for Equipment Asset Management
 
 export interface EquipmentAsset {
+  picCrewName?: string;
+  isSynced: boolean;
+  createdAt: string;
+  updatedAt: string;
+  originNode: string;
+  picCrewId?: string;
   id: string;
   assetCode: string;
   assetName: string;
@@ -27,6 +33,7 @@ export interface EquipmentAsset {
 }
 
 export interface CreateEquipmentAssetDto {
+  picCrewId?: string;
   assetCode: string;
   assetName: string;
   category: string;

@@ -265,11 +265,11 @@ export const materialService = {
   getMaterialsByEquipment: (equipmentAssetId: string) =>
     apiClient.get<EquipmentMaterialLink[]>(`/material/items/by-equipment/${equipmentAssetId}`),
 
-  assignEquipment: (dto: AssignEquipmentDto) =>
-    apiClient.post<{ message: string; created: number; skipped: number }>(
-      '/material/items/assign-equipment',
-      dto,
-    ),
+  assignEquipment: async (dto: AssignEquipmentDto) => {
+    const results = await Promise.all(dto.materialItemIds.map(id =>
+      apiClient.post<{ created: number; skipped: number }>(`/material/items/${id}/equipment`, dto.equipmentAssetIds)));
+    return { message: 'Linked', created: results.reduce((n, r) => n + r.created, 0), skipped: results.reduce((n, r) => n + r.skipped, 0) };
+  },
 
   removeEquipmentLink: (materialItemId: string, equipmentAssetId: string) =>
     apiClient.delete<{ message: string }>(
@@ -325,7 +325,16 @@ export interface MaterialCatalogPayload {
   isActive?: boolean
 }
 
+export interface CatalogImportRow {
+  itemCode: string
+  name: string
+  categoryCode: string
+  unitPrice: number | null
+}
+
 export const materialCatalogService = {
+  import: (rows: CatalogImportRow[]) =>
+    apiClient.post<{ created: number; updated: number }>('/material/catalog/import', rows),
   getAll: async (options?: { q?: string; categoryId?: number }): Promise<MaterialCatalogItem[]> => {
     const params = new URLSearchParams()
     if (options?.q) params.append('q', options.q)

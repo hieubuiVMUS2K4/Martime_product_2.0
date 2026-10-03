@@ -270,17 +270,6 @@ export function ItemFormModal({
                           <input type="text" required maxLength={20} value={formData.unit} onChange={e => set('unit', e.target.value)} className={cls} readOnly={ro} />
                         </div>
                         <div className="flex items-center">
-                          <label className={lbl} style={{ width: 110 }}>Danh mục <span className="text-red-500">*</span></label>
-                          {ro ? (
-                            <input type="text" readOnly className={inpRo} value={categories.find(c => c.id === formData.categoryId)?.name || ''} />
-                          ) : (
-                            <select required value={formData.categoryId} onChange={e => set('categoryId', Number(e.target.value))} className={cls}>
-                              <option value="">Chọn danh mục</option>
-                              {categories.map(c => <option key={c.id} value={c.id}>{c.name} ({c.categoryCode})</option>)}
-                            </select>
-                          )}
-                        </div>
-                        <div className="flex items-center">
                           <label className={lbl} style={{ width: 110 }}>Mô tả/Spec</label>
                           <input type="text" maxLength={500} value={formData.specification || ''} onChange={e => set('specification', e.target.value)} className={cls} readOnly={ro} />
                         </div>
@@ -311,7 +300,7 @@ export function ItemFormModal({
                         <div className="border border-gray-200 rounded p-3 bg-gray-50">
                           <div className="text-xs font-semibold text-gray-700 mb-2">ROB (Tồn kho)</div>
                           <div className="flex items-center gap-2 mb-2">
-                            <input type="number" step="0.001" min="0" value={formData.onHandQuantity} onChange={e => set('onHandQuantity', Number(e.target.value))} className={`${ro ? inpRo : inp} w-full text-center font-bold text-lg`} readOnly={ro} />
+                            <input type="number" step="0.001" min="0" value={formData.onHandQuantity} onChange={e => set('onHandQuantity', Number(e.target.value))} className={`${ro ? inpRo : inp} w-full text-center font-bold text-lg`} readOnly />
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>

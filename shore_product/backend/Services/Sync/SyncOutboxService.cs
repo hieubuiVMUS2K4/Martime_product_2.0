@@ -372,36 +372,10 @@ public class SyncOutboxService : ISyncOutboxService
                 .Where(o => o.DeliveredAt == null)
                 .Where(o => o.TargetNode == nodeId || o.TargetNode == "*");
 
-            // Check if any of the provided IDs are valid (> 0 = real outbox IDs)
-            var hasRealIds = itemIds.Any(id => id > 0);
-            
-            List<Maritime.Shared.Models.Sync.SyncOutbox> items;
-            if (hasRealIds)
-            {
-                items = await baseQuery
-                    .Where(o => itemIds.Contains(o.Id))
-                    .ToListAsync();
-
-                if (items.Count == 0)
-                {
-                    _logger.LogWarning("No matching outbox items found for IDs {Ids} and node {NodeId}. " +
-                        "Falling back to count-based acknowledgment.", 
-                        string.Join(",", itemIds.Take(5)), nodeId);
-                    // Fallback: mark oldest N undelivered items
-                    items = await baseQuery
-                        .OrderBy(o => o.Id)
-                        .Take(itemIds.Count)
-                        .ToListAsync();
-                }
-            }
-            else
-            {
-                // Edge sent placeholder IDs (e.g. all zeros) — use count-based
-                items = await baseQuery
-                    .OrderBy(o => o.Id)
-                    .Take(itemIds.Count)
-                    .ToListAsync();
-            }
+            // Only exact positive IDs may be acknowledged. Repeated/stale ACKs must never
+            // mark a different pending batch as delivered.
+            var ids = itemIds.Where(id => id > 0).Distinct().ToList();
+            var items = await baseQuery.Where(o => ids.Contains(o.Id)).ToListAsync();
 
             foreach (var item in items)
             {

@@ -433,6 +433,7 @@ public class SyncController : ControllerBase
 
         void Enqueue(string tableName, string recordKey, object entity)
         {
+            if (tableName is "material_item" or "material_category" or "material_catalog_item" or "material_item_catalog") return;
             var key = $"{tableName}:{recordKey}";
             if (!pendingSet.Add(key)) return;
             toAdd.Add(new SyncQueue
@@ -536,8 +537,6 @@ public class SyncController : ControllerBase
                         var equipmentGroups = await _context.EquipmentGroups.AsNoTracking().ToListAsync();
                         foreach (var x in equipmentGroups) Enqueue("equipment_group", x.Id.ToString(), x);
 
-                        var materialCategories = await _context.MaterialCategories.AsNoTracking().ToListAsync();
-                        foreach (var x in materialCategories) Enqueue("material_category", x.Id.ToString(), x);
 
                         var storeLocations = await _context.StoreLocations.AsNoTracking().ToListAsync();
                         foreach (var x in storeLocations) Enqueue("store_location", x.Id.ToString(), x);
@@ -546,9 +545,7 @@ public class SyncController : ControllerBase
                         var equipmentAssets = await _context.EquipmentAssets.AsNoTracking().ToListAsync();
                         foreach (var x in equipmentAssets) Enqueue("equipment_asset", x.Id.ToString(), x);
 
-                        // Material items (depend on MaterialCategory)
-                        var materialItems = await _context.MaterialItems.AsNoTracking().ToListAsync();
-                        foreach (var x in materialItems) Enqueue("material_item", x.Id.ToString(), x);
+                        // Shore-managed material definitions are never uploaded.
 
                         // Logistics — documents (depend on MaterialItem + StoreLocation)
                         var materialRequests = await _context.MaterialRequests.AsNoTracking().ToListAsync();

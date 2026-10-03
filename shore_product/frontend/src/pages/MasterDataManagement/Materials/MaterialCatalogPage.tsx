@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Package, FolderTree } from 'lucide-react';
 import { MaterialItemsTab } from './MaterialItemsTab';
 import { MaterialCategoryTab } from './MaterialCategoryTab';
@@ -14,7 +15,14 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ size?: num
 
 /* ═══════════════ Danh mục vật tư — shell 2 tab ═══════════════ */
 export const MaterialCatalogPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>('categories');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab: TabKey = searchParams.get('materialTab') === 'categories' ? 'categories' : 'items';
+  const setActiveTab = (tab: TabKey) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('materialTab', tab);
+    next.delete('action');
+    setSearchParams(next);
+  };
 
   return (
     <div className="cl-page" style={{ padding: 0, minHeight: 'auto' }}>

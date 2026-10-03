@@ -7,6 +7,12 @@ namespace MaritimeEdge.DTOs;
 /// </summary>
 public class EquipmentAssetDto
 {
+    public string? DefaultExecutorRole { get; set; }
+    public string? ApproverRole { get; set; }
+    public bool IsSynced { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public string OriginNode { get; set; } = string.Empty;
     public Guid? Id { get; set; }
     
     [Required]
@@ -37,6 +43,10 @@ public class EquipmentAssetDto
     public DateTime? LastRunningHoursUpdate { get; set; }
     
     public Guid? EquipmentGroupId { get; set; }
+
+    [MaxLength(50)]
+    public string? PicCrewId { get; set; }
+    public string? PicCrewName { get; set; }
     
     [MaxLength(100)]
     public string? Location { get; set; }
@@ -87,6 +97,9 @@ public class CreateEquipmentAssetDto
     
     public Guid? EquipmentGroupId { get; set; }
 
+    [MaxLength(50)]
+    public string? PicCrewId { get; set; }
+
     /// <summary>Parent asset ID for hierarchy tree (null = root node)</summary>
     public Guid? ParentId { get; set; }
     
@@ -123,6 +136,9 @@ public class UpdateEquipmentAssetDto
     public string? SerialNumber { get; set; }
     
     public Guid? EquipmentGroupId { get; set; }
+
+    [MaxLength(50)]
+    public string? PicCrewId { get; set; }
 
     /// <summary>Parent asset ID for hierarchy tree (null = root node)</summary>
     public Guid? ParentId { get; set; }

@@ -15947,11 +15947,6 @@ namespace MaritimeEdge.Data.Migrations
 
             modelBuilder.Entity("MaritimeEdge.Models.MaterialCatalogItem", b =>
                 {
-                    b.HasOne("MaritimeEdge.Models.MaterialCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("MaritimeEdge.Models.MaterialCategory", b =>
@@ -15964,11 +15959,6 @@ namespace MaritimeEdge.Data.Migrations
 
             modelBuilder.Entity("MaritimeEdge.Models.MaterialItem", b =>
                 {
-                    b.HasOne("MaritimeEdge.Models.MaterialCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
 
                     b.HasOne("MaritimeEdge.Models.MaterialCatalogItem", null)
                         .WithMany()

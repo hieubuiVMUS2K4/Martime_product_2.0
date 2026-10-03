@@ -417,6 +417,9 @@ public class WorkItemConfigController : ControllerBase
     {
         try
         {
+            // New configurations always target a real asset; legacy group schedules remain readable.
+            if (!dto.EquipmentAssetId.HasValue || dto.EquipmentGroupId.HasValue)
+                return BadRequest(new { error = "Vui lòng chọn thiết bị cụ thể để cấu hình công việc, không chọn nhóm/thư mục." });
             // Validate: must provide either EquipmentGroupId or EquipmentAssetId
             if (!dto.EquipmentGroupId.HasValue && !dto.EquipmentAssetId.HasValue)
                 return BadRequest(new { error = "Must provide either EquipmentGroupId or EquipmentAssetId" });
@@ -442,8 +445,8 @@ public class WorkItemConfigController : ControllerBase
             {
                 // Per-equipment schedule: validate asset exists
                 var asset = await _context.EquipmentAssets.FindAsync(dto.EquipmentAssetId!.Value);
-                if (asset == null)
-                    return BadRequest(new { error = "Equipment asset not found" });
+                if (asset == null || !asset.IsActive || asset.Category == "SYSTEM")
+                    return BadRequest(new { error = "Cấu hình công việc chỉ áp dụng cho thiết bị đang hoạt động, không áp dụng cho nhóm/thư mục." });
                 firstAsset = asset;
             }
             else
@@ -454,7 +457,7 @@ public class WorkItemConfigController : ControllerBase
                     return BadRequest(new { error = "Equipment group not found" });
 
                 var groupMembers = await _context.EquipmentGroupMembers
-                    .Where(egm => egm.GroupId == dto.EquipmentGroupId!.Value)
+                    .Where(egm => egm.GroupId == dto.EquipmentGroupId!.Value && egm.Asset.IsActive && egm.Asset.Category != "SYSTEM")
                     .Include(egm => egm.Asset)
                     .ToListAsync();
                 
@@ -642,6 +645,8 @@ public class WorkItemConfigController : ControllerBase
             if (schedule == null)
                 return NotFound(new { error = "Maintenance schedule not found" });
 
+            if (!dto.EquipmentAssetId.HasValue || dto.EquipmentGroupId.HasValue)
+                return BadRequest(new { error = "Vui lòng chọn thiết bị cụ thể để cấu hình công việc, không chọn nhóm/thư mục." });
             // Validate: must provide either EquipmentGroupId or EquipmentAssetId
             if (!dto.EquipmentGroupId.HasValue && !dto.EquipmentAssetId.HasValue)
                 return BadRequest(new { error = "Must provide either EquipmentGroupId or EquipmentAssetId" });
@@ -655,8 +660,8 @@ public class WorkItemConfigController : ControllerBase
             if (isPerAsset)
             {
                 var asset = await _context.EquipmentAssets.FindAsync(dto.EquipmentAssetId!.Value);
-                if (asset == null)
-                    return BadRequest(new { error = "Equipment asset not found" });
+                if (asset == null || !asset.IsActive || asset.Category == "SYSTEM")
+                    return BadRequest(new { error = "Cấu hình công việc chỉ áp dụng cho thiết bị đang hoạt động, không áp dụng cho nhóm/thư mục." });
                 firstAsset = asset;
             }
             else
@@ -666,7 +671,7 @@ public class WorkItemConfigController : ControllerBase
                     return BadRequest(new { error = "Equipment group not found" });
 
                 var groupMembers = await _context.EquipmentGroupMembers
-                    .Where(egm => egm.GroupId == dto.EquipmentGroupId!.Value)
+                    .Where(egm => egm.GroupId == dto.EquipmentGroupId!.Value && egm.Asset.IsActive && egm.Asset.Category != "SYSTEM")
                     .Include(egm => egm.Asset)
                     .ToListAsync();
                 

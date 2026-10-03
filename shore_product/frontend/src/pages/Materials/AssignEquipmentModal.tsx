@@ -6,6 +6,7 @@ import type { AssignEquipmentDto, MaterialItemEquipmentLink } from '@/services/m
 import type { EquipmentAsset } from '@/types/pms.types'
 
 interface AssignEquipmentModalProps {
+  vesselId?: string
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
@@ -38,6 +39,7 @@ function buildTree(flatList: EquipmentAsset[]): TreeNode[] {
 }
 
 export function AssignEquipmentModal({
+  vesselId,
   isOpen,
   onClose,
   onSuccess,
@@ -68,7 +70,7 @@ export function AssignEquipmentModal({
     const load = async () => {
       setLoading(true)
       try {
-        const list = await equipmentAssetService.getTree()
+        const list = await equipmentAssetService.getTree(vesselId)
         setEquipmentList(list)
         // Auto-expand root
         const roots = list.filter(e => !e.parentId)
@@ -88,7 +90,7 @@ export function AssignEquipmentModal({
       }
     }
     load()
-  }, [isOpen, selectedMaterialIds])
+  }, [isOpen, selectedMaterialIds, vesselId])
 
   const tree = useMemo(() => buildTree(equipmentList), [equipmentList])
 

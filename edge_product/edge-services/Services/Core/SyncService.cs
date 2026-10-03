@@ -187,6 +187,16 @@ public class SyncService : ISyncService
             }
 
             // Đối soát danh mục trước khi lấy hàng đợi — xem ReconcileUnqueuedMasterDataAsync
+            // Discard obsolete pending definition uploads, including retries created by older versions.
+            var obsoleteDefinitions = await context.SyncQueue.Where(q => q.SyncedAt == null &&
+                (q.TableName == "material_item" || q.TableName == "material_item_ship" ||
+                 q.TableName == "material_category" || q.TableName == "material_catalog_item" ||
+                 q.TableName == "material_item_catalog" || q.TableName == "material_items" ||
+                 q.TableName == "vessel_material_definition")).ToListAsync(cancellationToken);
+            if (obsoleteDefinitions.Count > 0) {
+                context.SyncQueue.RemoveRange(obsoleteDefinitions);
+                await context.SaveChangesAsync(cancellationToken);
+            }
             await ReconcileUnqueuedMasterDataAsync(context, cancellationToken);
 
             // Fetch pending items based on priority and retry count
@@ -262,10 +272,6 @@ public class SyncService : ISyncService
             added += await ReconcileTableAsync(context, "port",
                 context.Ports.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
 
-            added += await ReconcileTableAsync(context, "material_category",
-                context.MaterialCategories.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
-            added += await ReconcileTableAsync(context, "material_item",
-                context.MaterialItems.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "store_location",
                 context.StoreLocations.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
 
@@ -450,6 +456,7 @@ public class SyncService : ISyncService
                 // multiple entities share the same navigation property (e.g. two CrewMembers
                 // referencing the same Rank will each deserialize a Rank object, causing
                 // "another instance with the same key value is already being tracked").
+                var appliedItemIds = new List<long>();
                 foreach (var item in pullResponse.Items)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
@@ -469,6 +476,7 @@ public class SyncService : ISyncService
 
                         context.ChangeTracker.Clear();
                         totalProcessed++;
+                        appliedItemIds.Add(item.OutboxId);
                     }
                     catch (Exception ex)
                     {
@@ -482,7 +490,7 @@ public class SyncService : ISyncService
                 var ack = new Maritime.Shared.DTOs.Sync.SyncAcknowledgeDto
                 {
                     NodeId = nodeId,
-                    ItemIds = pullResponse.Items.Select(i => i.OutboxId).ToList()
+                    ItemIds = appliedItemIds
                 };
                 var ackJson = JsonSerializer.Serialize(ack, _jsonOptions);
                 using var ackRequest = await _syncRequestSigningService.CreateSignedRequestAsync(
@@ -1483,13 +1491,7 @@ public class SyncService : ISyncService
     private Task ApplyIncomingItemAsync(
         EdgeDbContext context, Maritime.Shared.DTOs.Sync.SyncQueueItemDto item, CancellationToken token)
     {
-        // Simple apply without conflict handling — used as fallback
-        _logger.LogDebug("Applying shore item: {Table}/{Key} ({Action})", 
-            item.TableName, item.RecordKey, item.ActionType);
-
-        // This is handled by the SyncConflictHandler for full implementation.
-        // As a fallback, we just log.
-        return Task.CompletedTask;
+        throw new InvalidOperationException("SyncConflictHandler is unavailable; incoming data was not applied and must not be acknowledged.");
     }
 
     private const string LastPullTimestampKey = "LastPullTimestamp";
