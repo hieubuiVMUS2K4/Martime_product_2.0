@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   Table2, Calendar, BarChart3, LayoutGrid,
   Search, ChevronRight, ChevronDown, ChevronLeft,
@@ -292,8 +293,41 @@ export default function WorkPlanningPage() {
   const [cfgStockByItemCode, setCfgStockByItemCode] = useState<Record<string, { qty: number; unit?: string; minStock?: number | null }>>({});
   const [cfgSaving, setCfgSaving] = useState(false);
   const [cfgListSearch, setCfgListSearch] = useState('');
+  const [cfgListFilters, setCfgListFilters] = useState({ code: '', device: '', name: '', type: '', priority: '', cycle: '' });
+  const [cfgSelectedIds, setCfgSelectedIds] = useState<Set<string>>(new Set());
+  const [cfgBulkDeleting, setCfgBulkDeleting] = useState(false);
+  const cfgBulkDeleteRunning = useRef(false);
+  useEffect(() => {
+    const ids = new Set(schedules.map(schedule => schedule.id));
+    setCfgSelectedIds(previous => {
+      const next = new Set([...previous].filter(id => ids.has(id)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [schedules]);
   const [cfgTreeSelectedIds, setCfgTreeSelectedIds] = useState<Set<string>>(new Set());
   const [cfgShowHistory, setCfgShowHistory] = useState(false);
+  const cfgHistoryDialog = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!cfgShowHistory) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCfgShowHistory(false);
+      if (event.key !== 'Tab') return;
+      const controls = cfgHistoryDialog.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])');
+      if (!controls?.length) return;
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [cfgShowHistory]);
   // New: CBM, Risk Assessment, Inspection
   const [cfgIsCbm, setCfgIsCbm] = useState(false);
   const [cfgRequireRiskAssessment, setCfgRequireRiskAssessment] = useState(false);
@@ -400,6 +434,7 @@ export default function WorkPlanningPage() {
           try {
             await maintenanceScheduleService.delete(schedule.id);
             await loadSchedules();
+            await loadData(false);
             if (cfgEditingId === schedule.id) cfgReset();
             toast.success(t('pms.workPlanning.toast.configDeleted'));
           } catch (error) {
@@ -409,6 +444,41 @@ export default function WorkPlanningPage() {
         }
       },
       cancel: { label: t('pms.workPlanning.config.cancel') || 'Hủy', onClick: () => {} },
+      duration: 8000,
+    });
+  };
+
+  const handleBulkScheduleDelete = () => {
+    const ids = [...cfgSelectedIds];
+    if (!ids.length || cfgBulkDeleteRunning.current) return;
+    toast(`Xóa ${ids.length} cấu hình đã chọn và các công việc liên quan?`, {
+      id: 'bulk-delete-maintenance-config',
+      action: {
+        label: 'Xóa',
+        onClick: async () => {
+          if (cfgBulkDeleteRunning.current) return;
+          cfgBulkDeleteRunning.current = true;
+          setCfgBulkDeleting(true);
+          const deleted = new Set<string>();
+          try {
+            // Bound concurrent requests and preserve failed rows for retry.
+            for (let offset = 0; offset < ids.length; offset += 4) {
+              const batch = ids.slice(offset, offset + 4);
+              const results = await Promise.allSettled(batch.map(id => maintenanceScheduleService.delete(id)));
+              results.forEach((result, index) => { if (result.status === 'fulfilled') deleted.add(batch[index]); });
+            }
+            setCfgSelectedIds(previous => new Set([...previous].filter(id => !deleted.has(id))));
+            if (cfgEditingId && deleted.has(cfgEditingId)) { cfgReset(); setCfgShowHistory(true); }
+            await Promise.all([loadSchedules(), loadData(false)]);
+            if (deleted.size) toast.success(`Đã xóa ${deleted.size} cấu hình.`);
+            if (deleted.size < ids.length) toast.error(`Không thể xóa ${ids.length - deleted.size} cấu hình. Các dòng lỗi vẫn được chọn để thử lại.`);
+          } finally {
+            cfgBulkDeleteRunning.current = false;
+            setCfgBulkDeleting(false);
+          }
+        },
+      },
+      cancel: { label: 'Hủy', onClick: () => {} },
       duration: 8000,
     });
   };
@@ -762,10 +832,26 @@ export default function WorkPlanningPage() {
 
   // Config: schedules filtered for left list
   const cfgListItems = useMemo(() => {
-    if (!cfgListSearch) return schedules;
-    const s = cfgListSearch.toLowerCase();
-    return schedules.filter(sch => sch.scheduleCode.toLowerCase().includes(s) || sch.scheduleName.toLowerCase().includes(s));
-  }, [schedules, cfgListSearch]);
+    const search = cfgListSearch.trim().toLowerCase();
+    const matches = (value: string | undefined, query: string) => (value || '').toLowerCase().includes(query.trim().toLowerCase());
+    return schedules.filter(sch => {
+      const cycle = sch.intervalMonths ? `${sch.intervalMonths} tháng` : sch.intervalYears ? `${sch.intervalYears} năm` : sch.intervalHours ? `${sch.intervalHours} giờ` : sch.intervalDays ? `${sch.intervalDays} ngày` : '';
+      return (!search || [sch.scheduleCode, sch.workCode, sch.scheduleName, sch.assetName].some(value => matches(value, search)))
+        && matches(sch.workCode || sch.scheduleCode, cfgListFilters.code)
+        && matches(sch.assetName, cfgListFilters.device)
+        && matches(sch.scheduleName, cfgListFilters.name)
+        && (!cfgListFilters.type || sch.maintenanceCategory === cfgListFilters.type)
+        && (!cfgListFilters.priority || sch.priority === cfgListFilters.priority)
+        && matches(cycle, cfgListFilters.cycle);
+    });
+  }, [schedules, cfgListSearch, cfgListFilters]);
+  const cfgAllVisibleSelected = cfgListItems.length > 0 && cfgListItems.every(schedule => cfgSelectedIds.has(schedule.id));
+  const cfgSomeVisibleSelected = cfgListItems.some(schedule => cfgSelectedIds.has(schedule.id));
+  const cfgToggleSelected = (id: string) => setCfgSelectedIds(previous => {
+    const next = new Set(previous);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   // Config: crew filtered for dropdown (deduplicated by id)
   const cfgFilteredCrew = useMemo(() => {
@@ -1290,7 +1376,6 @@ export default function WorkPlanningPage() {
               {t('pms.workPlanning.table.bulkDelete')}
               {selectedTaskCount > 0 && <span className="font-semibold">({selectedTaskCount})</span>}
             </button>
-            <button onClick={() => setShowImportMaintenance(true)} className="rounded border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Import Excel</button>
             <button onClick={() => loadData(true)} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.workPlanning.refresh')}>
               <RefreshCw className={`w-3.5 h-3.5 ${isBackgroundRefreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -2046,51 +2131,76 @@ export default function WorkPlanningPage() {
                   <button type="button" onClick={cfgReset} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
                     <XIcon className="w-3.5 h-3.5" /> {cfgEditingId ? t('pms.workPlanning.config.cancel') : t('pms.workPlanning.config.reset')}
                   </button>
+                  <button type="button" onClick={() => setShowImportMaintenance(true)} className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Import Excel</button>
                   <div className="relative">
                     <button type="button" onClick={() => setCfgShowHistory(!cfgShowHistory)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded ${cfgShowHistory ? 'border-blue-400 text-blue-700 bg-blue-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                       <History className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.configHistory')}
                     </button>
-                    {cfgShowHistory && (
-                      <div className="absolute right-0 top-full z-40 mt-1 w-[560px] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
-                          <span className="text-xs font-semibold text-gray-700">{t('pms.workPlanning.config.configList', { count: schedules.length })}</span>
-                          <div className="relative">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
-                            <input type="text" value={cfgListSearch} onChange={e => setCfgListSearch(e.target.value)} placeholder={t('pms.workPlanning.config.searchPlaceholder')} className="pl-7 pr-2 py-1 text-[11px] border border-gray-300 rounded w-44" />
+                    {cfgShowHistory && createPortal(
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCfgShowHistory(false)}>
+                      <section ref={cfgHistoryDialog} role="dialog" aria-modal="true" aria-labelledby="config-list-title" className="w-full max-w-[1440px] max-h-[85vh] flex flex-col bg-white shadow-2xl rounded-xl overflow-hidden" onClick={event => event.stopPropagation()}>
+                        <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-200">
+                          <h2 id="config-list-title" className="text-lg font-semibold text-gray-900">{t('pms.workPlanning.config.configList', { count: schedules.length })}</h2>
+                          <button type="button" autoFocus aria-label="Đóng danh sách cấu hình" onClick={() => setCfgShowHistory(false)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><XIcon size={20} /></button>
+                        </header>
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-white border-b border-gray-200">
+                          <div className="flex items-center gap-2 text-xs text-gray-600"><span>{cfgListItems.length} / {schedules.length} cấu hình</span>{cfgSelectedIds.size > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">Đã chọn: {cfgSelectedIds.size}</span>}</div>
+                          <div className="flex items-center gap-2">
+                          <button type="button" onClick={handleBulkScheduleDelete} disabled={cfgBulkDeleting || cfgSelectedIds.size === 0} className="flex items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={14} />{cfgBulkDeleting ? 'Đang xóa…' : 'Xóa nhiều'}</button>
+                          <div className="relative max-w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input type="text" aria-label="Tìm cấu hình" value={cfgListSearch} onChange={e => setCfgListSearch(e.target.value)} placeholder={t('pms.workPlanning.config.searchPlaceholder')} className="pl-9 pr-3 py-1.5 text-xs border border-gray-300 rounded w-64 max-w-full focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
                           </div>
                         </div>
-                        <div className="max-h-72 overflow-y-auto">
+                        <div className="min-h-0 flex-1 overflow-auto">
                           {scheduleLoading ? (
                             <div className="flex items-center justify-center py-6"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div></div>
-                          ) : cfgListItems.length === 0 ? (
-                            <div className="text-center py-6 text-xs text-gray-400">{schedules.length === 0 ? t('pms.workPlanning.config.noConfig') : t('pms.workPlanning.config.notFound')}</div>
                           ) : (
-                            <table className="w-full text-xs">
-                              <thead className="bg-blue-50 sticky top-0">
+                            <table className="w-full min-w-[1150px] table-fixed border-collapse text-xs [&_th]:px-2 [&_th]:py-2 [&_th]:font-medium [&_th]:border-r [&_th]:border-gray-200 [&_td]:px-2 [&_td]:py-1.5 [&_td]:border-r [&_td]:border-gray-100">
+                              <colgroup><col className="w-9" /><col className="w-8" /><col className="w-28" /><col className="w-72" /><col className="w-60" /><col className="w-32" /><col className="w-28" /><col className="w-24" /><col className="w-28" /></colgroup>
+                              <thead className="bg-blue-50 sticky top-0 z-10 text-xs text-gray-700 border-b border-gray-200">
                                 <tr>
+                                  <th className="text-center">TT</th>
+                                  <th className="text-center"><input type="checkbox" aria-label="Chọn tất cả cấu hình đang hiển thị" checked={cfgAllVisibleSelected} disabled={cfgBulkDeleting || !cfgListItems.length} ref={element => { if (element) element.indeterminate = cfgSomeVisibleSelected && !cfgAllVisibleSelected; }} onChange={() => setCfgSelectedIds(previous => { const next = new Set(previous); cfgListItems.forEach(schedule => { if (cfgAllVisibleSelected) next.delete(schedule.id); else next.add(schedule.id); }); return next; })} className="h-3.5 w-3.5 rounded border-gray-300" /></th>
                                   <th className="px-2 py-1.5 text-left w-28">{t('pms.workPlanning.config.code')}</th>
+                                  <th className="text-left min-w-48">Thiết bị</th>
                                   <th className="px-2 py-1.5 text-left">{t('pms.workPlanning.config.name')}</th>
-                                  <th className="px-2 py-1.5 text-center w-16">{t('pms.workPlanning.config.type')}</th>
-                                  <th className="px-2 py-1.5 text-center w-16">{t('pms.workPlanning.config.priorityCol')}</th>
+                                  <th className="whitespace-nowrap text-center">{t('pms.workPlanning.config.type')}</th>
+                                  <th className="whitespace-nowrap text-center">{t('pms.workPlanning.config.priorityCol')}</th>
                                   <th className="px-2 py-1.5 text-center w-24">Chu kỳ</th>
-                                  <th className="px-2 py-1.5 w-14"></th>
+                                  <th className="sticky right-0 bg-blue-50 whitespace-nowrap text-center">Hành động</th>
+                                </tr>
+                                <tr className="bg-white border-t border-gray-200 [&_th]:py-1">
+                                  <th /><th />
+                                  {(['code', 'device', 'name'] as const).map((field, index) => <th key={field}><input aria-label={['Lọc mã cấu hình', 'Lọc thiết bị', 'Lọc tên công việc'][index]} placeholder="Tìm kiếm" value={cfgListFilters[field]} onChange={event => setCfgListFilters(previous => ({ ...previous, [field]: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-normal focus:border-blue-500 focus:outline-none" /></th>)}
+                                  <th><select aria-label="Lọc loại bảo trì" value={cfgListFilters.type} onChange={event => setCfgListFilters(previous => ({ ...previous, type: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.maintenanceCategory))].sort().map(category => <option key={category} value={category}>{maintenanceCategoryLabel(category, t)}</option>)}</select></th>
+                                  <th><select aria-label="Lọc độ ưu tiên" value={cfgListFilters.priority} onChange={event => setCfgListFilters(previous => ({ ...previous, priority: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.priority))].sort().map(priority => <option key={priority} value={priority}>{getPriorityLabel(priority)}</option>)}</select></th>
+                                  <th><input aria-label="Lọc chu kỳ" placeholder="Tìm kiếm" value={cfgListFilters.cycle} onChange={event => setCfgListFilters(previous => ({ ...previous, cycle: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-normal focus:border-blue-500 focus:outline-none" /></th>
+                                  <th className="sticky right-0 bg-white" />
                                 </tr>
                               </thead>
                               <tbody>
-                                {cfgListItems.map(sch => (
-                                  <tr key={sch.id} className={`border-b hover:bg-blue-50 cursor-pointer ${cfgEditingId === sch.id ? 'bg-blue-50' : ''}`} onClick={() => { cfgLoadForEdit(sch); setCfgShowHistory(false); }}>
-                                    <td className="px-2 py-1.5 font-medium text-gray-900" title={sch.scheduleCode}>{sch.workCode || sch.scheduleCode}</td>
-                                    <td className="px-2 py-1.5 text-gray-700 truncate max-w-[200px]">{sch.scheduleName}</td>
+                                {cfgListItems.length === 0 && <tr><td colSpan={9} className="h-24 text-center text-gray-400">{schedules.length === 0 ? t('pms.workPlanning.config.noConfig') : t('pms.workPlanning.config.notFound')}</td></tr>}
+                                {cfgListItems.map((sch, index) => (
+                                  <tr key={sch.id} className={`group border-b border-gray-100 hover:bg-blue-50 ${cfgSelectedIds.has(sch.id) || cfgEditingId === sch.id ? 'bg-blue-50' : 'bg-white'}`}>
+                                    <td className="text-center text-gray-500">{index + 1}</td>
+                                    <td className="text-center"><input type="checkbox" aria-label={`Chọn cấu hình ${sch.workCode || sch.scheduleCode}`} checked={cfgSelectedIds.has(sch.id)} disabled={cfgBulkDeleting} onChange={() => cfgToggleSelected(sch.id)} className="h-3.5 w-3.5 rounded border-gray-300" /></td>
+                                    <td title={sch.scheduleCode}><button type="button" disabled={cfgBulkDeleting} onClick={() => { cfgLoadForEdit(sch); setCfgShowHistory(false); }} className="font-medium text-blue-600 hover:underline disabled:opacity-40">{sch.workCode || sch.scheduleCode}</button></td>
+                                    <td className="text-gray-700 truncate" title={sch.assetName}>{sch.assetName || '—'}</td>
+                                    <td className="text-gray-700 truncate" title={sch.scheduleName}>{sch.scheduleName}</td>
                                     <td className="px-2 py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${sch.maintenanceCategory === 'AD_HOC' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{maintenanceCategoryLabel(sch.maintenanceCategory, t)}</span>
+                                      <span className={`inline-flex whitespace-nowrap px-2 py-1 text-xs font-medium rounded ${sch.maintenanceCategory === 'AD_HOC' ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>{maintenanceCategoryLabel(sch.maintenanceCategory, t)}</span>
                                     </td>
                                     <td className="px-2 py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${sch.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' : sch.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' : sch.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{getPriorityLabel(sch.priority)}</span>
+                                      <span className={`inline-flex whitespace-nowrap px-2 py-1 text-xs font-medium rounded ${sch.priority === 'CRITICAL' ? 'bg-red-50 text-red-700' : sch.priority === 'HIGH' ? 'bg-orange-50 text-orange-700' : sch.priority === 'MEDIUM' ? 'bg-yellow-50 text-yellow-700' : 'bg-blue-50 text-blue-700'}`}>{getPriorityLabel(sch.priority)}</span>
                                     </td>
                                     <td className="whitespace-nowrap px-2 py-1.5 text-center text-gray-500">{sch.intervalMonths ? `${sch.intervalMonths} tháng` : sch.intervalYears ? `${sch.intervalYears} năm` : sch.intervalHours ? `${sch.intervalHours} giờ` : sch.intervalDays ? `${sch.intervalDays} ngày` : '—'}</td>
-                                    <td className="px-2 py-1.5 text-center flex items-center gap-1">
-                                      <button title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="text-gray-400 hover:text-blue-600"><Copy size={12} /></button>
-                                      <button title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); handleScheduleDelete(sch); }} className="text-gray-400 hover:text-red-600"><Trash2 size={12} /></button>
+                                    <td className={`sticky right-0 text-center group-hover:bg-blue-50 ${cfgSelectedIds.has(sch.id) || cfgEditingId === sch.id ? 'bg-blue-50' : 'bg-white'}`}><div className="flex items-center justify-center gap-1">
+                                      <button type="button" disabled={cfgBulkDeleting} title="Chỉnh sửa cấu hình" onClick={e => { e.stopPropagation(); cfgLoadForEdit(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Pencil size={14} /></button>
+                                      <button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Copy size={14} /></button>
+                                      <button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); handleScheduleDelete(sch); }} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"><Trash2 size={14} /></button>
+                                    </div>
                                     </td>
                                   </tr>
                                 ))}
@@ -2098,7 +2208,9 @@ export default function WorkPlanningPage() {
                             </table>
                           )}
                         </div>
-                      </div>
+                        <footer className="flex justify-end px-6 py-3 border-t border-gray-200 bg-gray-50"><button type="button" onClick={() => setCfgShowHistory(false)} className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Đóng</button></footer>
+                      </section>
+                      </div>, document.body
                     )}
                   </div>
                   <button type="button" onClick={cfgSubmit} disabled={cfgSaving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">

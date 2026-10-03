@@ -12,19 +12,6 @@ function number(value: unknown, column: string, row: number): number | undefined
   return result;
 }
 
-function date(value: unknown, row: number): string | undefined {
-  if (value === '' || value == null) return undefined;
-  if (typeof value === 'number') {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (!parsed) throw new Error(`Dòng ${row}: ngày không hợp lệ.`);
-    return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d)).toISOString();
-  }
-  const text = String(value).trim();
-  if (!/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(text) || !Number.isFinite(Date.parse(text)))
-    throw new Error(`Dòng ${row}: LastExecutedAt cần dùng ngày Excel hoặc YYYY-MM-DD.`);
-  return new Date(text).toISOString();
-}
-
 export function parseMaintenanceWorkbook(book: XLSX.WorkBook): ImportMaintenanceRow[] {
   const sheet = book.Sheets.Maintenance || book.Sheets[book.SheetNames[0]];
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', blankrows: true });
@@ -43,7 +30,6 @@ export function parseMaintenanceWorkbook(book: XLSX.WorkBook): ImportMaintenance
       intervalType: (text('IntervalType') || 'CALENDAR') as ImportMaintenanceRow['intervalType'],
       intervalDays: numeric('IntervalDays'), intervalMonths: numeric('IntervalMonths'), intervalYears: numeric('IntervalYears'),
       intervalHours: numeric('IntervalHours'), hoursMinimum: numeric('HoursMinimum'), hoursMaximum: numeric('HoursMaximum'),
-      lastExecutedAt: date(row.LastExecutedAt, rowNumber), lastExecutedRunningHours: numeric('LastExecutedRunningHours'),
       instructions: text('Instructions'), review: text('Review'), priority: text('Priority') || 'NORMAL', autoGenerate: false,
     }];
   });
@@ -54,12 +40,12 @@ function downloadTemplate() {
   XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet([{
     ScheduleCode: 'ME-OIL-001', WorkCode: 'A001', AssetCode: 'MA-THIET-BI-DANG-CO', ScheduleName: 'Thay dầu máy',
     MaintenanceCategory: 'PERIODIC', IntervalType: 'CALENDAR', IntervalDays: '', IntervalMonths: 3, IntervalYears: '',
-    IntervalHours: '', LastExecutedAt: '', LastExecutedRunningHours: '', Instructions: '',
+    IntervalHours: '', Instructions: '',
   }]), 'Maintenance');
   XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet([
     { Note: 'AssetCode phải có trên tàu, không phải nhóm. ScheduleCode duy nhất; WorkCode là mã công việc nguồn.' },
     { Note: 'PERIODIC: chọn CALENDAR và đúng một IntervalDays/Months/Years; hoặc RUNNING_HOURS và IntervalHours.' },
-    { Note: 'DRY_DOCK, ON_DEMAND, VOYAGE: không cần chu kỳ. LastExecutedAt dùng YYYY-MM-DD hoặc ô ngày Excel.' },
+    { Note: 'DRY_DOCK, ON_DEMAND, VOYAGE: không cần chu kỳ. Không nhập lịch sử thực hiện hoặc hạn tiếp theo; hệ thống tự tính lịch.' },
     { Note: 'Import cấu hình, AutoGenerate=false. Kiểm tra/gán người phụ trách, checklist trước khi bật sinh việc.' },
   ]), 'Huong_dan');
   XLSX.writeFile(book, 'Mau_import_cong_viec_bao_tri.xlsx');

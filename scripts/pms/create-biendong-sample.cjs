@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { randomBytes } = require('crypto');
 const XLSX = require('../../edge_product/frontend-edge/node_modules/xlsx');
 const dir = path.resolve(__dirname, '../../docs/imports/biendong-star-2026');
 const read = (file, sheet) => XLSX.utils.sheet_to_json(XLSX.readFile(path.join(dir, file)).Sheets[sheet], { defval: '' });
@@ -18,7 +19,12 @@ for (const [kind, predicate] of Object.entries(kinds)) {
   selected.add(job.AssetCode);
 }
 for (const job of valid) { if (selected.size >= 10) break; selected.add(job.AssetCode); }
-const sample = valid.filter(j => selected.has(j.AssetCode));
+const importBatch = process.argv.includes('--renew') ? Date.now().toString(36).toUpperCase() + '-' + randomBytes(4).toString('hex').toUpperCase() : null;
+const sample = valid.filter(j => selected.has(j.AssetCode)).map(job => ({
+  ...job,
+  ScheduleCode: importBatch ? job.ScheduleCode + '-T-' + importBatch : job.ScheduleCode,
+}));
+if (sample.some(job => job.ScheduleCode.length > 50)) throw new Error('ScheduleCode exceeds import limit');
 const ancestors = new Set(selected);
 for (const code of ancestors) {
   const asset = equipment.find(a => a.AssetCode === code);
@@ -35,6 +41,8 @@ function write(file, sheet, rows, notes) {
   XLSX.writeFile(book, path.join(dir, file));
 }
 write('BIENDONG_STAR_2026_Cong_viec_bao_tri_10_thiet_bi.xlsx', 'Maintenance', sample, [
+  importBatch ? 'Mã ScheduleCode mới cho đợt thử ' + importBatch + '; tránh trùng cấu hình đã xóa mềm. WorkCode và AssetCode giữ nguyên.' : 'Dùng --renew để tạo mã cấu hình mới khi thử import lại sau xóa mềm.',
+  "Không nhập lịch sử thực hiện hoặc hạn tiếp theo. Hệ thống tự tính lịch từ chu kỳ; ngày nguồn chỉ dùng đối chiếu.",
   'Chọn 10 thiết bị từ file đã tách, giữ tất cả công việc có chu kỳ rõ ràng của các thiết bị này. Không tự thêm công việc.',
   'Có đủ tháng, năm, giờ, lên đà, theo yêu cầu và theo chuyến. Các dòng cần rà soát không nằm trong mẫu này.',
   'Nhập file thiết bị mẫu trước nếu các AssetCode chưa có trên tàu. Nhóm không tính vào số 10 thiết bị.',

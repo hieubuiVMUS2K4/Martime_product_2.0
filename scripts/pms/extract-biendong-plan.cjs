@@ -21,11 +21,6 @@ function text(v) {
     return /[A-Z]/.test(token) && !/[a-z]/.test(token) ? translated.toUpperCase() : translated;
   }).join('');
 }
-function iso(v) {
-  if (typeof v !== 'number' || v < 20000 || v > 80000) return '';
-  const d = XLSX.SSF.parse_date_code(v);
-  return d ? [d.y, String(d.m).padStart(2, '0'), String(d.d).padStart(2, '0')].join('-') : '';
-}
 function frequency(value) {
   const source = clean(value), normalized = text(source).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const f = { MaintenanceCategory: 'PERIODIC', IntervalType: '', IntervalHours: '', IntervalMonths: '', IntervalYears: '', IntervalDays: '', HoursMinimum: '', HoursMaximum: '', AutoGenerate: false, Review: '' };
@@ -94,7 +89,7 @@ for (const sheetName of book.SheetNames) {
     if (!rawDescription) f.Review += (f.Review ? ' ' : '') + 'Thiếu mô tả công việc.';
     const workCode = code; // Original source code belongs to the work, never to the asset.
     if (!workCode) f.Review += (f.Review ? ' ' : '') + 'Nguồn để trống mã công việc; mã import dùng dòng nguồn.';
-    const j = { ScheduleCode: 'BD26-' + (machinery ? 'M' : 'D') + '-R' + String(rowNumber).padStart(4, '0'), WorkCode: workCode, AssetCode: equipment.AssetCode, AssetName: equipment.AssetName, ScheduleName: text(rawDescription).slice(0, 200), Instructions: text(rawDescription), ...f, LastExecutedAt: iso(r[4]), LastExecutedRunningHours: '', OriginalFrequency: rawFrequency, OriginalLastTime: r[4], OriginalDescription: rawDescription, Plan: r[5], SourceSheet: sheetName, SourceSection: section, SourceRow: rowNumber, MonthlyMarks: JSON.stringify(r.slice(6, 18)) };
+    const j = { ScheduleCode: 'BD26-' + (machinery ? 'M' : 'D') + '-R' + String(rowNumber).padStart(4, '0'), WorkCode: workCode, AssetCode: equipment.AssetCode, AssetName: equipment.AssetName, ScheduleName: text(rawDescription).slice(0, 200), Instructions: text(rawDescription), ...f, OriginalFrequency: rawFrequency, OriginalLastTime: r[4], OriginalDescription: rawDescription, Plan: r[5], SourceSheet: sheetName, SourceSection: section, SourceRow: rowNumber, MonthlyMarks: JSON.stringify(r.slice(6, 18)) };
     jobs.push(j); if (j.Review) audit.push({ SourceSheet: sheetName, SourceRow: rowNumber, Issue: j.Review });
   }
 }
@@ -106,7 +101,7 @@ function write(file, firstName, data, extra) {
   XLSX.writeFile(b, path.join(output, file));
 }
 write('BIENDONG_STAR_2026_Thiet_bi.xlsx', 'Equipment', assets, [['Huong_dan', [{ Note: 'Code trong nguồn là mã công việc. AssetCode BD26-E... là mã thiết bị được tạo riêng; không lấy mã công việc làm mã thiết bị.' }, { Note: 'Các tiêu đề dùng SYSTEM; thiết bị dùng UNCLASSIFIED. Nguồn không cung cấp người phụ trách: cần gán sau khi import. Không tự đoán hãng/model/serial.' }, { Note: 'Chỉ import sheet Equipment. Các cột Source... và Original... phục vụ đối chiếu. Import vào tàu BIENDONG STAR; kiểm tra nhóm và tên trước khi nhập.' }]]]);
-write('BIENDONG_STAR_2026_Cong_viec_bao_tri.xlsx', 'Maintenance', jobs, [['Can_ra_soat', audit], ['Nguon_goc', sources], ['Huong_dan', [{ Note: 'Import tại Danh sách công việc → Import Excel trên Edge. Nhập thiết bị trước và xử lý các dòng Review trước khi nạp file đầy đủ.' }, { Note: 'WorkCode giữ nguyên mã công việc nguồn. ScheduleCode BD26-M/D-R... là khóa import riêng theo sheet/dòng vì hệ thống yêu cầu mã toàn cục duy nhất.' }, { Note: 'AssetCode liên kết với file thiết bị. Chỉ có công việc cho thiết bị thật; tiêu đề không được gán lịch.' }, { Note: 'M/Y và tháng/năm được giữ bằng IntervalMonths/IntervalYears, không đổi tháng thành 30 ngày hoặc năm thành 365 ngày.' }, { Note: 'H khoảng giờ giữ HoursMinimum/Maximum và Review; không tự chọn một đầu khoảng. Last Time là ngày Excel; không suy ra giờ máy.' }, { Note: 'Dấu/giá trị tháng và Plan được giữ nguyên để đối chiếu, không tự coi là bằng chứng công việc hoàn thành. AutoGenerate=false để chưa sinh việc hàng loạt.' }, { Note: 'Một số mô tả nguồn tiếp nối giữa các dòng hoặc ghi Như trên. Giữ OriginalDescription và sheet nguồn; cần duyệt nội dung trước khi import.' }]]]);
+write('BIENDONG_STAR_2026_Cong_viec_bao_tri.xlsx', 'Maintenance', jobs, [['Can_ra_soat', audit], ['Nguon_goc', sources], ['Huong_dan', [{ Note: "Không nhập lịch sử thực hiện hoặc hạn tiếp theo. Hệ thống tự tính lịch từ chu kỳ; ngày nguồn chỉ dùng đối chiếu." }, { Note: 'Import tại Danh sách công việc → Import Excel trên Edge. Nhập thiết bị trước và xử lý các dòng Review trước khi nạp file đầy đủ.' }, { Note: 'WorkCode giữ nguyên mã công việc nguồn. ScheduleCode BD26-M/D-R... là khóa import riêng theo sheet/dòng vì hệ thống yêu cầu mã toàn cục duy nhất.' }, { Note: 'AssetCode liên kết với file thiết bị. Chỉ có công việc cho thiết bị thật; tiêu đề không được gán lịch.' }, { Note: 'M/Y và tháng/năm được giữ bằng IntervalMonths/IntervalYears, không đổi tháng thành 30 ngày hoặc năm thành 365 ngày.' }, { Note: 'H khoảng giờ giữ HoursMinimum/Maximum và Review; không tự chọn một đầu khoảng. Last Time là ngày Excel; không suy ra giờ máy.' }, { Note: 'Dấu/giá trị tháng và Plan được giữ nguyên để đối chiếu, không tự coi là bằng chứng công việc hoàn thành. AutoGenerate=false để chưa sinh việc hàng loạt.' }, { Note: 'Một số mô tả nguồn tiếp nối giữa các dòng hoặc ghi Như trên. Giữ OriginalDescription và sheet nguồn; cần duyệt nội dung trước khi import.' }]]]);
 const summary = { assets: assets.length, groups: assets.filter(a => a.Category === 'SYSTEM').length, equipment: assets.filter(a => a.Category !== 'SYSTEM').length, jobs: jobs.length, review: audit.length, categories: jobs.reduce((o, j) => (o[j.MaintenanceCategory] = (o[j.MaintenanceCategory] || 0) + 1, o), {}) };
 fs.writeFileSync(path.join(output, 'extraction-summary.json'), JSON.stringify(summary, null, 2) + '\n');
 // Validate cross-file references and source coverage before treating artifacts as ready for review.

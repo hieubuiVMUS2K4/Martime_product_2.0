@@ -202,8 +202,6 @@ public class WorkItemConfigController : ControllerBase
             if (row.HoursMinimum.HasValue || row.HoursMaximum.HasValue) issues.Add("Chọn một chu kỳ giờ chạy cụ thể và bỏ khoảng giờ trước khi nhập.");
             var intervalError = ValidateInterval(row);
             if (intervalError != null) issues.Add(intervalError);
-            if (row.LastExecutedRunningHours < 0) issues.Add("Giờ chạy lần cuối không được âm.");
-            if (row.LastExecutedAt > DateTime.UtcNow) issues.Add("Ngày thực hiện lần cuối không được nằm trong tương lai.");
             if (issues.Count > 0) { errors.Add(new { row = row.RowNumber, scheduleCode = row.ScheduleCode, errors = issues }); continue; }
             var isEvent = MaintenanceCategories.IsEventDriven(row.MaintenanceCategory);
             var schedule = new MaintenanceSchedule {
@@ -212,7 +210,7 @@ public class WorkItemConfigController : ControllerBase
                 IntervalType = isEvent ? "CALENDAR" : row.IntervalType,
                 IntervalDays = isEvent ? null : row.IntervalDays, IntervalMonths = isEvent ? null : row.IntervalMonths,
                 IntervalYears = isEvent ? null : row.IntervalYears, IntervalHours = isEvent ? null : row.IntervalHours,
-                LastExecutedAt = row.LastExecutedAt?.ToUniversalTime(), LastExecutedRunningHours = row.LastExecutedRunningHours,
+                // Import initializes configuration, not maintenance execution history.
                 Instructions = row.Instructions, Priority = row.Priority, DaysBeforeDue = ValidateScheduleLeadTime(row),
                 EstimatedDurationHours = row.EstimatedDurationHours, AutoGenerate = false,
                 CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
@@ -1021,7 +1019,7 @@ public class WorkItemConfigController : ControllerBase
             // Find all active tasks for this schedule (TASK, MISSING_*, PENDING_APPROVAL, PENDING)
             var activeTasks = await _context.MaintenanceTasks
                 .Where(t => !t.IsDeleted && 
-                           t.TaskId.StartsWith($"SCHED-{scheduleCode}") &&
+                           t.ScheduleId == scheduleId &&
                            t.Status != "IN_PROGRESS" &&
                            t.Status != "COMPLETED" &&
                            t.Status != "CANCELLED")
@@ -1306,7 +1304,7 @@ public class WorkItemConfigController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error syncing task fields from schedule {ScheduleCode}", schedule.ScheduleCode);
-            // Don't throw - schedule update should still succeed
+            throw;
         }
     }
 
@@ -1367,7 +1365,7 @@ public class WorkItemConfigController : ControllerBase
                     .ToList();
             }
 
-            var taskId = $"SCHED-{schedule.ScheduleCode}-{identifierCode}-{DateTime.UtcNow:yyyyMMdd}";
+            var taskId = MaintenanceTaskIdentity.Create(schedule.Id, schedule.ScheduleCode, identifierCode, DateTime.UtcNow);
 
             // Check if task already exists
             if (await _context.MaintenanceTasks.AnyAsync(t => t.TaskId == taskId))
@@ -1459,8 +1457,8 @@ public class WorkItemConfigController : ControllerBase
         }
         catch (Exception ex)
         {
-            // Don't fail the schedule creation if task generation fails
-            _logger.LogError(ex, "Error generating initial task for schedule {ScheduleCode}. Task will be created by background scheduler.", schedule.ScheduleCode);
+            _logger.LogError(ex, "Error generating initial task for schedule {ScheduleCode}", schedule.ScheduleCode);
+            throw;
         }
     }
 

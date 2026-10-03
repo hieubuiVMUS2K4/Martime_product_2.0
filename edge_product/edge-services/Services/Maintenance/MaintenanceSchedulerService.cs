@@ -619,7 +619,7 @@ public class MaintenanceSchedulerService : BackgroundService
 
             // Create unique task ID
             var identifierCode = isPerAsset ? singleAsset!.AssetCode : group!.GroupCode;
-            var taskId = $"SCHED-{schedule.ScheduleCode}-{identifierCode}-{DateTime.UtcNow:yyyyMMdd}";
+            var taskId = MaintenanceTaskIdentity.Create(schedule.Id, schedule.ScheduleCode, identifierCode, DateTime.UtcNow);
 
             // Check for existing task to prevent duplicate key violations
             var existingTask = await context.MaintenanceTasks

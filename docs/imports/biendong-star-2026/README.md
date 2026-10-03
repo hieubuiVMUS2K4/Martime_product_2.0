@@ -7,7 +7,7 @@ Nguồn: Copy of KHBQBD 2026 Biendong star - .xls, gồm May BD.star 2026 và BO
 - 626 công việc định kỳ; 36 lên đà; 14 theo yêu cầu/khi cần; 4 theo chuyến. As need/As request cùng loại ON_DEMAND, giữ OriginalFrequency để phân biệt nội dung nguồn.
 - Sheet Can_ra_soat chứa 54 dòng cần kiểm tra: thiếu mã/chu kỳ, khoảng giờ chạy hoặc mô tả chưa đầy đủ. Khoảng giờ không được tự chuyển thành một chu kỳ. Tháng/năm giữ bằng IntervalMonths/IntervalYears, chưa quy đổi thành ngày.
 - Các trường Original... cùng sheet Nguon_goc lưu nội dung trước khi chuyển font TCVN3; giữ các từ Unicode trong ô hỗn hợp. Mô tả nối giữa các dòng, Như trên và lỗi chính tả nguồn cần được duyệt lại, không suy diễn nội dung kỹ thuật.
-- LastExecutedAt chuyển từ ngày Excel; LastExecutedRunningHours để trống vì nguồn không cho giờ máy tại lần bảo trì. Plan và MonthlyMarks giữ nguyên, chưa tạo lịch sử hoàn thành từ các dấu tháng.
+- Không có cột lịch sử thực hiện hoặc hạn tiếp theo trong sheet import; ngày Last Time nguồn chỉ giữ ở OriginalLastTime và sheet Nguon_goc để đối chiếu. Plan và MonthlyMarks giữ nguyên, chưa tạo lịch sử hoàn thành từ các dấu tháng.
 - AutoGenerate=false cho toàn bộ danh sách công việc để không phát sinh hàng loạt công việc chưa được duyệt.
 
 Đã bổ sung **Import Excel** tại trang **Danh sách công việc** trên Edge. Bộ import đọc sheet Maintenance, kiểm tra toàn bộ file trước khi nhập. AssetCode phải tồn tại và là thiết bị thật; ScheduleCode phải duy nhất. Nếu có lỗi thì chưa nhập dòng nào, không ghi đè cấu hình đã có. Chu kỳ tháng/năm được lưu riêng và tính bằng lịch thực tế, không quy đổi sang 30/365 ngày.
@@ -34,3 +34,9 @@ Tạo lại file:
 Đã kiểm tra giới hạn cột import thiết bị và toàn bộ liên kết AssetCode/ParentAssetCode. Chưa push các thay đổi của bước này.
 
 Kiểm tra bước import: build frontend Edge và backend Edge/Shore đạt; 51 kiểm thử Edge và 10 kiểm thử Shore trên PostgreSQL riêng đạt. Bao gồm nhập nguyên file hoặc không nhập dòng nào, chặn nhập trùng, tính tháng/năm và năm nhuận, chuyển giờ sang tháng không giữ chu kỳ cũ, và nhận đồng bộ giữ WorkCode/IntervalMonths. Database kiểm thử đã được dọn; chưa thay đổi dữ liệu thật.
+
+Hai file công việc (đầy đủ và mẫu 10 thiết bị) đã bỏ mốc lịch sử khỏi cột import để lập lịch lần đầu. Sửa file không cập nhật cấu hình đã import: không import lại cùng ScheduleCode; cần xử lý riêng cấu hình cũ.
+
+## Thử import lại sau xóa mềm
+
+Chạy `node scripts/pms/create-biendong-sample.cjs --renew` để làm mới ScheduleCode trong file công việc mẫu 10 thiết bị. Mỗi lần chạy tạo một hậu tố đợt thử mới; WorkCode, AssetCode và chu kỳ giữ nguyên, không có cột lịch sử thực hiện hoặc hạn tiếp theo. Không cần import lại thiết bị nếu chúng vẫn đang hoạt động trên tàu. File đầy đủ giữ mã nguồn ổn định.

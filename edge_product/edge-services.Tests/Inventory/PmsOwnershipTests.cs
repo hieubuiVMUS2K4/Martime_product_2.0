@@ -70,6 +70,50 @@ public class PmsOwnershipTests(PmsDatabaseFixture database)
     }
 
     [Fact]
+    public async Task ImportedLongScheduleCode_EnablingWithCrew_CreatesTaskWithinDatabaseLimit()
+    {
+        await using var context = database.CreateContext();
+        var crew = new Maritime.Shared.Models.Crew.CrewMember { CrewId = Code(), FullName = "Import executor", IsOnboard = true };
+        var device = new EquipmentAsset { AssetCode = Code(), AssetName = "Imported device", Category = "ENGINE" };
+        context.CrewMembers.Add(crew); context.EquipmentAssets.Add(device);
+        await context.SaveChangesAsync();
+        var controller = new WorkItemConfigController(new MaintenanceScheduleRepository(context),
+            new EquipmentAssetRepository(context), context, NullLogger<WorkItemConfigController>.Instance);
+        var code = "BD26-M-R0010-T-" + Code();
+        Assert.IsType<OkObjectResult>(await controller.Import(new() { Rows = new() {
+            new() { RowNumber = 2, ScheduleCode = code, AssetCode = device.AssetCode, ScheduleName = "Overhauling", IntervalMonths = 12 }
+        } }));
+        var schedule = await context.MaintenanceSchedules.SingleAsync(s => s.ScheduleCode == code);
+        Assert.False(await context.MaintenanceTasks.AnyAsync(t => t.ScheduleId == schedule.Id));
+        var instructions = System.Text.Json.JsonSerializer.Serialize(new { a = new[] { new { crewId = crew.Id.ToString(), role = "PIC" } } });
+        var dto = new CreateMaintenanceScheduleDto {
+            ScheduleCode = code, ScheduleName = "Overhauling", EquipmentAssetId = device.Id,
+            IntervalMonths = 12, AutoGenerate = true, Instructions = "<!--CREW:" + instructions + "-->"
+        };
+        Assert.IsType<OkObjectResult>((await controller.Update(schedule.Id, dto)).Result);
+        context.ChangeTracker.Clear();
+        var task = await context.MaintenanceTasks.SingleAsync(t => t.ScheduleId == schedule.Id && !t.IsDeleted);
+        Assert.InRange(task.TaskId.Length, 1, 50);
+        Assert.Equal(crew.FullName, task.AssignedTo);
+        Assert.Equal("SCHEDULED", task.Status);
+        Assert.True(task.NextDueAt > DateTime.UtcNow);
+        Assert.IsType<OkObjectResult>((await controller.Update(schedule.Id, dto)).Result);
+        Assert.Equal(1, await context.MaintenanceTasks.CountAsync(t => t.ScheduleId == schedule.Id && !t.IsDeleted));
+    }
+
+    [Fact]
+    public void LongTaskIdentity_IsStableAndDistinguishesTruncatedPrefixes()
+    {
+        var id = Guid.NewGuid(); var date = new DateTime(2026, 10, 3);
+        var code = new string('A', 50);
+        var first = MaritimeEdge.Constants.MaintenanceTaskIdentity.Create(id, code, new string('B', 50), date);
+        Assert.InRange(first.Length, 1, 50);
+        Assert.Equal(first, MaritimeEdge.Constants.MaintenanceTaskIdentity.Create(id, code, new string('B', 50), date));
+        Assert.NotEqual(first, MaritimeEdge.Constants.MaintenanceTaskIdentity.Create(id, code, new string('B', 49) + "C", date));
+        Assert.Equal("SCHED-SHORT-AE01-20261003", MaritimeEdge.Constants.MaintenanceTaskIdentity.Create(id, "SHORT", "AE01", date));
+    }
+
+    [Fact]
     public async Task GroupPic_RequiresOnboardCrew_AndIsReturnedAfterReload()
     {
         await using var context = database.CreateContext();
@@ -187,17 +231,20 @@ public class PmsOwnershipTests(PmsDatabaseFixture database)
         rows.Add(rows[0]);
         Assert.IsType<BadRequestObjectResult>(await controller.Import(request));
         rows.RemoveAt(rows.Count - 1);
+        var importStarted = DateTime.UtcNow;
         Assert.IsType<OkObjectResult>(await controller.Import(request));
+        var importFinished = DateTime.UtcNow;
         context.ChangeTracker.Clear();
         var codes = rows.Select(r => r.ScheduleCode).ToList();
         var saved = await context.MaintenanceSchedules.Where(s => codes.Contains(s.ScheduleCode)).ToListAsync();
         Assert.Equal(4, saved.Count);
         Assert.All(saved, s => Assert.False(s.AutoGenerate));
+        Assert.All(saved, s => { Assert.Null(s.LastExecutedAt); Assert.Null(s.LastExecutedRunningHours); });
         var month = saved.Single(s => s.ScheduleCode == rows[0].ScheduleCode);
         Assert.Equal("M001", month.WorkCode); Assert.Equal(1, month.IntervalMonths); Assert.Null(month.IntervalDays);
-        Assert.Equal(new DateTime(2024, 2, 29, 0, 0, 0, DateTimeKind.Utc), month.NextDueDate);
-        Assert.Equal(start.AddYears(1), saved.Single(s => s.ScheduleCode == rows[1].ScheduleCode).NextDueDate);
-        Assert.Equal(1500d, saved.Single(s => s.ScheduleCode == rows[2].ScheduleCode).NextDueRunningHours);
+        Assert.InRange(month.NextDueDate!.Value, importStarted.AddMonths(1), importFinished.AddMonths(1));
+        Assert.InRange(saved.Single(s => s.ScheduleCode == rows[1].ScheduleCode).NextDueDate!.Value, importStarted.AddYears(1), importFinished.AddYears(1));
+        Assert.Equal(500d, saved.Single(s => s.ScheduleCode == rows[2].ScheduleCode).NextDueRunningHours);
         Assert.Null(saved.Single(s => s.ScheduleCode == rows[3].ScheduleCode).NextDueDate);
         Assert.False(await context.MaintenanceTasks.AnyAsync(t => t.ScheduleId.HasValue && saved.Select(s => s.Id).Contains(t.ScheduleId.Value)));
         var hourly = saved.Single(s => s.ScheduleCode == rows[2].ScheduleCode);
