@@ -43,6 +43,7 @@ const navItems: NavItemDef[] = [
   },
   { type: 'link', path: '/vessels', label: 'Danh sách tàu' },
   { type: 'link', path: '/vessels/tracking', label: '🛰️ Tracking' },
+  { type: 'link', path: '/weather-routing', label: 'Tối ưu tuyến' },
   // {
   //   type: 'dropdown',
   //   label: 'Thông tin',
@@ -57,7 +58,7 @@ const navItems: NavItemDef[] = [
   //     },
   //     {
   //       title: 'ĐIỀU PHỐI',
-  //       items: [   
+  //       items: [
   //         { path: '/assignments', label: 'Phân công' },
   //         { path: '/external-requests', label: 'Tuyển ngoài' },
   //         { path: '/travel', label: 'Di chuyển' },

@@ -14,53 +14,72 @@ export const DisasterMapLayer: React.FC<DisasterMapLayerProps> = ({ visible }) =
 
   useEffect(() => {
     if (!visible) return;
-    if (geoData) return; // Đã load rồi thì không load lại nếu không cần thiết
+
+    const fetchJson = async (url: string) => {
+      const response = await fetch(url);
+      const ct = (response.headers.get('content-type') || '').toLowerCase();
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} for ${url}`);
+      }
+      // Proxy misconfig returns SPA HTML — catch before JSON.parse
+      if (ct.includes('text/html') || text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
+        throw new Error('Proxy /gdacs tra HTML thay vi JSON — kiem tra nginx/vite proxy');
+      }
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error('Khong parse duoc JSON tu ' + url);
+      }
+    };
 
     const fetchDisasters = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Lấy các thảm họa từ GDACS (chọn cả Green, Orange, Red để có cái nhìn tổng quan)
-        const response = await fetch('https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?alertlevel=Green,Orange,Red');
-        if (!response.ok) {
-          throw new Error('Failed to fetch disaster data');
-        }
-        const data = await response.json();
-        
-        // Lọc chỉ giữ lại các loại sự kiện liên quan đến thời tiết trên biển (Tropical Cyclones - Bão nhiệt đới)
-        if (data && data.features) {
+        // GDACS bat buoc eventtype; lay TC (bao)
+        const data = await fetchJson(
+          '/gdacs/gdacsapi/api/events/geteventlist/MAP?eventtype=TC&alertlevel=Green,Orange,Red'
+        );
+        if (data && Array.isArray(data.features)) {
           data.features = data.features.filter((f: any) => f.properties?.eventtype === 'TC');
         }
-        
         setGeoData(data);
 
-        // Fetch RainViewer radar data
-        const rvResponse = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-        if (rvResponse.ok) {
-          const rvData = await rvResponse.json();
-          if (rvData && rvData.radar && rvData.radar.past && rvData.radar.past.length > 0) {
+        try {
+          const rvData = await fetchJson('/rainviewer/public/weather-maps.json');
+          if (rvData?.radar?.past?.length > 0) {
             const latest = rvData.radar.past[rvData.radar.past.length - 1];
-            // color scheme 2 (Original), smooth = 1_1
             setRainViewerUrl(`${rvData.host}${latest.path}/256/{z}/{x}/{y}/2/1_1.png`);
           }
+        } catch (rvErr) {
+          console.warn('RainViewer optional fail:', rvErr);
         }
-
       } catch (err: any) {
         console.error('Error fetching GDACS data:', err);
-        setError(err.message);
+        setError(err?.message || String(err));
       } finally {
         setLoading(false);
       }
     };
 
     fetchDisasters();
-    
-    // Auto refresh every 30 minutes
     const interval = setInterval(fetchDisasters, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [visible, geoData]);
+  }, [visible]);
 
-  if (!visible || !geoData) return null;
+  if (!visible) return null;
+
+  if (loading && !geoData) {
+    return null;
+  }
+
+  if (error && !geoData) {
+    console.warn('GDACS layer error:', error);
+    return null;
+  }
+
+  if (!geoData) return null;
 
   // Custom hàm render marker cho các điểm thay vì marker mặc định
   const pointToLayer = (feature: any, latlng: L.LatLng) => {

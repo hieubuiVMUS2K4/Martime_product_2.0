@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, Circle, CircleMarker, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -68,6 +68,74 @@ interface VesselMapProps {
   focusVesselId?: string;
   /** Callback khi click vào marker tàu */
   onVesselSelect?: (vesselId: string) => void;
+  /** DE4: A* optimized route polyline */
+  optimizedRoute?: GpsPoint[];
+  /** DE4: straight baseline route polyline */
+  baselineRoute?: GpsPoint[];
+  /** DE4: tuyến theo kế hoạch chặng (nối các cảng tiếp nhiên liệu) */
+  planRoute?: GpsPoint[];
+  /** Điểm dùng để fit khung nhìn (mặc định lấy positions). Truyền tuyến để map ôm trọn hành trình. */
+  fitPoints?: GpsPoint[];
+  /** DE4: các vùng thiên tai (tâm + bán kính + loại, có ký hiệu ở tâm) */
+  hazards?: Array<{
+    lat: number;
+    lon: number;
+    radiusNm: number;
+    name?: string;
+    hazardType?: string;
+    label?: string;
+    icon?: string;
+    color?: string;
+    severity?: string;
+  }>;
+  /** Optional controlled GDACS disaster layer visibility */
+  showDisasters?: boolean;
+  onShowDisastersChange?: (show: boolean) => void;
+  /** Ẩn nút "Hiện/Ẩn cảnh báo thiên tai" (trang luôn hiển thị thiên tai). */
+  hideDisasterToggle?: boolean;
+  /**
+   * DE4: các cảng trong kế hoạch chặng, tô màu theo vai trò (StopKind).
+   * START/END = xanh lá, BUNKER = vàng, MANDATORY = cam.
+   */
+  planPorts?: Array<{
+    code?: string | null;
+    name?: string | null;
+    lat: number;
+    lon: number;
+    kind?: string | null;
+  }>;
+  /**
+   * DE4: toàn bộ cảng trong danh mục — vẽ chấm xanh nước biển nhỏ, rê chuột xem thông tin.
+   * Cảng đã có trong planPorts (cùng mã) không vẽ chấm nữa.
+   */
+  allPorts?: Array<{
+    code: string;
+    name: string;
+    country?: string | null;
+    lat: number;
+    lon: number;
+  }>;
+}
+
+/** Màu + ký hiệu cho từng vai trò cảng trong kế hoạch chặng. */
+const PLAN_PORT_STYLE: Record<string, { color: string; icon: string; label: string }> = {
+  START: { color: '#16a34a', icon: '⚓', label: 'Cảng bắt đầu' },
+  END: { color: '#16a34a', icon: '🏁', label: 'Cảng kết thúc' },
+  BUNKER: { color: '#eab308', icon: '⛽', label: 'Cảng gợi ý ghé (nạp nhiên liệu)' },
+  MANDATORY: { color: '#f97316', icon: '📦', label: 'Cảng bắt buộc ghé' },
+};
+
+/**
+ * Độ lệch kinh độ của các bản sao thế giới mà bản đồ lặp khi cuộn ngang.
+ * Lớp DE4 (cảng, tuyến) vẽ lại ở mỗi bản sao để phần lặp cũng được đánh dấu.
+ */
+const WORLD_COPY_OFFSETS = [-720, -360, 0, 360, 720];
+
+/** Polyline dịch kinh độ sang một bản sao thế giới, bỏ điểm không hợp lệ. */
+function toShiftedLatLngs(points: GpsPoint[], lonOffset: number): [number, number][] {
+  return points
+    .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
+    .map((p) => [p.latitude, p.longitude + lonOffset] as [number, number]);
 }
 
 /** SVG hình mũi tên điều hướng (như AIS marker) */
@@ -142,12 +210,14 @@ function MapController({
   vessels,
   autoFit,
   focusVesselId,
+  fitPoints,
 }: {
   currentPosition: GpsPoint | null;
   positions: GpsPoint[];
   vessels?: VesselTrackData[];
   autoFit: boolean;
   focusVesselId?: string;
+  fitPoints?: GpsPoint[];
 }) {
   const map = useMap();
   const prevLat = useRef<number | null>(null);
@@ -197,6 +267,10 @@ function MapController({
     } else {
       allPoints = positions;
     }
+
+    if (fitPoints && fitPoints.length > 0) {
+      allPoints = allPoints.concat(fitPoints);
+    }
     
     if (allPoints.length < 2) return;
 
@@ -204,7 +278,7 @@ function MapController({
       allPoints.map(p => [p.latitude, p.longitude] as [number, number])
     );
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-  }, [positions, vessels, map, autoFit]);
+  }, [positions, vessels, map, autoFit, fitPoints]);
 
   // Fly to focused vessel when focusVesselId changes
   useEffect(() => {
@@ -233,10 +307,34 @@ export const VesselMap: React.FC<VesselMapProps> = ({
   className = '',
   focusVesselId,
   onVesselSelect,
+  optimizedRoute,
+  baselineRoute,
+  planRoute,
+  fitPoints,
+  hazards,
+  planPorts,
+  allPorts,
+  showDisasters: showDisastersProp,
+  onShowDisastersChange,
+  hideDisasterToggle,
 }) => {
   const isMulti = vessels && vessels.length > 0;
   const navigate = useNavigate();
-  const [showDisasters, setShowDisasters] = useState(false);
+  const [showDisastersLocal, setShowDisastersLocal] = useState(false);
+  const showDisasters = showDisastersProp ?? showDisastersLocal;
+  const setShowDisasters = (v: boolean) => {
+    setShowDisastersLocal(v);
+    onShowDisastersChange?.(v);
+  };
+
+  // Chấm cảng vẽ bằng canvas để danh mục nhiều cảng không làm nặng DOM.
+  const portDotRenderer = useMemo(() => L.canvas({ padding: 0.5 }), []);
+  const portDots = useMemo(() => {
+    const planCodes = new Set((planPorts || []).map((p) => p.code).filter(Boolean));
+    return (allPorts || []).filter(
+      (p) => !planCodes.has(p.code) && Number.isFinite(p.lat) && Number.isFinite(p.lon),
+    );
+  }, [allPorts, planPorts]);
 
   // Single mode
   const defaultCenter: [number, number] = !isMulti && currentPosition
@@ -264,6 +362,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
     <div className={`relative rounded-2xl overflow-hidden shadow-2xl border border-gray-200/80 dark:border-gray-700/80 ring-1 ring-black/[0.02] h-full ${className}`}>
       
       {/* Nút toggle hiển thị thiên tai */}
+      {!hideDisasterToggle && (
       <div className="absolute top-4 right-4 z-[1000]">
         <button
           onClick={(e) => {
@@ -282,6 +381,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
           {showDisasters ? 'Ẩn cảnh báo thiên tai' : 'Hiện cảnh báo thiên tai'}
         </button>
       </div>
+      )}
 
       <MapContainer
         center={defaultCenter}
@@ -298,7 +398,141 @@ export const VesselMap: React.FC<VesselMapProps> = ({
 
         <VietnameseLabels />
 
-        <DisasterMapLayer visible={showDisasters} />
+        {/* DE4: vùng thiên tai — vòng tròn bán kính ảnh hưởng + icon ở tâm, lặp ở mọi bản sao thế giới */}
+        {WORLD_COPY_OFFSETS.flatMap((off) => (hazards || [])
+          .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon) && Number.isFinite(h.radiusNm))
+          .map((h, idx) => {
+            const color = h.color || '#dc2626';
+            const center: [number, number] = [h.lat, h.lon + off];
+            return (
+              <React.Fragment key={`hazard-${off}-${idx}`}>
+                <Circle
+                  center={center}
+                  radius={h.radiusNm * 1852}
+                  pathOptions={{ color, weight: 1.5, fillColor: color, fillOpacity: 0.18, dashArray: '4, 4' }}
+                />
+                <Marker
+                  position={center}
+                  icon={L.divIcon({
+                    className: '',
+                    html: `<div style="font-size:18px;line-height:1;text-shadow:0 0 3px #fff,0 0 3px #fff">${h.icon || '⚠️'}</div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10],
+                  })}
+                >
+                  <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ fontWeight: 700, color }}>
+                        {h.icon} {h.label || h.hazardType || 'Thiên tai'}
+                      </div>
+                      {h.name ? <div>{h.name}</div> : null}
+                      <div style={{ color: '#6b7280' }}>
+                        Bán kính {Math.round(h.radiusNm)} NM
+                        {h.severity ? ` · mức ${h.severity}` : ''}
+                      </div>
+                    </div>
+                  </Tooltip>
+                </Marker>
+              </React.Fragment>
+            );
+          }))}
+
+        {/* DE4 weather routing overlays — vẽ lặp ở mọi bản sao thế giới khi bản đồ cuộn ngang */}
+        {WORLD_COPY_OFFSETS.map((off) => (
+          <React.Fragment key={`de4-routes-${off}`}>
+            {baselineRoute && baselineRoute.length >= 2 && (
+              <Polyline
+                positions={toShiftedLatLngs(baselineRoute, off)}
+                color="#6b7280"
+                weight={3}
+                opacity={0.85}
+                dashArray="6, 10"
+              />
+            )}
+            {optimizedRoute && optimizedRoute.length >= 2 && (
+              <Polyline
+                positions={toShiftedLatLngs(optimizedRoute, off)}
+                color="#16a34a"
+                weight={4}
+                opacity={0.9}
+              />
+            )}
+            {planRoute && planRoute.length >= 2 && (
+              <Polyline
+                positions={toShiftedLatLngs(planRoute, off)}
+                color="#7c3aed"
+                weight={4}
+                opacity={0.9}
+                dashArray="10, 6"
+              />
+            )}
+          </React.Fragment>
+        ))}
+
+        {/* Toàn bộ cảng trong danh mục: chấm xanh nước biển, rê chuột xem thông tin */}
+        {WORLD_COPY_OFFSETS.flatMap((off) => portDots.map((p, idx) => (
+          <CircleMarker
+            key={`port-dot-${off}-${p.code}-${idx}`}
+            center={[p.lat, p.lon + off]}
+            radius={4}
+            renderer={portDotRenderer}
+            pathOptions={{ color: '#ffffff', weight: 1, fillColor: '#0284c7', fillOpacity: 0.9 }}
+          >
+            <Tooltip direction="top" offset={[0, -4]} opacity={0.95}>
+              <div style={{ fontSize: 12 }}>
+                <div style={{ fontWeight: 700, color: '#0284c7' }}>
+                  {p.name} ({p.code})
+                </div>
+                {p.country ? <div>{p.country}</div> : null}
+                <div style={{ color: '#6b7280' }}>
+                  {p.lat.toFixed(3)}, {p.lon.toFixed(3)}
+                </div>
+              </div>
+            </Tooltip>
+          </CircleMarker>
+        )))}
+
+        {/* Cảng trong kế hoạch chặng: xanh lá = bắt đầu/kết thúc, vàng = gợi ý ghé, cam = bắt buộc ghé */}
+        {WORLD_COPY_OFFSETS.flatMap((off) => (planPorts || [])
+          .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+          .map((p, idx) => {
+            const kind = (p.kind || 'BUNKER').toUpperCase();
+            const style = PLAN_PORT_STYLE[kind] ?? PLAN_PORT_STYLE.BUNKER;
+            const key = `port-${off}-${kind}-${p.code || idx}-${p.lat}-${p.lon}`;
+            return (
+              <Marker
+                key={key}
+                position={[p.lat, p.lon + off]}
+                zIndexOffset={1000}
+                icon={L.divIcon({
+                  className: '',
+                  html: `<div style="width:28px;height:28px;border-radius:50%;background:${style.color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.45)">${style.icon}</div>`,
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                })}
+              >
+                <Tooltip permanent direction="top" offset={[0, -14]} opacity={0.95}>
+                  <span style={{ fontWeight: 600, color: style.color }}>
+                    {style.icon} {p.code || '—'}
+                  </span>
+                </Tooltip>
+                <Popup>
+                  <div style={{ fontSize: 12 }}>
+                    <div style={{ fontWeight: 700, color: style.color }}>
+                      {style.icon} {style.label}
+                    </div>
+                    <div>
+                      <b>{p.name || p.code}</b>
+                      {p.code ? ` (${p.code})` : ''}
+                    </div>
+                    <div style={{ color: '#6b7280' }}>
+                      {p.lat.toFixed(3)}, {p.lon.toFixed(3)}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          }))}
 
         {/* Map Controller */}
         <MapController
@@ -307,6 +541,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
           vessels={vessels}
           autoFit={autoFit}
           focusVesselId={focusVesselId}
+          fitPoints={fitPoints}
         />
 
         {/* Tuyến đường dự định Vũng Tàu → Hải Phòng */}

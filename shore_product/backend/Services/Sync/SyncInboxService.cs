@@ -300,6 +300,22 @@ public class SyncInboxService : ISyncInboxService
         ["sms_filled_record"] = "sms_filled_records",
     };
 
+    // Danh mục SMS do BỜ làm chủ, chỉ đồng bộ một chiều Bờ → Tàu (SMS_SYNC_WORKFLOW_SPEC,
+    // ma trận quyền sở hữu). Tàu chỉ đọc ba bảng này, nên mọi bản ghi của chúng đẩy lên đây
+    // đều là tiếng vọng của chính dữ liệu bờ vừa phát xuống — nhận vào là ghi đè bản gốc
+    // bằng bản sao của tàu, kèm OriginNode = "SHIP_01".
+    //
+    // Bỏ qua và BÁO THÀNH CÔNG chứ không báo lỗi: các tàu chạy bản cũ vẫn còn những dòng
+    // vọng ngược nằm trong sync_queue, báo lỗi thì chúng thử lại tới khi cạn lượt rồi kẹt
+    // lại vĩnh viễn trong hàng đợi. Báo thành công để tàu đánh dấu đã đồng bộ và rút ra.
+    //
+    // sms_filled_records và sms_procedure_acknowledgements KHÔNG nằm ở đây: tàu sở hữu
+    // chúng và bờ phải nhận.
+    private static readonly HashSet<string> _shoreMasterOnlyTables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ism_elements", "sms_procedures", "sms_form_templates"
+    };
+
     // Tables that edge auto-syncs but shore intentionally does not store.
     // These are silently skipped (not logged as failures) to avoid noise.
     private static readonly HashSet<string> _ignoredTables = new(StringComparer.OrdinalIgnoreCase)
@@ -516,6 +532,16 @@ public class SyncInboxService : ISyncInboxService
             {
                 _logger.LogInformation("Ignored {Count} obsolete Edge material-definition uploads", group.Count());
                 result.Succeeded += group.Count(); // Acknowledge old queues without mutating Shore definitions.
+                continue;
+            }
+
+            // ── Chặn ghi ngược vào danh mục SMS do Bờ làm chủ ── xem _shoreMasterOnlyTables
+            if (_shoreMasterOnlyTables.Contains(canonicalTable))
+            {
+                _logger.LogDebug(
+                    "Bỏ qua {Count} bản ghi {Table} tàu đẩy lên: bảng do Bờ làm chủ, chỉ đồng bộ một chiều Bờ → Tàu",
+                    group.Count(), canonicalTable);
+                result.Succeeded += group.Count();
                 continue;
             }
 

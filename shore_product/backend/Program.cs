@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
@@ -98,21 +98,21 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Authorization policies — role-based access for Crew Management
+// Authorization policies â€” role-based access for Crew Management
 builder.Services.AddAuthorizationBuilder()
-    // HR Admin + Crew Coordinator — full crew management
+    // HR Admin + Crew Coordinator â€” full crew management
     .AddPolicy("CrewManagement", policy =>
         policy.RequireRole("Admin", "HRAdmin", "CrewCoordinator", "SystemAdmin"))
-    // Compliance Officer — compliance rules, waivers, document verification
+    // Compliance Officer â€” compliance rules, waivers, document verification
     .AddPolicy("ComplianceManagement", policy =>
         policy.RequireRole("Admin", "ComplianceOfficer", "SystemAdmin"))
-    // Travel Coordinator — travel requests and itineraries
+    // Travel Coordinator â€” travel requests and itineraries
     .AddPolicy("TravelManagement", policy =>
         policy.RequireRole("Admin", "TravelCoordinator", "CrewCoordinator", "SystemAdmin"))
-    // Fleet Manager + Port Captain — planning, assignments, external requests
+    // Fleet Manager + Port Captain â€” planning, assignments, external requests
     .AddPolicy("FleetManagement", policy =>
         policy.RequireRole("Admin", "FleetManager", "PortCaptain", "CrewCoordinator", "SystemAdmin"))
-    // Master (edge) — onboard events, sign-on/sign-off
+    // Master (edge) â€” onboard events, sign-on/sign-off
     .AddPolicy("OnboardManagement", policy =>
         policy.RequireRole("Admin", "Master", "ChiefOfficer", "CrewCoordinator", "SystemAdmin"))
     // Read-only access for authenticated users
@@ -147,8 +147,8 @@ builder.Services.AddRateLimiter(options =>
         {
             success = false,
             answer = retryAfterSeconds.HasValue
-                ? $"Backend đang giới hạn tần suất yêu cầu. Vui lòng thử lại sau {retryAfterSeconds.Value}s."
-                : "Backend đang giới hạn tần suất yêu cầu. Vui lòng thử lại sau.",
+                ? $"Backend Ä‘ang giá»›i háº¡n táº§n suáº¥t yÃªu cáº§u. Vui lÃ²ng thá»­ láº¡i sau {retryAfterSeconds.Value}s."
+                : "Backend Ä‘ang giá»›i háº¡n táº§n suáº¥t yÃªu cáº§u. Vui lÃ²ng thá»­ láº¡i sau.",
             errorSource = "backend_rate_limiter",
             retryAfterSeconds
         });
@@ -275,6 +275,27 @@ builder.Services.AddSingleton<ProductApi.Services.AI.Conversation.IConversationH
 
 // Use V2 with enhancements - supports backward compatibility
 builder.Services.AddScoped<ProductApi.Services.AI.IAiChatService, ProductApi.Services.AI.AiChatServiceV2>();
+
+// DE4 Weather Routing (A* + baseline + mock hazard)
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IGridBuilder, ProductApi.Services.WeatherRouting.GridBuilder>();
+// Hàm đánh giá tính bằng NHIÊN LIỆU (tấn), có kể sức cản sóng gió — thay cho khoảng cách thuần.
+// Dùng tham số nhiên liệu mặc định: hình dạng tuyến tối ưu chỉ phụ thuộc các hệ số tổn thất
+// tốc độ (sóng/gió), còn sức chứa hay công suất của từng tàu chỉ co giãn chi phí theo một hệ số
+// chung nên không đổi thứ tự các tuyến. Cá thể hoá theo vessel_fuel_profiles là bước sau.
+// Đổi về HeuristicCost nếu cần so sánh với đường ngắn nhất thuần tuý.
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IHeuristicCost>(_ =>
+    new ProductApi.Services.WeatherRouting.WeatherFuelCost(
+        new ProductApi.Services.WeatherRouting.FuelModel(
+            new ProductApi.Services.WeatherRouting.FuelModelOptions())));
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IAstStarRouter, ProductApi.Services.WeatherRouting.AstStarRouter>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IStraightBaselineRouter, ProductApi.Services.WeatherRouting.StraightBaselineRouter>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IWeatherRoutingService, ProductApi.Services.WeatherRouting.WeatherRoutingService>();
+
+// DE4 Weather Routing — lập kế hoạch n chặng (bunkering / fuel plan)
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IVoyageLegPlanner, ProductApi.Services.WeatherRouting.VoyageLegPlanner>();
+builder.Services.AddScoped<ProductApi.Services.WeatherRouting.IVoyageLegPlanService, ProductApi.Services.WeatherRouting.VoyageLegPlanService>();
+
+
 builder.Services.AddSingleton<ProductApi.Services.Background.ReportEvaluationQueue>();
 builder.Services.AddHostedService<ProductApi.Services.Background.ReportEvaluationWorker>();
 
@@ -330,7 +351,7 @@ if (autoMigrateDatabase)
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_voyage_reviews_VoyageId"" ON voyage_reviews (""VoyageId"");
                 CREATE INDEX IF NOT EXISTS ""IX_voyage_reviews_ReviewStatus"" ON voyage_reviews (""ReviewStatus"");
             ");
-            // ── Migration: Add IsRunning column to EngineData ──
+            // â”€â”€ Migration: Add IsRunning column to EngineData â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 ALTER TABLE ""EngineData""
                 ADD COLUMN IF NOT EXISTS ""IsRunning"" boolean NOT NULL DEFAULT false;
@@ -384,7 +405,7 @@ if (autoMigrateDatabase)
                     END IF;
                 END $$;
             ");
-            // ── PMS: add VesselId to equipment_assets & material_items ──
+            // â”€â”€ PMS: add VesselId to equipment_assets & material_items â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 ALTER TABLE equipment_assets
                 ADD COLUMN IF NOT EXISTS ""VesselId"" uuid;
@@ -418,7 +439,7 @@ if (autoMigrateDatabase)
                   AND v.""IMO"" = mt.""OriginNode"";
             ");
 
-            // ── Shore notifications table ──
+            // â”€â”€ Shore notifications table â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS shore_notifications (
                     ""Id""         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -439,7 +460,106 @@ if (autoMigrateDatabase)
                     ON shore_notifications (""IsRead"");
             ");
 
-            // ── Seed default admin user (idempotent) ──
+            // ---- DE4 Weather Routing: hồ sơ nhiên liệu tàu + cột PlanJson ----
+            await db.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS vessel_fuel_profiles (
+                    ""Id"" uuid NOT NULL,
+                    ""VesselId"" uuid NOT NULL,
+                    ""VesselName"" character varying(100) NULL,
+                    ""FuelType"" character varying(20) NOT NULL DEFAULT 'VLSFO',
+                    ""FuelCapacityTons"" double precision NOT NULL DEFAULT 220,
+                    ""CurrentFuelTons"" double precision NULL,
+                    ""ReserveFraction"" double precision NOT NULL DEFAULT 0.2,
+                    ""ServiceSpeedKts"" double precision NOT NULL DEFAULT 11.5,
+                    ""ServicePowerKw"" double precision NOT NULL DEFAULT 900,
+                    ""SfocMainGPerKwh"" double precision NOT NULL DEFAULT 180,
+                    ""AuxLoadKw"" double precision NOT NULL DEFAULT 120,
+                    ""SfocAuxGPerKwh"" double precision NOT NULL DEFAULT 215,
+                    ""SeaMarginFraction"" double precision NOT NULL DEFAULT 0.15,
+                    ""SpeedExponent"" double precision NOT NULL DEFAULT 3.0,
+                    ""WeatherAllowanceFraction"" double precision NOT NULL DEFAULT 0.08,
+                    ""PortStayHours"" double precision NOT NULL DEFAULT 8.0,
+                    ""MaxDetourNm"" double precision NOT NULL DEFAULT 250,
+                    ""Source"" character varying(20) NOT NULL DEFAULT 'ESTIMATE',
+                    ""Notes"" character varying(500) NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NOT NULL,
+                    CONSTRAINT ""PK_vessel_fuel_profiles"" PRIMARY KEY (""Id"")
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_vessel_fuel_profiles_VesselId""
+                    ON vessel_fuel_profiles (""VesselId"");
+
+                ALTER TABLE weather_routing_jobs
+                ADD COLUMN IF NOT EXISTS ""PlanJson"" jsonb NOT NULL DEFAULT jsonb_build_object();
+
+                -- Seed hồ sơ nhiên liệu ước lượng cho các tàu hiện có (idempotent).
+                -- Bộ số dưới đây ứng với một tàu nhỏ (coaster ~1.500 GT, máy chính ~700 kW):
+                -- sức chứa 100 t, đang có 75 t, tốc độ khai thác 11 kn, SFOC 185/215 g/kWh.
+                INSERT INTO vessel_fuel_profiles (
+                    ""Id"", ""VesselId"", ""VesselName"", ""FuelType"", ""FuelCapacityTons"", ""CurrentFuelTons"",
+                    ""ReserveFraction"", ""ServiceSpeedKts"", ""ServicePowerKw"", ""SfocMainGPerKwh"",
+                    ""AuxLoadKw"", ""SfocAuxGPerKwh"", ""SeaMarginFraction"", ""SpeedExponent"",
+                    ""WeatherAllowanceFraction"", ""PortStayHours"", ""MaxDetourNm"", ""Source"", ""Notes"",
+                    ""CreatedAt"", ""UpdatedAt""
+                )
+                SELECT
+                    gen_random_uuid(), v.""Id"", v.""Name"", 'VLSFO', 100, 75,
+                    0.20, 11.0, 700, 185,
+                    100, 215, 0.15, 3.0,
+                    0.08, 8.0, 400, 'ESTIMATE',
+                    'Uoc luong cho demo DE4 - nen thay bang so lieu thuc tu ho so tau (SFOC, cong suat, suc chua nhien lieu).',
+                    NOW(), NOW()
+                FROM ""Vessels"" v
+                WHERE v.""Name"" NOT LIKE 'Vessel edge-%'
+                ON CONFLICT (""VesselId"") DO NOTHING;
+
+                -- Bổ sung thông số kỹ thuật còn thiếu cho tàu chở hàng (chỉ điền khi đang NULL,
+                -- không ghi đè số liệu thật nếu sau này nhập từ hồ sơ tàu).
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""MainEnginePowerKw"" double precision;
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""FuelCapacityTons"" double precision;
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""FuelConsumptionTonsPerDay"" double precision;
+                ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""CruisingRangeNm"" double precision;
+
+                UPDATE ""Vessels"" SET
+                    ""VesselType""               = COALESCE(""VesselType"", 'General Cargo'),
+                    ""YearBuilt""                = COALESCE(""YearBuilt"", 2012),
+                    ""Flag""                     = COALESCE(""Flag"", 'Vietnam'),
+                    ""DeadWeight""               = COALESCE(""DeadWeight"", 2600),
+                    ""GrossTonnage""             = COALESCE(""GrossTonnage"", 1850),
+                    ""GrossTonnageInternational""= COALESCE(""GrossTonnageInternational"", 1850),
+                    ""GrossTonnagePanamaCanal""  = COALESCE(""GrossTonnagePanamaCanal"", 1850),
+                    ""GrossTonnageSuezCanal""    = COALESCE(""GrossTonnageSuezCanal"", 1850),
+                    ""NettTonnageInternational"" = COALESCE(""NettTonnageInternational"", 780),
+                    ""NettTonnagePanamaCanal""   = COALESCE(""NettTonnagePanamaCanal"", 780),
+                    ""NettTonnageSuezCanal""     = COALESCE(""NettTonnageSuezCanal"", 780),
+                    ""DepthMoulded""             = COALESCE(""DepthMoulded"", 7.0),
+                    ""DraftMoulded""             = COALESCE(""DraftMoulded"", 5.2),
+                    ""DraftFullBallast""         = COALESCE(""DraftFullBallast"", 2.8),
+                    ""DraftScantling""           = COALESCE(""DraftScantling"", 5.6),
+                    ""TpcAtSummerDraft""         = COALESCE(""TpcAtSummerDraft"", 12.5),
+                    ""GrainCbm""                 = COALESCE(""GrainCbm"", 3400),
+                    ""BalesCbm""                 = COALESCE(""BalesCbm"", 3250),
+                    ""NoOfCargoHolds""           = COALESCE(""NoOfCargoHolds"", 2),
+                    ""NoOfHatches""              = COALESCE(""NoOfHatches"", 2),
+                    ""NoOfCrewSafeManning""      = COALESCE(""NoOfCrewSafeManning"", 12),
+                    ""TeuTotal""                 = COALESCE(""TeuTotal"", 120),
+                    ""TeuOnDeck""                = COALESCE(""TeuOnDeck"", 40),
+                    ""TeuUnderDeck""             = COALESCE(""TeuUnderDeck"", 80),
+                    ""HMaxAirdraft""             = COALESCE(""HMaxAirdraft"", 18.5),
+                    ""AirdraftReductionMastFouled"" = COALESCE(""AirdraftReductionMastFouled"", 0),
+                    ""ServiceSpeedKts""          = COALESCE(""ServiceSpeedKts"", 11.0),
+                    ""MainEnginePowerKw""        = COALESCE(""MainEnginePowerKw"", 700),
+                    ""FuelCapacityTons""         = COALESCE(""FuelCapacityTons"", 100),
+                    ""FuelConsumptionTonsPerDay""= COALESCE(""FuelConsumptionTonsPerDay"", 4.17),
+                    ""CruisingRangeNm""          = COALESCE(""CruisingRangeNm"", 4695),
+                    ""HarbourGeneratorMaxPowerKW"" = COALESCE(""HarbourGeneratorMaxPowerKW"", 120),
+                    ""ClassSocietyName""         = COALESCE(""ClassSocietyName"", 'Vietnam Register'),
+                    ""ClassNotation""            = COALESCE(""ClassNotation"", 'General Cargo Ship, unrestricted navigation')
+                WHERE ""Name"" NOT LIKE 'Vessel edge-%';
+            ");
+
+            // â”€â”€ Seed default admin user (idempotent) â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username""
                     ON ""Users"" (""Username"");
@@ -455,7 +575,7 @@ if (autoMigrateDatabase)
             ");
             logger.LogInformation("Default admin user seed completed.");
 
-            // ── Auto-create SMS tables if not present ──
+            // â”€â”€ Auto-create SMS tables if not present â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS ism_elements (
                     ""Id"" integer NOT NULL,
@@ -579,7 +699,7 @@ if (autoMigrateDatabase)
                 );
             ");
 
-            // ── Seed SMS initial data (ISM elements & procedures) ──
+            // â”€â”€ Seed SMS initial data (ISM elements & procedures) â”€â”€
             await SmsSeedData.SeedAsync(db);
             logger.LogInformation("SMS Seed Data completed.");
 
@@ -626,7 +746,7 @@ app.UseExceptionHandler(errorApp =>
         var exception = exceptionFeature?.Error;
 
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogError(exception, "Unhandled exception on {Method} {Path}", 
+        logger.LogError(exception, "Unhandled exception on {Method} {Path}",
             context.Request.Method, context.Request.Path);
 
         var (statusCode, message) = exception switch
@@ -714,4 +834,3 @@ app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthC
 app.MapHealthChecks("/health/ready");
 
 app.Run();
-

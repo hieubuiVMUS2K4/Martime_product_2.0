@@ -23,6 +23,7 @@ import StockReceiptPage from '../pages/Materials/StockReceiptPage';
 import InventoryPage from '../pages/Materials/InventoryPage';
 import LoginPage from '../pages/Auth/LoginPage';
 import { SmsDocumentPage } from '../pages/SMS/SmsDocumentPage';
+import { WeatherRoutingPage } from '../pages/WeatherRouting/WeatherRoutingPage';
 import { useAuth } from '../contexts/AuthContext';
 
 /**
@@ -78,6 +79,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/work-assignments" element={<WorkAssignmentPage />} />
         <Route path="/vessels" element={<VesselsPage />} />
         <Route path="/vessels/tracking" element={<VesselTrackingPage />} />
+        <Route path="/weather-routing" element={<WeatherRoutingPage />} />
         <Route path="/vessels/:id" element={<VesselDetailPage />} />
         <Route path="/vessels/:vesselId/crew/:id" element={<CrewDetailPage />} />
         <Route path="/pms/master-schedule" element={<MasterSchedulePage />} />

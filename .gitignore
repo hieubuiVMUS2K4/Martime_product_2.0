@@ -236,3 +236,18 @@ dumps/*.sql
 temp-*
 test-output.json
 
+# ====================
+# SCRATCH / BÍ MẬT — KHÔNG ĐƯỢC LÊN REMOTE
+# ====================
+# Thư mục nháp khi dò lỗi (SQL, PowerShell, output tạm). Từng chứa cả JWT.
+TempQuery/
+
+# Token / credential dump khi test API bằng tay
+token.txt
+*.token.txt
+*.jwt
+
+# Output nháp của Weather Routing
+wr_job_latest.json
+shore_product/scripts/tmp-*
+

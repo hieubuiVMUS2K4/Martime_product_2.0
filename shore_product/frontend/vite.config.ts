@@ -1,12 +1,17 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-const backendUrl = process.env.VITE_BACKEND_URL || 'http://localhost:5000'
-const internalApiKey = process.env.INTERNAL_API_KEY || ''
-
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+// Vite chỉ nạp .env* vào import.meta.env cho code phía trình duyệt, KHÔNG vào process.env ở file
+// config này. Không gọi loadEnv thì VITE_BACKEND_URL trong .env.local bị bỏ qua và proxy rơi về
+// cổng 5000 — nơi có thể là một backend khác (container Docker cũ). Biến môi trường shell vẫn ưu tiên.
+const env = loadEnv(mode, __dirname, '')
+const backendUrl = process.env.VITE_BACKEND_URL || env.VITE_BACKEND_URL || 'http://localhost:5000'
+const internalApiKey = process.env.INTERNAL_API_KEY || env.INTERNAL_API_KEY || ''
+
+return {
   plugins: [react()],
   resolve: {
     alias: {
@@ -61,7 +66,21 @@ export default defineConfig({
       '/maps': {
         target: 'https://maps.vietmap.vn',
         changeOrigin: true,
-      }
+      },
+      // GDACS / RainViewer — same-origin proxy so browser gets JSON (not CORS/HTML)
+      '/gdacs': {
+        target: 'https://www.gdacs.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/gdacs/, ''),
+      },
+      '/rainviewer': {
+        target: 'https://api.rainviewer.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/rainviewer/, ''),
+      },
     }
   }
+}
 })

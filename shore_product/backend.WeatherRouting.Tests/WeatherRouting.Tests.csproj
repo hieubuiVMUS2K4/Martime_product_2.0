@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>WeatherRouting.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <!--
+    Nạp thẳng các file thuật toán thay vì tham chiếu cả product-api: những file dưới đây
+    thuần tính toán, không đụng EF hay ILogger, nên test chạy không cần DB hay web host.
+
+    Đường dẫn trước đây là ..\..\Services\... — trỏ ra ngoài repo nên project CHƯA TỪNG
+    compile được. Đúng phải là ..\backend\Services\... (cùng cấp shore_product).
+
+    KHÔNG đưa vào: VoyageLegPlanner (cần ILogger), VoyageLegPlanService / WeatherRoutingService
+    (cần AppDbContext + EF), IWeatherRoutingService (cần DTOs).
+  -->
+  <ItemGroup>
+    <Compile Include="..\backend\Services\WeatherRouting\RoutingPrimitives.cs" Link="Algo\RoutingPrimitives.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\HazardProvider.cs" Link="Algo\HazardProvider.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\HazardModels.cs" Link="Algo\HazardModels.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\HazardWeatherField.cs" Link="Algo\HazardWeatherField.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\HazardDetour.cs" Link="Algo\HazardDetour.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\GridBuilder.cs" Link="Algo\GridBuilder.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\HeuristicCost.cs" Link="Algo\HeuristicCost.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\FuelModel.cs" Link="Algo\FuelModel.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\WeatherFuelCost.cs" Link="Algo\WeatherFuelCost.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\AstStarRouter.cs" Link="Algo\AstStarRouter.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\DStarLiteRouter.cs" Link="Algo\DStarLiteRouter.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\StraightBaselineRouter.cs" Link="Algo\StraightBaselineRouter.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\PathSanitizer.cs" Link="Algo\PathSanitizer.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\LandMask.cs" Link="Algo\LandMask.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\LandPathRepair.cs" Link="Algo\LandPathRepair.cs" />
+    <Compile Include="..\backend\Services\WeatherRouting\RouteCorridor.cs" Link="Algo\RouteCorridor.cs" />
+  </ItemGroup>
+
+  <!--
+    LandMask.EnsureLoaded() đọc geojson từ AppContext.BaseDirectory\Services\WeatherRouting\Data.
+    Không chép sang thư mục output thì GridBuilder.Build ném "Land mask failed to load"
+    và mọi test dựng lưới đều đỏ.
+  -->
+  <ItemGroup>
+    <None Include="..\backend\Services\WeatherRouting\Data\*.geojson"
+          Link="Services\WeatherRouting\Data\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

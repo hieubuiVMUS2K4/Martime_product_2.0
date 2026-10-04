@@ -114,6 +114,26 @@ public class PmsOwnershipTests(PmsDatabaseFixture database)
     }
 
     [Fact]
+    public async Task ShoreCatalogues_MaterialAndSms_DoNotEchoWhileEquipmentStillQueues()
+    {
+        await using var context = database.CreateContext();
+        var chapter = new IsmElement { Id = Random.Shared.Next(1000000, 2000000), ChapterName = "Shore chapter" };
+        var procedure = new SmsProcedure { IsmElementId = chapter.Id, ProcedureCode = Code(), Title = "Shore procedure" };
+        var form = new SmsFormTemplate { SmsProcedureId = procedure.Id, FormCode = Code(), Title = "Shore form" };
+        var material = new MaterialCatalogItem { ItemCode = Code(), Name = "Shore material" };
+        var device = new EquipmentAsset { AssetCode = Code(), AssetName = "Ship equipment", Category = "ENGINE" };
+        context.AddRange(chapter, procedure, form, material, device);
+        await context.SaveChangesAsync();
+        var keys = new[] { chapter.Id.ToString(), procedure.Id.ToString(), form.Id.ToString(), material.Id.ToString() };
+        Assert.False(await context.SyncQueue.AnyAsync(q => keys.Contains(q.RecordKey)));
+        Assert.True(await context.SyncQueue.AnyAsync(q => q.RecordKey == device.Id.ToString() && q.TableName == "equipment_asset"));
+        chapter.ChapterName = "Updated shore chapter"; procedure.Title = "Updated shore procedure";
+        form.Title = "Updated shore form"; material.Name = "Updated shore material";
+        await context.SaveChangesAsync();
+        Assert.False(await context.SyncQueue.AnyAsync(q => keys.Contains(q.RecordKey)));
+    }
+
+    [Fact]
     public async Task GroupPic_RequiresOnboardCrew_AndIsReturnedAfterReload()
     {
         await using var context = database.CreateContext();

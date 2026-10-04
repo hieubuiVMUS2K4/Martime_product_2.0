@@ -90,6 +90,18 @@ namespace ProductApi.Models
         public int? MaxPersonsAllowedOB { get; set; }
         public double? ServiceSpeedKts { get; set; }
 
+        /// <summary>Công suất máy chính tại tốc độ khai thác (kW) — dùng cho mô hình tiêu thụ nhiên liệu.</summary>
+        public double? MainEnginePowerKw { get; set; }
+
+        /// <summary>Sức chứa nhiên liệu tối đa (tấn).</summary>
+        public double? FuelCapacityTons { get; set; }
+
+        /// <summary>Tiêu thụ nhiên liệu tham chiếu (tấn/ngày) tại tốc độ khai thác.</summary>
+        public double? FuelConsumptionTonsPerDay { get; set; }
+
+        /// <summary>Tầm hoạt động trên một lượng nhiên liệu đầy (NM).</summary>
+        public double? CruisingRangeNm { get; set; }
+
         [MaxLength(50)]
         public string? VrpNumber { get; set; }
 

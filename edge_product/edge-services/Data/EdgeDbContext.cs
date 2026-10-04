@@ -3069,6 +3069,24 @@ public class EdgeDbContext : DbContext
             if (entry.Entity is MaterialItem or MaterialCatalogItem or MaterialCategory) continue;
 
             // Material-equipment links are syncable without a schema-level IsSynced flag.
+            // 4. Danh mục SMS do BỜ làm chủ — chương ISM, quy trình và biểu mẫu chỉ đi một
+            //    chiều Bờ → Tàu (SMS_SYNC_WORKFLOW_SPEC, ma trận quyền sở hữu). Dưới tàu ba
+            //    bảng này là CHỈ ĐỌC: mọi endpoint tạo/sửa/xoá tương ứng trong SmsController
+            //    của tàu đều đã bị khoá.
+            //
+            //    Không loại ở đây thì chính việc GHI BẢN GHI NHẬN TỪ BỜ lại xếp hàng đẩy
+            //    ngược lên bờ: PullFromShoreAsync gọi SaveChangesAsync sau mỗi bản ghi, bộ
+            //    chặn này thấy một SmsProcedure vừa Added nên tạo một dòng CREATE trong
+            //    sync_queue. Bờ nhận lại chính dữ liệu nó vừa phát xuống và ghi đè bản gốc
+            //    bằng bản sao của tàu — kèm OriginNode = "SHIP_01" — rồi phát xuống tiếp.
+            //    Những dòng vọng ngược đó cũng là thứ làm hàng đợi kẹt đầy lỗi.
+            //
+            //    sms_filled_records và sms_procedure_acknowledgements KHÔNG nằm ở đây: tàu
+            //    sở hữu chúng và vẫn phải đẩy lên bờ (xem SmsSyncEnqueuerService).
+            if (entry.Entity is IsmElement || entry.Entity is SmsProcedure || entry.Entity is SmsFormTemplate)
+                continue;
+
+            // 2. Check if entity is syncable (has IsSynced property)
             var entityType = entry.Entity.GetType();
             var isSyncedProp = entityType.GetProperty("IsSynced");
             if (isSyncedProp == null && entry.Entity is not MaterialItemEquipment) continue;

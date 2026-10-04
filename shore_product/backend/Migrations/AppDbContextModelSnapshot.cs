@@ -6957,6 +6957,9 @@ namespace productapi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<double?>("CruisingRangeNm")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("CsoCity")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -7161,6 +7164,12 @@ namespace productapi.Migrations
                     b.Property<double?>("FreshWaterCbm")
                         .HasColumnType("double precision");
 
+                    b.Property<double?>("FuelCapacityTons")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("FuelConsumptionTonsPerDay")
+                        .HasColumnType("double precision");
+
                     b.Property<double?>("GrainCbm")
                         .HasColumnType("double precision");
 
@@ -7285,6 +7294,9 @@ namespace productapi.Migrations
                         .HasColumnType("double precision");
 
                     b.Property<double?>("LubOilCbm")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("MainEnginePowerKw")
                         .HasColumnType("double precision");
 
                     b.Property<string>("ManagingOwnerCity")
@@ -9403,6 +9415,194 @@ namespace productapi.Migrations
                     b.ToTable("voyage_status_history", (string)null);
                 });
 
+            modelBuilder.Entity("ProductApi.Models.WeatherRouting.VesselFuelProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("AuxLoadKw")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("CurrentFuelTons")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("FuelCapacityTons")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("FuelType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<double>("MaxDetourNm")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<double>("PortStayHours")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ReserveFraction")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SeaMarginFraction")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ServicePowerKw")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ServiceSpeedKts")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SfocAuxGPerKwh")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("SfocMainGPerKwh")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<double>("SpeedExponent")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VesselName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<double>("WeatherAllowanceFraction")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VesselId")
+                        .IsUnique();
+
+                    b.ToTable("vessel_fuel_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.WeatherRouting.WeatherRoutingJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<double>("GoalLat")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("GoalLon")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("HazardJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("MetricsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("PlanJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("RequestJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<double>("StartLat")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("StartLon")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("VesselId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("VesselId");
+
+                    b.ToTable("weather_routing_jobs", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.WeatherRouting.WeatherRoutingRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("MetricsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("WaypointsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId");
+
+                    b.HasIndex("Kind");
+
+                    b.HasIndex("JobId", "Version");
+
+                    b.ToTable("weather_routing_routes", (string)null);
+                });
+
             modelBuilder.Entity("Maritime.Shared.Models.Crew.CountryCertificate", b =>
                 {
                     b.HasOne("Maritime.Shared.Models.Crew.Certificate", "Certificate")
@@ -10543,6 +10743,28 @@ namespace productapi.Migrations
                     b.Navigation("Voyage");
                 });
 
+            modelBuilder.Entity("ProductApi.Models.WeatherRouting.VesselFuelProfile", b =>
+                {
+                    b.HasOne("ProductApi.Models.Vessel", "Vessel")
+                        .WithMany()
+                        .HasForeignKey("VesselId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Vessel");
+                });
+
+            modelBuilder.Entity("ProductApi.Models.WeatherRouting.WeatherRoutingRoute", b =>
+                {
+                    b.HasOne("ProductApi.Models.WeatherRouting.WeatherRoutingJob", "Job")
+                        .WithMany("Routes")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Job");
+                });
+
             modelBuilder.Entity("Maritime.Shared.Models.Crew.Certificate", b =>
                 {
                     b.Navigation("CountryCertificates");
@@ -10727,6 +10949,11 @@ namespace productapi.Migrations
                     b.Navigation("Settlements");
 
                     b.Navigation("StatusHistory");
+                });
+
+            modelBuilder.Entity("ProductApi.Models.WeatherRouting.WeatherRoutingJob", b =>
+                {
+                    b.Navigation("Routes");
                 });
 #pragma warning restore 612, 618
         }
