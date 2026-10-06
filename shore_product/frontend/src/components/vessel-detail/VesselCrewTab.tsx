@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, LogOut, Ship, Trash2, AlertTriangle } from 'lucide-react';
+import { Eye, LogOut, Ship, Trash2, AlertTriangle, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { ENV } from '../../config/env';
 import { crewApi } from '../../services/crew.service';
@@ -8,6 +8,7 @@ import { AssignCrewToVesselModal } from './AssignCrewToVesselModal';
 import { SignOffCrewModal } from './SignOffCrewModal';
 import { Button, DataTable, TableActions, TableIconButton, useConfirm, type Column } from '@/components/common';
 import { formatDateVi } from '@/utils/date';
+import { useMarkCrewChangesViewed } from '@/hooks/useMarkCrewChangesViewed';
 
 interface VesselCrewTabProps {
   vesselId: string;
@@ -71,6 +72,12 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   /** Thuyền viên đang được chọn để cho xuống tàu (null = modal đóng) */
   const [signOffTarget, setSignOffTarget] = useState<CrewMember | null>(null);
+  const [selected, setSelected] = useState<Set<string | number>>(new Set());
+
+  const { markViewed, marking } = useMarkCrewChangesViewed(ids => {
+    setCrew(prev => prev.map(c => (ids.includes(c.id) ? { ...c, edgeChangesViewed: true } : c)));
+    setSelected(new Set());
+  });
 
   const loadCrew = useCallback(async () => {
     try {
@@ -87,7 +94,14 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
 
   useEffect(() => { loadCrew(); }, [loadCrew]);
 
-  const unviewedChangesCount = crew.filter(hasEdgeChanges).length;
+  const unviewed = crew.filter(hasEdgeChanges);
+  const unviewedChangesCount = unviewed.length;
+  const selectedUnviewed = unviewed.filter(c => selected.has(c.id));
+
+  const markAllViewed = async () => {
+    if (!(await ask(`Đánh dấu đã xem thay đổi từ tàu của ${unviewedChangesCount} thuyền viên?\nNên mở hồ sơ kiểm tra trước nếu thay đổi quan trọng.`, { title: 'Đánh dấu đã xem', confirmLabel: 'Đã xem tất cả' }))) return;
+    await markViewed(unviewed.map(c => c.id));
+  };
 
   const handleDelete = async (c: CrewMember) => {
     if (!await ask(`Xóa thuyền viên "${c.fullName}"?\nHành động này không thể hoàn tác.`)) return;
@@ -133,10 +147,13 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
       render: c => <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[statusOf(c)]}`}>{statusOf(c)}</span>,
     },
     {
-      key: 'actions', header: 'Thao tác', width: 120, align: 'center',
+      key: 'actions', header: 'Thao tác', width: 150, align: 'center',
       render: c => (
         <TableActions>
           <TableIconButton label={`Xem hồ sơ ${c.fullName}`} icon={<Eye />} onClick={() => handleViewCrew(c)} />
+          {hasEdgeChanges(c) && (
+            <TableIconButton label={`Đánh dấu đã xem thay đổi của ${c.fullName}`} icon={<CheckCheck />} disabled={marking} onClick={() => markViewed([c.id])} />
+          )}
           <TableIconButton label={`Cho ${c.fullName} xuống tàu`} icon={<LogOut />} onClick={() => setSignOffTarget(c)} />
           <TableIconButton label={`Xóa ${c.fullName}`} icon={<Trash2 />} variant="danger" onClick={() => handleDelete(c)} />
         </TableActions>
@@ -149,7 +166,13 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
       {unviewedChangesCount > 0 && (
         <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {unviewedChangesCount} thuyền viên đã được chỉnh sửa bởi tàu (chấm đỏ cạnh tên). Mở hồ sơ để xem thay đổi.
+          <span className="flex-1">
+            {unviewedChangesCount} thuyền viên đã được chỉnh sửa bởi tàu (chấm đỏ cạnh tên). Mở hồ sơ để xem từng thay đổi,
+            hoặc bấm nút đánh dấu đã xem ở cột Thao tác / chọn nhiều dòng.
+          </span>
+          <Button size="sm" icon={<CheckCheck className="h-4 w-4" />} loading={marking} onClick={markAllViewed}>
+            Đã xem tất cả ({unviewedChangesCount})
+          </Button>
         </div>
       )}
 
@@ -169,7 +192,15 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
           </Button>
         }
         onRowClick={handleViewCrew}
-        minWidth={1060}
+        selection={{ selected, onChange: setSelected }}
+        bulkActions={
+          <Button size="sm" icon={<CheckCheck className="h-3.5 w-3.5" />} loading={marking}
+            disabled={selectedUnviewed.length === 0} onClick={() => markViewed(selectedUnviewed.map(c => c.id))}
+            title={selectedUnviewed.length === 0 ? 'Các dòng đã chọn không có thay đổi chưa xem' : undefined}>
+            Đánh dấu đã xem ({selectedUnviewed.length})
+          </Button>
+        }
+        minWidth={1100}
       />
 
       {assignOpen && (

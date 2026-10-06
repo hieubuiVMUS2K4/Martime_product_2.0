@@ -2,13 +2,13 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, UserCheck, UserMinus, ShieldAlert, Clock,
-  Eye, Pencil, Trash2, Anchor, Ship,
+  Eye, Pencil, Trash2, Anchor, Ship, CheckCheck, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReferenceData, useExpiringCertificates, useCrewStats, useVessels } from '../../../hooks/useCrew';
 import { crewApi } from '../../../services/crew.service';
 import {
-  DataTable, ImportExcelModal, PageHeader, QuickFilterBar, TableActions, TableIconButton, fieldClass,
+  Button, DataTable, ImportExcelModal, PageHeader, QuickFilterBar, TableActions, TableIconButton, fieldClass,
   useConfirm, type Column, type ImportField,
 } from '../../../components/common';
 import { CrewFormModal } from './CrewFormModal';
@@ -16,11 +16,14 @@ import { AssignShipModal } from './AssignShipModal';
 import ProtectedImage from '../../../components/common/ProtectedImage';
 import type { CrewMember, CreateCrewRequest, CrewCertificate } from '../../../types/crew.types';
 import { formatDateVi, parseImportDate } from '../../../utils/date';
+import { useMarkCrewChangesViewed } from '../../../hooks/useMarkCrewChangesViewed';
 
 type View = 'all' | 'onboard' | 'pool' | 'certificates';
 
 /** Máy chủ trả tối đa 200 thuyền viên mỗi lần; tải hết theo lô để lọc theo cột. */
 const FETCH_PAGE = 200;
+
+const hasEdgeChanges = (m: CrewMember) => !!m.edgeChanges && !m.edgeChangesViewed;
 
 function getInitials(name: string) {
   const p = name.split(' ').filter(Boolean);
@@ -80,6 +83,12 @@ export const CrewListPage: React.FC = () => {
   const [editingCrew, setEditingCrew] = useState<CrewMember | null>(null);
   const [saving, setSaving] = useState(false);
   const [assignList, setAssignList] = useState<CrewMember[]>([]);
+  const [selected, setSelected] = useState<Set<string | number>>(new Set());
+
+  const { markViewed, marking } = useMarkCrewChangesViewed(ids => {
+    setCrew(prev => prev.map(m => (ids.includes(m.id) ? { ...m, edgeChangesViewed: true } : m)));
+    setSelected(new Set());
+  });
 
   // Theo dõi chứng chỉ
   const [certDaysAhead, setCertDaysAhead] = useState(90);
@@ -169,6 +178,14 @@ export const CrewListPage: React.FC = () => {
         : crew
   ), [crew, view]);
 
+  const unviewed = useMemo(() => crewInView.filter(hasEdgeChanges), [crewInView]);
+  const selectedUnviewed = unviewed.filter(m => selected.has(m.id));
+
+  const markAllViewed = async () => {
+    if (!(await ask(`Đánh dấu đã xem thay đổi từ tàu của ${unviewed.length} thuyền viên?\nNên mở hồ sơ kiểm tra trước nếu thay đổi quan trọng.`, { title: 'Đánh dấu đã xem', confirmLabel: 'Đã xem tất cả' }))) return;
+    await markViewed(unviewed.map(m => m.id));
+  };
+
   const certsInView = useMemo(
     () => (certVessel ? certData.filter(c => c.vesselId === certVessel) : certData),
     [certData, certVessel],
@@ -204,7 +221,7 @@ export const CrewListPage: React.FC = () => {
       render: m => {
         const s = statusOf(m);
         let changes = 0;
-        if (m.edgeChanges && !m.edgeChangesViewed) { try { changes = JSON.parse(m.edgeChanges).length; } catch { /* bỏ qua */ } }
+        if (hasEdgeChanges(m)) { try { changes = JSON.parse(m.edgeChanges!).length; } catch { /* bỏ qua */ } }
         return (
           <span className="inline-flex items-center gap-1.5">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[s]}`}>
@@ -222,10 +239,13 @@ export const CrewListPage: React.FC = () => {
     { key: 'contract', header: 'Hết hợp đồng', width: 115, align: 'center', value: m => m.contractEnd ?? '',
       filter: m => formatDateVi(m.contractEnd), exportValue: m => formatDateVi(m.contractEnd), render: m => formatDateVi(m.contractEnd) || '—' },
     {
-      key: 'actions', header: 'Thao tác', width: 140, align: 'center',
+      key: 'actions', header: 'Thao tác', width: 170, align: 'center',
       render: m => (
         <TableActions>
           <TableIconButton label={`Xem hồ sơ ${m.fullName}`} icon={<Eye />} onClick={() => navigate(`/crew/${m.id}`)} />
+          {hasEdgeChanges(m) && (
+            <TableIconButton label={`Đánh dấu đã xem thay đổi của ${m.fullName}`} icon={<CheckCheck />} disabled={marking} onClick={() => markViewed([m.id])} />
+          )}
           <TableIconButton label={`Sửa ${m.fullName}`} icon={<Pencil />} onClick={() => openEdit(m)} />
           {m.isOnboard && <TableIconButton label={`Rút ${m.fullName} về bờ`} icon={<Anchor />} onClick={() => setAssignList([m])} />}
           <TableIconButton label={`Xóa ${m.fullName}`} icon={<Trash2 />} variant="danger" onClick={() => handleDelete(m)} />
@@ -284,6 +304,19 @@ export const CrewListPage: React.FC = () => {
         </p>
       )}
 
+      {view !== 'certificates' && unviewed.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">
+            {unviewed.length} thuyền viên có thay đổi từ tàu chưa xem (số màu cam ở cột Trạng thái). Mở hồ sơ để xem từng thay đổi,
+            hoặc bấm nút đánh dấu đã xem ở cột Thao tác / chọn nhiều dòng.
+          </span>
+          <Button size="sm" icon={<CheckCheck className="h-4 w-4" />} loading={marking} onClick={markAllViewed}>
+            Đã xem tất cả ({unviewed.length})
+          </Button>
+        </div>
+      )}
+
       {view !== 'certificates' ? (
         <DataTable
           key="crew"
@@ -300,7 +333,15 @@ export const CrewListPage: React.FC = () => {
           onAdd={openNew}
           addLabel="Thêm thuyền viên"
           onRowClick={m => navigate(`/crew/${m.id}`)}
-          minWidth={1180}
+          selection={{ selected, onChange: setSelected }}
+          bulkActions={
+            <Button size="sm" icon={<CheckCheck className="h-3.5 w-3.5" />} loading={marking}
+              disabled={selectedUnviewed.length === 0} onClick={() => markViewed(selectedUnviewed.map(m => m.id))}
+              title={selectedUnviewed.length === 0 ? 'Các dòng đã chọn không có thay đổi chưa xem' : undefined}>
+              Đánh dấu đã xem ({selectedUnviewed.length})
+            </Button>
+          }
+          minWidth={1220}
         />
       ) : (
         <DataTable
