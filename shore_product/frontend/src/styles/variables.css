@@ -20,6 +20,10 @@
   --rgb-background: 245 247 250; /* #f5f7fa */
   --rgb-surface: 255 255 255; /* #ffffff */
   --rgb-border: 214 222 232; /* #d6dee8 */
+  /* Nét kẻ bảng, ba mức đậm dần: kẻ ô bên trong — viền ngoài bảng — nét nhấn (dưới tiêu
+     đề cột). Đủ đậm để dò ngang một dòng dài không lạc ô. Mọi bảng dùng chung. */
+  --rgb-grid: 163 177 188; /* #a3b1bc */
+  --rgb-grid-strong: 125 141 154; /* #7d8d9a */
   --rgb-text: 20 32 46; /* #14202e */
   --rgb-text-secondary: 71 85 105; /* #475569 */
   --rgb-text-light: 148 163 184; /* #94a3b8 */

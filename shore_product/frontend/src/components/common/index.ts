@@ -1,5 +1,9 @@
 export { Button, buttonClass } from './Button';
-export { Modal, ModalHeader, ModalBody, ModalFooter } from './Modal';
+export { Modal, ModalHeader, ModalBody, ModalFooter, modalClasses, useModalBehavior } from './Modal';
+export { FormSection, FormAlert } from './Form';
+export { DataTable, TablePagination, ImportExcelModal, TableIconButton, TableActions, exportToExcel, exportToCsv } from './DataTable';
+export { PageHeader } from './PageHeader';
+export type { Column, ImportField } from './DataTable';
 export { Field, Input, Select, Textarea, fieldClass } from './Input';
 export { StatusBadge } from './StatusBadge';
 export { AppToaster, useToast } from './Toast';

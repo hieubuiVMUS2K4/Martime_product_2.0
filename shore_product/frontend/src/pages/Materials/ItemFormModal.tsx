@@ -5,6 +5,7 @@ import type { CreateMaterialItemDto, UpdateMaterialItemDto, ItemActivityResponse
 import { materialService } from '@/services/materialService'
 import { API_CONFIG } from '@/config/app.config'
 import { useTranslationSafe } from '@/contexts/I18nContext'
+import { Button, FormAlert, modalClasses, useModalBehavior } from '@/components/common'
 
 interface ItemFormModalProps {
   isOpen: boolean
@@ -134,6 +135,8 @@ export function ItemFormModal({
     setActiveTab('part')
   }, [item, categories])
 
+  const dialogRef = useModalBehavior({ isOpen, onClose, busy: loading })
+
   if (!isOpen) return null
 
   const serverBase = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '')
@@ -192,19 +195,19 @@ export function ItemFormModal({
   ]
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-
-        <div className="relative w-full max-w-5xl bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]">
+    <div className={modalClasses.overlay}>
+      <div className="flex w-full justify-center">
+        <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="item-form-title" tabIndex={-1}
+          className={`${modalClasses.panel} ${modalClasses.size.xl}`}>
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 shrink-0">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <div className={modalClasses.header}>
+            <span className={modalClasses.icon}><Package /></span>
+            <h2 id="item-form-title" className={`flex-1 ${modalClasses.title}`}>{title}</h2>
+            <button type="button" onClick={onClose} disabled={loading} aria-label="Đóng hộp thoại" title="Đóng (Esc)" className={modalClasses.close}><X className="h-[18px] w-[18px]" /></button>
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 px-5 shrink-0">
+          <div className="flex shrink-0 border-b border-line px-5">
             {tabs.map(tab => (
               <button
                 key={tab.key}
@@ -212,8 +215,8 @@ export function ItemFormModal({
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   activeTab === tab.key
-                    ? 'border-accent text-[#0b2545]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-accent text-primary'
+                    : 'border-transparent text-ink-muted hover:text-ink hover:border-line'
                 }`}
               >
                 {tab.label}
@@ -223,9 +226,7 @@ export function ItemFormModal({
 
           {/* Body */}
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-            {error && (
-              <div className="mx-5 mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm">{error}</div>
-            )}
+            {error && <div className="mx-5 mt-3"><FormAlert>{error}</FormAlert></div>}
 
             {/* TAB: Part */}
             {activeTab === 'part' && (
@@ -570,22 +571,12 @@ export function ItemFormModal({
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-gray-200 bg-gray-50 sticky bottom-0">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
-              >
-                {ro ? 'Đóng' : t('common.cancel')}
-              </button>
+            <div className={`${modalClasses.footer} sticky bottom-0`}>
+              <Button onClick={onClose} disabled={loading}>{ro ? 'Đóng' : t('common.cancel')}</Button>
               {!ro && (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50"
-                >
+                <Button type="submit" variant="primary" loading={loading}>
                   {loading ? t('materials.saving') : item ? t('materials.update') : t('materials.create')}
-                </button>
+                </Button>
               )}
             </div>
           </form>

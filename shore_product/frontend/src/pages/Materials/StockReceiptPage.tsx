@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Eye, ArrowLeft, ChevronRight as ChevronRightIcon, Search, X, CheckCircle, Paperclip, Info, Package, Truck, ChevronsUpDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, ArrowLeft, ChevronRight as ChevronRightIcon, Search, X, CheckCircle, Paperclip, Info, Package, Truck, ChevronsUpDown, ClipboardList } from 'lucide-react';
 import { stockReceiptService } from '@/services/stockReceipt.service';
 import { materialService } from '@/services/materialService';
 import { storeLocationService } from '@/services/store-location.service';
@@ -11,6 +11,7 @@ import type { StockReceipt, StockReceiptItem, StoreLocation, MaterialRequest } f
 import type { MaterialItem, VoyageRecord } from '@/types/maritime.types';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/common/ConfirmDialog';
+import { Button, Modal } from '@/components/common';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
@@ -895,19 +896,21 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
       </div>
 
       {/* ── Modal: Chọn yêu cầu nhập kho ── */}
-      {showRequestPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <h3 className="font-bold text-base">Chọn yêu cầu nhập kho</h3>
-              <button onClick={() => setShowRequestPicker(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-auto">
+      <Modal
+        isOpen={showRequestPicker}
+        onClose={() => setShowRequestPicker(false)}
+        size="lg"
+        flush
+        icon={<ClipboardList />}
+        title="Chọn yêu cầu nhập kho"
+        subtitle="Chỉ hiện các yêu cầu đã được duyệt."
+      >
+            <div>
               {requestOptions.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">Không có yêu cầu nào đã duyệt</div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-[#eef2f7] sticky top-0">
+                  <thead className="sticky top-0 bg-primary-soft text-[13px] text-primary">
                     <tr>
                       <th className="px-3 py-2 text-left">Mã yêu cầu</th>
                       <th className="px-3 py-2 text-left">Người yêu cầu</th>
@@ -919,15 +922,12 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
                   <tbody>
                     {requestOptions.map(req => (
                       <tr key={req.id} className="border-b hover:bg-gray-50">
-                        <td className="px-3 py-2 font-medium text-[#0b2545]">{req.requestCode}</td>
+                        <td className="px-3 py-2 font-medium text-primary">{req.requestCode}</td>
                         <td className="px-3 py-2 text-gray-600">{req.requestedBy || '—'}</td>
                         <td className="px-3 py-2 text-gray-600">{req.requestDate?.slice(0, 10)}</td>
                         <td className="px-3 py-2 text-right">{req.itemCount || 0}</td>
                         <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => selectRequest(req)}
-                            className="bg-[#0b2545] text-white px-3 py-1 rounded text-xs hover:bg-[#16375f]"
-                          >Chọn</button>
+                          <Button size="sm" variant="primary" onClick={() => selectRequest(req)}>Chọn</Button>
                         </td>
                       </tr>
                     ))}
@@ -935,9 +935,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
                 </table>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

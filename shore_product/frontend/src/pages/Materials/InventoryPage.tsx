@@ -4,6 +4,7 @@ import { inventoryService } from '@/services/inventory.service';
 import { storeLocationService } from '@/services/store-location.service';
 import { materialService } from '@/services/materialService';
 import { useTranslationSafe } from '@/contexts/I18nContext';
+import { Button, Modal } from '@/components/common';
 import type { InventoryStockItem, InventorySummary, StoreLocation } from '@/types/pms.types';
 import type { MaterialItem } from '@/types/maritime.types';
 import { toast } from 'sonner';
@@ -341,14 +342,21 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       </div>
 
       {/* ── HISTORY MODAL ── */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-primary rounded-t-lg">
-              <h3 className="text-sm font-semibold text-white">Lịch sử tồn kho</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
+      <Modal
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        size="lg"
+        icon={<Clock />}
+        title="Lịch sử tồn kho"
+        footer={historyTotal > 20 ? (
+          <div className="flex w-full items-center justify-center gap-2 text-[13px]">
+            <Button size="sm" disabled={historyPage <= 1} onClick={() => loadHistory(historyPage - 1)}>← Trước</Button>
+            <span>Trang {historyPage} / {Math.ceil(historyTotal / 20)}</span>
+            <Button size="sm" disabled={historyPage >= Math.ceil(historyTotal / 20)} onClick={() => loadHistory(historyPage + 1)}>Sau →</Button>
+          </div>
+        ) : undefined}
+      >
+            <div>
               {historyLoading ? (
                 <div className="text-center py-8 text-gray-400">Đang tải...</div>
               ) : historyItems.length === 0 ? (
@@ -382,26 +390,22 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                 </table>
               )}
             </div>
-            {historyTotal > 20 && (
-              <div className="flex items-center justify-center gap-2 px-4 py-2 border-t text-xs">
-                <button disabled={historyPage <= 1} onClick={() => loadHistory(historyPage - 1)} className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-40">← Trước</button>
-                <span>Trang {historyPage} / {Math.ceil(historyTotal / 20)}</span>
-                <button disabled={historyPage >= Math.ceil(historyTotal / 20)} onClick={() => loadHistory(historyPage + 1)} className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-40">Sau →</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ── DECLARE MODAL ── */}
-      {showDeclare && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-primary rounded-t-lg">
-              <h3 className="text-sm font-semibold text-white">Khai báo tồn kho</h3>
-              <button onClick={() => setShowDeclare(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
+      <Modal
+        isOpen={showDeclare}
+        onClose={() => setShowDeclare(false)}
+        closeOnBackdrop={false}
+        size="lg"
+        icon={<Package />}
+        title="Khai báo tồn kho"
+        footer={<>
+          <Button onClick={() => setShowDeclare(false)}>Hủy</Button>
+          <Button variant="primary" onClick={handleDeclare}>Khai báo</Button>
+        </>}
+      >
+            <div>
               <table className="min-w-full text-sm">
                 <thead><tr className="bg-gray-50 text-xs text-gray-600">
                   <th className="px-2 py-2 text-left">Vật tư</th>
@@ -468,37 +472,36 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                 <Plus size={13} /> Thêm dòng
               </button>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-3 border-t">
-              <button onClick={() => setShowDeclare(false)} className="px-4 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">Hủy</button>
-              <button onClick={handleDeclare} className="px-4 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700">Khai báo</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ── ADJUST MODAL ── */}
-      {showAdjust && adjustItem && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-[420px]">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-primary rounded-t-lg">
-              <h3 className="text-sm font-semibold text-white">Điều chỉnh tồn kho</h3>
-              <button onClick={() => setShowAdjust(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
-            </div>
-            <div className="p-5 space-y-4">
+      <Modal
+        isOpen={showAdjust && !!adjustItem}
+        onClose={() => setShowAdjust(false)}
+        size="sm"
+        icon={<SlidersHorizontal />}
+        title="Điều chỉnh tồn kho"
+        footer={<>
+          <Button onClick={() => setShowAdjust(false)}>Hủy</Button>
+          <Button variant="primary" onClick={handleAdjust} disabled={adjustQty === 0}>Điều chỉnh</Button>
+        </>}
+      >
+        {adjustItem && (
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-600">Vật tư</label>
+                <label className="text-[13px] font-medium text-ink-muted">Vật tư</label>
                 <div className="text-sm font-semibold mt-1">{adjustItem.itemCode} - {adjustItem.itemName}</div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Vị trí kho</label>
+                <label className="text-[13px] font-medium text-ink-muted">Vị trí kho</label>
                 <div className="text-sm mt-1">{adjustItem.locationName}</div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600">Tồn hiện tại</label>
+                <label className="text-[13px] font-medium text-ink-muted">Tồn hiện tại</label>
                 <div className="text-sm font-semibold mt-1">{fmt(adjustItem.quantity)}</div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Điều chỉnh số lượng</label>
+                <label className="mb-1 block text-[13px] font-medium text-ink-muted">Điều chỉnh số lượng</label>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setAdjustQty(q => q - 1)} className="w-8 h-8 flex items-center justify-center border rounded hover:bg-red-50 text-red-600"><Minus size={14} /></button>
                   <input
@@ -512,7 +515,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">Lý do</label>
+                <label className="mb-1 block text-[13px] font-medium text-ink-muted">Lý do</label>
                 <input
                   type="text" value={adjustReason}
                   onChange={e => setAdjustReason(e.target.value)}
@@ -521,13 +524,8 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-3 border-t">
-              <button onClick={() => setShowAdjust(false)} className="px-4 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">Hủy</button>
-              <button onClick={handleAdjust} disabled={adjustQty === 0} className="px-4 py-1.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-40">Điều chỉnh</button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

@@ -51,25 +51,39 @@ const SIZE: Record<Size, string> = {
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Class của khung hộp thoại, cho modal tự dựng giao diện (không bọc <Modal>) vẫn trông
+ * giống hệt. Sửa kiểu khung ở đây là cả <Modal> lẫn các modal tự dựng cùng đổi.
+ */
+export const modalClasses = {
+  overlay: 'fixed inset-0 z-modal flex items-center justify-center bg-slate-900/45 p-4',
+  panel: 'flex max-h-[92vh] w-full flex-col overflow-hidden rounded-lg bg-surface shadow-2xl outline-none',
+  header: 'flex shrink-0 items-start gap-2.5 border-b border-line px-5 py-3.5',
+  icon: 'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-primary [&>svg]:h-5 [&>svg]:w-5',
+  title: 'text-[15px] font-bold leading-6 text-ink',
+  subtitle: 'mt-0.5 text-[13px] text-ink-muted',
+  close: '-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-primary-soft hover:text-ink disabled:opacity-40',
+  body: 'min-h-0 flex-1 overflow-y-auto px-5 py-4',
+  footer: 'flex shrink-0 items-center justify-end gap-2 border-t border-line bg-canvas/60 px-5 py-3',
+  size: SIZE,
+};
+
 /** Thứ tự các hộp đang mở; chỉ hộp cuối cùng nhận phím. */
 const openStack: symbol[] = [];
 
-export const Modal: React.FC<ModalProps> = ({
+/**
+ * Hành vi bàn phím của hộp thoại, tách riêng để modal tự viết giao diện cũng dùng được:
+ * Esc đóng (trừ khi busy), Tab đi vòng trong hộp, khóa cuộn nền, đóng xong trả focus.
+ *
+ *   const dialogRef = useModalBehavior({ isOpen, onClose, busy: saving });
+ *   <div ref={dialogRef} role="dialog" aria-modal="true" tabIndex={-1}>...</div>
+ */
+export function useModalBehavior<T extends HTMLElement = HTMLDivElement>({
   isOpen,
   onClose,
-  title,
-  subtitle,
-  icon,
-  children,
-  footer,
-  size = 'md',
-  closeOnBackdrop = true,
   busy = false,
-  flush = false,
-  className = '',
-}) => {
-  const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
+}: { isOpen: boolean; onClose: () => void; busy?: boolean }) {
+  const dialogRef = useRef<T>(null);
   const onCloseRef = useRef(onClose);
   const busyRef = useRef(busy);
   onCloseRef.current = onClose;
@@ -127,11 +141,31 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen]);
 
+  return dialogRef;
+}
+
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  icon,
+  children,
+  footer,
+  size = 'md',
+  closeOnBackdrop = true,
+  busy = false,
+  flush = false,
+  className = '',
+}) => {
+  const titleId = useId();
+  const dialogRef = useModalBehavior({ isOpen, onClose, busy });
+
   if (!isOpen) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-slate-900/45 p-4"
+      className={modalClasses.overlay}
       onMouseDown={event => {
         if (closeOnBackdrop && !busy && event.target === event.currentTarget) onClose();
       }}
@@ -142,14 +176,14 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
-        className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-lg bg-surface shadow-2xl outline-none ${SIZE[size]} ${className}`}
+        className={`${modalClasses.panel} ${SIZE[size]} ${className}`}
       >
         {title && (
-          <header className="flex shrink-0 items-start gap-2.5 border-b border-line px-5 py-3.5">
-            {icon && <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-primary [&>svg]:h-5 [&>svg]:w-5">{icon}</span>}
+          <header className={modalClasses.header}>
+            {icon && <span className={modalClasses.icon}>{icon}</span>}
             <div className="min-w-0 flex-1">
-              <h2 id={titleId} className="text-[15px] font-bold leading-6 text-ink">{title}</h2>
-              {subtitle && <p className="mt-0.5 text-[13px] text-ink-muted">{subtitle}</p>}
+              <h2 id={titleId} className={modalClasses.title}>{title}</h2>
+              {subtitle && <p className={modalClasses.subtitle}>{subtitle}</p>}
             </div>
             <button
               type="button"
@@ -157,17 +191,17 @@ export const Modal: React.FC<ModalProps> = ({
               disabled={busy}
               aria-label="Đóng hộp thoại"
               title="Đóng (Esc)"
-              className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-primary-soft hover:text-ink disabled:opacity-40"
+              className={modalClasses.close}
             >
               <X className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
           </header>
         )}
 
-        <div className={`min-h-0 flex-1 overflow-y-auto ${flush ? '' : 'px-5 py-4'}`}>{children}</div>
+        <div className={flush ? 'min-h-0 flex-1 overflow-y-auto' : modalClasses.body}>{children}</div>
 
         {footer && (
-          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-canvas/60 px-5 py-3">
+          <footer className={modalClasses.footer}>
             {footer}
           </footer>
         )}

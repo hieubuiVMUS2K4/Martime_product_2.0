@@ -39,6 +39,7 @@ export default {
         surface: token('surface'),
         canvas: token('background'),
         line: token('border'),
+        grid: { DEFAULT: token('grid'), strong: token('grid-strong') },
         ink: {
           DEFAULT: token('text'),
           muted: token('text-secondary'),
