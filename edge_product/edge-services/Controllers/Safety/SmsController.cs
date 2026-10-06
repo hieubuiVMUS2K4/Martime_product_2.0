@@ -34,6 +34,13 @@ namespace MaritimeEdge.Controllers.Safety
             PropertyNameCaseInsensitive = true
         };
 
+        private Task<IActionResult> ShoreManagedPolicy() => Task.FromResult<IActionResult>(
+            StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                code = "SMS_POLICY_SHORE_ONLY",
+                message = "Chính sách, quy trình và biểu mẫu SMS chỉ được cập nhật từ bờ (Shore). Tàu (Edge) chỉ được xem tài liệu và thực hiện hồ sơ."
+            }));
+
         // ==========================================
         // 1. GET ALL ISM ELEMENTS & PROCEDURES TREE
         // ==========================================
@@ -494,9 +501,9 @@ namespace MaritimeEdge.Controllers.Safety
         // 10. VERSION CONTROL (LOCKED AT EDGE)
         // ==========================================
         [HttpPost("procedures/version-up")]
-        public async Task<IActionResult> BumpProcedureVersion([FromBody] BumpVersionRequest req)
+        public Task<IActionResult> BumpProcedureVersion([FromBody] BumpVersionRequest req)
         {
-            return BadRequest(new { message = "Chức năng tạo/cập nhật phiên bản quy trình SMS đã bị khóa tại nút Tàu (Edge). Mọi thay đổi quy trình được quản lý tập trung tại Văn phòng Bờ (Shore Master)." });
+            return ShoreManagedPolicy();
         }
 
         // ==========================================
@@ -504,36 +511,36 @@ namespace MaritimeEdge.Controllers.Safety
         // ==========================================
         [HttpPost("procedures/import")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> ImportDocx([FromForm] IFormFile file)
+        public Task<IActionResult> ImportDocx([FromForm] IFormFile file)
         {
-            return BadRequest(new { message = "Chức năng Import quy trình SMS từ file Word/PDF đã bị khóa tại nút Tàu (Edge). Mọi tài liệu do Văn phòng Bờ (Shore Master) ban hành." });
+            return ShoreManagedPolicy();
         }
 
         // ==========================================
         // 12. CREATE NEW PROCEDURE (LOCKED AT EDGE)
         // ==========================================
         [HttpPost("procedures")]
-        public async Task<IActionResult> CreateProcedure([FromBody] CreateProcedureRequest req)
+        public Task<IActionResult> CreateProcedure([FromBody] CreateProcedureRequest req)
         {
-            return BadRequest(new { message = "Chức năng tạo mới quy trình SMS đã bị khóa tại nút Tàu (Edge). Mọi quy trình do Văn phòng Bờ (Shore Master) quản lý." });
+            return ShoreManagedPolicy();
         }
 
         // ==========================================
         // 13. CREATE FORM TEMPLATE (LOCKED AT EDGE)
         // ==========================================
         [HttpPost("templates")]
-        public async Task<IActionResult> CreateFormTemplate([FromBody] CreateFormTemplateRequest req)
+        public Task<IActionResult> CreateFormTemplate([FromBody] CreateFormTemplateRequest req)
         {
-            return BadRequest(new { message = "Chức năng tạo biểu mẫu quy trình SMS đã bị khóa tại nút Tàu (Edge). Mọi biểu mẫu do Văn phòng Bờ (Shore Master) quản lý." });
+            return ShoreManagedPolicy();
         }
 
         // ==========================================
         // 14. DELETE PROCEDURE (LOCKED AT EDGE)
         // ==========================================
         [HttpDelete("procedures/{id}")]
-        public async Task<IActionResult> DeleteProcedure(Guid id)
+        public Task<IActionResult> DeleteProcedure(Guid id)
         {
-            return BadRequest(new { message = "Chức năng xóa quy trình SMS đã bị khóa tại nút Tàu (Edge). Mọi thay đổi do Văn phòng Bờ (Shore Master) quản lý." });
+            return ShoreManagedPolicy();
         }
 
         // ==========================================
@@ -573,18 +580,18 @@ namespace MaritimeEdge.Controllers.Safety
         // 16. ASSIGN EXISTING FORM TEMPLATES (LOCKED AT EDGE)
         // ==========================================
         [HttpPost("procedures/{procedureId}/assign-templates")]
-        public async Task<IActionResult> AssignTemplates(Guid procedureId, [FromBody] List<Guid> templateIds)
+        public Task<IActionResult> AssignTemplates(Guid procedureId, [FromBody] List<Guid> templateIds)
         {
-            return BadRequest(new { message = "Chức năng gán biểu mẫu quy trình SMS đã bị khóa tại nút Tàu (Edge)." });
+            return ShoreManagedPolicy();
         }
 
         // ==========================================
         // 17. UNASSIGN / DELETE FORM TEMPLATE (LOCKED AT EDGE)
         // ==========================================
         [HttpDelete("templates/{id}")]
-        public async Task<IActionResult> DeleteFormTemplate(Guid id)
+        public Task<IActionResult> DeleteFormTemplate(Guid id)
         {
-            return BadRequest(new { message = "Chức năng xóa/bỏ gán biểu mẫu SMS đã bị khóa tại nút Tàu (Edge)." });
+            return ShoreManagedPolicy();
         }
     }
 

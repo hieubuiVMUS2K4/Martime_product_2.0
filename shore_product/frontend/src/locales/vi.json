@@ -1,4 +1,34 @@
 {
+  "sms": {
+    "title": "Hệ thống quản lý an toàn (SMS)",
+    "subtitle": "Quản lý tài liệu quy trình và biểu mẫu ký số tàu biển",
+    "workspace": "Tài liệu quy trình",
+    "auditor": "Tra cứu hồ sơ",
+    "formLibrary": "Thư viện biểu mẫu",
+    "ismTree": "Danh mục ISM",
+    "chapter": "Mục {id}",
+    "chapterLabel": "Mục ISM",
+    "allChapters": "Tất cả mục ISM",
+    "shoreManaged": "Chính sách, quy trình và biểu mẫu do bờ ban hành. Tàu chỉ được xem và thực hiện.",
+    "ismChapters": {
+      "1": "Chính sách & Tổ chức",
+      "2": "Quyền hạn & Trách nhiệm của Công ty",
+      "3": "Người được chỉ định - DPA",
+      "4": "Quyền hạn & Trách nhiệm của Thuyền trưởng",
+      "5": "Nguồn lực & Nhân sự",
+      "6": "Làm quen & Huấn luyện",
+      "7": "Hoạt động trên tàu",
+      "8": "Chuẩn bị tình huống khẩn cấp",
+      "9": "Báo cáo & Phân tích Sự cố",
+      "10": "Bảo dưỡng tàu & Thiết bị",
+      "11": "Kiểm soát Tài liệu & Dữ liệu",
+      "12": "Đánh giá của Công ty",
+      "13": "Đánh giá & Cấp chứng nhận",
+      "14": "An ninh tàu biển",
+      "15": "Kiểm tra môi trường",
+      "16": "Hướng dẫn kỹ thuật"
+    }
+  },
   "common": {
     "save": "Lưu",
     "cancel": "Hủy",

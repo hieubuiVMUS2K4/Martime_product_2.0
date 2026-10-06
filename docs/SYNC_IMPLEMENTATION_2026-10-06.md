@@ -114,6 +114,24 @@ Các giới hạn này là phạm vi kiểm chứng còn lại; không được 
 
 ## Rà soát logic bổ sung ngày 06/10/2026
 
+### ISM đa ngôn ngữ và quyền cập nhật chính sách
+
+- Tên 16 mục ISM dùng khóa `sms.ismChapters.{id}` trong bộ i18n hiện có: Edge hiển thị Việt/Anh theo ngôn ngữ cài đặt, Shore hiển thị tiếng Việt. Cây danh mục và các bộ chọn mục dùng cùng bản dịch; mục ngoài danh sách giữ tên từ API.
+- Edge ẩn thao tác tải lên Word/PDF, xóa quy trình và các màn hình quản lý tài liệu/biểu mẫu. Lớp dịch vụ frontend cũng chặn các lệnh thay đổi chính sách trước khi gửi HTTP.
+- API Edge trả HTTP `403` với mã `SMS_POLICY_SHORE_ONLY` cho import, tạo quy trình, tạo phiên bản, xóa quy trình, tạo/gán/xóa mẫu biểu. Chính sách, quy trình và mẫu biểu được ban hành/cập nhật từ Shore rồi đồng bộ xuống Edge.
+- Tàu vẫn được xem và tải xuống tài liệu đã ban hành, xác nhận đã đọc, lập và ký hồ sơ thực hiện. Khóa này áp dụng cho tài liệu/mẫu biểu gốc, không khóa hồ sơ nghiệp vụ của tàu.
+- Kiểm thử hồi quy nằm tại `edge_product/edge-services.Tests/Controllers/Safety/SmsPolicyOwnershipTests.cs`: các lệnh cập nhật tại Edge bị từ chối và giữ nguyên tài liệu của bờ; API đọc tiếp tục trả nội dung, đường dẫn file và mẫu biểu.
+- Xác minh: 8/8 kiểm thử hồi quy đạt, build frontend Edge và Shore thành công; kiểm tra frontend xác nhận cả 7 lệnh thay đổi chính sách bị chặn trước HTTP và đủ 16 bản dịch Việt/Anh. Các thay đổi ISM đã được triển khai lên Docker local như mô tả bên dưới.
+
+### Triển khai ISM lên Docker local ngày 06/10/2026
+
+- Đã cập nhật `shore_product-frontend-1` (http://localhost:3000), `maritime-edge-frontend` (http://localhost:3002) và `maritime-edge-backend`. Dùng đúng hai compose đang chạy: `shore_product/docker-compose.yml` và `edge_product/edge-services/docker-compose.yml`, thay dịch vụ bằng `up -d --no-deps --no-build` sau khi tạo image mới.
+- Hai frontend được build trong Docker từ source. Việc tải SDK .NET cho build backend quá chậm nên đã dừng lượt build đó; backend được publish bằng .NET trên máy ở cấu hình Release, rồi đóng gói các assembly ứng dụng vào image runtime trước triển khai. Đã đối chiếu runtime target, phiên bản và hash package: các dependency cần thiết đều có trong image cũ. Giữ runtime, dependency manifest và cấu hình của image đang chạy. Dockerfile đóng gói local nằm tại `artifacts/ism-docker-20261006/Dockerfile`.
+- Sau triển khai, hash của `MaritimeEdgeServer.dll` và `Maritime.Shared.dll` trong container khớp bản Release mới; DLL backend chứa mã `SMS_POLICY_SHORE_ONLY`. Nginx Edge đã reload để nhận backend mới.
+- Readiness của Shore và Edge trả HTTP 200; Edge báo database và migration healthy. Hai giao diện trả HTTP 200, assets phục vụ chứa bản dịch ISM mới. Tải một PDF có sẵn trên Edge trả HTTP 200 và nội dung PDF hợp lệ.
+- PostgreSQL của cả hai bên giữ nguyên container và volume dữ liệu/uploads. Ba dịch vụ được cập nhật đang chạy, không có restart ngoài dự kiến tại thời điểm kiểm tra.
+- Image trước triển khai được giữ với tag `before-ism-20261006` cho `edge-services-backend`, `edge-services-frontend` và `shore_product-frontend`, để có thể rollback ứng dụng mà không tác động volume.
+
 Các phát hiện F01–F07 đã được xử lý trong đợt sửa tiếp theo. Xem [hành vi sau sửa, kiểm thử và danh mục chức danh mới trên Edge](SYNC_DIRECTION_FIXES_2026-10-06.md).
 
 Xem [bản rà soát hướng đồng bộ và danh sách chức danh trên Edge](SYNC_LOGIC_REVIEW_2026-10-06.md). Bản này đối chiếu source hiện tại và đọc trạng thái database Docker; ghi nhận vấn đề scope hải trình, ownership field, receiver còn thiếu và snapshot phục hồi. Source đã bổ sung receiver cho raw NMEA/sensor/task deferral sau phạm vi sửa mô tả ở trên. Các kết quả test và deploy trong tài liệu này là kết quả của đợt sửa tương ứng, không phải kết quả chạy lại trong lượt review bổ sung.

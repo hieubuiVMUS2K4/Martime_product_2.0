@@ -1,4 +1,34 @@
 {
+  "sms": {
+    "title": "Safety Management System (SMS)",
+    "subtitle": "Vessel procedures and digitally signed forms",
+    "workspace": "Procedures",
+    "auditor": "Record Search",
+    "formLibrary": "Form Library",
+    "ismTree": "ISM Chapters",
+    "chapter": "Chapter {id}",
+    "chapterLabel": "ISM chapter",
+    "allChapters": "All ISM chapters",
+    "shoreManaged": "Policies, procedures and form templates are issued by shore. Vessels can view and complete them.",
+    "ismChapters": {
+      "1": "Policy & Organisation",
+      "2": "Company Responsibility & Authority",
+      "3": "Designated Persons - DPA",
+      "4": "Master's Responsibility & Authority",
+      "5": "Resources & Personnel",
+      "6": "Crew Familiarization & Training",
+      "7": "Shipboard Operations",
+      "8": "Emergency Preparedness",
+      "9": "Reports & Analysis",
+      "10": "Maintenance of Ship & Equipment",
+      "11": "Document & Data Control",
+      "12": "Company Verification & Evaluation",
+      "13": "Certification & Periodical Verification",
+      "14": "Ship Security",
+      "15": "Environmental Protection",
+      "16": "Technical Instructions"
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

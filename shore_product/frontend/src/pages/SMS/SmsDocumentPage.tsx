@@ -13,6 +13,7 @@ import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { printSmsDocument } from '@/lib/printUtils';
 import { maritimeService } from '@/services/maritime.service';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from '@/contexts/I18nContext';
 
 // ─── HTML Tokenizer & Tag-Safe Diff Utility ──────────────────
 function tokenizeHtml(html: string): string[] {
@@ -178,6 +179,12 @@ export const cleaningCategories: CleaningScheduleCategory[] = [
 ];
 
 export function SmsDocumentPage() {
+  const { t } = useTranslation();
+  const chapterName = (chapter: SmsTreeChapter) => {
+    const key = `sms.ismChapters.${chapter.id}`;
+    const translated = t(key);
+    return translated === key ? chapter.chapterName : translated;
+  };
   const { templateId } = useParams<{ templateId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1345,9 +1352,9 @@ export function SmsDocumentPage() {
                       }}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 mb-2 font-medium"
                     >
-                      <option value="ALL">Tất cả các chương</option>
+                      <option value="ALL">{t('sms.allChapters')}</option>
                       {treeData.map(ch => (
-                        <option key={ch.id} value={ch.id}>Điều {ch.id}: {ch.chapterName.split('(')[0]}</option>
+                        <option key={ch.id} value={ch.id}>{t('sms.chapter', { id: ch.id })}: {chapterName(ch)}</option>
                       ))}
                     </select>
 
@@ -1499,8 +1506,8 @@ export function SmsDocumentPage() {
                   <Shield className="w-5 h-5" />
                 </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Safety Management System (SMS) Dashboard</h2>
-              <p className="text-xs text-slate-400 dark:text-slate-400">Hệ thống Quản lý tài liệu Quy trình (SOP) & Biểu mẫu Ký số tàu biển</p>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('sms.title')}</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-400">{t('sms.subtitle')}</p>
             </div>
           </div>
 
@@ -1514,7 +1521,7 @@ export function SmsDocumentPage() {
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
-              <BookOpen className="w-4 h-4" /> Workspace
+              <BookOpen className="w-4 h-4" /> {t('sms.workspace')}
             </button>
             <button
               onClick={() => setViewMode('auditor')}
@@ -1524,7 +1531,7 @@ export function SmsDocumentPage() {
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
-              <Database className="w-4 h-4" /> Auditor Search
+              <Database className="w-4 h-4" /> {t('sms.auditor')}
             </button>
             <button
               onClick={() => setViewMode('forms')}
@@ -1534,7 +1541,7 @@ export function SmsDocumentPage() {
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
-              <Layers className="w-4 h-4" /> Form Library
+              <Layers className="w-4 h-4" /> {t('sms.formLibrary')}
             </button>
           </div>
         </div>
@@ -1559,7 +1566,7 @@ export function SmsDocumentPage() {
             <div className={`p-4 border-b flex items-center justify-between transition-colors ${
               treeTheme === 'dark' ? 'bg-slate-950 border-slate-850' : 'bg-white border-slate-200'
             }`}>
-              <span className="text-xs uppercase tracking-wider font-extrabold text-slate-500">Cây thư mục ISM Code</span>
+              <span className="text-xs uppercase tracking-wider font-extrabold text-slate-500">{t('sms.ismTree')}</span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -1621,7 +1628,7 @@ export function SmsDocumentPage() {
                   >
                     <div className="flex items-start gap-2 max-w-[220px]">
                       <span className="text-blue-500 font-bold font-mono text-sm pt-0.5">{chapter.id}.</span>
-                      <span className="text-xs font-semibold leading-relaxed group-hover:translate-x-0.5 transition-transform truncate">{chapter.chapterName}</span>
+                      <span title={chapterName(chapter)} className="text-xs font-semibold leading-relaxed group-hover:translate-x-0.5 transition-transform truncate">{chapterName(chapter)}</span>
                     </div>
                     <div>
                       {expandedChapters[chapter.id] ? (
@@ -3691,15 +3698,15 @@ export function SmsDocumentPage() {
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500">Chương ISM:</span>
+                <span className="text-xs text-slate-500">{t('sms.chapterLabel')}:</span>
                 <select
                   value={auditChapterFilter}
                   onChange={(e) => setAuditChapterFilter(e.target.value === 'ALL' ? 'ALL' : parseInt(e.target.value))}
                   className="text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-350 outline-none"
                 >
-                  <option value="ALL">Tất cả (Chapters 1-16)</option>
+                  <option value="ALL">{t('sms.allChapters')}</option>
                   {treeData.map(c => (
-                    <option key={c.id} value={c.id}>{c.id}. {c.chapterName.split('(')[0]}</option>
+                    <option key={c.id} value={c.id}>{c.id}. {chapterName(c)}</option>
                   ))}
                 </select>
               </div>
@@ -3736,7 +3743,7 @@ export function SmsDocumentPage() {
                   <tr className="bg-slate-50 dark:bg-slate-850 text-slate-400 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200 dark:border-slate-800">
                     <th className="p-3.5">Mã số Form</th>
                     <th className="p-3.5">Tên Biểu mẫu / Hồ sơ</th>
-                    <th className="p-3.5">Chương ISM</th>
+                    <th className="p-3.5">{t('sms.chapterLabel')}</th>
                     <th className="p-3.5">Tàu</th>
                     <th className="p-3.5">Người lập</th>
                     <th className="p-3.5">Ngày lập</th>
@@ -3776,7 +3783,7 @@ export function SmsDocumentPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0 bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-blue-500" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Thư viện biểu mẫu & checklist</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">{t('sms.formLibrary')}</h4>
             </div>
 
             <div className="flex items-center gap-3">
