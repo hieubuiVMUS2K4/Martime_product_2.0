@@ -335,8 +335,8 @@ export function ImportReceiptModal({ isOpen, onClose, onSuccess }: ImportReceipt
 
               {/* Instructions */}
               <div className="bg-[#eef2f7] border border-[#d6dee8] rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">📋 {t('materials.import.instructions')}:</h3>
-                <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                <h3 className="font-semibold text-primary mb-2">📋 {t('materials.import.instructions')}:</h3>
+                <ol className="text-sm text-primary space-y-1 list-decimal list-inside">
                   <li>{t('materials.import.instruction1')}</li>
                   <li className="ml-6"><code className="bg-[#dce9f8] px-1 rounded">ItemCode, ItemName, Category, Quantity, Unit, UnitCost, Location</code></li>
                   <li className="ml-6">{t('materials.import.instruction2')}: <code className="bg-[#dce9f8] px-1 rounded">PartNumber, Barcode, Manufacturer, Specification, MinStock, MaxStock</code></li>
@@ -426,7 +426,7 @@ export function ImportReceiptModal({ isOpen, onClose, onSuccess }: ImportReceipt
               <div className="grid grid-cols-5 gap-4">
                 <div className="bg-[#eef2f7] rounded-lg p-4">
                   <p className="text-xs text-[#0b2545] font-medium">{t('materials.import.totalItems')}</p>
-                  <p className="text-2xl font-bold text-blue-900">{preview.summary.totalItems}</p>
+                  <p className="text-2xl font-bold text-primary">{preview.summary.totalItems}</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4">
                   <p className="text-xs text-green-600 font-medium">{t('materials.import.newItems')}</p>

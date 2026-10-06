@@ -4,6 +4,8 @@ import { storeLocationService } from '@/services/store-location.service';
 import { StoreLocationFormModal } from './StoreLocationFormModal';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { StoreLocation } from '@/types/pms.types';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
 
@@ -35,6 +37,7 @@ function getDescendantIds(node: StoreLocation): Set<string> {
 }
 
 export default function StoreLocationPage() {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
 
   const [locations, setLocations] = useState<StoreLocation[]>([]);
@@ -169,24 +172,24 @@ export default function StoreLocationPage() {
   };
 
   const handleDelete = async (item: StoreLocation) => {
-    if (!confirm(t('storeLocations.confirmDelete', { name: item.name }))) return;
+    if (!await ask(t('storeLocations.confirmDelete', { name: item.name }))) return;
     try {
       await storeLocationService.delete(item.id);
       await loadData();
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Delete failed');
+      toast.error(err?.response?.data?.error || 'Delete failed');
     }
   };
 
   const handleBulkDelete = async () => {
     if (selectedRows.size === 0) return;
-    if (!confirm(t('storeLocations.confirmBulkDelete', { count: selectedRows.size }))) return;
+    if (!await ask(t('storeLocations.confirmBulkDelete', { count: selectedRows.size }))) return;
     try {
       await Promise.all([...selectedRows].map(id => storeLocationService.delete(id)));
       setSelectedRows(new Set());
       await loadData();
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Delete failed');
+      toast.error(err?.response?.data?.error || 'Delete failed');
     }
   };
 
@@ -243,7 +246,7 @@ export default function StoreLocationPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto" />
           <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
@@ -261,7 +264,7 @@ export default function StoreLocationPage() {
           onClick={() => setSelectedNodeId(null)}
           className={`w-64 flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-semibold border-r border-gray-200 ${
             selectedNodeId === null
-              ? 'bg-blue-800 text-white'
+              ? 'bg-primary-hover text-white'
               : 'text-gray-700 hover:bg-gray-50 bg-white'
           }`}
         >
@@ -576,7 +579,7 @@ export default function StoreLocationPage() {
                   onClick={() => setCurrentPage(page)}
                   className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${
                     currentPage === page
-                      ? 'bg-[#0b2545] text-white border-blue-600'
+                      ? 'bg-[#0b2545] text-white border-accent'
                       : 'border-gray-300 hover:bg-gray-50'
                   }`}
                 >

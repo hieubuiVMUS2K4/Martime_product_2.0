@@ -232,7 +232,7 @@ export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => 
               <CircularGauge
                 value={vessel.mdoCbm ?? 0} max={vessel.mdoCbm ?? 0}
                 label="MDO" unit="m³"
-                icon={<Droplets size={14} className="text-blue-600" />}
+                icon={<Droplets size={14} className="text-accent" />}
               />
               <CircularGauge
                 value={vessel.freshWaterCbm ?? 0} max={vessel.freshWaterCbm ?? 0}

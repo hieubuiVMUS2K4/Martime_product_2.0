@@ -28,6 +28,7 @@ import * as XLSX from 'xlsx';
 import type { MaintenanceTask, CrewMember, MaterialItem } from '@/types/maritime.types';
 import { parseTaskScheduleInfo } from '@/types/maritime.types';
 import type { EquipmentAsset, MaintenanceSchedule, CreateMaintenanceScheduleDto, CreateScheduleSparePartDto, ChecklistItemTemplateDto } from '@/types/pms.types';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type ViewTab = 'table' | 'calendar' | 'gantt' | 'config';
 
@@ -157,6 +158,7 @@ const PRIORITY_LABELS: Record<string, { label: string; bg: string; text: string 
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const navigate = useNavigate();
   const { t } = useTranslationSafe();
   const [searchParams] = useSearchParams();
@@ -298,7 +300,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   }, []);
 
   const handleScheduleDelete = async (schedule: MaintenanceSchedule) => {
-    if (!confirm(`${t('pms.workPlanning.toast.confirmDeleteConfig')} "${schedule.scheduleName}"?`)) return;
+    if (!await ask(`${t('pms.workPlanning.toast.confirmDeleteConfig')} "${schedule.scheduleName}"?`)) return;
     try {
       await maintenanceScheduleService.delete(schedule.id);
       await loadSchedules();
@@ -311,7 +313,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   };
 
   const handleTaskDelete = async (taskId: string) => {
-    if (!confirm(t('pms.workPlanning.toast.confirmDeleteConfig'))) return;
+    if (!await ask(t('pms.workPlanning.toast.confirmDeleteConfig'))) return;
     try {
       await maintenanceScheduleService.delete(taskId);
       await loadData();
@@ -1023,7 +1025,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="ml-3 text-gray-600">{t('pms.workPlanning.loading')}</p>
       </div>
     );
@@ -1039,7 +1041,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
           onClick={() => activeTab === 'config' ? setCfgTreeSelectedIds(new Set()) : setSelectedAssetIds(new Set())}
           className={`w-64 flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-semibold border-r border-gray-200 ${
             (activeTab === 'config' ? cfgTreeSelectedIds.size === 0 : selectedAssetIds.size === 0)
-              ? 'bg-blue-800 text-white'
+              ? 'bg-primary-hover text-white'
               : 'text-gray-700 hover:bg-gray-50 bg-white'
           }`}
         >
@@ -1109,7 +1111,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
               onClick={() => setActiveTab(tab.key)}
               className={`relative group flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-[#0b2545]'
+                  ? 'border-accent text-[#0b2545]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -1356,7 +1358,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                     else page = tablePage - 2 + i;
                     if (page > totalPages || page < 1) return null;
                     return (
-                      <button key={page} onClick={() => setTablePage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${page === tablePage ? 'bg-[#0b2545] text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
+                      <button key={page} onClick={() => setTablePage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${page === tablePage ? 'bg-[#0b2545] text-white border-accent' : 'border-gray-300 hover:bg-gray-50'}`}>
                         {page}
                       </button>
                     );
@@ -1605,7 +1607,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                       <button onClick={() => { const sch = schedules.find(s => s.id === cfgEditingId); if (sch) viewScheduleTasks(sch.scheduleCode); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
                         <ExternalLink className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.viewTasks')}
                       </button>
-                      <button onClick={() => { if (cfgEditingId && confirm(t('pms.workPlanning.config.confirmDelete'))) { handleScheduleDelete(schedules.find(s => s.id === cfgEditingId)!); } }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50">
+                      <button onClick={() => { const sch = schedules.find(s => s.id === cfgEditingId); if (sch) void handleScheduleDelete(sch); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50">
                         <Trash2 className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.deleteConfig')}
                       </button>
                     </>
@@ -1628,7 +1630,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                         </div>
                         <div className="max-h-72 overflow-y-auto">
                           {scheduleLoading ? (
-                            <div className="flex items-center justify-center py-6"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div></div>
+                            <div className="flex items-center justify-center py-6"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div></div>
                           ) : cfgListItems.length === 0 ? (
                             <div className="text-center py-6 text-xs text-gray-400">{schedules.length === 0 ? t('pms.workPlanning.config.noConfig') : t('pms.workPlanning.config.notFound')}</div>
                           ) : (
@@ -1657,7 +1659,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                                     <td className="px-2 py-1.5 text-center text-gray-500">{sch.intervalHours || '—'}</td>
                                     <td className="px-2 py-1.5 text-center flex items-center gap-1">
                                       <button title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="text-gray-400 hover:text-[#0b2545]"><Copy size={12} /></button>
-                                      <button title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); if (confirm(t('pms.workPlanning.config.confirmDelete'))) handleScheduleDelete(sch); }} className="text-gray-400 hover:text-red-600"><Trash2 size={12} /></button>
+                                      <button title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); void handleScheduleDelete(sch); }} className="text-gray-400 hover:text-red-600"><Trash2 size={12} /></button>
                                     </td>
                                   </tr>
                                 ))}
@@ -1728,7 +1730,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {cfgSelectedEquipmentNames.slice(0, 8).map(eq => (
-                              <span key={eq.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#eef2f7] border border-[#d6dee8] rounded text-[11px] text-blue-800">
+                              <span key={eq.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#eef2f7] border border-[#d6dee8] rounded text-[11px] text-primary">
                                 {eq.code}
                                 <button type="button" onClick={() => setCfgTreeSelectedIds(prev => { const n = new Set(prev); n.delete(eq.id); return n; })} className="text-[#a9bdd6] hover:text-red-500">
                                   <XIcon size={10} />
@@ -2068,7 +2070,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                         </table>
                       </div>
                       <div className="px-3 py-1.5 border-t border-gray-100 shrink-0">
-                        <button type="button" onClick={cfgAddSparePart} className="flex items-center gap-1 text-[#0b2545] text-xs hover:text-blue-800">
+                        <button type="button" onClick={cfgAddSparePart} className="flex items-center gap-1 text-[#0b2545] text-xs hover:text-primary">
                           <Plus size={12} /> {t('pms.workPlanning.config.addRow')}
                         </button>
                       </div>
@@ -2174,7 +2176,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                         </table>
                       </div>
                       <div className="px-3 py-1.5 border-t border-gray-100 shrink-0">
-                        <button type="button" onClick={cfgAddChecklist} className="flex items-center gap-1 text-[#0b2545] text-xs hover:text-blue-800">
+                        <button type="button" onClick={cfgAddChecklist} className="flex items-center gap-1 text-[#0b2545] text-xs hover:text-primary">
                           <Plus size={12} /> {t('pms.workPlanning.config.addStep')}
                         </button>
                       </div>

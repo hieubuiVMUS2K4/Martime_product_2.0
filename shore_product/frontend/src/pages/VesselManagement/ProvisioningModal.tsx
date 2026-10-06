@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, AlertTriangle, Loader2, Download, Key, ShieldCheck, RefreshCw } from 'lucide-react';
 import { ENV } from '../../config/env';
 import { buildAuthHeaders } from '../../services/api.client';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const BASE = ENV.API_BASE_URL;
 
@@ -57,6 +58,7 @@ const STATUS_HINTS: Record<string, string> = {
 };
 
 export const ProvisioningModal: React.FC<ProvisioningModalProps> = ({ vesselId, vesselName, imo, provisioningStatus, onChanged, onClose }) => {
+  const ask = useConfirm();
   const [provisionState, setProvisionState] = useState<ActionState>('idle');
   const [rotateState, setRotateState] = useState<ActionState>('idle');
   const [downloadState, setDownloadState] = useState<ActionState>('idle');
@@ -99,8 +101,9 @@ export const ProvisioningModal: React.FC<ProvisioningModalProps> = ({ vesselId, 
   };
 
   const handleRotate = async () => {
-    const confirmed = window.confirm(
-      'Rotate key sẽ khiến tàu cần import lại cấu hình. Nếu đang bật enforce token/HMAC, sync sẽ lỗi ngay cho tới khi tàu re-import. Tiếp tục?'
+    const confirmed = await ask(
+      'Sau khi đổi khóa, tàu phải nhập lại tệp cấu hình. Nếu đang bắt buộc xác thực token/HMAC, đồng bộ sẽ lỗi ngay cho tới khi tàu nhập lại. Tiếp tục?',
+      { title: 'Đổi khóa kết nối', confirmLabel: 'Đổi khóa', variant: 'warning' }
     );
     if (!confirmed) return;
     setRotateState('loading'); setMessage(null);

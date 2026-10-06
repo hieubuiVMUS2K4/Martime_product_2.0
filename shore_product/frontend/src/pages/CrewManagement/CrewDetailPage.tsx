@@ -18,6 +18,8 @@ import ImageViewerModal from '../../components/common/ImageViewerModal';
 import ProtectedImage from '../../components/common/ProtectedImage';
 import { openProtectedMediaInNewTab } from '../../services/protectedMedia';
 import { CrewLogbookSection } from './CrewLogbookSection';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type TabType = 'basic-data' | 'documents' | 'voyage-history' | 'onboarding' | 'doc-workflow' | 'status-history' | 'audit' | 'logbook';
 
@@ -30,6 +32,7 @@ const calcAge = (dob?: string) => {
 };
 
 export const CrewDetailPage: React.FC = () => {
+  const ask = useConfirm();
   const { id, vesselId } = useParams<{ id: string; vesselId?: string }>();
   const navigate = useNavigate();
   const { data: crew, loading, error, refetch } = useCrewDetail(id);
@@ -140,7 +143,7 @@ export const CrewDetailPage: React.FC = () => {
   };
 
   const handleDeleteDocument = async (doc: CrewDocument) => {
-    if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
+    if (!await ask('Bạn có chắc muốn xóa tài liệu này?')) return;
     try {
       await crewApi.deleteDocument(id!, doc.id, doc.category);
       await loadDocuments(true);
@@ -307,7 +310,7 @@ export const CrewDetailPage: React.FC = () => {
   };
 
   const handleDeleteCertificate = async (certId: number) => {
-    if (!window.confirm('Bạn có chắc muốn xóa chứng chỉ này?')) return;
+    if (!await ask('Bạn có chắc muốn xóa chứng chỉ này?')) return;
     try {
       await certificateApi.deleteCrewCertificate(certId);
       await refetchCerts();
@@ -327,7 +330,7 @@ export const CrewDetailPage: React.FC = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
     </div>
   );
 
@@ -856,7 +859,7 @@ export const CrewDetailPage: React.FC = () => {
           <>
             {docsLoading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
               </div>
             ) : (
               <>
@@ -907,7 +910,7 @@ export const CrewDetailPage: React.FC = () => {
                   </div>
                   {certsLoading ? (
                     <div className="flex items-center justify-center py-10">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
                     </div>
                   ) : !certificates || certificates.length === 0 ? (
                     <div className="text-center py-10 text-gray-400">
@@ -1017,7 +1020,7 @@ export const CrewDetailPage: React.FC = () => {
 
             {recordsLoading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
               </div>
             ) : serviceRecords.length === 0 ? (
               <div className="text-center py-16">
@@ -1150,7 +1153,7 @@ export const CrewDetailPage: React.FC = () => {
                 </div>
                 <button
                   onClick={() => navigate(`/onboarding/${onboardingCase.id}`)}
-                  className="mt-4 px-4 py-2 text-sm border border-blue-300 text-[#0b2545] rounded hover:bg-[#eef2f7]"
+                  className="mt-4 px-4 py-2 text-sm border border-accent/40 text-[#0b2545] rounded hover:bg-[#eef2f7]"
                 >
                   View Full Details
                 </button>

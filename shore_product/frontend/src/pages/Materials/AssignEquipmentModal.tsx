@@ -201,7 +201,7 @@ export function AssignEquipmentModal({
             onClick={() => toggleSelect(node.id)}
             className={`w-5 h-5 flex items-center justify-center border rounded ${
               isSelected
-                ? 'bg-[#0b2545] border-blue-600 text-white'
+                ? 'bg-[#0b2545] border-accent text-white'
                 : 'border-gray-300 hover:border-[#a9bdd6]'
             }`}
           >
@@ -250,7 +250,7 @@ export function AssignEquipmentModal({
 
             {/* Selected materials info */}
             <div className="bg-[#eef2f7] border border-[#d6dee8] rounded-lg p-3">
-              <p className="text-sm font-medium text-blue-800 mb-1">
+              <p className="text-sm font-medium text-primary mb-1">
                 Vật tư đã chọn ({selectedMaterialIds.length}):
               </p>
               <div className="flex flex-wrap gap-1">

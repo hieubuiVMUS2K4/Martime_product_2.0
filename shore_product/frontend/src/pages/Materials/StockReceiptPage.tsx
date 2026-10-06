@@ -9,6 +9,8 @@ import { VESSEL_CONFIG } from '@/config/app.config';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { StockReceipt, StockReceiptItem, StoreLocation, MaterialRequest } from '@/types/pms.types';
 import type { MaterialItem, VoyageRecord } from '@/types/maritime.types';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
@@ -27,6 +29,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export default function StockReceiptPage({ vesselId, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
   const [view, setView] = useState<ViewMode>('list');
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
@@ -168,7 +171,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   };
 
   const handleSave = async (andApprove = false) => {
-    if (formItems.length === 0) return alert('Vui lòng thêm ít nhất 1 dòng vật tư.');
+    if (formItems.length === 0) return void toast.warning('Vui lòng thêm ít nhất 1 dòng vật tư.');
     try {
       setSaving(true);
       const payload = {
@@ -200,7 +203,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   const handleComplete = async (id: number) => {
     if (readOnly) return;
 
-    if (!confirm('Xác nhận hoàn thành nhập kho? Tồn kho sẽ được cập nhật.')) return;
+    if (!await ask('Hoàn thành phiếu nhập kho này? Tồn kho sẽ được cập nhật.', { title: 'Hoàn thành nhập kho', confirmLabel: 'Hoàn thành' })) return;
     await stockReceiptService.complete(id);
     setView('list');
     loadList();
@@ -209,7 +212,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   const handleDelete = async (id: number) => {
     if (readOnly) return;
 
-    if (!confirm('Xác nhận xóa phiếu này?')) return;
+    if (!await ask('Xác nhận xóa phiếu này?')) return;
     await stockReceiptService.delete(id);
     loadList();
   };
@@ -424,7 +427,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
               else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
               else page = currentPage - 2 + i;
               return (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
+                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-accent' : 'border-gray-300 hover:bg-gray-50'}`}>
                   {page}
                 </button>
               );
@@ -550,7 +553,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
             <button
               onClick={() => setActiveTab('materials')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'materials' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === 'materials' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               <Package size={14} /> Vật tư
@@ -558,7 +561,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
             <button
               onClick={() => setActiveTab('shipping')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'shipping' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === 'shipping' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               <Truck size={14} /> Vận chuyển
@@ -756,7 +759,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
             <div className="flex items-center col-span-3">
               <label className="text-sm font-medium text-gray-700 text-right pr-3 shrink-0 whitespace-nowrap" style={{ width: 140 }}>Đính kèm tệp tin</label>
               <div className="flex-1">
-                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-blue-800">
+                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-primary">
                   <Paperclip size={14} /> Đính kèm tệp tin
                   <input
                     type="file"
@@ -780,7 +783,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
           <button
             onClick={() => setActiveTab('materials')}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'materials' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === 'materials' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             <Package size={14} /> Vật tư
@@ -788,7 +791,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
           <button
             onClick={() => setActiveTab('shipping')}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'shipping' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === 'shipping' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             <Truck size={14} /> Vận chuyển
@@ -873,12 +876,12 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
               </table>
             </div>
             <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between">
-              <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-blue-800">
+              <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-primary">
                 <Plus size={14} /> Thêm dòng
               </button>
               <button
                 onClick={() => setShowRequestPicker(true)}
-                className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-blue-800"
+                className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-primary"
               >
                 <Plus size={14} /> Chọn yêu cầu nhập kho
               </button>

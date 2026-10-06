@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@radix-ui/react-slot": "^1.2.3",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.100.14",
@@ -25,8 +24,6 @@
     "@types/react-window": "^1.8.8",
     "@vietmap/vietmap-gl-js": "^7.0.0-pre.1",
     "axios": "^1.13.6",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dexie": "^4.4.2",
     "leaflet": "^1.9.4",
@@ -35,10 +32,8 @@
     "react-dom": "^19.1.1",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.9.3",
-    "react-toastify": "^11.1.0",
     "react-window": "^2.2.7",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.3.1",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.14"
   },

@@ -78,4 +78,3 @@ Tất cả route "sau đăng nhập" đều lồng trong `<Route element={<TopNa
 
 - `routes/index.tsx` **rỗng** — nếu bạn quen mẫu "index.ts barrel" ở các thư mục khác, đừng tìm route ở đây; toàn bộ nằm trong `AppRoutes.tsx`.
 - Không có khái niệm route theo role/permission (không có `<Route roles={...}>`); `RequireAuth` chỉ kiểm tra đã đăng nhập hay chưa, chưa phân quyền theo `user.role` ở tầng route (phân quyền UI, nếu có, phải tự kiểm tra bên trong từng page).
-- So sánh với `components/layout/MainLayout.tsx` (sidebar dọc, danh sách menu ít hơn nhiều — 7 mục) — layout đó **không được dùng** trong `AppRoutes.tsx` nào cả, là tàn dư từ bản refactor đầu tiên (xem `pages/REFACTOR_NOTES.md`). Layout thật là `TopNavLayout`.

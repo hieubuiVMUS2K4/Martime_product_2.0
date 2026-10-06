@@ -8,6 +8,8 @@ import { EditAssetModal } from '@/components/pms/EditAssetModal';
 import ViewAssetModal from '@/components/pms/ViewAssetModal';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { EquipmentAsset } from '@/types/pms.types';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const STATUS_VALUES = ['', 'ACTIVE', 'STANDBY', 'UNDER_MAINTENANCE', 'DECOMMISSIONED', 'IN_STORAGE'] as const;
 
@@ -42,6 +44,7 @@ function getDescendantIds(node: EquipmentAsset): Set<string> {
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
   const [searchParams] = useSearchParams();
   const vesselId = vesselIdProp ?? (searchParams.get('vesselId') ?? undefined);
@@ -175,24 +178,24 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
 
   const handleDelete = async (asset: EquipmentAsset) => {
     if (readOnly) return;
-    if (!confirm(t('pms.assets.confirmDelete', { name: asset.assetName }))) return;
+    if (!await ask(t('pms.assets.confirmDelete', { name: asset.assetName }))) return;
     try {
       await equipmentAssetService.delete(asset.id);
       await loadAssets();
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Delete failed');
+      toast.error(err?.response?.data?.error || 'Delete failed');
     }
   };
 
   const handleBulkDelete = async () => {
     if (selectedRows.size === 0) return;
-    if (!confirm(t('pms.assets.confirmBulkDelete', { count: selectedRows.size }))) return;
+    if (!await ask(t('pms.assets.confirmBulkDelete', { count: selectedRows.size }))) return;
     try {
       await Promise.all([...selectedRows].map(id => equipmentAssetService.delete(id)));
       setSelectedRows(new Set());
       await loadAssets();
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Delete failed');
+      toast.error(err?.response?.data?.error || 'Delete failed');
     }
   };
 
@@ -213,7 +216,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'bg-green-100 text-green-800';
-      case 'STANDBY': return 'bg-[#dce9f8] text-blue-800';
+      case 'STANDBY': return 'bg-[#dce9f8] text-primary';
       case 'UNDER_MAINTENANCE': return 'bg-yellow-100 text-yellow-800';
       case 'DECOMMISSIONED': return 'bg-gray-100 text-gray-800';
       case 'IN_STORAGE': return 'bg-purple-100 text-purple-800';
@@ -276,7 +279,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
           <p className="mt-4 text-gray-600">{t('pms.assets.loading')}</p>
         </div>
       </div>
@@ -294,7 +297,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
           onClick={() => setSelectedNodeId(null)}
           className={`w-64 flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-semibold border-r border-gray-200 ${
             selectedNodeId === null
-              ? 'bg-blue-800 text-white'
+              ? 'bg-primary-hover text-white'
               : 'text-gray-700 hover:bg-gray-50 bg-white'
           }`}
         >
@@ -615,7 +618,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
                   onClick={() => setCurrentPage(page)}
                   className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${
                     currentPage === page
-                      ? 'bg-[#0b2545] text-white border-blue-600'
+                      ? 'bg-[#0b2545] text-white border-accent'
                       : 'border-gray-300 hover:bg-gray-50'
                   }`}
                 >

@@ -29,7 +29,7 @@ export function NewFormModal(props: NewFormModalProps) {
         {/* Modal Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+            <div className="p-1.5 bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg">
               <Plus className="w-4 h-4" />
             </div>
             <div>
@@ -56,7 +56,7 @@ export function NewFormModal(props: NewFormModalProps) {
                 placeholder="VD: BM-07-08"
                 value={newFormCode}
                 onChange={(e) => setNewFormCode(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
@@ -66,7 +66,7 @@ export function NewFormModal(props: NewFormModalProps) {
                 placeholder="VD: Checklist an toàn cháy nổ"
                 value={newFormTitle}
                 onChange={(e) => setNewFormTitle(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
           </div>
@@ -77,7 +77,7 @@ export function NewFormModal(props: NewFormModalProps) {
             <select
               value={newFormProcedureId}
               onChange={(e) => setNewFormProcedureId(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">-- Chọn quy trình liên kết --</option>
               {treeData.flatMap(ch => ch.procedures).filter(p => p.status === 'Active').map(p => (
@@ -92,7 +92,7 @@ export function NewFormModal(props: NewFormModalProps) {
               <span className="text-[10px] font-bold text-slate-500 uppercase">Cấu trúc các trường ({formBuilderData.fields.length})</span>
               <button
                 onClick={addFormField}
-                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition"
+                className="flex items-center gap-1 text-[10px] font-bold text-accent hover:text-primary transition"
               >
                 <Plus className="w-3 h-3" /> Thêm trường
               </button>
@@ -113,12 +113,12 @@ export function NewFormModal(props: NewFormModalProps) {
                       placeholder="Tên trường"
                       value={field.label}
                       onChange={(e) => updateFormField(idx, 'label', e.target.value)}
-                      className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                      className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                     />
                     <select
                       value={field.type}
                       onChange={(e) => updateFormField(idx, 'type', e.target.value)}
-                      className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                      className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                     >
                       <option value="text">Văn bản</option>
                       <option value="textarea">Đoạn văn</option>
@@ -132,7 +132,7 @@ export function NewFormModal(props: NewFormModalProps) {
                         type="checkbox"
                         checked={field.required}
                         onChange={(e) => updateFormField(idx, 'required', e.target.checked)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                        className="rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                       />
                       <span className="text-[10px] text-slate-500">Bắt buộc</span>
                     </label>
@@ -181,7 +181,7 @@ export function NewFormModal(props: NewFormModalProps) {
           </button>
           <button
             onClick={handleCreateFormFromLibrary}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-sm transition"
           >
             Tạo & liên kết biểu mẫu
           </button>

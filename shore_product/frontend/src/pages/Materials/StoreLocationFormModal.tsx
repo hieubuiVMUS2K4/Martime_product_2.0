@@ -121,7 +121,7 @@ export function StoreLocationFormModal({ isOpen, onClose, onSuccess, locations, 
             <div className="p-5 space-y-5">
               {/* Basic Info */}
               <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin kho</div>
+                <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin kho</div>
                 <div className="border border-t-0 border-gray-200 rounded-b p-4 space-y-2.5">
                   <div className="flex items-center">
                     <label className={lbl} style={{ width: 110 }}>Mã kho <span className="text-red-500">*</span></label>
@@ -147,7 +147,7 @@ export function StoreLocationFormModal({ isOpen, onClose, onSuccess, locations, 
 
               {/* Description */}
               <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Mô tả</div>
+                <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Mô tả</div>
                 <div className="border border-t-0 border-gray-200 rounded-b p-4">
                   <textarea rows={2} value={form.description ?? ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className={`${inp} resize-y`} placeholder="Mô tả tùy chọn..." />
                 </div>
@@ -155,7 +155,7 @@ export function StoreLocationFormModal({ isOpen, onClose, onSuccess, locations, 
 
               {/* Contact */}
               <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Liên hệ quản lý</div>
+                <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Liên hệ quản lý</div>
                 <div className="border border-t-0 border-gray-200 rounded-b p-4 space-y-2.5">
                   <div className="flex items-center">
                     <label className={lbl} style={{ width: 110 }}>Quản lý</label>

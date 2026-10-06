@@ -388,7 +388,7 @@ function ShoreConfirmModal({
           </div>
         </div>
 
-        <div className="px-6 py-3 text-xs text-slate-600 bg-blue-50 border-t border-blue-100">
+        <div className="px-6 py-3 text-xs text-slate-600 bg-primary-soft border-t border-accent-soft">
           Thao tác này tạo lại bản chụp dữ liệu thuyền viên, chứng chỉ và danh
           mục liên quan cho tàu nhận. Tàu sẽ lấy dữ liệu khi kết nối; hoàn tất
           chỉ được xác nhận sau khi tàu phản hồi.

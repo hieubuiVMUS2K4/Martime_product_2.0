@@ -199,7 +199,7 @@ export const DisasterMapLayer: React.FC<DisasterMapLayerProps> = ({ visible }) =
         </div>
       )}
       {!geoData.features?.length && rainViewerUrl && (
-        <div className="absolute top-20 right-4 z-[1000] bg-white px-4 py-3 rounded-lg shadow-lg border border-blue-200 text-sm font-medium text-blue-800 flex items-center gap-2 max-w-xs animate-fade-in-down">
+        <div className="absolute top-20 right-4 z-[1000] bg-white px-4 py-3 rounded-lg shadow-lg border border-accent/30 text-sm font-medium text-primary flex items-center gap-2 max-w-xs animate-fade-in-down">
           <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
           <div>
             Đang hiển thị bản đồ mây mưa (Radar). Các vùng màu là nơi có mưa dông / nhiễu động.

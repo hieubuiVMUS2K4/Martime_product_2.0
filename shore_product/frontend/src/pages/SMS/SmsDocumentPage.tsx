@@ -6,13 +6,14 @@ import {
   History, Plus, Trash2, Printer, Search, Maximize2, Minimize2,
   GitCompare, ChevronLeft, Layers, Link2, ExternalLink, Eye
 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { smsService, type SmsTreeChapter, type SmsProcedureDetail, type SmsFormTemplate, type SmsFilledRecord, type SignatureEntry, type SmsProcedure } from '@/services/sms.service';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import { printSmsDocument } from '@/lib/printUtils';
 import { maritimeService } from '@/services/maritime.service';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 // ─── HTML Tokenizer & Tag-Safe Diff Utility ──────────────────
 function tokenizeHtml(html: string): string[] {
@@ -178,6 +179,7 @@ export const cleaningCategories: CleaningScheduleCategory[] = [
 ];
 
 export function SmsDocumentPage() {
+  const ask = useConfirm();
   const { templateId } = useParams<{ templateId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -347,7 +349,7 @@ export function SmsDocumentPage() {
   };
 
   const handleDeleteProcedure = async (proc: SmsProcedure) => {
-    const confirmDelete = window.confirm(
+    const confirmDelete = await ask(
       `Bạn có chắc chắn muốn xóa quy trình "${proc.procedureCode} - ${proc.title}" khỏi cơ sở dữ liệu? Hành động này sẽ xóa vĩnh viễn quy trình, biểu mẫu liên kết và các hồ sơ liên quan.`
     );
     if (!confirmDelete) return;
@@ -1127,8 +1129,9 @@ export function SmsDocumentPage() {
 
   const handleUnassignTemplate = async (templateId: string, title: string) => {
     if (!selectedProcDetail) return;
-    const confirmUnassign = window.confirm(
-      `Bạn có chắc chắn muốn bỏ gán biểu mẫu "${title}" khỏi quy trình này?`
+    const confirmUnassign = await ask(
+      `Bạn có chắc chắn muốn bỏ gán biểu mẫu "${title}" khỏi quy trình này?`,
+      { title: 'Bỏ gán biểu mẫu', confirmLabel: 'Bỏ gán', variant: 'warning' }
     );
     if (!confirmUnassign) return;
 
@@ -1176,7 +1179,7 @@ export function SmsDocumentPage() {
       case 'Draft':
         return <span className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300 text-xs px-2.5 py-1 rounded-full font-semibold border border-slate-200 dark:border-slate-650">Bản thảo</span>;
       default:
-        return <span className="bg-blue-150 text-blue-800 text-xs px-2.5 py-1 rounded-full font-semibold">{status}</span>;
+        return <span className="bg-blue-150 text-primary text-xs px-2.5 py-1 rounded-full font-semibold">{status}</span>;
     }
   };
 
@@ -1185,7 +1188,7 @@ export function SmsDocumentPage() {
       case 'Draft':
         return <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-xs px-2 py-0.5 rounded font-medium">Bản nháp</span>;
       case 'Submitted':
-        return <span className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-xs px-2 py-0.5 rounded font-medium animate-pulse">Chờ duyệt</span>;
+        return <span className="bg-accent-soft dark:bg-blue-950 text-primary dark:text-blue-300 text-xs px-2 py-0.5 rounded font-medium animate-pulse">Chờ duyệt</span>;
       case 'Approved':
         return <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs px-2 py-0.5 rounded font-medium">Đã duyệt</span>;
       default:
@@ -1212,7 +1215,7 @@ export function SmsDocumentPage() {
               </button>
               <div>
                 <h2 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-500" />
+                  <FileText className="w-4 h-4 text-accent" />
                   Workspace: Số hóa Quy trình từ tài liệu (.docx, .doc, .pdf)
                 </h2>
                 <p className="text-[10px] text-slate-500">Nhập, tùy chỉnh và ban hành quy trình mới hoặc cập nhật quy trình hiện tại</p>
@@ -1240,7 +1243,7 @@ export function SmsDocumentPage() {
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                     showDiffPreview 
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
+                      ? 'bg-accent-soft text-primary dark:bg-blue-900/40 dark:text-blue-300' 
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200'
                   }`}
                 >
@@ -1262,7 +1265,7 @@ export function SmsDocumentPage() {
                 <select
                   value={importForm.ismElementId}
                   onChange={(e) => setImportForm(prev => ({ ...prev, ismElementId: parseInt(e.target.value) }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                 >
                   {Array.from({ length: 16 }, (_, idx) => idx + 1).map(num => (
                     <option key={num} value={num}>Điều {num}: {
@@ -1289,7 +1292,7 @@ export function SmsDocumentPage() {
               </div>
 
               {/* Checkbox replace existing procedure */}
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 rounded-xl flex items-start gap-2.5 animate-in fade-in duration-300">
+              <div className="p-3 bg-primary-soft dark:bg-blue-950/20 border border-accent-soft dark:border-blue-900/50 rounded-xl flex items-start gap-2.5 animate-in fade-in duration-300">
                 <input
                   type="checkbox"
                   id="replaceExistingCheckbox"
@@ -1325,9 +1328,9 @@ export function SmsDocumentPage() {
                       version: newVer
                     }));
                   }}
-                  className="mt-1 h-3.5 w-3.5 text-blue-600 border-slate-350 rounded focus:ring-blue-500 cursor-pointer"
+                  className="mt-1 h-3.5 w-3.5 text-accent border-slate-350 rounded focus:ring-accent cursor-pointer"
                 />
-                <label htmlFor="replaceExistingCheckbox" className="text-xs text-blue-800 dark:text-blue-300 font-semibold select-none cursor-pointer">
+                <label htmlFor="replaceExistingCheckbox" className="text-xs text-primary dark:text-blue-300 font-semibold select-none cursor-pointer">
                   Thay thế/Cập nhật quy trình hiện có (Lưu lịch sử kiểm soát tài liệu - ISM Clause 11)
                 </label>
               </div>
@@ -1343,7 +1346,7 @@ export function SmsDocumentPage() {
                         const val = e.target.value;
                         setReplaceChapterFilter(val === 'ALL' ? 'ALL' : parseInt(val));
                       }}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 mb-2 font-medium"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent mb-2 font-medium"
                     >
                       <option value="ALL">Tất cả các chương</option>
                       {treeData.map(ch => (
@@ -1374,7 +1377,7 @@ export function SmsDocumentPage() {
                           }));
                         }
                       }}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent font-mono"
                     >
                       {treeData
                         .filter(ch => replaceChapterFilter === 'ALL' || ch.id === replaceChapterFilter)
@@ -1397,7 +1400,7 @@ export function SmsDocumentPage() {
                   placeholder="Ví dụ: SOP-07-02"
                   value={importForm.procedureCode}
                   onChange={(e) => setImportForm(prev => ({ ...prev, procedureCode: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent font-mono"
                 />
               </div>
 
@@ -1409,7 +1412,7 @@ export function SmsDocumentPage() {
                   placeholder="Ví dụ: Quy trình chuẩn bị ứng phó sự cố"
                   value={importForm.title}
                   onChange={(e) => setImportForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent font-medium"
                 />
               </div>
 
@@ -1421,7 +1424,7 @@ export function SmsDocumentPage() {
                   placeholder="Rev 1.0"
                   value={importForm.version}
                   onChange={(e) => setImportForm(prev => ({ ...prev, version: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent font-mono"
                 />
               </div>
 
@@ -1436,7 +1439,7 @@ export function SmsDocumentPage() {
                     placeholder="Điền tóm tắt lý do cập nhật quy trình để ghi nhận vào lịch sử kiểm soát tài liệu..."
                     value={importForm.changeNote}
                     onChange={(e) => setImportForm(prev => ({ ...prev, changeNote: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-sans leading-relaxed"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent font-sans leading-relaxed"
                   />
                 </div>
               )}
@@ -1446,10 +1449,10 @@ export function SmsDocumentPage() {
             <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-6 overflow-hidden flex flex-col min-w-0">
               <div className="flex items-center justify-between mb-3 flex-shrink-0">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-blue-500" />
+                  <Award className="w-4 h-4 text-accent" />
                   Xem trước nội dung văn bản (Read-only Preview)
                 </span>
-                <span className="text-[10px] bg-blue-55 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 px-2.5 py-1 rounded-full font-bold border border-blue-100 dark:border-blue-900/50">
+                <span className="text-[10px] bg-blue-55 text-accent dark:bg-blue-950/40 dark:text-blue-400 px-2.5 py-1 rounded-full font-bold border border-accent-soft dark:border-blue-900/50">
                   Chế độ chỉ đọc bảo mật
                 </span>
               </div>
@@ -1482,7 +1485,7 @@ export function SmsDocumentPage() {
             <button
               onClick={handlePublishImport}
               disabled={importForm.replaceExisting && !importForm.changeNote.trim()}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all duration-250 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all duration-250 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               title={importForm.replaceExisting && !importForm.changeNote.trim() ? 'Yêu cầu điền lý do thay đổi phiên bản' : ''}
             >
               <Check className="w-4 h-4" /> Ban hành & Đồng bộ đội tàu
@@ -1495,7 +1498,7 @@ export function SmsDocumentPage() {
           {!templateId && (
             <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-850 flex-shrink-0 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                <div className="p-2 bg-accent-soft dark:bg-blue-900/30 text-accent dark:text-blue-400 rounded-lg">
                   <Shield className="w-5 h-5" />
                 </div>
             <div>
@@ -1510,7 +1513,7 @@ export function SmsDocumentPage() {
               onClick={() => setViewMode('workspace')}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
                 viewMode === 'workspace'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-primary text-white shadow-md'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
@@ -1520,7 +1523,7 @@ export function SmsDocumentPage() {
               onClick={() => setViewMode('auditor')}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
                 viewMode === 'auditor'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-primary text-white shadow-md'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
@@ -1530,7 +1533,7 @@ export function SmsDocumentPage() {
               onClick={() => setViewMode('forms')}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
                 viewMode === 'forms'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-primary text-white shadow-md'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
@@ -1543,7 +1546,7 @@ export function SmsDocumentPage() {
       {/* Loader */}
       {loading && !templateId ? (
         <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-          <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+          <RefreshCw className="w-8 h-8 animate-spin text-accent mb-2" />
           <p className="text-sm">Đang tải cơ sở dữ liệu SMS...</p>
         </div>
       ) : viewMode === 'workspace' ? (
@@ -1620,7 +1623,7 @@ export function SmsDocumentPage() {
                     }`}
                   >
                     <div className="flex items-start gap-2 max-w-[220px]">
-                      <span className="text-blue-500 font-bold font-mono text-sm pt-0.5">{chapter.id}.</span>
+                      <span className="text-accent font-bold font-mono text-sm pt-0.5">{chapter.id}.</span>
                       <span className="text-xs font-semibold leading-relaxed group-hover:translate-x-0.5 transition-transform truncate">{chapter.chapterName}</span>
                     </div>
                     <div>
@@ -1651,7 +1654,7 @@ export function SmsDocumentPage() {
                               onContextMenu={(e) => handleContextMenu(e, proc)}
                               className={`w-full flex items-start gap-2 px-2.5 py-1.5 rounded-md text-left text-xs transition-all ${
                                 selectedProcId === proc.id
-                                  ? 'bg-blue-600 text-white font-medium shadow-sm'
+                                  ? 'bg-primary text-white font-medium shadow-sm'
                                   : (treeTheme === 'dark'
                                     ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                                     : 'text-slate-650 hover:bg-slate-200 hover:text-slate-900')
@@ -1708,11 +1711,11 @@ export function SmsDocumentPage() {
             />
             {importLoading && (
               <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 flex flex-col items-center justify-center z-20 rounded-b-xl gap-3">
-                <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+                <RefreshCw className="w-8 h-8 animate-spin text-accent" />
                 <div className="text-sm font-bold text-slate-700 dark:text-white">Đang bóc tách tài liệu...</div>
                 <div className="text-xs text-slate-400">Vui lòng chờ, quá trình sẽ hoàn tất tự động</div>
                 <div className="w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{width: '70%'}} />
+                  <div className="h-full bg-accent rounded-full animate-pulse" style={{width: '70%'}} />
                 </div>
               </div>
             )}
@@ -1749,7 +1752,7 @@ export function SmsDocumentPage() {
                   <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-xs font-bold text-blue-600 bg-blue-100 dark:bg-blue-950 dark:text-blue-400 px-2 py-0.5 rounded">
+                        <span className="font-mono text-xs font-bold text-accent bg-accent-soft dark:bg-blue-950 dark:text-blue-400 px-2 py-0.5 rounded">
                           {selectedProcDetail?.procedureCode}
                         </span>
                         <span className="text-slate-400 text-xs">Version {selectedProcDetail?.version}</span>
@@ -1821,7 +1824,7 @@ export function SmsDocumentPage() {
                             value={sopEditVersion}
                             onChange={(e) => setSopEditVersion(e.target.value)}
                             placeholder="Ví dụ: Rev 2.0"
-                            className="w-full px-3 py-2 rounded-lg border border-slate-250 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 rounded-lg border border-slate-250 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                           />
                         </div>
 
@@ -1842,14 +1845,14 @@ export function SmsDocumentPage() {
                             value={sopEditChangeNote}
                             onChange={(e) => setSopEditChangeNote(e.target.value)}
                             placeholder="Nhập lý do cập nhật phiên bản mới (ví dụ: Cập nhật sơ đồ tổ chức theo Nghị quyết IMO mới)..."
-                            className="w-full px-3 py-2 rounded-lg border border-slate-250 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 rounded-lg border border-slate-250 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                           />
                         </div>
 
                         <div className="flex gap-2">
                           <button
                             onClick={handleBumpSopVersion}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
                           >
                             <Save className="w-3.5 h-3.5" /> Ban hành & Thay thế
                           </button>
@@ -1872,8 +1875,8 @@ export function SmsDocumentPage() {
                       /* SOP NORMAL VIEW */
                       <div className="max-w-2xl mx-auto space-y-6">
                         {selectedProcDetail?.changeNote && (
-                          <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-xl flex items-start gap-2.5 shadow-sm animate-in fade-in duration-300">
-                            <History className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                          <div className="p-4 bg-primary-soft dark:bg-blue-950/20 border border-accent/30 dark:border-blue-900 rounded-xl flex items-start gap-2.5 shadow-sm animate-in fade-in duration-300">
+                            <History className="w-5 h-5 text-accent dark:text-blue-400 flex-shrink-0 mt-0.5" />
                             <div>
                               <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-0.5">Nhật ký cập nhật phiên bản:</div>
                               <div className="text-xs text-slate-650 dark:text-slate-450 italic">"{selectedProcDetail.changeNote}"</div>
@@ -1952,8 +1955,8 @@ export function SmsDocumentPage() {
                             <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                               {/* Logo Box */}
                               <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
-                                <div className="w-10 h-10 rounded-full border-2 border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-base font-bold">⚓</div>
-                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+                                <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
+                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                                 <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
                               </div>
                               {/* Document Title Box */}
@@ -1961,14 +1964,14 @@ export function SmsDocumentPage() {
                                 <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                                   LỊCH LÀM VỆ SINH BẾP, CÁC KHO THỰC PHẨM,<br/>KHU VỰC SINH HOẠT CHUNG, PHÒNG Ở
                                 </h3>
-                                <div className="w-16 h-0.5 bg-blue-500 my-1"></div>
+                                <div className="w-16 h-0.5 bg-accent my-1"></div>
                                 <span className="italic text-[9px] text-slate-500 font-semibold tracking-wide uppercase leading-tight">
                                   ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE
                                 </span>
                               </div>
                               {/* Document Meta Box */}
                               <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
-                                <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-26-03</span></div>
+                                <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-26-03</span></div>
                                 <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                                 <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
                                 <div><strong>Trang:</strong> <span className="font-mono">1 / 1</span></div>
@@ -1984,7 +1987,7 @@ export function SmsDocumentPage() {
                                   value={formValues['shipName'] || ''}
                                   onChange={(e) => handleFormFieldChange('shipName', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                               <div>
@@ -1995,7 +1998,7 @@ export function SmsDocumentPage() {
                                   value={formValues['monthYear'] || ''}
                                   onChange={(e) => handleFormFieldChange('monthYear', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                             </div>
@@ -2017,7 +2020,7 @@ export function SmsDocumentPage() {
                                   {cleaningCategories.map((category) => (
                                     <React.Fragment key={category.prefix}>
                                       {/* Category Header Row */}
-                                      <tr className="bg-blue-50/40 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 font-bold border-b border-slate-300 dark:border-slate-750">
+                                      <tr className="bg-blue-50/40 dark:bg-blue-950/20 text-primary dark:text-blue-300 font-bold border-b border-slate-300 dark:border-slate-750">
                                         <td colSpan={6} className="p-2 text-xs uppercase tracking-wider font-extrabold">{category.title}</td>
                                       </tr>
                                       {category.items.map((item) => {
@@ -2035,7 +2038,7 @@ export function SmsDocumentPage() {
                                                 value={formValues[key] || ''}
                                                 onChange={(e) => handleFormFieldChange(key, e.target.value)}
                                                 disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                                className="w-full px-2 py-1 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 text-[11px]"
+                                                className="w-full px-2 py-1 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 text-[11px]"
                                               />
                                             </td>
                                             <td className="p-2 text-slate-500 italic text-[10px]">{item.note}</td>
@@ -2055,8 +2058,8 @@ export function SmsDocumentPage() {
                             <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                               {/* Logo Box */}
                               <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
-                                <div className="w-10 h-10 rounded-full border-2 border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-base font-bold">⚓</div>
-                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+                                <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
+                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                                 <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
                               </div>
                               {/* Document Title Box */}
@@ -2064,14 +2067,14 @@ export function SmsDocumentPage() {
                                 <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                                   KẾ HOẠCH NHẬN NHIÊN LIỆU
                                 </h3>
-                                <div className="w-16 h-0.5 bg-blue-500 my-1"></div>
+                                <div className="w-16 h-0.5 bg-accent my-1"></div>
                                 <span className="italic text-[9px] text-slate-500 font-semibold tracking-wide uppercase leading-tight">
                                   BUNKERING PLAN
                                 </span>
                               </div>
                               {/* Document Meta Box */}
                               <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
-                                <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-15-01</span></div>
+                                <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-15-01</span></div>
                                 <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                                 <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
                                 <div><strong>Trang:</strong> <span className="font-mono">1 / 3</span></div>
@@ -2087,7 +2090,7 @@ export function SmsDocumentPage() {
                                   value={formValues['vessel'] || ''}
                                   onChange={(e) => handleFormFieldChange('vessel', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                               <div>
@@ -2097,7 +2100,7 @@ export function SmsDocumentPage() {
                                   value={formValues['location'] || ''}
                                   onChange={(e) => handleFormFieldChange('location', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                               <div>
@@ -2107,7 +2110,7 @@ export function SmsDocumentPage() {
                                   value={formValues['supplyBarge'] || ''}
                                   onChange={(e) => handleFormFieldChange('supplyBarge', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                               <div>
@@ -2117,7 +2120,7 @@ export function SmsDocumentPage() {
                                   value={formValues['bunkerDate'] || ''}
                                   onChange={(e) => handleFormFieldChange('bunkerDate', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-mono font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-mono font-semibold"
                                 />
                               </div>
                               <div>
@@ -2127,7 +2130,7 @@ export function SmsDocumentPage() {
                                   value={formValues['foreDraft'] || ''}
                                   onChange={(e) => handleFormFieldChange('foreDraft', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                               <div>
@@ -2137,14 +2140,14 @@ export function SmsDocumentPage() {
                                   value={formValues['aftDraft'] || ''}
                                   onChange={(e) => handleFormFieldChange('aftDraft', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                 />
                               </div>
                             </div>
 
                             {/* Section 1: Product to be Handled */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 1. Loại nhiên liệu nhận / Product to be Handled
                               </h4>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
@@ -2270,7 +2273,7 @@ export function SmsDocumentPage() {
                                     const newArr = [...(formValues['products'] || []), { grade: '', density: '', stemmedQty: '', qtyOnboard: '', duration: '', robCompletion: '' }];
                                     handleFormFieldChange('products', newArr);
                                   }}
-                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                  className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
                                 >
                                   + Thêm dòng / Add row
                                 </button>
@@ -2279,7 +2282,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 2: Personnel Responsibilities */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
                               </h4>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
@@ -2363,7 +2366,7 @@ export function SmsDocumentPage() {
                                     const newArr = [...(formValues['personnel'] || []), { rank: '', name: '', duty: '' }];
                                     handleFormFieldChange('personnel', newArr);
                                   }}
-                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                  className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
                                 >
                                   + Thêm chức danh / Add personnel
                                 </button>
@@ -2519,7 +2522,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 7: Distribution of Bunker Oil */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
                               </h4>
                               <div className="mb-3">
@@ -2530,7 +2533,7 @@ export function SmsDocumentPage() {
                                   onChange={(e) => handleFormFieldChange('line_up_piping', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
                                   placeholder="Ví dụ: Mở van tổng nhận mạn phải, đóng van nhận mạn trái. Mở van vào két 1P, 2P..."
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
                                 />
                               </div>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
@@ -2642,7 +2645,7 @@ export function SmsDocumentPage() {
                                     const newArr = [...(formValues['distribution'] || []), { recvTank: '', valveOpened: '', valveClosed: '', overflowTank: '', overflowValveOpened: '' }];
                                     handleFormFieldChange('distribution', newArr);
                                   }}
-                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                  className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
                                 >
                                   + Thêm dòng phân phối / Add row
                                 </button>
@@ -2651,7 +2654,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 8: Loading Rates */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
                               </h4>
                               <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
@@ -2662,7 +2665,7 @@ export function SmsDocumentPage() {
                                     value={formValues['rate_initial'] || ''}
                                     onChange={(e) => handleFormFieldChange('rate_initial', e.target.value)}
                                     disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                    className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                    className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                   />
                                 </div>
                                 <div>
@@ -2672,7 +2675,7 @@ export function SmsDocumentPage() {
                                     value={formValues['rate_max'] || ''}
                                     onChange={(e) => handleFormFieldChange('rate_max', e.target.value)}
                                     disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                    className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                    className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                   />
                                 </div>
                                 <div>
@@ -2682,7 +2685,7 @@ export function SmsDocumentPage() {
                                     value={formValues['rate_topping'] || ''}
                                     onChange={(e) => handleFormFieldChange('rate_topping', e.target.value)}
                                     disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                    className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+                                    className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
                                   />
                                 </div>
                               </div>
@@ -2690,7 +2693,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 9: Gauging of Tanks */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 9. Bảng đo các két trước và sau nhận / Gauging of Tanks (Pre-bunkering & Final Expected)
                               </h4>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
@@ -2897,7 +2900,7 @@ export function SmsDocumentPage() {
                                     const newArr = [...(formValues['gauging'] || []), { tank: '', capSound: '', capVol: '', preSound: '', preVol: '', preTemp: '', postSound: '', postVol: '', reduceSound: '', reduceVol: '', seq: '' }];
                                     handleFormFieldChange('gauging', newArr);
                                   }}
-                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                  className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
                                 >
                                   + Thêm dòng đo két / Add tank row
                                 </button>
@@ -2973,13 +2976,13 @@ export function SmsDocumentPage() {
                                 onChange={(e) => handleFormFieldChange('local_contacts', e.target.value)}
                                 disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
                                 placeholder="Cảng vụ Hàng hải, Đại lý tàu, Trung tâm ứng phó sự cố tràn dầu địa phương..."
-                                className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 text-xs font-semibold"
+                                className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 text-xs font-semibold"
                               />
                             </div>
 
                             {/* Section 13: Crew Sign-off */}
                             <div className="mt-6 border-t border-slate-250 dark:border-slate-800 pt-4">
-                              <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2">
+                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2">
                                 13. Xác nhận hiểu rõ kế hoạch / Crew Sign-off List
                               </h4>
                               <p className="text-[10px] italic text-slate-500 mb-2">
@@ -3029,7 +3032,7 @@ export function SmsDocumentPage() {
                                                 toast.success(`Đã xác nhận chữ ký cho chức danh ${row.rank}`);
                                               }}
                                               disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-[10px] font-bold shadow-sm transition"
+                                              className="px-3 py-1 bg-accent hover:bg-primary-hover text-white rounded text-[10px] font-bold shadow-sm transition"
                                             >
                                               Ký tên / Sign
                                             </button>
@@ -3062,7 +3065,7 @@ export function SmsDocumentPage() {
                                     const newArr = [...(formValues['signatures_list'] || []), { rank: 'Thành viên bổ sung / Custom rank', name: '', signed: false }];
                                     handleFormFieldChange('signatures_list', newArr);
                                   }}
-                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                  className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
                                 >
                                   + Thêm hàng ký xác nhận / Add sign-off row
                                 </button>
@@ -3077,8 +3080,8 @@ export function SmsDocumentPage() {
                             <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                               {/* Logo Box */}
                               <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
-                                <div className="w-10 h-10 rounded-full border-2 border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-base font-bold">⚓</div>
-                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+                                <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
+                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                                 <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
                               </div>
                               {/* Document Title Box */}
@@ -3086,12 +3089,12 @@ export function SmsDocumentPage() {
                                 <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                                   BIÊN BẢN SOÁT XÉT CÔNG TÁC QUẢN LÝ AN TOÀN,<br/>SỨC KHỎE, BẢO VỆ MÔI TRƯỜNG
                                 </h3>
-                                <div className="w-16 h-0.5 bg-blue-500 my-1"></div>
+                                <div className="w-16 h-0.5 bg-accent my-1"></div>
                                 <span className="italic text-[10px] text-slate-500 font-semibold tracking-wide">Master's Review of the SLMS</span>
                               </div>
                               {/* Document Meta Box */}
                               <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
-                                <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-02-01</span></div>
+                                <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-02-01</span></div>
                                 <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                                 <div><strong>Lần sửa đổi:</strong> <span className="font-mono">00</span></div>
                                 <div><strong>Trang:</strong> <span className="font-mono">1 / 2</span></div>
@@ -3107,7 +3110,7 @@ export function SmsDocumentPage() {
                                   value={formValues['shipName'] || ''}
                                   onChange={(e) => handleFormFieldChange('shipName', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
                                 />
                               </div>
                               <div>
@@ -3117,7 +3120,7 @@ export function SmsDocumentPage() {
                                   value={formValues['shipType'] || ''}
                                   onChange={(e) => handleFormFieldChange('shipType', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
                                 />
                               </div>
                               <div>
@@ -3127,7 +3130,7 @@ export function SmsDocumentPage() {
                                   value={formValues['masterName'] || ''}
                                   onChange={(e) => handleFormFieldChange('masterName', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
                                 />
                               </div>
                               <div>
@@ -3137,7 +3140,7 @@ export function SmsDocumentPage() {
                                   value={formValues['reviewDate'] || ''}
                                   onChange={(e) => handleFormFieldChange('reviewDate', e.target.value)}
                                   disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-mono"
+                                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-mono"
                                 />
                               </div>
                             </div>
@@ -3220,7 +3223,7 @@ export function SmsDocumentPage() {
                                     onChange={(e) => handleFormFieldChange(item.id, e.target.value)}
                                     disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
                                     placeholder="Nhập nội dung nhận xét hoặc kết quả soát xét..."
-                                    className="w-full px-3 py-2 text-xs rounded border border-slate-250 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 leading-relaxed font-sans"
+                                    className="w-full px-3 py-2 text-xs rounded border border-slate-250 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 leading-relaxed font-sans"
                                   />
                                 </div>
                               ))}
@@ -3237,7 +3240,7 @@ export function SmsDocumentPage() {
                             {JSON.parse(selectedTemplate.contentSchema || '[]').map((field: any) => {
                               if (field.type === 'info') {
                                 return (
-                                  <div key={field.id} className="p-3.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-150 dark:border-blue-900 text-xs text-blue-800 dark:text-blue-300 rounded-xl leading-relaxed">
+                                  <div key={field.id} className="p-3.5 bg-primary-soft dark:bg-blue-950/20 border border-blue-150 dark:border-blue-900 text-xs text-primary dark:text-blue-300 rounded-xl leading-relaxed">
                                     {field.value}
                                   </div>
                                 );
@@ -3255,7 +3258,7 @@ export function SmsDocumentPage() {
                                       value={formValues[field.id] || ''}
                                       onChange={(e) => handleFormFieldChange(field.id, e.target.value)}
                                       disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                                     />
                                   )}
 
@@ -3265,7 +3268,7 @@ export function SmsDocumentPage() {
                                       value={formValues[field.id] || ''}
                                       onChange={(e) => handleFormFieldChange(field.id, e.target.value)}
                                       disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                                     />
                                   )}
 
@@ -3275,7 +3278,7 @@ export function SmsDocumentPage() {
                                       value={formValues[field.id] || ''}
                                       onChange={(e) => handleFormFieldChange(field.id, parseFloat(e.target.value))}
                                       disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                                     />
                                   )}
 
@@ -3285,7 +3288,7 @@ export function SmsDocumentPage() {
                                       value={formValues[field.id] || ''}
                                       onChange={(e) => handleFormFieldChange(field.id, e.target.value)}
                                       disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                                     />
                                   )}
 
@@ -3294,7 +3297,7 @@ export function SmsDocumentPage() {
                                       value={formValues[field.id] || ''}
                                       onChange={(e) => handleFormFieldChange(field.id, e.target.value)}
                                       disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
                                     >
                                       <option value="">-- Chọn --</option>
                                       {field.options?.map((opt: string) => (
@@ -3310,7 +3313,7 @@ export function SmsDocumentPage() {
                                         checked={!!formValues[field.id]}
                                         onChange={(e) => handleFormFieldChange(field.id, e.target.checked)}
                                         disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 disabled:opacity-60"
+                                        className="rounded border-slate-300 text-accent focus:ring-accent w-4 h-4 disabled:opacity-60"
                                       />
                                       <span className="text-xs text-slate-650 dark:text-slate-350">Xác nhận thực hiện</span>
                                     </label>
@@ -3337,7 +3340,7 @@ export function SmsDocumentPage() {
                                   <div key={idx} className="border-2 border-dashed border-blue-500/40 dark:border-blue-400/30 bg-blue-50/20 dark:bg-blue-950/10 p-3 rounded-xl relative overflow-hidden flex flex-col justify-between">
                                     <div className="absolute top-1 right-2 text-blue-600/10 dark:text-blue-400/5 select-none font-bold text-5xl">SIG</div>
                                     <div>
-                                      <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
+                                      <div className="text-[10px] uppercase font-bold text-accent dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
                                       <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div>
                                     </div>
                                     <div className="mt-3 flex items-end justify-between">
@@ -3360,7 +3363,7 @@ export function SmsDocumentPage() {
                         {recordStatus !== 'Approved' && (
                           <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-250 dark:border-slate-800 space-y-3 pt-4">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                              <Lock className="w-4 h-4 text-blue-500" />
+                              <Lock className="w-4 h-4 text-accent" />
                               <span>MÃ PIN XÁC THỰC CHỮ KÝ SỐ</span>
                             </div>
 
@@ -3377,14 +3380,14 @@ export function SmsDocumentPage() {
                                     placeholder="Họ tên người ký"
                                     value={signingName}
                                     onChange={(e) => setSigningName(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                                   />
                                   <input
                                     type="text"
                                     placeholder="Chức danh ký"
                                     value={signingRank}
                                     onChange={(e) => setSigningRank(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                                   />
                                 </>
                               )}
@@ -3395,7 +3398,7 @@ export function SmsDocumentPage() {
                                 placeholder="PIN (4 số)"
                                 value={signingPin}
                                 onChange={(e) => setSigningPin(e.target.value)}
-                                className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white font-mono text-center outline-none focus:ring-1 focus:ring-blue-500"
+                                className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white font-mono text-center outline-none focus:ring-1 focus:ring-accent"
                               />
                             </div>
 
@@ -3410,7 +3413,7 @@ export function SmsDocumentPage() {
                                   </button>
                                   <button
                                     onClick={handleECompactSign}
-                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
+                                    className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1"
                                   >
                                     <Sparkles className="w-3.5 h-3.5" /> Ký & Đệ trình
                                   </button>
@@ -3434,7 +3437,7 @@ export function SmsDocumentPage() {
                       
                       <div className="flex justify-between items-start">
                         <div className="space-y-1">
-                          <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-extrabold uppercase px-2 py-0.5 rounded-full">Suggested Checklists</span>
+                          <span className="text-[10px] bg-accent-soft dark:bg-blue-900/30 text-primary dark:text-blue-400 font-extrabold uppercase px-2 py-0.5 rounded-full">Suggested Checklists</span>
                           <h4 className="text-sm font-bold text-slate-850 dark:text-white pt-1">Biểu mẫu liên kết</h4>
                         </div>
                         <button
@@ -3454,7 +3457,7 @@ export function SmsDocumentPage() {
                           {selectedProcDetail.formTemplates.map((temp) => (
                             <div
                               key={temp.id}
-                              className="w-full p-4 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-850 rounded-2xl hover:border-blue-500 hover:shadow-lg transition group flex items-start justify-between relative"
+                              className="w-full p-4 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-850 rounded-2xl hover:border-accent hover:shadow-lg transition group flex items-start justify-between relative"
                             >
                               <div 
                                 onClick={() => window.open(`/sms/form/${temp.id}`, '_blank')}
@@ -3473,7 +3476,7 @@ export function SmsDocumentPage() {
                               <div className="flex flex-col items-end justify-between self-stretch gap-2 mt-1 flex-shrink-0">
                                 <button
                                   onClick={() => window.open(`/sms/form/${temp.id}`, '_blank')}
-                                  className="p-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition"
+                                  className="p-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-primary-soft dark:hover:bg-blue-950 hover:text-primary dark:hover:text-blue-400 rounded-lg transition"
                                   title="Điền biểu mẫu"
                                 >
                                   <Send className="w-3.5 h-3.5" />
@@ -3502,16 +3505,16 @@ export function SmsDocumentPage() {
                             <div className="space-y-2">
                               <button
                                 onClick={() => setShowFormBuilder(true)}
-                                className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-blue-300 dark:border-blue-800 hover:border-blue-500 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold hover:bg-blue-50 dark:hover:bg-blue-950/20 transition group"
+                                className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-accent/40 dark:border-blue-800 hover:border-accent text-accent dark:text-blue-400 rounded-xl text-xs font-bold hover:bg-primary-soft dark:hover:bg-blue-950/20 transition group"
                               >
                                 <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                 Tạo biểu mẫu mới liên kết với quy trình này
                               </button>
                               <button
                                 onClick={handleOpenTemplateSelector}
-                                className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-slate-350 dark:border-slate-800 hover:border-blue-500 text-slate-650 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-900/30 transition group"
+                                className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-slate-350 dark:border-slate-800 hover:border-accent text-slate-650 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-900/30 transition group"
                               >
-                                <Database className="w-4 h-4 group-hover:scale-110 transition-transform text-blue-500" />
+                                <Database className="w-4 h-4 group-hover:scale-110 transition-transform text-accent" />
                                 Gán biểu mẫu đã có vào quy trình
                               </button>
                             </div>
@@ -3519,7 +3522,7 @@ export function SmsDocumentPage() {
                             <div className="bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-lg animate-in fade-in duration-300">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="p-1.5 bg-blue-100 dark:bg-blue-950 text-blue-600 rounded-lg">
+                                  <div className="p-1.5 bg-accent-soft dark:bg-blue-950 text-accent rounded-lg">
                                     <Plus className="w-4 h-4" />
                                   </div>
                                   <h4 className="text-sm font-bold text-slate-800 dark:text-white">Tạo biểu mẫu mới</h4>
@@ -3541,7 +3544,7 @@ export function SmsDocumentPage() {
                                     placeholder="VD: BM-07-08"
                                     value={formBuilderData.formCode}
                                     onChange={(e) => setFormBuilderData(prev => ({ ...prev, formCode: e.target.value }))}
-                                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                                   />
                                 </div>
                                 <div>
@@ -3551,7 +3554,7 @@ export function SmsDocumentPage() {
                                     placeholder="VD: Checklist an toàn cháy nổ"
                                     value={formBuilderData.title}
                                     onChange={(e) => setFormBuilderData(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                                   />
                                 </div>
                               </div>
@@ -3562,7 +3565,7 @@ export function SmsDocumentPage() {
                                   <span className="text-[10px] font-bold text-slate-500 uppercase">Các trường dữ liệu ({formBuilderData.fields.length})</span>
                                   <button
                                     onClick={addFormField}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition"
+                                    className="flex items-center gap-1 text-[10px] font-bold text-accent hover:text-primary transition"
                                   >
                                     <Plus className="w-3 h-3" /> Thêm trường
                                   </button>
@@ -3583,12 +3586,12 @@ export function SmsDocumentPage() {
                                           placeholder="Tên trường"
                                           value={field.label}
                                           onChange={(e) => updateFormField(idx, 'label', e.target.value)}
-                                          className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                                          className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                                         />
                                         <select
                                           value={field.type}
                                           onChange={(e) => updateFormField(idx, 'type', e.target.value)}
-                                          className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                                          className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                                         >
                                           <option value="text">Văn bản</option>
                                           <option value="textarea">Đoạn văn</option>
@@ -3602,7 +3605,7 @@ export function SmsDocumentPage() {
                                             type="checkbox"
                                             checked={field.required}
                                             onChange={(e) => updateFormField(idx, 'required', e.target.checked)}
-                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                            className="rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                                           />
                                           <span className="text-[10px] text-slate-500">Bắt buộc</span>
                                         </label>
@@ -3651,7 +3654,7 @@ export function SmsDocumentPage() {
                                 <button
                                   onClick={handleCreateFormTemplate}
                                   disabled={creatingTemplate}
-                                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+                                  className="px-4 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
                                 >
                                   {creatingTemplate ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                                   {creatingTemplate ? 'Đang tạo...' : 'Tạo biểu mẫu'}
@@ -3757,7 +3760,7 @@ export function SmsDocumentPage() {
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => setViewRecordDetail(record)}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 ml-auto transition"
+                          className="px-3 py-1.5 bg-primary-soft hover:bg-accent-soft dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 ml-auto transition"
                         >
                           <Search className="w-3.5 h-3.5" /> Xem hồ sơ
                         </button>
@@ -3775,7 +3778,7 @@ export function SmsDocumentPage() {
           {/* Header & Search / Filters */}
           <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0 bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-500" />
+              <Layers className="w-4 h-4 text-accent" />
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Thư viện biểu mẫu & checklist</h4>
             </div>
 
@@ -3788,7 +3791,7 @@ export function SmsDocumentPage() {
                   placeholder="Tìm theo mã hoặc tên..."
                   value={formLibrarySearch}
                   onChange={(e) => setFormLibrarySearch(e.target.value)}
-                  className="pl-9 pr-4 py-1.5 text-xs border border-slate-250 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 w-60"
+                  className="pl-9 pr-4 py-1.5 text-xs border border-slate-250 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent w-60"
                 />
               </div>
 
@@ -3803,7 +3806,7 @@ export function SmsDocumentPage() {
                   setFormBuilderData({ formCode: '', title: '', fields: [] });
                   setShowNewFormModal(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-sm transition"
               >
                 <Plus className="w-4 h-4" /> Thêm biểu mẫu
               </button>
@@ -3833,7 +3836,7 @@ export function SmsDocumentPage() {
                         <div className="flex items-center justify-between mb-2">
                           <span 
                             onClick={() => window.open(`/sms/form/${group.sampleId}`, '_blank')}
-                            className="font-mono text-[10px] font-bold bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
+                            className="font-mono text-[10px] font-bold bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 px-2 py-0.5 rounded cursor-pointer hover:bg-accent-soft dark:hover:bg-blue-900 transition-colors"
                             title="Bấm để xem chi tiết biểu mẫu"
                           >
                             {group.formCode}
@@ -3842,7 +3845,7 @@ export function SmsDocumentPage() {
                         </div>
                         <h5 
                           onClick={() => window.open(`/sms/form/${group.sampleId}`, '_blank')}
-                          className="text-xs font-bold text-slate-850 dark:text-white mb-2 leading-snug cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          className="text-xs font-bold text-slate-850 dark:text-white mb-2 leading-snug cursor-pointer hover:text-primary dark:hover:text-blue-400 transition-colors"
                           title="Bấm để xem chi tiết biểu mẫu"
                         >
                           {group.title}
@@ -3851,7 +3854,7 @@ export function SmsDocumentPage() {
                         <div className="mb-4">
                           <button
                             onClick={() => setSelectedAssignedForm(group)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary-soft dark:bg-blue-900/30 text-accent dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-accent-soft dark:hover:bg-blue-900/50 transition cursor-pointer"
                             title="Bấm để xem danh sách quy trình gán"
                           >
                             <Link2 className="w-3.5 h-3.5" />
@@ -3880,7 +3883,7 @@ export function SmsDocumentPage() {
                             setAssignProcedureId(firstSop);
                             setShowAssignModal(true);
                           }}
-                          className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-450 text-xs font-semibold rounded-lg hover:bg-blue-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-primary-soft dark:bg-blue-900/20 text-accent dark:text-blue-450 text-xs font-semibold rounded-lg hover:bg-accent-soft dark:hover:bg-slate-800 transition flex items-center gap-1"
                         >
                           <ExternalLink className="w-3.5 h-3.5" /> Gán vào quy trình khác
                         </button>
@@ -3947,8 +3950,8 @@ export function SmsDocumentPage() {
                       {/* Header Table */}
                       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
-                          <div className="w-8 h-8 rounded-full border border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-xs font-bold">⚓</div>
-                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+                          <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
+                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                         </div>
                         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
                           <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
@@ -3957,7 +3960,7 @@ export function SmsDocumentPage() {
                           <span className="italic text-[8px] text-slate-500 font-semibold uppercase">ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE</span>
                         </div>
                         <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5 bg-slate-50/10">
-                          <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-26-03</span></div>
+                          <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-26-03</span></div>
                           <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
                         </div>
@@ -3989,7 +3992,7 @@ export function SmsDocumentPage() {
                                 <tbody>
                                   {cleaningCategories.map((category) => (
                                     <React.Fragment key={category.prefix}>
-                                      <tr className="bg-blue-50/30 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 font-bold border-b border-slate-300 dark:border-slate-700">
+                                      <tr className="bg-blue-50/30 dark:bg-blue-900/20 text-primary dark:text-blue-300 font-bold border-b border-slate-300 dark:border-slate-700">
                                         <td colSpan={6} className="p-1.5 text-[10px] uppercase font-bold">{category.title}</td>
                                       </tr>
                                       {category.items.map((item) => {
@@ -4000,7 +4003,7 @@ export function SmsDocumentPage() {
                                             <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 font-semibold text-slate-900 dark:text-slate-100">{item.name}</td>
                                             <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-400 italic">{item.cycle}</td>
                                             <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-450 leading-tight">{item.method}</td>
-                                            <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 font-medium text-blue-650 dark:text-blue-450">
+                                            <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 font-medium text-accent dark:text-blue-450">
                                               {filled[key] || <span className="text-slate-400 italic">Chưa nhập</span>}
                                             </td>
                                             <td className="p-1.5 text-slate-500 italic text-[9px]">{item.note}</td>
@@ -4021,8 +4024,8 @@ export function SmsDocumentPage() {
                       {/* Header Table */}
                       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
-                          <div className="w-8 h-8 rounded-full border border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-xs font-bold">⚓</div>
-                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+                          <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
+                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                         </div>
                         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
                           <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
@@ -4031,7 +4034,7 @@ export function SmsDocumentPage() {
                           <span className="italic text-[9px] text-slate-500 font-semibold">Master's Review of the SLMS</span>
                         </div>
                         <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5">
-                          <div><strong>Mã:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-02-01</span></div>
+                          <div><strong>Mã:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-02-01</span></div>
                           <div><strong>Ngày BH:</strong> <span className="font-mono">20/10/2016</span></div>
                           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">00</span></div>
                         </div>
@@ -4135,8 +4138,8 @@ export function SmsDocumentPage() {
                       {/* Header Table */}
                       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
-                          <div className="w-8 h-8 rounded-full border border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-xs font-bold">⚓</div>
-                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+                          <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
+                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                         </div>
                         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
                           <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
@@ -4145,7 +4148,7 @@ export function SmsDocumentPage() {
                           <span className="italic text-[8px] text-slate-500 font-semibold uppercase">SAFETY MANAGEMENT SYSTEM - CHECKLIST</span>
                         </div>
                         <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5">
-                          <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-15-01</span></div>
+                          <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-15-01</span></div>
                           <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
                         </div>
@@ -4186,7 +4189,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 1 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-blue-900 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 1. Loại nhiên liệu nhận / Product to be Handled
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -4221,7 +4224,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 2 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-blue-900 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -4316,7 +4319,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 7 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-blue-900 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
                               </h4>
                               <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-lg border border-slate-200 dark:border-slate-700 text-xs mb-2 font-mono leading-relaxed">
@@ -4353,7 +4356,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 8 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-blue-900 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
                               </h4>
                               <div className="grid grid-cols-3 gap-4 border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-lg text-center">
@@ -4374,7 +4377,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 9 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-blue-900 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 9. Bảng đo các két trước và sau nhận / Gauging of Tanks
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -4415,7 +4418,7 @@ export function SmsDocumentPage() {
                                         <td className="p-1 border-r border-slate-150 dark:border-slate-800 text-center font-semibold">{row.postVol}</td>
                                         <td className="p-1 border-r border-slate-150 dark:border-slate-800 text-center">{row.reduceSound}</td>
                                         <td className="p-1 border-r border-slate-150 dark:border-slate-800 text-center font-semibold">{row.reduceVol}</td>
-                                        <td className="p-1 text-center font-bold text-blue-600">{row.seq}</td>
+                                        <td className="p-1 text-center font-bold text-accent">{row.seq}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -4457,7 +4460,7 @@ export function SmsDocumentPage() {
 
                             {/* Section 13 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-blue-900 dark:text-blue-400 mb-1 border-b border-blue-200 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 13. Xác nhận hiểu rõ kế hoạch / Crew Sign-off List
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -4553,7 +4556,7 @@ export function SmsDocumentPage() {
                   </button>
                   <button
                     onClick={() => setViewRecordDetail(null)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
+                    className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition"
                   >
                     Đóng cửa sổ
                   </button>
@@ -4571,7 +4574,7 @@ export function SmsDocumentPage() {
                 {/* Modal Header */}
                 <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+                    <div className="p-1.5 bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg">
                       <Database className="w-4.5 h-4.5" />
                     </div>
                     <div>
@@ -4599,7 +4602,7 @@ export function SmsDocumentPage() {
                       placeholder="Tìm kiếm mã biểu mẫu hoặc tên biểu mẫu..."
                       value={selectorSearch}
                       onChange={(e) => setSelectorSearch(e.target.value)}
-                      className="pl-9 pr-4 py-2 w-full text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                      className="pl-9 pr-4 py-2 w-full text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                     />
                   </div>
 
@@ -4607,7 +4610,7 @@ export function SmsDocumentPage() {
                   <div className="flex-1 overflow-y-auto border border-slate-150 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-850 min-h-[250px] max-h-[40vh] scrollbar-thin">
                     {loadingSelector ? (
                       <div className="py-12 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
-                        <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
+                        <RefreshCw className="w-5 h-5 animate-spin text-accent" />
                         <span>Đang tải danh sách biểu mẫu...</span>
                       </div>
                     ) : (() => {
@@ -4641,7 +4644,7 @@ export function SmsDocumentPage() {
                                   setSelectedAssignIds(prev => prev.filter(id => id !== temp.id));
                                 }
                               }}
-                              className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                              className="mt-0.5 rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                             />
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1.5">
@@ -4676,7 +4679,7 @@ export function SmsDocumentPage() {
                   <button
                     onClick={handleAssignTemplates}
                     disabled={assigningTemplates}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+                    className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
                   >
                     {assigningTemplates && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                     Gán {selectedAssignIds.length} biểu mẫu
@@ -4695,7 +4698,7 @@ export function SmsDocumentPage() {
                 {/* Modal Header */}
                 <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+                    <div className="p-1.5 bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg">
                       <Plus className="w-4.5 h-4.5" />
                     </div>
                     <div>
@@ -4722,7 +4725,7 @@ export function SmsDocumentPage() {
                         placeholder="VD: BM-07-08"
                         value={newFormCode}
                         onChange={(e) => setNewFormCode(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                       />
                     </div>
                     <div>
@@ -4732,7 +4735,7 @@ export function SmsDocumentPage() {
                         placeholder="VD: Checklist an toàn cháy nổ"
                         value={newFormTitle}
                         onChange={(e) => setNewFormTitle(e.target.value)}
-                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                       />
                     </div>
                   </div>
@@ -4743,7 +4746,7 @@ export function SmsDocumentPage() {
                     <select
                       value={newFormProcedureId}
                       onChange={(e) => setNewFormProcedureId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                     >
                       <option value="">-- Chọn quy trình liên kết --</option>
                       {treeData.flatMap(ch => ch.procedures).filter(p => p.status === 'Active').map(p => (
@@ -4758,7 +4761,7 @@ export function SmsDocumentPage() {
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Cấu trúc các trường ({formBuilderData.fields.length})</span>
                       <button
                         onClick={addFormField}
-                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition"
+                        className="flex items-center gap-1 text-[10px] font-bold text-accent hover:text-primary transition"
                       >
                         <Plus className="w-3 h-3" /> Thêm trường
                       </button>
@@ -4779,12 +4782,12 @@ export function SmsDocumentPage() {
                               placeholder="Tên trường"
                               value={field.label}
                               onChange={(e) => updateFormField(idx, 'label', e.target.value)}
-                              className="px-2 py-1.5 text-[11px] rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                              className="px-2 py-1.5 text-[11px] rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                             />
                             <select
                               value={field.type}
                               onChange={(e) => updateFormField(idx, 'type', e.target.value)}
-                              className="px-2 py-1.5 text-[11px] rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                              className="px-2 py-1.5 text-[11px] rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                             >
                               <option value="text">Văn bản</option>
                               <option value="textarea">Đoạn văn</option>
@@ -4798,7 +4801,7 @@ export function SmsDocumentPage() {
                                 type="checkbox"
                                 checked={field.required}
                                 onChange={(e) => updateFormField(idx, 'required', e.target.checked)}
-                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                className="rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                               />
                               <span className="text-[10px] text-slate-500">Bắt buộc</span>
                             </label>
@@ -4847,7 +4850,7 @@ export function SmsDocumentPage() {
                   </button>
                   <button
                     onClick={handleCreateFormFromLibrary}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                    className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-sm transition"
                   >
                     Tạo & liên kết biểu mẫu
                   </button>
@@ -4865,7 +4868,7 @@ export function SmsDocumentPage() {
                 {/* Modal Header */}
                 <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+                    <div className="p-1.5 bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg">
                       <ExternalLink className="w-4.5 h-4.5" />
                     </div>
                     <div>
@@ -4888,7 +4891,7 @@ export function SmsDocumentPage() {
                     <select
                       value={assignProcedureId}
                       onChange={(e) => setAssignProcedureId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-202 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                     >
                       <option value="">-- Chọn quy trình --</option>
                       {treeData.flatMap(ch => ch.procedures).filter(p => p.status === 'Active').map(p => (
@@ -4908,7 +4911,7 @@ export function SmsDocumentPage() {
                   </button>
                   <button
                     onClick={handleAssignFromLibrary}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                    className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-sm transition"
                   >
                     Gán biểu mẫu
                   </button>
@@ -4933,7 +4936,7 @@ export function SmsDocumentPage() {
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left transition-colors"
           >
-            <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+            <BookOpen className="w-3.5 h-3.5 text-accent" />
             <span>Xem chi tiết</span>
           </button>
           
@@ -4989,12 +4992,12 @@ export function SmsDocumentPage() {
           <div className="bg-white dark:bg-slate-850 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-xl">
+                <div className="p-2 bg-primary-soft dark:bg-blue-950 text-accent rounded-xl">
                   <FileText className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs font-bold text-accent dark:text-blue-400 bg-primary-soft dark:bg-blue-900/40 px-2 py-0.5 rounded">
                       {selectedAssignedForm.formCode}
                     </span>
                     <span className="text-xs text-slate-400 font-medium">({selectedAssignedForm.assignedProcedures.length} quy trình đã gán)</span>
@@ -5038,7 +5041,7 @@ export function SmsDocumentPage() {
                           setViewMode('workspace');
                         }
                       }}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 flex-shrink-0"
+                      className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 flex-shrink-0"
                     >
                       <Eye className="w-3.5 h-3.5" /> Xem quy trình
                     </button>

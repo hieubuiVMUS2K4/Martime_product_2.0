@@ -6,6 +6,8 @@ import { crewApi } from '../../services/crew.service';
 import { AssignCrewToVesselModal } from './AssignCrewToVesselModal';
 import { SignOffCrewModal } from './SignOffCrewModal';
 import '../../pages/MasterDataManagement/Crew/CrewListPage.css';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 interface VesselCrewTabProps {
   vesselId: string;
@@ -41,6 +43,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
+  const ask = useConfirm();
   const navigate = useNavigate();
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,12 +162,12 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
   };
 
   const handleDelete = async (crew: CrewMember) => {
-    if (!window.confirm(`Xóa thuyền viên "${crew.fullName}"?\nHành động này không thể hoàn tác.`)) return;
+    if (!await ask(`Xóa thuyền viên "${crew.fullName}"?\nHành động này không thể hoàn tác.`)) return;
     try {
       await crewApi.delete(crew.id);
       await loadCrew();
     } catch {
-      alert('Xóa thất bại. Vui lòng thử lại.');
+      toast.error('Xóa thất bại. Vui lòng thử lại.');
     }
   };
 
@@ -194,7 +197,7 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
                 key={opt.label}
                 className={`block w-full text-left px-3 py-2 text-sm hover:bg-slate-100 ${
                   sortType?.col === col && sortType?.dir === opt.dir 
-                    ? 'text-blue-900 font-bold' 
+                    ? 'text-primary font-bold' 
                     : 'text-gray-700'
                 }`}
                 onClick={e => { 

@@ -2,6 +2,7 @@
 import { MessageSquare, X, Send, Bot, User, Loader2, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import { ENV } from '../../config/env';
 import './AIChatWidget.css';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 interface Message {
   id: string;
@@ -15,6 +16,7 @@ interface QuickQuestionGroup {
 }
 
 export const AIChatWidget = ({ vesselId }: { vesselId: string }) => {
+  const ask = useConfirm();
   const storageKey = `ai_chat_history_${vesselId}`;
   const quickQuestionGroups: QuickQuestionGroup[] = [
     {
@@ -200,7 +202,7 @@ export const AIChatWidget = ({ vesselId }: { vesselId: string }) => {
       {isOpen && (
         <div className={`ai-chat-window shadow-xl border border-gray-200 ${isExpanded ? 'expanded' : ''}`}>
           {/* Header */}
-          <div className="ai-chat-header bg-blue-600 text-white p-3 flex justify-between items-center rounded-t-lg">
+          <div className="ai-chat-header bg-primary text-white p-3 flex justify-between items-center rounded-t-lg">
             <div className="flex items-center gap-2">
               <Bot size={20} />
               <h3 className="font-semibold text-sm m-0">Trợ lý AI Phân Tích</h3>
@@ -214,8 +216,8 @@ export const AIChatWidget = ({ vesselId }: { vesselId: string }) => {
                 {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
               <button 
-                onClick={() => {
-                  if (window.confirm("Bắt đầu cuộc trò chuyện mới?")) {
+                onClick={async () => {
+                  if (await ask("Bắt đầu cuộc trò chuyện mới? Nội dung hiện tại sẽ bị xóa.", { title: 'Cuộc trò chuyện mới', confirmLabel: 'Bắt đầu', variant: 'warning' })) {
                     localStorage.removeItem(`${storageKey}_messages`);
                     localStorage.removeItem(`${storageKey}_session`);
                     window.location.reload();
@@ -265,7 +267,7 @@ export const AIChatWidget = ({ vesselId }: { vesselId: string }) => {
               >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    msg.sender === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'
+                    msg.sender === 'user' ? 'bg-accent-soft text-accent' : 'bg-indigo-100 text-indigo-600'
                   }`}
                 >
                   {msg.sender === 'user' ? <User size={16} /> : <Bot size={16} />}
@@ -273,7 +275,7 @@ export const AIChatWidget = ({ vesselId }: { vesselId: string }) => {
                 <div
                   className={`p-2.5 rounded-lg text-sm leading-relaxed ${
                     msg.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-tr-none'
+                      ? 'bg-primary text-white rounded-tr-none'
                       : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none shadow-sm'
                   }`}
                   style={{ whiteSpace: 'pre-wrap' }}
@@ -303,13 +305,13 @@ export const AIChatWidget = ({ vesselId }: { vesselId: string }) => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Hỏi về báo cáo..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-accent"
               disabled={isLoading}
             />
             <button
               onClick={() => handleSend()}
               disabled={isLoading || !input.trim()}
-              className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 hover:disabled:bg-blue-600 transition"
+              className="px-3 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary-hover disabled:opacity-50 hover:disabled:bg-blue-600 transition"
             >
               <Send size={16} />
             </button>

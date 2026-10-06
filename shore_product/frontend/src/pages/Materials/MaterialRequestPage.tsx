@@ -9,6 +9,8 @@ import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { MaterialRequest, MaterialRequestItem } from '@/types/pms.types';
 import type { MaterialItem, VoyageRecord } from '@/types/maritime.types';
 import type { EquipmentAsset } from '@/types/pms.types';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
@@ -38,6 +40,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export default function MaterialRequestPage({ vesselId, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
   const [view, setView] = useState<ViewMode>('list');
   const [requests, setRequests] = useState<MaterialRequest[]>([]);
@@ -168,7 +171,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
   };
 
   const handleSave = async (andSubmit = false) => {
-    if (formItems.length === 0) return alert('Vui lòng thêm ít nhất 1 dòng vật tư.');
+    if (formItems.length === 0) return void toast.warning('Vui lòng thêm ít nhất 1 dòng vật tư.');
     try {
       setSaving(true);
       const payload = {
@@ -202,7 +205,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
   const handleDelete = async (id: number) => {
     if (readOnly) return;
 
-    if (!confirm('Xác nhận xóa yêu cầu này?')) return;
+    if (!await ask('Xác nhận xóa yêu cầu này?')) return;
     await materialRequestService.delete(id);
     loadList();
   };
@@ -405,7 +408,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
               else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
               else page = currentPage - 2 + i;
               return (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
+                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-accent' : 'border-gray-300 hover:bg-gray-50'}`}>
                   {page}
                 </button>
               );
@@ -707,7 +710,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
             <div className="flex items-center col-span-3">
               <label className="text-sm font-medium text-gray-700 text-right pr-3 shrink-0 whitespace-nowrap" style={{ width: 140 }}>Đính kèm tệp tin</label>
               <div className="flex-1">
-                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-blue-800">
+                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-primary">
                   <Paperclip size={14} /> Đính kèm tệp tin
                   <input
                     type="file"
@@ -821,7 +824,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
           </table>
         </div>
         <div className="px-4 py-2 border-t border-gray-200">
-          <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-blue-800">
+          <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-primary">
             <Plus size={14} /> Thêm dòng
           </button>
         </div>

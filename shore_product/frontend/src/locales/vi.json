@@ -822,6 +822,7 @@
     }
   },
   "storeLocations": {
+    "confirmBulkDelete": "Xóa {count} vị trí kho đã chọn?",
     "allLocations": "Tất cả vị trí kho",
     "locationList": "Danh sách vị trí",
     "noTree": "Chưa có vị trí kho",
@@ -910,6 +911,8 @@
   },
   "pms": {
     "assets": {
+      "confirmDelete": "Xóa thiết bị \"{name}\"?",
+      "confirmBulkDelete": "Xóa {count} thiết bị đã chọn?",
       "title": "Thiết bị",
       "subtitle": "Quản lý thiết bị và máy móc tàu",
       "loading": "Đang tải danh sách thiết bị...",

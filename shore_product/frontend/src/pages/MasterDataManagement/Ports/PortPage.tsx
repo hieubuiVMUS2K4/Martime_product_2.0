@@ -4,6 +4,7 @@ import { Anchor, Plus, Pencil, RefreshCw, Loader2, AlertTriangle, X, Ban, Chevro
 import '../Crew/CrewListPage.css';
 import { portApi } from '../../../services/crew.service';
 import type { Port, PortPayload } from '../../../services/crew.service';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const EMPTY: PortPayload = {
   portCode: '', portName: '', country: '', countryCode: '',
@@ -18,6 +19,7 @@ const EMPTY: PortPayload = {
  * và mục sổ thuyền viên cũ còn tham chiếu tới cảng.
  */
 export const PortPage: React.FC = () => {
+  const ask = useConfirm();
   const [ports, setPorts] = useState<Port[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ export const PortPage: React.FC = () => {
   };
 
   const handleDeactivate = async (p: Port) => {
-    if (!window.confirm(`Ngừng sử dụng cảng "${p.portName}"?\nCảng vẫn được giữ lại trong dữ liệu cũ.`)) return;
+    if (!await ask(`Ngừng sử dụng cảng "${p.portName}"?\nCảng vẫn được giữ lại trong dữ liệu cũ.`, { title: 'Ngừng sử dụng cảng', confirmLabel: 'Ngừng sử dụng', variant: 'warning' })) return;
     try { await portApi.deactivate(p.id); await load(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Thao tác thất bại'); }
   };
@@ -307,7 +309,7 @@ export const PortPage: React.FC = () => {
                 Đang sử dụng
               </label>
 
-              <div className="rounded bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+              <div className="rounded bg-primary-soft border border-accent/30 px-3 py-2 text-xs text-primary">
                 Cảng lưu tại đây sẽ tự động được phát xuống <strong>tất cả các tàu</strong>.
               </div>
 

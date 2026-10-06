@@ -9,11 +9,13 @@ import { VesselMaterialImportModal } from './VesselMaterialImportModal';
 import { vesselMaterialService, downloadVesselMaterialTemplate } from '@/services/vesselMaterialService';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { MaterialItem, MaterialCategory } from '@/types/maritime.types';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
   const [searchParams] = useSearchParams();
   const vesselId = vesselIdProp ?? (searchParams.get('vesselId') ?? undefined);
@@ -85,20 +87,20 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
 
   const handleDeleteItem = async (item: MaterialItem) => {
     if (readOnly) return;
-    if (!confirm(t('materials.page.confirmDelete', { name: item.name }))) return;
+    if (!await ask(t('materials.page.confirmDelete', { name: item.name }))) return;
     try {
       if (!vesselId) return;
       await vesselMaterialService.remove(vesselId, [item.id]);
       await loadData();
     } catch (error: any) {
-      alert(error.message || 'Failed to delete item');
+      toast.error(error.message || 'Failed to delete item');
     }
   };
 
   const handleBulkDelete = async () => {
     if (readOnly) return;
     if (selectedRows.size === 0) return;
-    if (!confirm(`Bạn có chắc muốn xóa ${selectedRows.size} vật tư đã chọn?`)) return;
+    if (!await ask(`Bạn có chắc muốn xóa ${selectedRows.size} vật tư đã chọn?`)) return;
     try {
       const ids = Array.from(selectedRows);
       if (!vesselId) return;
@@ -106,7 +108,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
       setSelectedRows(new Set());
       await loadData();
     } catch (error: any) {
-      alert(error.message || 'Xóa thất bại');
+      toast.error(error.message || 'Xóa thất bại');
     }
   };
 
@@ -167,7 +169,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
           <p className="mt-4 text-gray-600">{t('materials.loading')}</p>
         </div>
       </div>
@@ -475,7 +477,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
                 onClick={() => setCurrentPage(page)}
                 className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${
                   currentPage === page
-                    ? 'bg-[#0b2545] text-white border-blue-600'
+                    ? 'bg-[#0b2545] text-white border-accent'
                     : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >

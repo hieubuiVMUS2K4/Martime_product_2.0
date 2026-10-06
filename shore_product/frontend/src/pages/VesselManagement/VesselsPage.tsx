@@ -9,6 +9,7 @@ import {
 import { ENV } from '../../config/env';
 import { ProvisioningModal } from './ProvisioningModal';
 import './VesselsPage.css';
+import { toast } from 'sonner';
 
 // ============================================================
 // Types
@@ -231,7 +232,7 @@ export const VesselsPage: React.FC = () => {
     try {
       await apiRequest(`${BASE}/vessels/${deleteTarget.id}`, { method: 'DELETE' });
       setDeleteTarget(null); fetchData();
-    } catch (err) { alert(err instanceof Error ? err.message : 'Xóa thất bại'); }
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Xóa thất bại'); }
     finally { setDeleting(false); }
   };
 

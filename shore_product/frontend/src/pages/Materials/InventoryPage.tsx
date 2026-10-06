@@ -6,6 +6,7 @@ import { materialService } from '@/services/materialService';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { InventoryStockItem, InventorySummary, StoreLocation } from '@/types/pms.types';
 import type { MaterialItem } from '@/types/maritime.types';
+import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
 
@@ -77,7 +78,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       a.download = `inventory-export-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e) { console.error(e); alert('Export failed'); }
+    } catch (e) { console.error(e); toast.error('Export failed'); }
   };
 
   // ── History ──
@@ -112,12 +113,12 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
 
   const handleDeclare = async () => {
     const valid = declareItems.filter(i => i.materialItemId && i.storeLocationId && i.quantity > 0);
-    if (valid.length === 0) { alert('Vui lòng nhập ít nhất 1 dòng hợp lệ'); return; }
+    if (valid.length === 0) { toast.warning('Vui lòng nhập ít nhất 1 dòng hợp lệ'); return; }
     try {
       await inventoryService.declare(valid);
       setShowDeclare(false);
       loadData();
-    } catch (e: any) { alert(e?.response?.data?.error || 'Khai báo thất bại'); }
+    } catch (e: any) { toast.error(e?.response?.data?.error || 'Khai báo thất bại'); }
   };
 
   // ── Adjust ──
@@ -139,7 +140,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       });
       setShowAdjust(false);
       loadData();
-    } catch (e: any) { alert(e?.response?.data?.error || 'Điều chỉnh thất bại'); }
+    } catch (e: any) { toast.error(e?.response?.data?.error || 'Điều chỉnh thất bại'); }
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -324,7 +325,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                 else if (currentPage >= tp - 2) page = tp - 4 + i;
                 else page = currentPage - 2 + i;
                 return (
-                  <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
+                  <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-accent' : 'border-gray-300 hover:bg-gray-50'}`}>
                     {page}
                   </button>
                 );
@@ -343,7 +344,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       {showHistory && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-slate-700 rounded-t-lg">
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-primary rounded-t-lg">
               <h3 className="text-sm font-semibold text-white">Lịch sử tồn kho</h3>
               <button onClick={() => setShowHistory(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
             </div>
@@ -396,7 +397,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       {showDeclare && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-slate-700 rounded-t-lg">
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-primary rounded-t-lg">
               <h3 className="text-sm font-semibold text-white">Khai báo tồn kho</h3>
               <button onClick={() => setShowDeclare(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
             </div>
@@ -479,7 +480,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       {showAdjust && adjustItem && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-[420px]">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-slate-700 rounded-t-lg">
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-primary rounded-t-lg">
               <h3 className="text-sm font-semibold text-white">Điều chỉnh tồn kho</h3>
               <button onClick={() => setShowAdjust(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
             </div>

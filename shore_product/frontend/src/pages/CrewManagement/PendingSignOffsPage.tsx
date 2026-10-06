@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LogOut, Check, X, RefreshCw, Loader2, AlertTriangle, Ship } from 'lucide-react';
 import { crewApi } from '../../services/crew.service';
 import type { PendingSignOff } from '../../services/crew.service';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const fmt = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -14,6 +15,7 @@ const fmt = (d?: string | null) =>
  * duyệt thì kỳ phục vụ mới đóng lại.
  */
 export const PendingSignOffsPage: React.FC = () => {
+  const ask = useConfirm();
   const [items, setItems] = useState<PendingSignOff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +40,10 @@ export const PendingSignOffsPage: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const handleApprove = async (item: PendingSignOff) => {
-    if (!window.confirm(
+    if (!await ask(
       `Duyệt cho ${item.fullName} xuống tàu ${item.vesselName ?? ''}?\n\n` +
-      `Kỳ phục vụ sẽ được đóng lại và ghi vĩnh viễn vào sổ thuyền viên.`
+      `Kỳ phục vụ sẽ được đóng lại và ghi vĩnh viễn vào sổ thuyền viên.`,
+      { title: 'Duyệt xuống tàu', confirmLabel: 'Duyệt' }
     )) return;
 
     setBusyId(item.id);

@@ -1,1 +1,1 @@
-export { ConfirmDialogProvider, useConfirmDialog } from './ConfirmDialog';
+export { ConfirmDialogProvider, useConfirmDialog, useConfirm } from './ConfirmDialog';

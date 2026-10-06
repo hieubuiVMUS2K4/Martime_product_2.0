@@ -95,7 +95,7 @@ export function CategoryFormModal({
             <div className="p-5 space-y-5">
               {/* General Info */}
               <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin danh mục</div>
+                <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin danh mục</div>
                 <div className="border border-t-0 border-gray-200 rounded-b p-4 space-y-2.5">
                   <div className="flex items-center">
                     <label className={lbl} style={{ width: 120 }}>Mã danh mục <span className="text-red-500">*</span></label>
@@ -117,7 +117,7 @@ export function CategoryFormModal({
 
               {/* Description */}
               <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Mô tả</div>
+                <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Mô tả</div>
                 <div className="border border-t-0 border-gray-200 rounded-b p-4">
                   <textarea
                     rows={3}
@@ -132,7 +132,7 @@ export function CategoryFormModal({
 
               {/* Options */}
               <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Tùy chọn</div>
+                <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Tùy chọn</div>
                 <div className="border border-t-0 border-gray-200 rounded-b p-4">
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={formData.isActive} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} className="w-4 h-4 text-[#0b2545] rounded" />

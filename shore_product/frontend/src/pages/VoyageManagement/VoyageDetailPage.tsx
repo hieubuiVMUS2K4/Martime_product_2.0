@@ -4,6 +4,8 @@ import { ArrowLeft, Edit2, Trash2, Ship, Anchor, MapPin, Clock, DollarSign, Pack
 import { voyageApi } from '../../services/voyage.service';
 import type { VoyageDetail } from '../../types/voyage.types';
 import './VoyageManagement.css';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 function fmt(v?: string) {
   if (!v) return '—';
@@ -31,6 +33,7 @@ function statusClass(s?: string) {
 type Tab = 'overview' | 'legs' | 'ports' | 'cargo' | 'financial';
 
 export const VoyageDetailPage: React.FC = () => {
+  const ask = useConfirm();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<VoyageDetail | null>(null);
@@ -48,11 +51,11 @@ export const VoyageDetailPage: React.FC = () => {
 
   async function handleDelete() {
     if (!data || !id) return;
-    if (!window.confirm(`Xóa hải trình ${data.voyageNumber}?`)) return;
+    if (!await ask(`Xóa hải trình ${data.voyageNumber}?`)) return;
     try {
       await voyageApi.deleteVoyage(id);
       navigate('/voyages');
-    } catch { alert('Lỗi khi xóa'); }
+    } catch { toast.error('Lỗi khi xóa'); }
   }
 
   if (loading) return <div className="vd-page"><div className="vm-loading">Đang tải...</div></div>;

@@ -212,7 +212,7 @@ export function ItemFormModal({
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                   activeTab === tab.key
-                    ? 'border-blue-600 text-[#0b2545]'
+                    ? 'border-accent text-[#0b2545]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -232,7 +232,7 @@ export function ItemFormModal({
               <div className="p-5 space-y-5">
                 {/* General Details */}
                 <div>
-                  <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin chung</div>
+                  <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin chung</div>
                   <div className="border border-t-0 border-gray-200 rounded-b p-4">
                     <div className="flex gap-6">
                       {/* Left column */}
@@ -352,7 +352,7 @@ export function ItemFormModal({
 
                 {/* Stock Status & Activity Summary */}
                 <div>
-                  <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Tình trạng kho & Hoạt động</div>
+                  <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Tình trạng kho & Hoạt động</div>
                   <div className="border border-t-0 border-gray-200 rounded-b p-4">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* Stock Status */}
@@ -434,7 +434,7 @@ export function ItemFormModal({
             {activeTab === 'remarks' && (
               <div className="p-5">
                 <div>
-                  <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Ghi chú</div>
+                  <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Ghi chú</div>
                   <div className="border border-t-0 border-gray-200 rounded-b p-4">
                     <textarea
                       rows={8}
@@ -456,7 +456,7 @@ export function ItemFormModal({
                 {/* Item info */}
                 {item && (
                   <div>
-                    <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin hệ thống</div>
+                    <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin hệ thống</div>
                     <div className="border border-t-0 border-gray-200 rounded-b p-4">
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div><span className="text-gray-500">ID: </span><span className="font-mono text-xs">{item.id}</span></div>
@@ -469,7 +469,7 @@ export function ItemFormModal({
 
                 {/* Recent Receipts */}
                 <div>
-                  <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t flex items-center gap-2">
+                  <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t flex items-center gap-2">
                     <Package className="w-4 h-4" /> Phiếu nhập kho gần đây
                   </div>
                   <div className="border border-t-0 border-gray-200 rounded-b">
@@ -514,7 +514,7 @@ export function ItemFormModal({
 
                 {/* Recent Requests */}
                 <div>
-                  <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t flex items-center gap-2">
+                  <div className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-t flex items-center gap-2">
                     <ClipboardList className="w-4 h-4" /> Yêu cầu vật tư gần đây
                   </div>
                   <div className="border border-t-0 border-gray-200 rounded-b">

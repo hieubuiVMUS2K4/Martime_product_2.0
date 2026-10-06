@@ -49,7 +49,7 @@ export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModa
                 <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
                 <span className={`inline-flex px-2 py-1 text-xs rounded ${
                   asset.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                  asset.status === 'STANDBY' ? 'bg-[#dce9f8] text-blue-800' :
+                  asset.status === 'STANDBY' ? 'bg-[#dce9f8] text-primary' :
                   asset.status === 'UNDER_MAINTENANCE' ? 'bg-yellow-100 text-yellow-800' :
                   asset.status === 'DECOMMISSIONED' ? 'bg-red-100 text-red-800' :
                   'bg-gray-100 text-gray-800'

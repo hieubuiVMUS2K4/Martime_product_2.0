@@ -76,7 +76,7 @@ export function ReceiptDetailModal({ isOpen, onClose, receiptId }: ReceiptDetail
           <div className="px-6 py-4 max-h-[calc(100vh-200px)] overflow-y-auto">
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
                 <p className="text-gray-600 mt-4">{t('materials.receipt.loading')}</p>
               </div>
             ) : error ? (

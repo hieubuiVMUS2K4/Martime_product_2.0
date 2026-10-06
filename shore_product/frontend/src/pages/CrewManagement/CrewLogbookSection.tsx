@@ -6,6 +6,8 @@ import {
 import { logbookApi, crewApi } from '../../services/crew.service';
 import type { CrewLogbookEntry } from '../../types/crew.types';
 import { useToast } from '../../components/common/Toast';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 interface CrewLogbookSectionProps {
   crewMemberId: string;
@@ -55,6 +57,7 @@ interface SeaServiceDetails {
 }
 
 export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemberId, onSaved }) => {
+  const ask = useConfirm();
   const [crew, setCrew] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
@@ -366,7 +369,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
   };
 
   const handleDeleteService = async (entryId: string) => {
-    if (!window.confirm('Xóa quá trình đi biển này?')) return;
+    if (!await ask('Xóa quá trình đi biển này?')) return;
     try {
       await logbookApi.deleteEntry(crewMemberId, entryId);
       toast.success('Xóa quá trình đi biển thành công');
