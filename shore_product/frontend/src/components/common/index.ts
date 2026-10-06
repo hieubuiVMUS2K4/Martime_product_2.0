@@ -4,7 +4,7 @@ export { FormSection, FormAlert } from './Form';
 export { DataTable, TablePagination, ImportExcelModal, TableIconButton, TableActions, QuickFilterBar, exportToExcel, exportToCsv } from './DataTable';
 export { PageHeader } from './PageHeader';
 export type { Column, ImportField, QuickFilter } from './DataTable';
-export { Field, Input, Select, Textarea, fieldClass } from './Input';
+export { Field, Input, Select, Textarea, fieldClass, DateInput } from './Input';
 export { StatusBadge } from './StatusBadge';
 export { AppToaster, useToast } from './Toast';
 export { ConfirmDialogProvider, useConfirmDialog, useConfirm } from './ConfirmDialog';

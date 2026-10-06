@@ -18,6 +18,10 @@ import ImageViewerModal from '../../components/common/ImageViewerModal';
 import ProtectedImage from '../../components/common/ProtectedImage';
 import { openProtectedMediaInNewTab } from '../../services/protectedMedia';
 import { CrewLogbookSection } from './CrewLogbookSection';
+import { CrewProfileHeader } from './profile/CrewProfileHeader';
+import { CrewBasicInfo } from './profile/CrewBasicInfo';
+import { ALL_FIELD_KEYS } from './profile/crewProfileFields';
+import { Button } from '../../components/common';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/common/ConfirmDialog';
 
@@ -42,6 +46,12 @@ export const CrewDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('basic-data');
   const [edited, setEdited] = useState<UpdateCrewRequest>({});
   const [saving, setSaving] = useState(false);
+  /** Chế độ xem là mặc định; bấm "Sửa hồ sơ" mới thành form. */
+  const [editing, setEditing] = useState(false);
+  /** Mở khóa ngày lên/xuống tàu và trạng thái trên tàu (bình thường do quy trình cập nhật). */
+  const [manualOverride, setManualOverride] = useState(false);
+  const editingRef = React.useRef(false);
+  editingRef.current = editing;
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
 
@@ -174,8 +184,34 @@ export const CrewDetailPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (crew) setEdited(crew);
+    if (crew && !editingRef.current) setEdited(crew);
   }, [crew]);
+
+  /** Có thay đổi chưa lưu không: so từng trường của form, coi trống/null/undefined là như nhau. */
+  const isDirty = React.useMemo(() => {
+    if (!crew || !editing) return false;
+    const norm = (v: unknown) => (v === undefined || v === null || v === '' ? '' : typeof v === 'string' ? v.split('T')[0] : String(v));
+    const original = crew as unknown as Record<string, unknown>;
+    const current = edited as Record<string, unknown>;
+    return ALL_FIELD_KEYS.some(k => norm(original[k]) !== norm(current[k]));
+  }, [crew, edited, editing]);
+
+  // Đóng/tải lại trình duyệt khi còn thay đổi chưa lưu thì hỏi lại.
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
+
+  const startEdit = () => { setActiveTab('basic-data'); setEditing(true); };
+
+  const cancelEdit = async () => {
+    if (isDirty && !(await ask('Bỏ các thay đổi chưa lưu?', { title: 'Hủy chỉnh sửa', confirmLabel: 'Bỏ thay đổi', variant: 'warning' }))) return;
+    if (crew) setEdited(crew);
+    setEditing(false);
+    setManualOverride(false);
+  };
 
   useEffect(() => {
     referenceApi.getRanks().then(setRanks).catch(() => {});
@@ -218,8 +254,11 @@ export const CrewDetailPage: React.FC = () => {
     setSaving(true);
     try {
       await crewApi.update(id, edited);
+      editingRef.current = false;
+      setEditing(false);
+      setManualOverride(false);
       await refetch();
-      toast.success('Lưu thành công!');
+      toast.success('Đã lưu hồ sơ', edited.fullName ?? crew?.fullName);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Không thể lưu dữ liệu');
     } finally { setSaving(false); }
@@ -460,29 +499,21 @@ export const CrewDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* ── Header ── */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(vesselId ? `/vessels/${vesselId}` : '/crew')} className="p-2 hover:bg-gray-100 rounded">
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h1 className="text-lg font-semibold text-gray-800 uppercase">
-              CHỈNH SỬA {crew.fullName}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2 text-white rounded font-medium disabled:opacity-50 text-sm"
-              style={{ background: '#0b2545' }}
-            >
-              {saving ? 'Đang lưu...' : 'Lưu'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <CrewProfileHeader
+        crew={crew}
+        onBack={async () => {
+          if (isDirty && !(await ask('Rời trang và bỏ các thay đổi chưa lưu?', { title: 'Chưa lưu', confirmLabel: 'Rời trang', variant: 'warning' }))) return;
+          navigate(vesselId ? `/vessels/${vesselId}` : '/crew');
+        }}
+        editing={editing}
+        onEdit={startEdit}
+        avatarPreview={pendingAvatarPreview}
+        avatarPending={!!pendingAvatarFile}
+        avatarUploading={uploadingAvatar}
+        onAvatarChoose={handleAvatarChoose}
+        onAvatarSave={handleAvatarSave}
+        onAvatarCancel={handleAvatarCancel}
+      />
       {/* Hold Notification Banner */}
       {crew.onboardStatus === 'OnHold' && (
         <div style={{
@@ -501,8 +532,8 @@ export const CrewDetailPage: React.FC = () => {
             )}
             {crew.onboardStatusChangedBy && (
               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>
-                By: {crew.onboardStatusChangedBy}
-                {crew.onboardStatusChangedAt && ` • ${new Date(crew.onboardStatusChangedAt).toLocaleString('en-GB')}`}
+                Bởi: {crew.onboardStatusChangedBy}
+                {crew.onboardStatusChangedAt && ` • ${new Date(crew.onboardStatusChangedAt).toLocaleString('vi-VN')}`}
               </div>
             )}
           </div>
@@ -513,7 +544,7 @@ export const CrewDetailPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: '#fef2f2', borderBottom: '2px solid #fca5a5' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#991b1b' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 11 }}>{edgeChanges.length}</span>
-            <span>Tàu đã chỉnh sửa <strong>{edgeChanges.length}</strong> trường. Các trường thay đổi được đánh dấu <span style={{ color: '#ef4444', fontWeight: 700 }}>MÀU Đỏ</span> bên dưới.</span>
+            <span>Tàu đã chỉnh sửa <strong>{edgeChanges.length}</strong> trường. Các trường thay đổi được tô <span style={{ color: '#ef4444', fontWeight: 700 }}>màu đỏ</span> trong tab Thông tin cơ bản.</span>
           </div>
           <button onClick={handleMarkViewed} style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, color: '#fff', background: '#0b2545', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button>
         </div>
@@ -560,298 +591,20 @@ export const CrewDetailPage: React.FC = () => {
       </div>
 
       {/* ── Content ── */}
-      <div className="p-3 space-y-3">
+      <div className="space-y-3 p-4">
 
         {/* ════════ BASIC DATA ════════ */}
         {activeTab === 'basic-data' && (
-          <>
-            {/* Main form card */}
-            <div className="cd-section">
-            <div className="cd-section-body" style={{ padding: '16px 20px' }}>
-              <div className="grid grid-cols-12 gap-6">
-
-                {/* Col 1: Name + Rank */}
-                <div className="col-span-3 space-y-3">
-                  <div>
-                    <label className={labelCls}>Họ và tên</label>
-                    <input className={`${fieldCls}${fieldHighlight('fullName')}`} style={fieldStyle('fullName')} value={edited.fullName ?? ''} onChange={e => set('fullName', e.target.value)} />
-                    {changeIndicator('fullName')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Chức danh</label>
-                    <select className={`${fieldCls}${fieldHighlight('rankId')}`} style={fieldStyle('rankId')} value={edited.rankId ?? ''} onChange={e => set('rankId', e.target.value ? Number(e.target.value) : undefined)}>
-                      <option value="">Chọn chức danh</option>
-                      {ranks.map(r => <option key={r.id} value={r.id}>{r.rankName} ({r.rankCode})</option>)}
-                    </select>
-                    {changeIndicator('rankId')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Bộ phận</label>
-                    <input className={`${fieldCls}${fieldHighlight('department')}`} style={fieldStyle('department')} value={edited.department ?? ''} onChange={e => set('department', e.target.value)} />
-                    {changeIndicator('department')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Ngày sinh</label>
-                    <input type="date" className={`${fieldCls}${fieldHighlight('dateOfBirth')}`} style={fieldStyle('dateOfBirth')} value={(edited.dateOfBirth ?? '').split('T')[0]} onChange={e => set('dateOfBirth', e.target.value)} />
-                    {changeIndicator('dateOfBirth')}
-                  </div>
-                </div>
-
-                {/* Col 2: Personal */}
-                <div className="col-span-3 space-y-3">
-                  <div>
-                    <label className={labelCls}>Tuổi</label>
-                    <input className={fieldCls} value={age} readOnly />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Nơi sinh</label>
-                    <input className={`${fieldCls}${fieldHighlight('placeOfBirth')}`} style={fieldStyle('placeOfBirth')} value={edited.placeOfBirth ?? ''} onChange={e => set('placeOfBirth', e.target.value)} />
-                    {changeIndicator('placeOfBirth')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Quốc tịch</label>
-                    <select className={`${fieldCls}${fieldHighlight('countryId')}`} style={fieldStyle('countryId')} value={edited.countryId ?? ''} onChange={e => set('countryId', e.target.value ? Number(e.target.value) : undefined)}>
-                      <option value="">Chọn quốc gia</option>
-                      {countries.map(c => <option key={c.id} value={c.id}>{c.countryName}</option>)}
-                    </select>
-                    {changeIndicator('countryId')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Số CMND/CCCD</label>
-                    <input className={`${fieldCls}${fieldHighlight('idCardNumber')}`} style={fieldStyle('idCardNumber')} value={edited.idCardNumber ?? ''} onChange={e => set('idCardNumber', e.target.value)} />
-                    {changeIndicator('idCardNumber')}
-                  </div>
-                </div>
-
-                {/* Col 3: Contact */}
-                <div className="col-span-3 space-y-3">
-                  <div>
-                    <label className={labelCls}>Số điện thoại</label>
-                    <input className={`${fieldCls}${fieldHighlight('phoneNumber')}`} style={fieldStyle('phoneNumber')} value={edited.phoneNumber ?? ''} onChange={e => set('phoneNumber', e.target.value)} />
-                    {changeIndicator('phoneNumber')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Email</label>
-                    <input type="email" className={`${fieldCls}${fieldHighlight('emailAddress')}`} style={fieldStyle('emailAddress')} value={edited.emailAddress ?? ''} onChange={e => set('emailAddress', e.target.value)} />
-                    {changeIndicator('emailAddress')}
-                  </div>
-                  <div>
-                    <label className={labelCls}>Tình trạng hôn nhân</label>
-                    <select className={`${fieldCls}${fieldHighlight('maritalStatus')}`} style={fieldStyle('maritalStatus')} value={edited.maritalStatus ?? ''} onChange={e => set('maritalStatus', e.target.value)}>
-                      <option value="">Chọn</option>
-                      <option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option>
-                    </select>
-                    {changeIndicator('maritalStatus')}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className={labelCls}>Chiều cao (cm)</label>
-                      <input type="number" className={`${fieldCls}${fieldHighlight('height')}`} style={fieldStyle('height')} value={edited.height ?? ''} onChange={e => set('height', e.target.value ? Number(e.target.value) : undefined)} />
-                      {changeIndicator('height')}
-                    </div>
-                    <div>
-                      <label className={labelCls}>Cân nặng (kg)</label>
-                      <input type="number" className={`${fieldCls}${fieldHighlight('weight')}`} style={fieldStyle('weight')} value={edited.weight ?? ''} onChange={e => set('weight', e.target.value ? Number(e.target.value) : undefined)} />
-                      {changeIndicator('weight')}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Col 4: Avatar + ID */}
-                <div className="col-span-3 flex flex-col items-center">
-                  <div className="mb-3">
-                    <label className={`${labelCls}`} style={{ textAlign: 'center' }}>Mã nhân viên</label>
-                    <input className={`${fieldCls} text-center w-32`} value={edited.crewId ?? ''} onChange={e => set('crewId', e.target.value)} />
-                  </div>
-                  <div className="w-40 h-52 rounded-lg overflow-hidden bg-gray-200 shadow-md relative">
-                    <ProtectedImage
-                      src={pendingAvatarPreview || crew.avatarUrl}
-                      fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 260'%3E%3Crect width='200' height='260' fill='%23e5e7eb'/%3E%3Ccircle cx='100' cy='70' r='35' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='180' rx='65' ry='50' fill='%239ca3af'/%3E%3C/svg%3E"
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                    {uploadingAvatar && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" />
-                      </div>
-                    )}
-                    {pendingAvatarPreview && !uploadingAvatar && (
-                      <div className="absolute top-1 right-1 bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded font-medium">NEW</div>
-                    )}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    {pendingAvatarFile ? (
-                      <>
-                        <button
-                          onClick={handleAvatarSave}
-                          disabled={uploadingAvatar}
-                          className={`px-3 py-1.5 text-white text-xs rounded flex items-center gap-1 ${uploadingAvatar ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#0b2545] hover:bg-[#16375f]'}`}
-                        >
-                          <Upload className="w-3 h-3" /> {uploadingAvatar ? 'Đang lưu...' : 'Lưu'}
-                        </button>
-                        <button
-                          onClick={handleAvatarCancel}
-                          disabled={uploadingAvatar}
-                          className="px-3 py-1.5 text-white text-xs rounded bg-gray-500 hover:bg-gray-600"
-                        >
-                          Hủy
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={handleAvatarChoose}
-                        className="px-3 py-1.5 text-white text-xs rounded bg-[#0b2545] hover:bg-[#16375f] flex items-center gap-1"
-                      >
-                        <Upload className="w-3 h-3" /> Đổi ảnh
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1 text-center">
-                    {pendingAvatarFile ? 'Nhấn Lưu để xác nhận' : 'JPG/PNG, tối đa 5MB'}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <input type="checkbox" checked={edited.isOnboard ?? false} onChange={e => set('isOnboard', e.target.checked)} className="w-4 h-4 text-[#0b2545]" />
-                    <label className="text-sm font-medium text-gray-700">Trên tàu</label>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </div>
-
-            {/* Physical Details */}
-            <div className="cd-section">
-              <div className="cd-section-header"><h3 className="cd-section-title">Thể chất &amp; Sở thích</h3></div>
-              <div className="cd-section-body">
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <label className={labelCls}>Nhóm máu</label>
-                  <select className={`${fieldCls}${fieldHighlight('bloodGroup')}`} style={fieldStyle('bloodGroup')} value={edited.bloodGroup ?? ''} onChange={e => set('bloodGroup', e.target.value)}>
-                    <option value="">Chọn</option>
-                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => <option key={g}>{g}</option>)}
-                  </select>
-                  {changeIndicator('bloodGroup')}
-                </div>
-                <div>
-                  <label className={labelCls}>Cỡ quần áo</label>
-                  <input className={`${fieldCls}${fieldHighlight('clothingSize')}`} style={fieldStyle('clothingSize')} placeholder="VD: L, XL" value={edited.clothingSize ?? ''} onChange={e => set('clothingSize', e.target.value)} />
-                  {changeIndicator('clothingSize')}
-                </div>
-                <div>
-                  <label className={labelCls}>Cỡ giày</label>
-                  <input className={`${fieldCls}${fieldHighlight('shoeSize')}`} style={fieldStyle('shoeSize')} placeholder="VD: 42" value={edited.shoeSize ?? ''} onChange={e => set('shoeSize', e.target.value)} />
-                  {changeIndicator('shoeSize')}
-                </div>
-                <div>
-                  <label className={labelCls}>Cỡ bữa ăn</label>
-                  <input className={`${fieldCls}${fieldHighlight('cateringSize')}`} style={fieldStyle('cateringSize')} placeholder="VD: M" value={edited.cateringSize ?? ''} onChange={e => set('cateringSize', e.target.value)} />
-                  {changeIndicator('cateringSize')}
-                </div>
-              </div>
-              <div className="flex gap-6 mt-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={edited.isSmoker ?? false} onChange={e => set('isSmoker', e.target.checked)} className="w-4 h-4" />
-                  Hút thuốc
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={edited.isCovidVaccinated ?? false} onChange={e => set('isCovidVaccinated', e.target.checked)} className="w-4 h-4" />
-                  Đã tiêm COVID-19
-                </label>
-              </div>
-              </div>
-            </div>
-
-            {/* Employment Dates */}
-            <div className="cd-section">
-              <div className="cd-section-header"><h3 className="cd-section-title">Ngày làm việc</h3></div>
-              <div className="cd-section-body">
-              <div className="grid grid-cols-4 gap-4">
-                {([
-                  { label: 'Ngày gia nhập', key: 'joinDate' },
-                  { label: 'Ngày lên tàu', key: 'embarkDate' },
-                  { label: 'Ngày xuống tàu', key: 'disembarkDate' },
-                  { label: 'Hết hạn hợp đồng', key: 'contractEnd' },
-                ] as { label: string; key: keyof UpdateCrewRequest }[]).map(({ label, key }) => (
-                  <div key={key}>
-                    <label className={labelCls}>{label}</label>
-                    <input type="date" className={`${fieldCls}${fieldHighlight(key)}`} style={fieldStyle(key)}
-                      value={((edited[key] as string) ?? '').split('T')[0]}
-                      onChange={e => set(key, e.target.value)} />
-                    {changeIndicator(key)}
-                  </div>
-                ))}
-              </div>
-              </div>
-            </div>
-
-            {/* Next of Kin */}
-            <div className="cd-section">
-              <div className="cd-section-header"><h3 className="cd-section-title">Thân nhân / Liên hệ khẩn cấp</h3></div>
-              <div className="cd-section-body">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Họ và tên</label>
-                  <input className={`${fieldCls}${fieldHighlight('nextOfKinName')}`} style={fieldStyle('nextOfKinName')} value={edited.nextOfKinName ?? ''} onChange={e => set('nextOfKinName', e.target.value)} />
-                  {changeIndicator('nextOfKinName')}
-                </div>
-                <div>
-                  <label className={labelCls}>Mối quan hệ</label>
-                  <select className={`${fieldCls}${fieldHighlight('nextOfKinRelation')}`} style={fieldStyle('nextOfKinRelation')} value={edited.nextOfKinRelation ?? ''} onChange={e => set('nextOfKinRelation', e.target.value)}>
-                    <option value="">Chọn</option>
-                    {['Father','Mother','Spouse','Sibling','Child','Other'].map(r => <option key={r}>{r}</option>)}
-                  </select>
-                  {changeIndicator('nextOfKinRelation')}
-                </div>
-                <div>
-                  <label className={labelCls}>Số điện thoại</label>
-                  <input className={`${fieldCls}${fieldHighlight('nextOfKinPhone')}`} style={fieldStyle('nextOfKinPhone')} value={edited.nextOfKinPhone ?? ''} onChange={e => set('nextOfKinPhone', e.target.value)} />
-                  {changeIndicator('nextOfKinPhone')}
-                </div>
-                <div>
-                  <label className={labelCls}>Địa chỉ</label>
-                  <input className={`${fieldCls}${fieldHighlight('nextOfKinAddress')}`} style={fieldStyle('nextOfKinAddress')} value={edited.nextOfKinAddress ?? ''} onChange={e => set('nextOfKinAddress', e.target.value)} />
-                  {changeIndicator('nextOfKinAddress')}
-                </div>
-              </div>
-              </div>
-            </div>
-
-            {/* Education */}
-            <div className="cd-section">
-              <div className="cd-section-header"><h3 className="cd-section-title">Học vấn</h3></div>
-              <div className="cd-section-body">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Trường / Cơ sở đào tạo</label>
-                  <input className={`${fieldCls}${fieldHighlight('educationInstitution')}`} style={fieldStyle('educationInstitution')} placeholder="VD: Đại học Hàng hải Việt Nam" value={edited.educationInstitution ?? ''} onChange={e => set('educationInstitution', e.target.value)} />
-                  {changeIndicator('educationInstitution')}
-                </div>
-                <div>
-                  <label className={labelCls}>Chuyên ngành</label>
-                  <input className={`${fieldCls}${fieldHighlight('educationCourse')}`} style={fieldStyle('educationCourse')} placeholder="VD: Đại học Hoa tiêu" value={edited.educationCourse ?? ''} onChange={e => set('educationCourse', e.target.value)} />
-                  {changeIndicator('educationCourse')}
-                </div>
-                <div>
-                  <label className={labelCls}>Số năm học</label>
-                  <input type="number" className={`${fieldCls}${fieldHighlight('educationPeriodYears')}`} style={fieldStyle('educationPeriodYears')} placeholder="VD: 4" value={edited.educationPeriodYears ?? ''} onChange={e => set('educationPeriodYears', e.target.value ? Number(e.target.value) : undefined)} />
-                  {changeIndicator('educationPeriodYears')}
-                </div>
-                <div>
-                  <label className={labelCls}>Năm tốt nghiệp</label>
-                  <input type="number" className={`${fieldCls}${fieldHighlight('educationGraduationYear')}`} style={fieldStyle('educationGraduationYear')} placeholder="VD: 2020" value={edited.educationGraduationYear ?? ''} onChange={e => set('educationGraduationYear', e.target.value ? Number(e.target.value) : undefined)} />
-                  {changeIndicator('educationGraduationYear')}
-                </div>
-              </div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="cd-section">
-              <div className="cd-section-header"><h3 className="cd-section-title">Ghi chú</h3></div>
-              <div className="cd-section-body">
-              <textarea className={`${fieldCls} resize-none${fieldHighlight('notes')}`} style={fieldStyle('notes')} rows={4} value={edited.notes ?? ''} onChange={e => set('notes', e.target.value)} />
-              </div>
-            </div>
-          </>
+          <CrewBasicInfo
+            edited={edited}
+            set={(key, value) => setEdited(prev => ({ ...prev, [key]: value }))}
+            editing={editing}
+            ranks={ranks}
+            countries={countries}
+            changeMap={changeMap}
+            manualOverride={manualOverride}
+            onManualOverrideChange={setManualOverride}
+          />
         )}
 
         {/* ════════ DOCUMENTS ════════ */}
@@ -1298,6 +1051,21 @@ export const CrewDetailPage: React.FC = () => {
             editingDocument={editingDoc}
           />
         </>
+      )}
+
+      {/* Thanh lưu dính dưới đáy khi đang sửa hồ sơ */}
+      {editing && (
+        <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-line bg-surface/95 px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] backdrop-blur">
+          <span className={`text-[13px] ${isDirty ? 'font-medium text-amber-700' : 'text-ink-muted'}`}>
+            {isDirty ? '● Có thay đổi chưa lưu' : 'Đang sửa hồ sơ — chưa có thay đổi'}
+          </span>
+          <div className="flex gap-2">
+            <Button onClick={cancelEdit} disabled={saving}>Hủy</Button>
+            <Button variant="primary" loading={saving} disabled={!isDirty} onClick={handleSave}>
+              {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Hidden file input for document file upload */}
