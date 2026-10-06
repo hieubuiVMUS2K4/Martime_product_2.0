@@ -785,12 +785,8 @@ namespace ProductApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Gotenberg PDF conversion unavailable for {FileName}, storing file stream directly", file.FileName);
-                        using (var memoryStream = new MemoryStream())
-                        {
-                            await file.CopyToAsync(memoryStream);
-                            pdfBytes = memoryStream.ToArray();
-                        }
+                        _logger.LogError(ex, "PDF conversion failed for {FileName}", file.FileName);
+                        return StatusCode(503, new { message = "Không thể chuyển tài liệu Word sang PDF. Vui lòng thử lại khi dịch vụ chuyển đổi sẵn sàng." });
                     }
 
                     // 3. Extract Plain Text from .docx using Mammoth. If it is .doc, set a placeholder.
@@ -1060,7 +1056,8 @@ namespace ProductApi.Controllers
 
                 await _context.SaveChangesAsync();
 
-                await _syncOutboxService.BroadcastAsync("sms_procedures", id.ToString(), SyncActionType.DELETE, new { Id = id });
+                await _syncOutboxService.BroadcastAsync("sms_procedures", id.ToString(), SyncActionType.DELETE,
+                    new { Id = id, procedure.ProcedureCode, procedure.Version, procedure.Title });
 
                 return Ok(new { message = "Xóa quy trình thành công." });
             }

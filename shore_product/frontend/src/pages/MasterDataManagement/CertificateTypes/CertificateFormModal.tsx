@@ -12,6 +12,7 @@ interface FormData {
   category: string;
   validityPeriodMonths: number | '';
   description: string;
+  issuingAuthority: string;
   isMandatory: boolean;
   countryIds: number[];
   rankIds: number[];
@@ -19,7 +20,7 @@ interface FormData {
 
 const EMPTY_FORM: FormData = {
   certificateCode: '', certificateName: '', category: 'SAFETY',
-  validityPeriodMonths: '', description: '', isMandatory: false,
+  validityPeriodMonths: '', description: '', issuingAuthority: '', isMandatory: false,
   countryIds: [], rankIds: [],
 };
 
@@ -41,6 +42,7 @@ interface Props {
     category?: string;
     validityPeriodMonths?: number;
     description?: string;
+    issuingAuthority?: string;
     isMandatory: boolean;
     countryIds: number[];
     rankIds: number[];
@@ -70,6 +72,7 @@ export const CertificateFormModal: React.FC<Props> = ({ cert, onClose, onSubmit,
       category: cert.category || 'SAFETY',
       validityPeriodMonths: cert.validityPeriodMonths ?? '',
       description: cert.description || '',
+      issuingAuthority: cert.issuingAuthority || '',
       isMandatory: cert.isMandatory,
       countryIds: [], rankIds: [],
     });
@@ -117,6 +120,7 @@ export const CertificateFormModal: React.FC<Props> = ({ cert, onClose, onSubmit,
       category: form.category || undefined,
       validityPeriodMonths: form.validityPeriodMonths === '' ? undefined : Number(form.validityPeriodMonths),
       description: form.description.trim() || undefined,
+      issuingAuthority: form.issuingAuthority.trim() || undefined,
       isMandatory: form.isMandatory,
       countryIds: form.countryIds,
       rankIds: form.rankIds,
@@ -185,11 +189,16 @@ export const CertificateFormModal: React.FC<Props> = ({ cert, onClose, onSubmit,
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
                     <option value="SAFETY">An toàn</option>
                     <option value="COMPETENCY">Năng lực</option>
+                    <option value="DOCUMENT">Giấy tờ</option>
                     <option value="MEDICAL">Y tế</option>
                     <option value="PROFICIENCY">Thành thạo</option>
                   </select>
                 </div>
 
+                <div className="cfm-field">
+                  <label>Cấp bởi</label>
+                  <input value={form.issuingAuthority} maxLength={200} onChange={e => setForm(p => ({ ...p, issuingAuthority: e.target.value }))} />
+                </div>
                 <div className="cfm-field">
                   <label>Thời hạn (tháng)</label>
                   <input

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -2285,18 +2285,6 @@ namespace productapi.Migrations
                         onDelete: ReferentialAction.SetNull);
                 });
 
-            migrationBuilder.InsertData(
-                table: "report_types",
-                columns: new[] { "Id", "Category", "CreatedAt", "Description", "Frequency", "IsActive", "IsMandatory", "RegulationReference", "RequiresMasterSignature", "TemplateSchema", "TypeCode", "TypeName" },
-                values: new object[,]
-                {
-                    { 1, "VOYAGE", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "DAILY", true, true, "SOLAS V/28", true, null, "NOON", "Noon Report" },
-                    { 2, "VOYAGE", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "EVENT_BASED", true, true, null, true, null, "DEPARTURE", "Departure Report" },
-                    { 3, "VOYAGE", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "EVENT_BASED", true, true, null, true, null, "ARRIVAL", "Arrival Report" },
-                    { 4, "VOYAGE", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "DAILY", true, false, null, false, null, "DAILY", "Daily Report" },
-                    { 5, "VOYAGE", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "EVENT_BASED", true, false, null, false, null, "BUNKER", "Bunker Report" },
-                    { 6, "VOYAGE", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "EVENT_BASED", true, false, null, false, null, "POSITION", "Position Report" }
-                });
 
             migrationBuilder.CreateIndex(
                 name: "IX_arrival_reports_MaritimeReportId",

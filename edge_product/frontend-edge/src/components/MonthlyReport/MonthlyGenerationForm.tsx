@@ -38,13 +38,13 @@ export const MonthlyGenerationForm: React.FC<MonthlyGenerationFormProps> = ({
   monthNames,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 px-4 py-3">
-        <h3 className="text-base font-semibold flex items-center gap-2 text-purple-800">
+    <div className="bg-white rounded border border-gray-200">
+      <div className="bg-blue-50 border-b border-gray-200 px-4 py-2.5">
+        <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-700">
           <BarChart className="w-4 h-4" />
           Generate Monthly Summary Report
         </h3>
-        <p className="text-xs text-purple-600 mt-0.5">
+        <p className="text-xs text-gray-500 mt-0.5">
           Comprehensive aggregation • {monthNames[formData.month - 1]} {formData.year}
         </p>
       </div>
@@ -65,7 +65,7 @@ export const MonthlyGenerationForm: React.FC<MonthlyGenerationFormProps> = ({
                 onChange={(e) => 
                   onFormDataChange({ ...formData, month: parseInt(e.target.value) })
                 }
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none bg-white"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white"
                 required
               >
                 {monthNames.map((name, index) => (
@@ -93,7 +93,7 @@ export const MonthlyGenerationForm: React.FC<MonthlyGenerationFormProps> = ({
               onChange={(e) => 
                 onFormDataChange({ ...formData, year: parseInt(e.target.value) || currentYear })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -114,7 +114,7 @@ export const MonthlyGenerationForm: React.FC<MonthlyGenerationFormProps> = ({
               onFormDataChange({ ...formData, remarks: e.target.value })
             }
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
             placeholder="Key operational highlights, compliance notes, safety achievements, or significant events during the month..."
             maxLength={1000}
           />
@@ -162,7 +162,7 @@ export const MonthlyGenerationForm: React.FC<MonthlyGenerationFormProps> = ({
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
         >
           {loading ? (
             <>

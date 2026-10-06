@@ -11,7 +11,7 @@ import '../CertificateTypes/CertificateFormModal.css';
 const DEPARTMENTS = ['DECK', 'ENGINE', 'CATERING', 'OTHER'];
 const DEPT_OPTIONS = [{ value: '', label: 'Tất cả' }, ...DEPARTMENTS.map(d => ({ value: d, label: d }))];
 
-const emptyForm: RankPayload = { rankCode: '', rankName: '', department: 'DECK', sortOrder: 0 };
+const emptyForm: RankPayload = { rankCode: '', rankName: '', department: 'DECK', level: '', sortOrder: 0 };
 
 /* ═══════════════════════════════════════════════════════════════ */
 export const RankPage: React.FC = () => {
@@ -78,7 +78,7 @@ export const RankPage: React.FC = () => {
   const openCreate = useCallback(() => { setEditing(null); setForm(emptyForm); setShowForm(true); }, []);
   const openEdit = useCallback((r: Rank) => {
     setEditing(r);
-    setForm({ rankCode: r.rankCode, rankName: r.rankName, department: r.department || 'DECK', sortOrder: r.sortOrder ?? 0 });
+    setForm({ rankCode: r.rankCode, rankName: r.rankName, department: r.department || 'DECK', level: r.level || '', sortOrder: r.sortOrder ?? 0 });
     setShowForm(true);
   }, []);
 
@@ -146,6 +146,7 @@ export const RankPage: React.FC = () => {
               <th style={{ width: '18%' }}>Mã chức danh</th>
               <th>Tên chức danh</th>
               <th style={{ width: '16%' }}>Bộ phận</th>
+              <th>Cấp bậc</th>
               <th style={{ width: '10%', textAlign: 'center' }}>Thứ tự</th>
               <th style={{ width: '12%', textAlign: 'center' }}>Trạng thái</th>
             </tr>
@@ -153,12 +154,12 @@ export const RankPage: React.FC = () => {
               <th></th>
               <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm mã" value={searchCode} onChange={e => setSearchCode(e.target.value)} /></div></th>
               <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm tên" value={searchName} onChange={e => setSearchName(e.target.value)} /></div></th>
-              <th></th><th></th><th></th>
+              <th></th><th></th><th></th><th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="cl-empty">
+              <tr><td colSpan={7} className="cl-empty">
                 <Award size={24} />
                 <p>{ranks.length === 0 ? 'Chưa có chức danh nào' : 'Không tìm thấy chức danh phù hợp'}</p>
               </td></tr>
@@ -171,6 +172,7 @@ export const RankPage: React.FC = () => {
                 <td><span className="cl-code">{r.rankCode}</span></td>
                 <td>{r.rankName}</td>
                 <td>{r.department || '—'}</td>
+                <td>{r.level || '—'}</td>
                 <td style={{ textAlign: 'center' }}>{r.sortOrder ?? 0}</td>
                 <td style={{ textAlign: 'center' }}>
                   <span className="cl-status-badge cl-status-badge--on"><span className="cl-status-badge__dot" /> Hoạt động</span>
@@ -239,6 +241,10 @@ export const RankPage: React.FC = () => {
                     <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}>
                       {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
+                  </div>
+                  <div className="cfm-field">
+                    <label>Cấp bậc</label>
+                    <input value={form.level || ''} onChange={e => setForm(f => ({ ...f, level: e.target.value }))} />
                   </div>
                   <div className="cfm-field">
                     <label>Thứ tự hiển thị</label>

@@ -20,7 +20,7 @@ public class NmeaPlaybackService : BackgroundService
     private readonly ILogger<NmeaPlaybackService> _logger;
     private readonly IConfiguration _configuration;
     private readonly NmeaParser _nmeaParser;
-    private string _vesselImo = "UNKNOWN";
+    private string _nodeId = "UNKNOWN";
 
     public NmeaPlaybackService(
         IServiceProvider serviceProvider,
@@ -68,8 +68,8 @@ public class NmeaPlaybackService : BackgroundService
         // ── RESUME LOGIC: Tìm dòng NMEA gần nhất với vị trí cuối trong DB ──
         int currentLine = await FindResumeLineAsync(allLines);
 
-        _vesselImo = await ResolveVesselImoAsync();
-        _logger.LogInformation("NMEA Playback Service using VesselIMO: {VesselImo}", _vesselImo);
+        _nodeId = await ResolveNodeIdAsync();
+        _logger.LogInformation("NMEA Playback Service using NodeId: {NodeId}", _nodeId);
 
         if (currentLine > 0)
         {
@@ -81,6 +81,7 @@ public class NmeaPlaybackService : BackgroundService
         {
             try
             {
+                _nodeId = await ResolveNodeIdAsync();
                 if (currentLine >= allLines.Length)
                 {
                     if (loop)
@@ -113,7 +114,7 @@ public class NmeaPlaybackService : BackgroundService
                         pos.Timestamp = DateTime.UtcNow; // Align with real-time testing
                         pos.IsSynced = false;
                         pos.CreatedAt = DateTime.UtcNow;
-                        pos.OriginNode = _vesselImo; // Set IMO thực để khớp với Shore filter
+                        pos.OriginNode = _nodeId; // Set IMO thực để khớp với Shore filter
 
                         await dbContext.PositionData.AddAsync(pos);
                         savedAny = true;
@@ -211,16 +212,16 @@ public class NmeaPlaybackService : BackgroundService
     /// (BackgroundService is Singleton) — a service restart is needed to pick up a newly activated
     /// Managed profile. Falls back to "UNKNOWN" (does not throw) on Fail-Closed conditions.
     /// </summary>
-    private async Task<string> ResolveVesselImoAsync()
+    private async Task<string> ResolveNodeIdAsync()
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IEdgeRuntimeConfigService>();
             var syncConfig = await runtimeConfigService.GetSyncConfigAsync();
-            return string.IsNullOrWhiteSpace(syncConfig?.VesselImo)
+            return string.IsNullOrWhiteSpace(syncConfig?.NodeId)
                 ? "UNKNOWN"
-                : syncConfig!.VesselImo!;
+                : syncConfig!.NodeId;
         }
         catch (ProvisioningRequiredException ex)
         {

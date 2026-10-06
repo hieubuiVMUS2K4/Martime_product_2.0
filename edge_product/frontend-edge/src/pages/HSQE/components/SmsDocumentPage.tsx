@@ -416,6 +416,22 @@ export function SmsDocumentPage() {
   }, [fetchTree]);
 
   useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchTree(searchQuery, true);
+      }
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [fetchTree, searchQuery]);
+
+  useEffect(() => {
     const fetchShip = async () => {
       try {
         const res = await shipDataService.get();

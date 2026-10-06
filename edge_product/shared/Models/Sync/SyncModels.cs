@@ -91,6 +91,7 @@ public enum SyncFileTransportEncoding
 /// </summary>
 public class SyncQueue
 {
+    public Guid EventId { get; set; } = Guid.NewGuid();
     [Key]
     public long Id { get; set; }
 

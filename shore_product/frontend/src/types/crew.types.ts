@@ -76,6 +76,7 @@ export interface CertificateType {
   certificateCode: string;
   certificateName: string;
   category?: string;
+  issuingAuthority?: string | null;
   validityPeriodMonths?: number;
   description?: string;
   isMandatory: boolean;
@@ -223,6 +224,7 @@ export interface Rank {
   rankCode: string;
   rankName: string;
   department?: string;
+  level?: string | null;
   sortOrder?: number;
 }
 

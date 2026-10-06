@@ -33,7 +33,8 @@ public sealed class SyncRequestVerificationMiddleware : IMiddleware
         AppDbContext dbContext,
         IAuditService auditService,
         IDataEncryptionService dataEncryptionService,
-        ILogger<SyncRequestVerificationMiddleware> logger)
+        ILogger<SyncRequestVerificationMiddleware> logger,
+        ProductApi.Services.Sync.ISyncNonceRegistryService nonceRegistry)
     {
         _configuration = configuration;
         _memoryCache = memoryCache;
@@ -41,7 +42,10 @@ public sealed class SyncRequestVerificationMiddleware : IMiddleware
         _auditService = auditService;
         _dataEncryptionService = dataEncryptionService;
         _logger = logger;
+        _nonceRegistry = nonceRegistry;
     }
+
+    private readonly ProductApi.Services.Sync.ISyncNonceRegistryService _nonceRegistry;
 
     public static bool IsProtectedSyncRequest(HttpRequest request)
     {
@@ -234,7 +238,14 @@ public sealed class SyncRequestVerificationMiddleware : IMiddleware
         }
 
         var nonceTtlMinutes = _configuration.GetValue("SyncSecurity:NonceTtlMinutes", 15);
-        _memoryCache.Set(replayCacheKey, true, TimeSpan.FromMinutes(Math.Max(1, nonceTtlMinutes)));
+        var ttl = Math.Max(Math.Max(1, nonceTtlMinutes) * 60, allowedSkewSeconds * 2 + 60);
+        if (!await _nonceRegistry.RegisterNonceAsync(nonce, nodeId, parsedTimestamp.UtcDateTime, ttl,
+            context.Connection.RemoteIpAddress?.ToString(), request.Path))
+        {
+            await RejectAndAuditAsync(context, StatusCodes.Status409Conflict, "Replay detected for sync request.", "replay_detected", nodeId, nonce, protocol);
+            return;
+        }
+        _memoryCache.Set(replayCacheKey, true, TimeSpan.FromSeconds(ttl));
         if (matchedKeySlot == "current")
         {
             node.LastAcknowledgedKeyVersion = matchedKeyVersion;

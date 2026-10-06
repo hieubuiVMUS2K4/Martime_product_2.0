@@ -23,7 +23,7 @@ namespace MaritimeEdge.DTOs.Logbooks
         /// <summary>
         /// Category: A, B, C, D, E, F, G, H, or I
         /// A=Plastics, B=Food, C=Domestic, D=Cooking Oil, E=Ashes,
-        /// F=Operational, G=Cargo residues (non-HME cleaned), H=Cargo residues (HME cleaned), I=Animal carcasses
+        /// F=Operational, G=Animal carcasses, H=Fishing gear, I=E-waste
         /// </summary>
         [Required]
         [MaxLength(5)]

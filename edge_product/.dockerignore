@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.env
+**/.env.*
+production/backend/
+production/frontend/
+**/dist/
+frontend-mobile/
+.git/

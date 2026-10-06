@@ -33,20 +33,22 @@ namespace ProductApi.Controllers
             {
                 var vessels = await _context.Vessels.AsNoTracking().Where(v => v.IsActive).ToListAsync();
 
-                // Aggregate report stats per OriginNode (= vessel IMO)
+                // OriginNode is a node ID; resolve vessel ownership through the registry.
                 var reportStats = await _context.MaritimeReports
-                    .GroupBy(r => r.OriginNode)
+                    .Join(_context.SyncNodeTrackers.Where(n => n.VesselId != null),
+                        r => r.OriginNode, n => n.NodeId, (r, n) => new { Report = r, n.VesselId })
+                    .GroupBy(x => x.VesselId)
                     .Select(g => new
                     {
-                        Imo = g.Key,
+                        VesselId = g.Key!.Value,
                         Total = g.Count(),
-                        Approved = g.Count(r => r.Status == "APPROVED"),
-                        Pending = g.Count(r => r.Status == "SUBMITTED" || r.Status == "DRAFT"),
-                        LastReportAt = g.Max(r => r.ReportDateTime)
+                        Approved = g.Count(x => x.Report.Status == "APPROVED"),
+                        Pending = g.Count(x => x.Report.Status == "SUBMITTED" || x.Report.Status == "DRAFT"),
+                        LastReportAt = g.Max(x => x.Report.ReportDateTime)
                     })
                     .ToListAsync();
 
-                var statsByImo = reportStats.ToDictionary(s => s.Imo);
+                var statsByVessel = reportStats.ToDictionary(s => s.VesselId);
 
                 var result = vessels.Select(v => new
                 {
@@ -56,7 +58,7 @@ namespace ProductApi.Controllers
                     v.Flag,
                     v.VesselType,
                     v.CallSign,
-                    Stats = statsByImo.TryGetValue(v.IMO, out var s) ? new
+                    Stats = statsByVessel.TryGetValue(v.Id, out var s) ? new
                     {
                         s.Total,
                         s.Approved,
@@ -94,8 +96,9 @@ namespace ProductApi.Controllers
                 var vessel = await _vesselService.GetVesselByIdAsync(vesselId);
                 if (vessel == null) return NotFound($"Vessel {vesselId} not found");
 
+                var nodeIds = _context.SyncNodeTrackers.Where(n => n.VesselId == vesselId).Select(n => n.NodeId);
                 var query = _context.MaritimeReports
-                    .Where(r => r.OriginNode == vessel.IMO);
+                    .Where(r => nodeIds.Contains(r.OriginNode));
 
                 if (from.HasValue) query = query.Where(r => r.ReportDateTime >= from.Value);
                 if (to.HasValue)   query = query.Where(r => r.ReportDateTime <= to.Value.AddDays(1));
@@ -115,7 +118,7 @@ namespace ProductApi.Controllers
 
                 // Count by type for summary bar
                 var typeCountsRaw = await _context.MaritimeReports
-                    .Where(r => r.OriginNode == vessel.IMO)
+                    .Where(r => nodeIds.Contains(r.OriginNode))
                     .GroupBy(r => r.ReportTypeId)
                     .Select(g => new { TypeId = g.Key, Count = g.Count() })
                     .ToListAsync();
@@ -206,9 +209,10 @@ namespace ProductApi.Controllers
 
                 var startDate = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
                 var endDate   = startDate.AddMonths(1);
+                var nodeIds = _context.SyncNodeTrackers.Where(n => n.VesselId == vesselId).Select(n => n.NodeId);
 
                 var reports = await _context.MaritimeReports
-                    .Where(r => r.OriginNode == vessel.IMO
+                    .Where(r => nodeIds.Contains(r.OriginNode)
                              && r.ReportDateTime >= startDate
                              && r.ReportDateTime < endDate)
                     .OrderBy(r => r.ReportDateTime)
@@ -245,7 +249,7 @@ namespace ProductApi.Controllers
                 // Determine NO REPORT days:
                 // Find active voyage days in this month (voyage started before end, ended after start)
                 var activeVoyages = await _context.VoyageRecords
-                    .Where(v => v.OriginNode == vessel.IMO
+                    .Where(v => nodeIds.Contains(v.OriginNode)
                              && v.DepartureTime < endDate
                              && (v.ArrivalTime == null || v.ArrivalTime > startDate))
                     .Select(v => new { v.DepartureTime, v.ArrivalTime })

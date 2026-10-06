@@ -1,0 +1,23 @@
+.cl-table.certificate-catalog-table {
+  min-width: 1000px;
+}
+.cl-table.certificate-catalog-table th {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.cl-table.certificate-catalog-table tbody td {
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+.certificate-catalog-table td:nth-child(4) span {
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .cl-table.certificate-catalog-table th:nth-child(n),
+  .cl-table.certificate-catalog-table td:nth-child(n) {
+    display: table-cell;
+  }
+}
+.certificate-catalog-card {
+  overflow-x: auto;
+}

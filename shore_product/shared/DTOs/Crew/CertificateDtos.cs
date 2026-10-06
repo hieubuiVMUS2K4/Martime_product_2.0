@@ -9,6 +9,7 @@ public class CertificateDto
     public string CertificateCode { get; set; } = string.Empty;
     public string CertificateName { get; set; } = string.Empty;
     public string? Category { get; set; }
+    public string? IssuingAuthority { get; set; }
     public int? ValidityPeriodMonths { get; set; }
     public string? Description { get; set; }
     public bool IsMandatory { get; set; }
@@ -66,6 +67,7 @@ public class CreateCertificateRequest
     public string CertificateCode { get; set; } = string.Empty;
     public string CertificateName { get; set; } = string.Empty;
     public string? Category { get; set; }
+    public string? IssuingAuthority { get; set; }
     public int? ValidityPeriodMonths { get; set; }
     public string? Description { get; set; }
     public bool IsMandatory { get; set; }

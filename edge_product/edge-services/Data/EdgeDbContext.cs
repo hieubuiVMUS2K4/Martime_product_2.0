@@ -1218,6 +1218,8 @@ public class EdgeDbContext : DbContext
         modelBuilder.Entity<SyncQueue>(entity =>
         {
             entity.ToTable("sync_queue");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.HasIndex(e => new { e.TableName, e.RecordKey, e.Id }).HasDatabaseName("idx_sync_table_record_id");
 
             entity.HasIndex(e => new { e.Priority, e.NextRetryAt })
                 .HasDatabaseName("idx_sync_priority_retry")
@@ -2729,20 +2731,6 @@ public class EdgeDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ========== RANKS SEED DATA ==========
-        var rankSeedTimestamp = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc);
-        modelBuilder.Entity<Rank>().HasData(
-            new Rank { Id = 1, RankCode = "MAST", RankName = "Master (Captain)", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3117), UpdatedAt = rankSeedTimestamp.AddTicks(3121) },
-            new Rank { Id = 2, RankCode = "C/O", RankName = "Chief Officer", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3126), UpdatedAt = rankSeedTimestamp.AddTicks(3127) },
-            new Rank { Id = 3, RankCode = "2/O", RankName = "Second Officer", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3128), UpdatedAt = rankSeedTimestamp.AddTicks(3128) },
-            new Rank { Id = 4, RankCode = "3/O", RankName = "Third Officer", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3129), UpdatedAt = rankSeedTimestamp.AddTicks(3129) },
-            new Rank { Id = 5, RankCode = "C/E", RankName = "Chief Engineer", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3130), UpdatedAt = rankSeedTimestamp.AddTicks(3130) },
-            new Rank { Id = 6, RankCode = "2/E", RankName = "Second Engineer", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3131), UpdatedAt = rankSeedTimestamp.AddTicks(3132) },
-            new Rank { Id = 7, RankCode = "BOSN", RankName = "Bosun", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3133), UpdatedAt = rankSeedTimestamp.AddTicks(3134) },
-            new Rank { Id = 8, RankCode = "AB", RankName = "Able Seaman", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3134), UpdatedAt = rankSeedTimestamp.AddTicks(3135) },
-            new Rank { Id = 9, RankCode = "OILR", RankName = "Oiler", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3135), UpdatedAt = rankSeedTimestamp.AddTicks(3136) },
-            new Rank { Id = 10, RankCode = "COOK", RankName = "Chief Cook", IsActive = true, CreatedAt = rankSeedTimestamp.AddTicks(3136), UpdatedAt = rankSeedTimestamp.AddTicks(3137) }
-        );
 
         // ===================================================================
         // Configure Drill Training Management (SOLAS/ISPS Compliance)
@@ -2943,52 +2931,37 @@ public class EdgeDbContext : DbContext
         );
     }
 
+    public bool SuppressSyncQueue { get; set; }
+
     public override int SaveChanges()
     {
+        using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
+            ? Database.BeginTransaction() : null;
         NormalizeDateTimesToUtc();
-        var deferred = ProcessSyncQueue();
+        var deferred = SuppressSyncQueue ? new List<object>() : ProcessSyncQueue();
         var result = base.SaveChanges();
-
-        // Bản ghi mới có khoá số nguyên do CSDL cấp: giờ mới có Id thật, xếp hàng lần hai.
-        // base.SaveChanges() không gọi lại ProcessSyncQueue nên không có đệ quy.
-        // Việc ghi sổ đồng bộ KHÔNG được phép làm đổ thao tác nghiệp vụ. Dữ liệu đã lưu xong
-        // ở dòng trên; nếu xếp hàng lỗi thì ghi nhật ký rồi đi tiếp, người dùng vẫn tạo được
-        // phiếu. (Đây đúng là kiểu hỏng đã làm đổ chức năng tạo phiếu ngày 29/07.)
         if (deferred.Count > 0)
         {
-            try
-            {
-                EnqueueDeferredCreates(deferred);
-                base.SaveChanges();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[EDGE-SYNC] Khong xep hang duoc ban ghi vua tao: {ex.Message}");
-            }
+            EnqueueDeferredCreates(deferred);
+            base.SaveChanges();
         }
-
+        transaction?.Commit();
         return result;
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        await using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
+            ? await Database.BeginTransactionAsync(cancellationToken) : null;
         NormalizeDateTimesToUtc();
-        var deferred = ProcessSyncQueue();
+        var deferred = SuppressSyncQueue ? new List<object>() : ProcessSyncQueue();
         var result = await base.SaveChangesAsync(cancellationToken);
-
         if (deferred.Count > 0)
         {
-            try
-            {
-                EnqueueDeferredCreates(deferred);
-                await base.SaveChangesAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[EDGE-SYNC] Khong xep hang duoc ban ghi vua tao: {ex.Message}");
-            }
+            EnqueueDeferredCreates(deferred);
+            await base.SaveChangesAsync(cancellationToken);
         }
-
+        if (transaction != null) await transaction.CommitAsync(cancellationToken);
         return result;
     }
 
@@ -3048,10 +3021,9 @@ public class EdgeDbContext : DbContext
             // 1. Skip SyncQueue itself to avoid infinite recursion
             if (entry.Entity is SyncQueue) continue;
 
-            // 2. Skip real-time telemetry that shore does not store
-            //    (NavigationData and EnvironmentalData models were intentionally
-            //    removed from the shore backend — syncing them only causes failures)
-            if (entry.Entity is NavigationData || entry.Entity is EnvironmentalData || entry.Entity is SystemLog)
+            // Dedicated telemetry enqueuers own these tables; sensors below use automatic capture.
+            if (entry.Entity is SystemLog || entry.Entity is PositionData || entry.Entity is EngineData
+                || entry.Entity is SafetyAlarm || entry.Entity is EngineEvent)
                 continue;
 
             // 3. Skip reporting entities — reports are sent to shore ONLY via
@@ -3162,7 +3134,7 @@ public class EdgeDbContext : DbContext
                     // re-applying it causes an infinite sync loop with empty delta payloads.
                     // Skip EdgeChanges/EdgeChangesViewed — these are local-only tracking fields managed
                     // by CLEAR_EDGE_CHANGES; sending them to shore is wasteful and shore ignores them anyway.
-                    if (prop.Metadata.Name is "UpdatedAt" or "CreatedAt" or "IsSynced" or "SyncVersion" or "OriginNode" or "LastSyncedAt"
+                    if (prop.Metadata.Name is "CreatedAt" or "IsSynced" or "SyncVersion" or "OriginNode" or "LastSyncedAt"
                         or "EdgeChanges" or "EdgeChangesViewed") continue;
 
                     changedProps[prop.Metadata.Name] = prop.CurrentValue;
@@ -3311,7 +3283,7 @@ public class EdgeDbContext : DbContext
         return System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
         {
             WriteIndented = false,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
             ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
         });
     }
@@ -3348,7 +3320,7 @@ public class EdgeDbContext : DbContext
         var json = System.Text.Json.JsonSerializer.Serialize(entity, new System.Text.Json.JsonSerializerOptions
         {
             WriteIndented = false,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never,
             ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
         });
         return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(json)
@@ -3408,6 +3380,11 @@ public class EdgeDbContext : DbContext
         if (type == typeof(MaritimeReport) || 
             type == typeof(NoonReport) || 
             type == typeof(PositionReport) ||
+            type == typeof(TaskDeferralRequest) ||
+            type == typeof(MaintenanceTask) ||
+            type == typeof(MaintenanceSchedule) ||
+            type == typeof(EquipmentAsset) ||
+            type == typeof(EquipmentGroup) ||
             type == typeof(PositionData) ||
             type == typeof(Port) ||
             type == typeof(VoyageRecord) ||

@@ -1,0 +1,11 @@
+# Optional link status supplied by the vessel's modem/router adapter.
+services:
+  backend:
+    environment:
+      Sync__ActiveLinkFile: /app/link/active-link.txt
+      Sync__ActiveLinkMaxAgeSeconds: ${EDGE_LINK_MAX_AGE_SECONDS:-120}
+    volumes:
+      - type: bind
+        source: ${EDGE_LINK_STATUS_DIRECTORY:?EDGE_LINK_STATUS_DIRECTORY must be set}
+        target: /app/link
+        read_only: true

@@ -3097,9 +3097,9 @@ public class GarbageRecordPartI
     /// D - Cooking oil
     /// E - Incinerator ashes
     /// F - Operational wastes
-    /// G - Cargo residues (non-HME) - cleaned
-    /// H - Cargo residues (HME) - cleaned
-    /// I - Animal carcasses
+    /// G - Animal carcasses
+    /// H - Fishing gear
+    /// I - E-waste
     /// </summary>
     [Required]
     [MaxLength(5)]
@@ -4569,6 +4569,10 @@ public class ReportTransmissionLog
     /// </summary>
     [MaxLength(100)]
     public string? ConfirmationNumber { get; set; }
+
+    // Stable receipts required before marking the complete report delivered.
+    public string? SyncEventIdsJson { get; set; }
+
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

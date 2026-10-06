@@ -11,6 +11,38 @@ namespace MaritimeEdge.Tests.Inventory;
 public class VesselMaterialSyncTests(PmsDatabaseFixture database)
 {
     [Fact]
+    public async Task ReportTypeSnapshot_IsAppliedAndCanBeUpdatedWithoutDuplicates()
+    {
+        await using var context = database.CreateContext();
+        var handler = new SyncConflictHandler(NullLogger<SyncConflictHandler>.Instance);
+        var reportType = new MaritimeEdge.Models.ReportType
+        {
+            Id = 987654, TypeCode = "SYNC_TEST", TypeName = "Initial name",
+            Category = "OPERATIONAL", Frequency = "DAILY", IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        async Task Apply()
+        {
+            await handler.HandleIncomingAsync(context, new SyncQueueItemDto
+            {
+                TableName = "report_type", RecordKey = reportType.Id.ToString(),
+                Payload = JsonSerializer.Serialize(reportType), ActionType = "SNAPSHOT", OriginNode = "SHORE"
+            }, default);
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+        }
+        await Apply();
+        reportType.TypeName = "Updated name";
+        await Apply();
+        var stored = await context.ReportTypes.Where(r => r.Id == reportType.Id).ToListAsync();
+        Assert.Single(stored);
+        Assert.Equal("Updated name", stored[0].TypeName);
+        Assert.Equal("DAILY", stored[0].Frequency);
+        context.ReportTypes.Remove(stored[0]);
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
     public async Task MaterialViews_UseShipCodeAndPartNumber_AndDefinitionsDoNotUpload()
     {
         await using var context = database.CreateContext();

@@ -169,7 +169,7 @@ namespace MaritimeEdge
             builder.Services.AddHttpClient("ShoreAPI", client =>
             {
                 var timeout = builder.Configuration.GetValue("ShoreAPI:Timeout", 30);
-                client.Timeout = TimeSpan.FromSeconds(timeout);
+                client.Timeout = Timeout.InfiniteTimeSpan; // Sync transport applies per-link timeouts.
                 client.DefaultRequestHeaders.Add("User-Agent", "MaritimeEdge/1.0");
                 var apiKey = builder.Configuration["ShoreAPI:ApiKey"];
                 if (!string.IsNullOrEmpty(apiKey) && apiKey != "your-api-key-here")
@@ -305,6 +305,7 @@ namespace MaritimeEdge
             if (builder.Configuration.GetValue("Sync:Enabled", true))
             {
                 builder.Services.AddHostedService<MaritimeEdge.Services.Core.SyncBackgroundWorker>();
+                builder.Services.AddHostedService<MaritimeEdge.Services.Core.SyncFileBackgroundWorker>();
             }
 
             // Production Health Checks
@@ -492,9 +493,6 @@ namespace MaritimeEdge
                           AND m.storage_path IS NOT NULL AND m.storage_path <> '';
                     ");
 
-                    await EnsurePortSeedDataAsync(dbContext, logger, app.Environment.ContentRootPath);
-                    logger.LogInformation("Seeding SMS Document Management system data...");
-                    await SmsSeedData.SeedAsync(dbContext);
                     var crewAccountsCreated = await CrewAccountProvisioning.BackfillApprovedCrewAsync(dbContext);
                     logger.LogInformation("Provisioned {Count} missing crew accounts with CREW role", crewAccountsCreated);
                 }
@@ -598,35 +596,5 @@ namespace MaritimeEdge
 
         }
 
-        private static async Task EnsurePortSeedDataAsync(EdgeDbContext dbContext, ILogger logger, string contentRootPath)
-        {
-            var portCount = await dbContext.Ports.CountAsync();
-
-            if (portCount >= 80)
-            {
-                logger.LogInformation("Port master data already seeded with {PortCount} record(s)", portCount);
-                return;
-            }
-
-            var seedFilePath = Path.Combine(contentRootPath, "Data", "Scripts", "seed_ports.sql");
-            if (!File.Exists(seedFilePath))
-            {
-                logger.LogWarning("Port seed file not found at {SeedFilePath}", seedFilePath);
-                return;
-            }
-
-            var seedSql = await File.ReadAllTextAsync(seedFilePath);
-            if (string.IsNullOrWhiteSpace(seedSql))
-            {
-                logger.LogWarning("Port seed file is empty: {SeedFilePath}", seedFilePath);
-                return;
-            }
-
-            await dbContext.Database.ExecuteSqlRawAsync(seedSql);
-
-            var updatedCount = await dbContext.Ports.CountAsync();
-
-            logger.LogInformation("Port master data seeded/top-up complete: {PortCount} record(s)", updatedCount);
-        }
     }
 }

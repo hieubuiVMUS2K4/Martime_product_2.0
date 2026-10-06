@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ProductApi.Data;
+using ProductApi.Models;
 using Maritime.Shared.DTOs.Sync;
 using Maritime.Shared.Models.Sync;
 using System.Security.Cryptography;
@@ -24,7 +25,7 @@ public interface ISyncOutboxService
     Task EnqueueBatchAsync(string targetNode, List<(string TableName, string RecordKey, SyncActionType Action, object Payload)> items);
 
     /// <summary>Get pending items for an edge node (cursor-based pagination).</summary>
-    Task<SyncPullResponse> GetPendingItemsAsync(string nodeId, DateTime? since, string? cursor, int pageSize);
+    Task<SyncPullResponse> GetPendingItemsAsync(string nodeId, DateTime? since, string? cursor, int pageSize, NetworkType network = NetworkType.Shore_WiFi, int maxBytes = 262144);
 
     /// <summary>Mark items as delivered after edge acknowledges receipt.</summary>
     Task AcknowledgeDeliveryAsync(string nodeId, List<long> itemIds);
@@ -40,6 +41,7 @@ public class SyncOutboxService : ISyncOutboxService
     private readonly AppDbContext _context;
     private readonly ILogger<SyncOutboxService> _logger;
     private readonly ISyncFileStorageService _syncFileStorageService;
+    private readonly IConfiguration? _configuration;
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "crew_member", "crew_certificate", "travel_document", "seafarer_document",
@@ -55,11 +57,12 @@ public class SyncOutboxService : ISyncOutboxService
         ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
     };
 
-    public SyncOutboxService(AppDbContext context, ILogger<SyncOutboxService> logger, ISyncFileStorageService syncFileStorageService)
+    public SyncOutboxService(AppDbContext context, ILogger<SyncOutboxService> logger, ISyncFileStorageService syncFileStorageService, IConfiguration? configuration = null)
     {
         _context = context;
         _logger = logger;
         _syncFileStorageService = syncFileStorageService;
+        _configuration = configuration;
     }
 
     public async Task EnqueueAsync(string targetNode, string tableName, string recordKey,
@@ -75,28 +78,14 @@ public class SyncOutboxService : ISyncOutboxService
         try
         {
             targetNode = await VesselSyncIdentity.CanonicalTargetAsync(_context, targetNode);
-            var serializedPayload = JsonSerializer.Serialize(payload, _jsonOptions);
+            var prepared = await PrepareOutgoingAsync(tableName, recordKey, action, payload);
+            action = prepared.Action;
+            var serializedPayload = prepared.Payload;
 
-            // Deduplication: if an undelivered item for the same (node, table, key) already exists,
-            // update its payload and version instead of inserting a duplicate.
-            var existing = await _context.SyncOutbox
-                .AsTracking()
-                .Where(o => o.DeliveredAt == null
-                         && o.TargetNode == targetNode
-                         && o.TableName == tableName
-                         && o.RecordKey == recordKey)
-                .OrderByDescending(o => o.Id)
-                .FirstOrDefaultAsync();
-
-            if (existing != null)
-            {
-                existing.Payload = serializedPayload;
-                existing.ActionType = action;
-                existing.SyncVersion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                await _context.SaveChangesAsync();
-                _logger.LogDebug("Updated existing outbox item: {Table}/{Key} → {Node}", tableName, recordKey, targetNode);
-                return;
-            }
+            // Only identical pending snapshots can be coalesced. Exposed events are immutable.
+            if (await _context.SyncOutbox.AnyAsync(o => o.DeliveredAt == null &&
+                (o.TargetNode == targetNode || o.TargetNode == "*") && o.TableName == tableName && o.RecordKey == recordKey &&
+                o.ActionType == action && o.Payload == serializedPayload)) return;
 
             var outboxItem = new SyncOutbox
             {
@@ -144,13 +133,14 @@ public class SyncOutboxService : ISyncOutboxService
 
         foreach (var item in items)
         {
-            var serializedPayload = JsonSerializer.Serialize(item.Payload, _jsonOptions);
+            var prepared = await PrepareOutgoingAsync(item.TableName, item.RecordKey, item.Action, item.Payload);
+            var serializedPayload = prepared.Payload;
             var outboxItem = new SyncOutbox
             {
                 TargetNode = targetNode,
                 TableName = item.TableName,
                 RecordKey = item.RecordKey,
-                ActionType = item.Action,
+                ActionType = prepared.Action,
                 Payload = serializedPayload,
                 SyncVersion = version++,
                 CreatedAt = now
@@ -162,8 +152,30 @@ public class SyncOutboxService : ISyncOutboxService
         _logger.LogDebug("Batch enqueued {Count} outbox items → {Node}", items.Count, targetNode);
     }
 
+    private async Task<(SyncActionType Action, string Payload)> PrepareOutgoingAsync(string table, string recordKey, SyncActionType action, object payload)
+    {
+        if (action != SyncActionType.UPDATE) return (action, JsonSerializer.Serialize(payload, _jsonOptions));
+        var metadata = _context.Model.GetEntityTypes().FirstOrDefault(e =>
+            System.Text.RegularExpressions.Regex.Replace(e.ClrType.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant() == table);
+        var key = metadata?.FindPrimaryKey()?.Properties.SingleOrDefault();
+        if (metadata == null || key == null) return (action, JsonSerializer.Serialize(payload, _jsonOptions));
+        object? entity = null;
+        if (table == "crew_certificate" && !int.TryParse(recordKey, out _))
+            entity = await _context.CrewCertificates.FirstOrDefaultAsync(c => c.CertificateNumber == recordKey);
+        else
+        {
+            object parsed;
+            try { parsed = key.ClrType == typeof(Guid) ? Guid.Parse(recordKey) : Convert.ChangeType(recordKey, key.ClrType, System.Globalization.CultureInfo.InvariantCulture); }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            { return (action, JsonSerializer.Serialize(payload, _jsonOptions)); }
+            entity = await _context.FindAsync(metadata.ClrType, parsed);
+        }
+        if (entity == null) throw new InvalidOperationException($"Cannot enqueue UPDATE for missing {table}/{recordKey}");
+        return (SyncActionType.SNAPSHOT, JsonSerializer.Serialize(_context.Entry(entity).Properties.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue)));
+    }
+
     public async Task<SyncPullResponse> GetPendingItemsAsync(
-        string nodeId, DateTime? since, string? cursor, int pageSize)
+        string nodeId, DateTime? since, string? cursor, int pageSize, NetworkType network = NetworkType.Shore_WiFi, int maxBytes = 262144)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
             throw new ArgumentNullException(nameof(nodeId));
@@ -177,16 +189,23 @@ public class SyncOutboxService : ISyncOutboxService
             if (!string.IsNullOrEmpty(cursor) && long.TryParse(cursor, out var parsedCursor))
                 afterId = parsedCursor;
 
-            var legacyImo = await VesselSyncIdentity.LegacyImoAsync(_context, nodeId);
-            await EnsurePendingCrewReferencesAsync(nodeId, legacyImo);
+            await VesselSyncIdentity.BindPendingRoutesAsync(_context, nodeId);
+            await EnsurePendingCrewReferencesAsync(nodeId);
             var query = _context.SyncOutbox
-                .Where(o => o.DeliveredAt == null)
-                .Where(o => o.TargetNode == nodeId || (legacyImo != null && o.TargetNode == legacyImo) || o.TargetNode == "*")
+                .Where(o => (o.TargetNode != nodeId ? !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == nodeId) : o.DeliveredAt == null))
+                .Where(o => o.TargetNode == nodeId || o.TargetNode == "*")
                 .Where(o => o.Id > afterId);
 
             if (since.HasValue)
                 query = query.Where(o => o.CreatedAt >= since.Value);
 
+            var allowed = SyncLinkPolicy.Priorities(network);
+            if (allowed.Length == 0) return new SyncPullResponse { ServerTime = DateTime.UtcNow };
+            var streamId = await GetStreamIdAsync();
+            var criticalTables = new[] { "safety_alarm", "engine_event", "alert" };
+            var operationalTables = new[] { "crew_member", "crew_certificate", "crew_logbook_entry", "maritime_report", "report_type", "rank", "country", "certificate", "rank_certificate", "country_certificate", "port", "ism_element", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates" };
+            if (!allowed.Contains(SyncPriority.Low))
+                query = query.Where(o => criticalTables.Contains(o.TableName) || (allowed.Contains(SyncPriority.Operational) && operationalTables.Contains(o.TableName)));
             var items = await query
                 .OrderBy(o => o.Id)
                 .Take(pageSize + 1) // Fetch one extra to determine HasMore
@@ -195,17 +214,30 @@ public class SyncOutboxService : ISyncOutboxService
             var hasMore = items.Count > pageSize;
             if (hasMore) items = items.Take(pageSize).ToList();
 
+            maxBytes = Math.Clamp(maxBytes, 1024, SyncLinkPolicy.For(network).MetadataBytes);
+            var bytes = 2;
+            var withinBudget = new List<SyncOutbox>();
+            foreach (var item in items)
+            {
+                var size = System.Text.Encoding.UTF8.GetByteCount(item.Payload) + 512;
+                if (bytes + size > maxBytes) { hasMore = true; continue; }
+                bytes += size;
+                withinBudget.Add(item);
+            }
+            items = withinBudget;
             var response = new SyncPullResponse
             {
                 Items = items.Select(o => new SyncQueueItemDto
                 {
                     OutboxId = o.Id,
+                    StreamId = streamId,
+                    Priority = SyncLinkPolicy.TablePriority(o.TableName),
                     TableName = o.TableName,
                     RecordKey = o.RecordKey,
                     ActionType = o.ActionType.ToString(),
                     Payload = o.Payload,
                     OriginNode = "SHORE",
-                    SyncVersion = o.SyncVersion,
+                    SyncVersion = o.Id,
                     Timestamp = o.CreatedAt
                 }).ToList(),
                 ServerTime = DateTime.UtcNow,
@@ -214,19 +246,35 @@ public class SyncOutboxService : ISyncOutboxService
             };
 
             // Attach metadata-only file references for document-related items.
+            var unavailable = new List<SyncQueueItemDto>();
             foreach (var dto in response.Items)
             {
                 try
                 {
-                    dto.FileRefs = await BuildOutgoingFileReferencesAsync(dto, "SHORE");
+                    dto.FileRefs = await BuildOutgoingFileReferencesAsync(dto, "SHORE", nodeId);
                     dto.Payload = StripFileReferenceProperties(dto.Payload);
+                    await TranslateVesselKeysAsync(dto, nodeId);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to build file refs for pull item {Table}/{Key}", dto.TableName, dto.RecordKey);
+                    unavailable.Add(dto);
+                    response.HasMore = true;
                 }
             }
 
+            response.Items.RemoveAll(unavailable.Contains);
+            var packed = new List<SyncQueueItemDto>();
+            foreach (var dto in response.Items)
+            {
+                packed.Add(dto);
+                if (System.Text.Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(packed, _jsonOptions)) <= maxBytes - 256) continue;
+                packed.RemoveAt(packed.Count - 1);
+                response.HasMore = true;
+                continue;
+            }
+            response.Items = packed;
+            response.NextCursor = packed.LastOrDefault()?.OutboxId.ToString();
             _logger.LogDebug("Pull response for {NodeId}: {Count} items, hasMore={HasMore}",
                 nodeId, response.Items.Count, hasMore);
 
@@ -239,11 +287,64 @@ public class SyncOutboxService : ISyncOutboxService
         }
     }
 
-    private async Task EnsurePendingCrewReferencesAsync(string nodeId, string? legacyImo)
+    private async Task TranslateVesselKeysAsync(SyncQueueItemDto item, string nodeId)
+    {
+        var type = SyncInboxService.EntityTypeFor(item.TableName);
+        var metadata = type == null ? null : _context.Model.FindEntityType(type);
+        if (metadata == null) return;
+        var payload = string.IsNullOrWhiteSpace(item.Payload) ? null : System.Text.Json.Nodes.JsonNode.Parse(item.Payload) as System.Text.Json.Nodes.JsonObject;
+        var properties = payload?.Select(pair => pair.Key).ToDictionary(key => key.Replace("_", "").ToLowerInvariant(), key => key);
+        var key = metadata.FindPrimaryKey()?.Properties.SingleOrDefault();
+        var own = await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(mapping =>
+            mapping.OriginNode == nodeId && mapping.TableName == item.TableName && mapping.ShoreKey == item.RecordKey);
+        if (own != null)
+        {
+            item.RecordKey = own.LocalKey;
+            if (key != null && properties?.TryGetValue(key.Name.Replace("_", "").ToLowerInvariant(), out var name) == true)
+                payload![name] = JsonSerializer.SerializeToNode(ParseKey(own.LocalKey, key.ClrType));
+        }
+        if (payload == null || properties == null) return;
+        foreach (var foreignKey in metadata.GetForeignKeys().Where(fk => fk.Properties.Count == 1))
+        {
+            var property = foreignKey.Properties[0];
+            if (!properties.TryGetValue(property.Name.Replace("_", "").ToLowerInvariant(), out var name) || payload[name] == null) continue;
+            var principalTable = SyncInboxService.TableForEntity(foreignKey.PrincipalEntityType.ClrType);
+            var shoreKey = payload[name]!.ToString();
+            var mapping = await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(identity =>
+                identity.OriginNode == nodeId && identity.TableName == principalTable && identity.ShoreKey == shoreKey);
+            if (mapping != null) payload[name] = JsonSerializer.SerializeToNode(ParseKey(mapping.LocalKey, property.ClrType));
+        }
+        item.Payload = payload.ToJsonString();
+    }
+
+    private static object ParseKey(string key, Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        return type == typeof(Guid) ? Guid.Parse(key) : Convert.ChangeType(key, type, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private async Task<Guid> GetStreamIdAsync()
+    {
+        if (Guid.TryParse(_configuration?["Sync:StreamId"], out var configured) && configured != Guid.Empty) return configured;
+        var states = _context.Set<SyncStreamState>();
+        var state = await states.AsNoTracking().SingleOrDefaultAsync(s => s.Key == "outbox");
+        if (state != null) return state.Epoch;
+        var epoch = Guid.NewGuid();
+        if (_context.Database.IsRelational())
+        {
+            await _context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO sync_stream_state (\"Key\", \"Epoch\") VALUES ({"outbox"}, {epoch}) ON CONFLICT (\"Key\") DO NOTHING");
+            return (await states.AsNoTracking().SingleAsync(s => s.Key == "outbox")).Epoch;
+        }
+        states.Add(new SyncStreamState { Key = "outbox", Epoch = epoch });
+        await _context.SaveChangesAsync();
+        return epoch;
+    }
+
+    private async Task EnsurePendingCrewReferencesAsync(string nodeId)
     {
         var payloads = await _context.SyncOutbox.AsNoTracking()
             .Where(o => o.DeliveredAt == null && o.TableName == "crew_member" &&
-                (o.TargetNode == nodeId || (legacyImo != null && o.TargetNode == legacyImo) || o.TargetNode == "*"))
+                (o.TargetNode == nodeId || o.TargetNode == "*"))
             .Select(o => o.Payload).Take(1000).ToListAsync();
         var rankIds = new HashSet<int>(); var countryIds = new HashSet<int>();
         foreach (var payload in payloads)
@@ -267,7 +368,7 @@ public class SyncOutboxService : ISyncOutboxService
                 await EnqueueAsync(nodeId, "country", country.Id.ToString(), SyncActionType.SNAPSHOT, country);
     }
 
-    private async Task<List<SyncFileReferenceDto>> BuildOutgoingFileReferencesAsync(SyncQueueItemDto dto, string sourceNodeId)
+    private async Task<List<SyncFileReferenceDto>> BuildOutgoingFileReferencesAsync(SyncQueueItemDto dto, string sourceNodeId, string receiverNodeId)
     {
         var refs = new List<SyncFileReferenceDto>();
 
@@ -278,8 +379,7 @@ public class SyncOutboxService : ISyncOutboxService
         {
             if (!_syncFileStorageService.Exists(filePath))
             {
-                _logger.LogWarning("Sync file path not found for {Table}/{Key}: {Path}", dto.TableName, dto.RecordKey, filePath);
-                continue;
+                throw new FileNotFoundException($"Sync attachment missing for {dto.TableName}/{dto.RecordKey}", filePath);
             }
 
             var absPath = _syncFileStorageService.ResolveLocalPath(filePath);
@@ -287,7 +387,7 @@ public class SyncOutboxService : ISyncOutboxService
             var checksum = await _syncFileStorageService.ComputeSha256HexAsync(filePath, CancellationToken.None);
             refs.Add(new SyncFileReferenceDto
             {
-                FileId = CreateDeterministicFileId(sourceNodeId, dto.TableName, dto.RecordKey, role, checksum),
+                FileId = CreateDeterministicFileId(sourceNodeId + ":" + receiverNodeId, dto.TableName, dto.RecordKey, role, checksum),
                 FileRole = role,
                 FileName = Path.GetFileName(filePath),
                 ContentType = GuessContentType(filePath),
@@ -299,6 +399,19 @@ public class SyncOutboxService : ISyncOutboxService
             });
         }
 
+        foreach (var file in refs)
+        {
+            if (await _context.SyncFileManifests.AnyAsync(manifest => manifest.Id == file.FileId)) continue;
+            _context.SyncFileManifests.Add(new SyncFileManifest
+            {
+                Id = file.FileId, OwnerNodeId = sourceNodeId, ReceiverNodeId = receiverNodeId,
+                TableName = dto.TableName, RecordKey = dto.RecordKey, FileRole = file.FileRole,
+                FileName = file.FileName, ContentType = file.ContentType, SizeBytes = file.SizeBytes,
+                Sha256 = file.Sha256, SourcePath = file.SourcePath, TransferPriority = file.TransferPriority,
+                CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+            });
+        }
+        if (refs.Count > 0) await _context.SaveChangesAsync();
         return refs;
     }
 
@@ -399,11 +512,11 @@ public class SyncOutboxService : ISyncOutboxService
         try
         {
             // Try matching by exact outbox IDs first
-            var legacyImo = await VesselSyncIdentity.LegacyImoAsync(_context, nodeId);
+            await VesselSyncIdentity.BindPendingRoutesAsync(_context, nodeId);
             var baseQuery = _context.SyncOutbox
                 .AsTracking()
-                .Where(o => o.DeliveredAt == null)
-                .Where(o => o.TargetNode == nodeId || (legacyImo != null && o.TargetNode == legacyImo) || o.TargetNode == "*");
+                .Where(o => (o.TargetNode != nodeId ? !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == nodeId) : o.DeliveredAt == null))
+                .Where(o => o.TargetNode == nodeId || o.TargetNode == "*");
 
             // Only exact positive IDs may be acknowledged. Repeated/stale ACKs must never
             // mark a different pending batch as delivered.
@@ -412,7 +525,13 @@ public class SyncOutboxService : ISyncOutboxService
 
             foreach (var item in items)
             {
-                item.DeliveredAt = DateTime.UtcNow;
+                if (item.TargetNode != nodeId)
+                {
+                    if (_context.Database.IsRelational())
+                        await _context.Database.ExecuteSqlInterpolatedAsync($@"INSERT INTO sync_outbox_deliveries (""OutboxId"", ""NodeId"", ""AppliedAtUtc"") VALUES ({item.Id}, {nodeId}, {DateTime.UtcNow}) ON CONFLICT (""OutboxId"", ""NodeId"") DO NOTHING");
+                    else _context.SyncOutboxDeliveries.Add(new SyncOutboxDelivery { OutboxId = item.Id, NodeId = nodeId, AppliedAtUtc = DateTime.UtcNow });
+                }
+                if (item.TargetNode != "*") item.DeliveredAt = DateTime.UtcNow;
             }
 
             await _context.SaveChangesAsync();

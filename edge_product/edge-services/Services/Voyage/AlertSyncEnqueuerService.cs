@@ -21,7 +21,7 @@ public class AlertSyncEnqueuerService : BackgroundService
 
     private readonly int _intervalSeconds;
     private readonly int _batchSize;
-    private string _vesselImo = "UNKNOWN";
+    private string _nodeId = "UNKNOWN";
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -58,8 +58,8 @@ public class AlertSyncEnqueuerService : BackgroundService
 
         await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-        _vesselImo = await ResolveVesselImoAsync();
-        _logger.LogInformation("Alert Sync Enqueuer using VesselIMO: {VesselImo}", _vesselImo);
+        _nodeId = await ResolveNodeIdAsync();
+        _logger.LogInformation("Alert Sync Enqueuer using NodeId: {NodeId}", _nodeId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -86,11 +86,12 @@ public class AlertSyncEnqueuerService : BackgroundService
 
     private async Task EnqueueAlertsAsync(CancellationToken ct)
     {
+        _nodeId = await ResolveNodeIdAsync();
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
 
         var unsynced = await dbContext.SafetyAlarms
-            .Where(a => !a.IsSynced)
+            .Where(a => !a.IsSynced && !dbContext.SyncQueue.Any(q => q.TableName == "safety_alarm" && q.RecordKey == a.Id.ToString() && q.SyncedAt == null))
             .OrderBy(a => a.Timestamp)
             .Take(_batchSize)
             .ToListAsync(ct);
@@ -120,10 +121,10 @@ public class AlertSyncEnqueuerService : BackgroundService
                 resolvedAt = alarm.ResolvedAt,
                 createdAt = alarm.CreatedAt,
                 updatedAt = alarm.UpdatedAt,
-                originNode = _vesselImo
+                originNode = _nodeId
             }, _jsonOptions);
 
-            alarm.OriginNode = _vesselImo;
+            alarm.OriginNode = _nodeId;
 
             syncQueueItems.Add(new SyncQueue
             {
@@ -138,7 +139,6 @@ public class AlertSyncEnqueuerService : BackgroundService
                 NextRetryAt = now
             });
 
-            alarm.IsSynced = true;
             alarm.UpdatedAt = now;
         }
 
@@ -155,16 +155,16 @@ public class AlertSyncEnqueuerService : BackgroundService
     /// Managed profile, which is acceptable since profile activation is an admin action, not a
     /// per-request concern. Falls back to "UNKNOWN" (does not throw) on Fail-Closed conditions.
     /// </summary>
-    private async Task<string> ResolveVesselImoAsync()
+    private async Task<string> ResolveNodeIdAsync()
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IEdgeRuntimeConfigService>();
             var syncConfig = await runtimeConfigService.GetSyncConfigAsync();
-            return string.IsNullOrWhiteSpace(syncConfig?.VesselImo)
+            return string.IsNullOrWhiteSpace(syncConfig?.NodeId)
                 ? "UNKNOWN"
-                : syncConfig!.VesselImo!;
+                : syncConfig!.NodeId;
         }
         catch (ProvisioningRequiredException ex)
         {
@@ -184,7 +184,7 @@ public class AlertSyncEnqueuerService : BackgroundService
         var dbContext = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
 
         var unsynced = await dbContext.EngineEvents
-            .Where(e => !e.IsSynced)
+            .Where(e => !e.IsSynced && !dbContext.SyncQueue.Any(q => q.TableName == "engine_event" && q.RecordKey == e.Id.ToString() && q.SyncedAt == null))
             .OrderBy(e => e.Timestamp)
             .Take(_batchSize)
             .ToListAsync(ct);
@@ -208,10 +208,10 @@ public class AlertSyncEnqueuerService : BackgroundService
                 loadPercent = evt.LoadPercent,
                 triggerSource = evt.TriggerSource,
                 createdAt = evt.CreatedAt,
-                originNode = _vesselImo
+                originNode = _nodeId
             }, _jsonOptions);
 
-            evt.OriginNode = _vesselImo;
+            evt.OriginNode = _nodeId;
 
             syncQueueItems.Add(new SyncQueue
             {
@@ -226,7 +226,6 @@ public class AlertSyncEnqueuerService : BackgroundService
                 NextRetryAt = now
             });
 
-            evt.IsSynced = true;
         }
 
         await dbContext.SyncQueue.AddRangeAsync(syncQueueItems, ct);

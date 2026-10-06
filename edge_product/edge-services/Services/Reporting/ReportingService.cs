@@ -1755,39 +1755,22 @@ public class ReportingService : IReportingService
             // Build sync items for the report (parent + child)
             var syncItems = await BuildReportSyncItemsAsync(report);
 
-            // Attempt direct HTTP transmission to Shore
-            var (httpSuccess, httpError) = await SendReportToShoreAsync(syncItems);
-
-            // Create transmission log
+            // Persist the complete report and queue together; the signed worker confirms delivery.
             var log = new ReportTransmissionLog
             {
-                MaritimeReportId = reportId,
-                TransmissionDateTime = DateTime.UtcNow,
-                TransmissionMethod = dto.TransmissionMethod,
-                Status = httpSuccess ? "SUCCESS" : "FAILED",
-                Recipients = string.Join(";", dto.RecipientEmails ?? new List<string>()),
-                ConfirmationNumber = httpSuccess ? $"TXN-{DateTime.UtcNow:yyyyMMddHHmmss}" : null,
+                MaritimeReportId = reportId, TransmissionDateTime = DateTime.UtcNow,
+                TransmissionMethod = dto.TransmissionMethod, Status = "QUEUED",
+                Recipients = string.Join(";", dto.RecipientEmails ?? new List<string>())
             };
-            _context.ReportTransmissionLogs.Add(log);
-
-            if (!httpSuccess)
+            var queued = syncItems.Select(item => new SyncQueue
             {
-                // Direct HTTP failed — save to SyncQueue as fallback
-                _logger.LogWarning("Direct Shore transmission failed ({Error}), falling back to SyncQueue", httpError);
-                foreach (var item in syncItems)
-                {
-                    _context.SyncQueue.Add(new SyncQueue
-                    {
-                        TableName = item.TableName,
-                        RecordKey = item.RecordKey,
-                        ActionType = Maritime.Shared.Models.Sync.SyncActionType.CREATE,
-                        Payload = item.Payload,
-                        Priority = Maritime.Shared.Models.Sync.SyncPriority.Operational,
-                        CreatedAt = DateTime.UtcNow,
-                    });
-                }
-                log.Status = "QUEUED";
-            }
+                TableName = item.TableName, RecordKey = item.RecordKey,
+                ActionType = Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, Payload = item.Payload,
+                Priority = Maritime.Shared.Models.Sync.SyncPriority.Operational, CreatedAt = DateTime.UtcNow
+            }).ToList();
+            log.SyncEventIdsJson = JsonSerializer.Serialize(queued.Select(item => item.EventId));
+            _context.ReportTransmissionLogs.Add(log);
+            _context.SyncQueue.AddRange(queued);
 
             await _context.SaveChangesAsync();
 
@@ -1796,14 +1779,10 @@ public class ReportingService : IReportingService
                 oldStatus,
                 "TRANSMITTED",
                 ResolveWorkflowActor(username, report.MasterSignature ?? report.PreparedBy),
-                httpSuccess
-                    ? $"Transmitted directly to Shore via HTTP"
-                    : $"Queued for Shore delivery (direct HTTP failed: {httpError})");
+                "Queued for Shore delivery through durable sync");
 
-            _logger.LogInformation("Report {ReportNumber} transmitted. Direct HTTP: {HttpResult}",
-                report.ReportNumber, httpSuccess ? "SUCCESS" : $"FAILED → queued ({httpError})");
-
-            return (true, httpSuccess ? null : $"Report marked as transmitted. Direct delivery failed ({httpError}), queued for background sync.");
+            _logger.LogInformation("Report {ReportNumber} queued for Shore delivery", report.ReportNumber);
+            return (true, "Report queued for background delivery to Shore.");
         }
         catch (Exception ex)
         {
@@ -1813,66 +1792,7 @@ public class ReportingService : IReportingService
     }
 
     /// <summary>
-    /// Send report items directly to Shore /api/sync via HTTP POST.
-    /// </summary>
-    private async Task<(bool Success, string? Error)> SendReportToShoreAsync(List<Maritime.Shared.DTOs.Sync.SyncQueueItemDto> items)
-    {
-        var enabled = _configuration.GetValue("ShoreAPI:Enabled", true);
-        string? baseUrl = null;
-        try
-        {
-            var syncConfig = await _runtimeConfigService.GetSyncConfigAsync();
-            baseUrl = syncConfig?.ShoreBaseUrl;
-        }
-        catch (ProvisioningRequiredException ex)
-        {
-            _logger.LogWarning("SendReportToShoreAsync: Shore base URL unavailable — {Message}", ex.Message);
-        }
-        catch (ConfigInvalidException ex)
-        {
-            _logger.LogError("SendReportToShoreAsync: Shore base URL unavailable — {Message}", ex.Message);
-        }
-
-        if (!enabled || string.IsNullOrEmpty(baseUrl))
-        {
-            return (false, "Shore API not configured or disabled");
-        }
-
-        try
-        {
-            var client = _httpClientFactory.CreateClient("ShoreAPI");
-            var json = JsonSerializer.Serialize(items, _syncJsonOptions);
-            var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
-
-            _logger.LogInformation("Sending {Count} report items directly to Shore {Url}/api/sync", items.Count, baseUrl);
-
-            var response = await client.PostAsync($"{baseUrl}/api/sync", content);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Shore accepted report: {Response}", body);
-                return (true, null);
-            }
-
-            var errorBody = await response.Content.ReadAsStringAsync();
-            return (false, $"HTTP {(int)response.StatusCode}: {errorBody}");
-        }
-        catch (HttpRequestException ex)
-        {
-            return (false, $"Network error: {ex.Message}");
-        }
-        catch (TaskCanceledException)
-        {
-            return (false, "Request timed out");
-        }
-    }
-
-    /// <summary>
-    /// Vessel Provisioning v3: resolves NodeId via <see cref="IEdgeRuntimeConfigService"/> instead of
-    /// reading <c>_configuration["Vessel:IMO"]</c> directly. Falls back to "UNKNOWN" (does not throw)
-    /// on Fail-Closed conditions so report transmission is never blocked at this stage — the actual
-    /// gate-keeping for whether data reaches Shore happens in SendReportToShoreAsync/SyncService.
+    /// Resolve the provisioned identity used in report queue payloads.
     /// </summary>
     private async Task<string> ResolveNodeIdAsync()
     {
@@ -2004,7 +1924,7 @@ public class ReportingService : IReportingService
         var nodeId = await ResolveNodeIdAsync();
         var items = new List<Maritime.Shared.DTOs.Sync.SyncQueueItemDto>();
 
-        // Override OriginNode to match vessel IMO so Shore can correlate with Vessels table
+        // Use the provisioned transport identity; Shore resolves its vessel binding.
         report.OriginNode = nodeId;
 
         // Generate a SyncVersion for idempotency (ticks-based, unique per transmit)
@@ -2036,7 +1956,6 @@ public class ReportingService : IReportingService
                 {
                     // Enrich with PMS/Alarm/Crew snapshots before sync
                     await EnrichNoonReportForSyncAsync(noon);
-                    await _context.SaveChangesAsync();
 
                     items.Add(new Maritime.Shared.DTOs.Sync.SyncQueueItemDto
                     {
@@ -2120,6 +2039,7 @@ public class ReportingService : IReportingService
                 break;
         }
 
+        if (items.Count != 2) throw new InvalidOperationException($"Report {report.ReportNumber} has no supported detail record; transmission was not queued.");
         return items;
     }
 

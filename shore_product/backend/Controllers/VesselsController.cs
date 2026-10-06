@@ -781,7 +781,7 @@ namespace ProductApi.Controllers
                     .Include(c => c.Rank)
                     .Include(c => c.Country)
                     .AsQueryable()
-                    .Where(c => c.OriginNode == vessel.IMO);
+                    .Where(c => c.VesselId == id);
 
                 if (isOnboard.HasValue)
                     query = query.Where(c => c.IsOnboard == isOnboard.Value);
@@ -850,8 +850,9 @@ namespace ProductApi.Controllers
                 var vessel = await _vesselService.GetVesselByIdAsync(id);
                 if (vessel == null) return NotFound($"Vessel with ID {id} not found");
 
+                var origins = await ProductApi.Services.Sync.VesselSyncIdentity.HistoricalOriginsAsync(_context, id);
                 var query = _context.MaritimeReports.AsQueryable()
-                    .Where(r => r.OriginNode == vessel.IMO);
+                    .Where(r => origins.Contains(r.OriginNode));
 
                 if (!string.IsNullOrWhiteSpace(status))
                     query = query.Where(r => r.Status == status);
@@ -901,8 +902,9 @@ namespace ProductApi.Controllers
                 var vessel = await _vesselService.GetVesselByIdAsync(id);
                 if (vessel == null) return NotFound($"Vessel with ID {id} not found");
 
+                var origins = await ProductApi.Services.Sync.VesselSyncIdentity.HistoricalOriginsAsync(_context, id);
                 var query = _context.SyncLogs.AsQueryable()
-                    .Where(l => l.OriginNode == vessel.IMO);
+                    .Where(l => origins.Contains(l.OriginNode));
 
                 if (!string.IsNullOrWhiteSpace(status))
                     query = query.Where(l => l.Status == status);
@@ -917,10 +919,10 @@ namespace ProductApi.Controllers
 
                 var stats = new
                 {
-                    Total = await _context.SyncLogs.CountAsync(l => l.OriginNode == vessel.IMO),
-                    Success = await _context.SyncLogs.CountAsync(l => l.OriginNode == vessel.IMO && l.Status == "SUCCESS"),
-                    Failed = await _context.SyncLogs.CountAsync(l => l.OriginNode == vessel.IMO && l.Status == "FAILED"),
-                    Conflict = await _context.SyncLogs.CountAsync(l => l.OriginNode == vessel.IMO && l.Status == "CONFLICT")
+                    Total = await _context.SyncLogs.CountAsync(l => origins.Contains(l.OriginNode)),
+                    Success = await _context.SyncLogs.CountAsync(l => origins.Contains(l.OriginNode) && l.Status == "SUCCESS"),
+                    Failed = await _context.SyncLogs.CountAsync(l => origins.Contains(l.OriginNode) && l.Status == "FAILED"),
+                    Conflict = await _context.SyncLogs.CountAsync(l => origins.Contains(l.OriginNode) && l.Status == "CONFLICT")
                 };
 
                 return Ok(new { logs, stats });

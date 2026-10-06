@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { ReportingService } from '../../services/reporting.service';
 import { useCurrentAccountName } from '../../hooks/useCurrentAccountName';
+import './ReportingTheme.css';
 import type {
   ReportDetailDto,
   ReportStatus,
@@ -38,25 +39,25 @@ const STATUS_CONFIG: Record<ReportStatus, { badge: string; dot: string; icon: Re
     label: 'Draft',
   },
   SUBMITTED: {
-    badge: 'bg-amber-50 text-amber-800',
+    badge: 'bg-yellow-100 text-yellow-700',
     dot: 'bg-amber-500',
     icon: <Clock className="h-4 w-4" />,
     label: 'Pending approval',
   },
   APPROVED: {
-    badge: 'bg-blue-50 text-blue-800',
+    badge: 'bg-blue-100 text-blue-700',
     dot: 'bg-blue-500',
     icon: <CheckCircle className="h-4 w-4" />,
     label: 'Approved',
   },
   REJECTED: {
-    badge: 'bg-rose-50 text-rose-800',
+    badge: 'bg-red-100 text-red-700',
     dot: 'bg-rose-500',
     icon: <XCircle className="h-4 w-4" />,
     label: 'Rejected',
   },
   TRANSMITTED: {
-    badge: 'bg-emerald-50 text-emerald-800',
+    badge: 'bg-green-100 text-green-700',
     dot: 'bg-emerald-500',
     icon: <Send className="h-4 w-4" />,
     label: 'Transmitted',
@@ -80,9 +81,9 @@ type KeyValueItem = {
 const toneClasses: Record<NonNullable<KeyValueItem['tone']>, string> = {
   default: 'text-slate-800',
   blue: 'text-blue-700',
-  green: 'text-emerald-700',
-  amber: 'text-amber-700',
-  red: 'text-rose-700',
+  green: 'text-emerald-700 dark:text-emerald-300',
+  amber: 'text-amber-700 dark:text-amber-300',
+  red: 'text-rose-700 dark:text-rose-300',
 };
 
 function formatDateTime(value?: string) {
@@ -162,8 +163,8 @@ function DetailGrid({ title, icon, items }: { title: string; icon: ReactNode; it
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+      <div className="border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+        <h2 className="flex items-center gap-2 text-xs font-semibold text-gray-600">
           {icon}
           {title}
         </h2>
@@ -637,11 +638,11 @@ export function ReportDetailPage() {
   const primaryMetrics = getPrimaryMetrics(report).filter((item) => item.value !== 'N/A');
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+    <div className="reporting-page h-full w-full overflow-y-auto bg-gray-50">
+      <div className="px-4 py-4">
 
         {/* ── Page header ─────────────────────────────────────────── */}
-        <div className="flex items-start gap-4 border-b border-slate-200 pb-4">
+        <div className="flex flex-wrap items-start gap-3 border-b border-gray-200 pb-4">
           <button
             onClick={() => navigate('/reporting/reports')}
             className="mt-0.5 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -655,7 +656,7 @@ export function ReportDetailPage() {
               {typeConfig.icon}
               <span>{typeConfig.title}</span>
             </div>
-            <h1 className="mt-0.5 text-xl font-semibold text-slate-900">{report.reportNumber}</h1>
+            <h1 className="mt-0.5 text-lg font-semibold text-gray-900">{report.reportNumber}</h1>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-slate-500">
               <span>
                 {report.reportTypeCode === 'BUNKER'
@@ -701,7 +702,7 @@ export function ReportDetailPage() {
                       }
                     });
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                  className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   <Send className="h-4 w-4" />
                   Submit
@@ -720,7 +721,7 @@ export function ReportDetailPage() {
                 </button>
                 <button
                   onClick={() => setShowApproveModal(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                  className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   <CheckCircle className="h-4 w-4" />
                   Approve
@@ -731,7 +732,7 @@ export function ReportDetailPage() {
             {report.status === 'APPROVED' && !report.isTransmitted && (
               <button
                 onClick={() => setShowTransmitModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
               >
                 <Send className="h-4 w-4" />
                 Transmit
@@ -751,7 +752,7 @@ export function ReportDetailPage() {
                     toast.error(err instanceof Error ? err.message : 'Failed to reopen report');
                   }
                 }}
-                className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reopen
@@ -881,7 +882,7 @@ export function ReportDetailPage() {
               <button
                 onClick={handleApprove}
                 disabled={!approvalData.masterSignature.trim()}
-                className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Confirm approval
               </button>

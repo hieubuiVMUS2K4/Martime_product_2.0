@@ -18,7 +18,7 @@ public class SmsSyncEnqueuerService : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly int _intervalSeconds;
     private readonly int _batchSize;
-    private readonly string _nodeId;
+
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -37,9 +37,6 @@ public class SmsSyncEnqueuerService : BackgroundService
         _configuration = configuration;
         _intervalSeconds = configuration.GetValue("SmsSyncEnqueuer:IntervalSeconds", 10);
         _batchSize = configuration.GetValue("SmsSyncEnqueuer:BatchSize", 50);
-        _nodeId = configuration["SyncSecurity:NodeId"]
-               ?? configuration["Vessel:IMO"]
-               ?? "UNKNOWN";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -82,12 +79,17 @@ public class SmsSyncEnqueuerService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
+        dbContext.SuppressSyncQueue = true;
+        var runtime = scope.ServiceProvider.GetRequiredService<MaritimeEdge.Services.Core.IEdgeRuntimeConfigService>();
+        string nodeId;
+        try { nodeId = (await runtime.GetSyncConfigAsync())?.NodeId ?? "UNKNOWN"; }
+        catch (Exception ex) when (ex is MaritimeEdge.Services.Core.ProvisioningRequiredException or MaritimeEdge.Services.Core.ConfigInvalidException) { nodeId = "UNKNOWN"; }
         var now = DateTime.UtcNow;
         var syncQueueItems = new List<SyncQueue>();
 
         // 1. Process unsynced SmsFilledRecords
         var unsyncedRecords = await dbContext.SmsFilledRecords
-            .Where(r => !r.IsSynced)
+            .Where(r => !r.IsSynced && !dbContext.SyncQueue.Any(q => (q.TableName == "sms_filled_records" || q.TableName == "sms_filled_record") && q.RecordKey == r.Id.ToString() && q.SyncedAt == null))
             .OrderBy(r => r.CreatedAt)
             .Take(_batchSize)
             .ToListAsync(ct);
@@ -97,14 +99,14 @@ public class SmsSyncEnqueuerService : BackgroundService
             _logger.LogInformation("Enqueuing {Count} SmsFilledRecord items to SyncQueue", unsyncedRecords.Count);
             foreach (var record in unsyncedRecords)
             {
-                record.OriginNode = string.IsNullOrWhiteSpace(record.OriginNode) ? _nodeId : record.OriginNode;
+                record.OriginNode = nodeId;
                 var payload = JsonSerializer.Serialize(record, JsonOptions);
 
                 syncQueueItems.Add(new SyncQueue
                 {
                     TableName = "sms_filled_records",
                     RecordKey = record.Id.ToString(),
-                    ActionType = record.UpdatedAt > record.CreatedAt ? SyncActionType.UPDATE : SyncActionType.CREATE,
+                    ActionType = SyncActionType.SNAPSHOT,
                     Payload = payload,
                     Priority = SyncPriority.Operational,
                     CreatedAt = now,
@@ -113,14 +115,13 @@ public class SmsSyncEnqueuerService : BackgroundService
                     NextRetryAt = now
                 });
 
-                record.IsSynced = true;
-                record.UpdatedAt = now;
+
             }
         }
 
         // 2. Process unsynced SmsProcedureAcknowledgements
         var unsyncedAcks = await dbContext.SmsProcedureAcknowledgements
-            .Where(a => !a.IsSynced)
+            .Where(a => !a.IsSynced && !dbContext.SyncQueue.Any(q => (q.TableName == "sms_procedure_acknowledgements" || q.TableName == "sms_procedure_acknowledge") && q.RecordKey == a.Id.ToString() && q.SyncedAt == null))
             .OrderBy(a => a.AcknowledgedAt)
             .Take(_batchSize)
             .ToListAsync(ct);
@@ -130,7 +131,7 @@ public class SmsSyncEnqueuerService : BackgroundService
             _logger.LogInformation("Enqueuing {Count} SmsProcedureAcknowledge items to SyncQueue", unsyncedAcks.Count);
             foreach (var ack in unsyncedAcks)
             {
-                ack.OriginNode = string.IsNullOrWhiteSpace(ack.OriginNode) ? _nodeId : ack.OriginNode;
+                ack.OriginNode = nodeId;
                 var payload = JsonSerializer.Serialize(ack, JsonOptions);
 
                 syncQueueItems.Add(new SyncQueue
@@ -146,7 +147,7 @@ public class SmsSyncEnqueuerService : BackgroundService
                     NextRetryAt = now
                 });
 
-                ack.IsSynced = true;
+
             }
         }
 

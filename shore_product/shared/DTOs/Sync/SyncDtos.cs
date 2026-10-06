@@ -8,6 +8,9 @@ using Maritime.Shared.Models.Sync;
 /// </summary>
 public class SyncQueueItemDto
 {
+    public Guid EventId { get; set; }
+    public Guid StreamId { get; set; }
+    public SyncPriority Priority { get; set; } = SyncPriority.Low;
     /// <summary>Outbox row Id — used by edge to acknowledge delivery with exact IDs.</summary>
     public long OutboxId { get; set; }
     public string TableName { get; set; } = string.Empty;

@@ -25,6 +25,9 @@ public class Certificate
     [MaxLength(50)]
     public string? Category { get; set; } // COMPETENCY, MEDICAL, PROFICIENCY, SAFETY
 
+    [MaxLength(200)]
+    public string? IssuingAuthority { get; set; }
+
     public int? ValidityPeriodMonths { get; set; }
 
     public string? Description { get; set; }

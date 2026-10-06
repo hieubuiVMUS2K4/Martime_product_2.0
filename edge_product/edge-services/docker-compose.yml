@@ -12,7 +12,6 @@ services:
       - "${EDGE_POSTGRES_PORT:-5433}:5432"
     volumes:
       - edge-postgres-data:/var/lib/postgresql/data
-      - ../../dumps/edge_dump_20260618_1912.local.sql:/docker-entrypoint-initdb.d/00-edge-dump.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${EDGE_POSTGRES_USER:-edge_user} -d ${EDGE_POSTGRES_DB:-maritime_edge}"]
       interval: 10s
@@ -21,13 +20,18 @@ services:
     networks:
       - edge-network
 
-  # Edge Collector Service (Optional - for development)
-  edge-collector:
-    build: .
-    container_name: maritime-edge-collector
+  # Edge Backend API
+  backend:
+    build:
+      context: ..
+      dockerfile: edge-services/Dockerfile
+    container_name: maritime-edge-backend
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - Database__AutoMigrate=true
+      - DataProtection__EncryptionKey=${EDGE_DATA_PROTECTION_KEY:?EDGE_DATA_PROTECTION_KEY must be set}
+      - DocumentConversion__GotenbergUrl=http://gotenberg:3000
       - Database__ConnectionString=Host=edge-postgres;Port=5432;Database=${EDGE_POSTGRES_DB:-maritime_edge};Username=${EDGE_POSTGRES_USER:-edge_user};Password=${EDGE_POSTGRES_PASSWORD:?EDGE_POSTGRES_PASSWORD must be set}
       - Auth__TokenSigningKey=${EDGE_AUTH_TOKEN_SIGNING_KEY:-local_edge_token_signing_key_change_me_32_chars}
       - Security__EnforceHttps=${EDGE_SECURITY_ENFORCE_HTTPS:-false}
@@ -38,20 +42,47 @@ services:
       - SyncSecurity__NodeId=${EDGE_SYNC_NODE_ID:-}
       - SyncSecurity__SigningKey=${EDGE_SYNC_SIGNING_KEY:-}
       - SyncSecurity__KeyVersion=${EDGE_SYNC_KEY_VERSION:-1}
+      - Sync__DailyByteBudgets__Satellite_Iridium=${EDGE_IRIDIUM_DAILY_BYTES:-0}
+      - Sync__DailyByteBudgets__Satellite_VSAT=${EDGE_VSAT_DAILY_BYTES:-0}
+      - Sync__MaxChunksPerCycle=${EDGE_SYNC_CHUNKS_PER_CYCLE:-1}
+      - Sync__MaxFilesPerCycle=${EDGE_SYNC_FILES_PER_CYCLE:-1}
     depends_on:
       edge-postgres:
         condition: service_healthy
     volumes:
       - ./appsettings.json:/app/appsettings.json:ro
       - edge-logs:/app/logs
+      - edge-uploads:/app/uploads
     networks:
       - edge-network
     # Serial port mapping (uncomment for production on Linux)
     # devices:
     #   - /dev/ttyUSB0:/dev/ttyUSB0
     #   - /dev/ttyUSB1:/dev/ttyUSB1
-    profiles:
-      - development
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend-edge/Dockerfile
+    container_name: maritime-edge-frontend
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_KEY: ${EDGE_INTERNAL_API_KEY:-local-edge-internal-api-key}
+    ports:
+      - "${EDGE_HTTP_PORT:-3002}:80"
+    volumes:
+      - edge-uploads:/app/uploads:ro
+    depends_on:
+      - backend
+    networks:
+      - edge-network
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: maritime-edge-gotenberg
+    restart: unless-stopped
+    networks:
+      - edge-network
 
   # pgAdmin (Optional - web UI for edge-postgres)
   edge-pgadmin:
@@ -59,7 +90,7 @@ services:
     container_name: maritime-edge-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${EDGE_PGADMIN_EMAIL:-admin@edge.local}
+      PGADMIN_DEFAULT_EMAIL: ${EDGE_PGADMIN_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${EDGE_PGADMIN_PASSWORD:?EDGE_PGADMIN_PASSWORD must be set}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
@@ -72,6 +103,7 @@ services:
       - edge-network
 
 volumes:
+  edge-uploads:
   edge-postgres-data:
     driver: local
   edge-logs:

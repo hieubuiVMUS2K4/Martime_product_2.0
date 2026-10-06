@@ -1,44 +1,81 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  RefreshCw, Activity, CheckCircle2, XCircle,
-  Server, Database, Clock, ArrowUpRight, ArrowDownLeft, Ship, Send, Loader2,
-  ArrowDown, WifiOff, Settings, ChevronLeft, ChevronRight, Inbox
+  RefreshCw,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Server,
+  Database,
+  Clock,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Ship,
+  Send,
+  Loader2,
+  ArrowDown,
+  WifiOff,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+  Search,
+  Download,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
 import { syncApi } from '../../services/sync.service';
-import type { SyncStatusResponse } from '../../services/sync.service';
+import type {
+  SyncStatusResponse,
+  SyncLogPage,
+  SyncOutboxPage,
+  SyncNodeDetail,
+  SyncLogEntry,
+  SyncIntegrity,
+} from '../../services/sync.service';
 import './SyncDashboardPage.css';
 
 // ============================================================
 // TABLE → VIETNAMESE LABEL MAP
 // ============================================================
 const TABLE_TO_LABEL: Record<string, string> = {
-  crew_member:         'Thuyền viên',
-  crew_members:        'Thuyền viên',
-  crew_certificate:    'Chứng chỉ TV',
-  crew_certificates:   'Chứng chỉ TV',
-  certificate:         'Loại chứng chỉ',
-  certificates:        'Loại chứng chỉ',
-  rank:                'Chức danh',
-  ranks:               'Chức danh',
-  rank_certificate:    'CC chức danh',
-  country:             'Quốc gia',
-  countries:           'Quốc gia',
+  crew_member: 'Thuyền viên',
+  crew_members: 'Thuyền viên',
+  crew_certificate: 'Chứng chỉ TV',
+  crew_certificates: 'Chứng chỉ TV',
+  certificate: 'Loại chứng chỉ',
+  certificates: 'Loại chứng chỉ',
+  rank: 'Chức danh',
+  ranks: 'Chức danh',
+  rank_certificate: 'CC chức danh',
+  country: 'Quốc gia',
+  countries: 'Quốc gia',
   country_certificate: 'CC quốc gia',
-  service_record:      'Lý lịch công tác',
-  service_records:     'Lý lịch công tác',
-  travel_document:     'Giấy tờ du lịch',
-  travel_documents:    'Giấy tờ du lịch',
-  seafarer_document:   'Hồ sơ TV',
-  seafarer_documents:  'Hồ sơ TV',
+  service_record: 'Lý lịch công tác',
+  service_records: 'Lý lịch công tác',
+  travel_document: 'Giấy tờ du lịch',
+  travel_documents: 'Giấy tờ du lịch',
+  seafarer_document: 'Hồ sơ TV',
+  seafarer_documents: 'Hồ sơ TV',
   employment_document: 'Hợp đồng LĐ',
-  employment_documents:'Hợp đồng LĐ',
-  health_document:     'Sức khỏe',
-  health_documents:    'Sức khỏe',
-  voyage_record:       'Chuyến đi',
-  noon_report:         'Báo cáo Noon',
-  maritime_report:     'Báo cáo hải hành',
-  maintenance_task:    'Bảo trì thiết bị',
-  ship_data:           'Dữ liệu tàu',
+  employment_documents: 'Hợp đồng LĐ',
+  health_document: 'Sức khỏe',
+  health_documents: 'Sức khỏe',
+  voyage_record: 'Chuyến đi',
+  noon_report: 'Báo cáo Noon',
+  maritime_report: 'Báo cáo hải hành',
+  maintenance_task: 'Bảo trì thiết bị',
+  ship_data: 'Dữ liệu tàu',
+  port: 'Cảng',
+  equipment_asset: 'Thiết bị',
+  equipment_group: 'Nhóm thiết bị',
+  maintenance_schedule: 'Lịch bảo trì',
+  material_item_catalog: 'Danh mục vật tư',
+  material_category: 'Nhóm vật tư',
+  position_data: 'Vị trí tàu',
+  engine_data: 'Dữ liệu máy',
+  engine_event: 'Sự kiện máy',
+  safety_alarm: 'Cảnh báo an toàn',
+  deferral_request: 'Đề nghị hoãn bảo trì',
 };
 
 const getVietLabel = (t: string) => TABLE_TO_LABEL[t] ?? t;
@@ -47,73 +84,97 @@ const getVietLabel = (t: string) => TABLE_TO_LABEL[t] ?? t;
 // SHORE SYNC CONFIRM MODAL
 // ============================================================
 function ShoreConfirmModal({
-  data, syncing, onConfirm, onClose,
+  data,
+  queue,
+  syncing,
+  onConfirm,
+  onClose,
 }: {
-  data: SyncStatusResponse | null
-  syncing: boolean
-  onConfirm: (target: string) => void
-  onClose: () => void
+  data: SyncStatusResponse | null;
+  queue: SyncOutboxPage | null;
+  syncing: boolean;
+  onConfirm: (target: string) => void;
+  onClose: () => void;
 }) {
-  const allNodes    = data?.nodes ?? []
-  const onlineNodes = allNodes.filter(n => n.isOnline)
-  const [selected, setSelected] = useState<string>('ALL')
+  const allNodes = data?.nodes ?? [];
+  const onlineNodes = allNodes.filter((n) => n.isOnline);
+  const [selected, setSelected] = useState<string>('ALL');
 
-  // Build outbox breakdown from recentLogs pending entries
-  const groups = useMemo(() => {
-    const logs = (data?.recentLogs ?? []).filter(
-      l => !['SUCCESS','APPLIED','Success','Applied'].includes(l.status)
-    )
-    const map: Record<string, { label: string; total: number; errors: number }> = {}
-    for (const st of (data?.outboxStats ?? [])) {
-      const label = getVietLabel(st.node)
-      if (!map[label]) map[label] = { label, total: 0, errors: 0 }
-      map[label].total += st.pending
-    }
-    for (const log of logs) {
-      const label = getVietLabel(log.tableName)
-      if (!map[label]) map[label] = { label, total: 0, errors: 0 }
-      if (['FAILED','ERROR','CONFLICT','Failed','Error','Conflict'].includes(log.status))
-        map[label].errors++
-    }
-    return Object.values(map).filter(g => g.total > 0).sort((a, b) => b.total - a.total)
-  }, [data])
-
-  const totalPending = (data?.outboxStats ?? []).reduce((s, o) => s + o.pending, 0)
-  const targetNode   = selected === 'ALL' ? undefined : allNodes.find(n => n.nodeId === selected)
-  const targetOnline = selected === 'ALL' ? onlineNodes.length > 0 : (targetNode?.isOnline ?? false)
-  const groupTotal   = groups.reduce((s, g) => s + g.total, 0)
+  const groups = useMemo(
+    () =>
+      (queue?.groups ?? []).map((g) => ({
+        label: `${getVietLabel(g.tableName)} · ${g.node === '*' ? 'Mọi tàu' : g.node}`,
+        total: g.pending,
+        errors: 0,
+      })),
+    [queue],
+  );
+  const totalPending = queue?.total ?? 0;
+  const targetNode =
+    selected === 'ALL'
+      ? undefined
+      : allNodes.find((n) => n.nodeId === selected);
+  const targetOnline =
+    selected === 'ALL'
+      ? onlineNodes.length > 0
+      : (targetNode?.isOnline ?? false);
+  const groupTotal = groups.reduce((s, g) => s + g.total, 0);
 
   const fmtRelative = (d?: string) => {
-    if (!d) return '—'
-    const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000)
-    if (mins < 1) return 'Vừa xong'
-    if (mins < 60) return `${mins} phút trước`
-    const h = Math.floor(mins / 60)
-    return h < 24 ? `${h} giờ trước` : `${Math.floor(h / 24)} ngày trước`
-  }
+    if (!d) return '—';
+    const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+    if (mins < 1) return 'Vừa xong';
+    if (mins < 60) return `${mins} phút trước`;
+    const h = Math.floor(mins / 60);
+    return h < 24 ? `${h} giờ trước` : `${Math.floor(h / 24)} ngày trước`;
+  };
 
   const confirmLabel = syncing
-    ? 'Đang đồng bộ...'
+    ? 'Đang tạo hàng chờ...'
     : selected === 'ALL'
-      ? `Gửi xuống tất cả (${onlineNodes.length} tàu online)`
-      : `Gửi xuống: ${targetNode?.shipName ?? selected}`
+      ? `Tạo hàng chờ cho ${allNodes.length} tàu`
+      : `Tạo hàng chờ: ${targetNode?.shipName ?? selected}`;
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !syncing) onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [syncing, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!syncing ? onClose : undefined} />
+    <div
+      className="sync-confirm fixed inset-0 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sync-confirm-title"
+    >
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={!syncing ? onClose : undefined}
+      />
 
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden">
-
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#0b2545] to-[#16375f]">
           <div className="flex items-center gap-3 text-white">
             <Send className="w-5 h-5" />
-            <span className="font-semibold text-lg">Xác nhận đồng bộ Shore → Tàu</span>
+            <span id="sync-confirm-title" className="font-semibold text-lg">
+              Tạo hàng chờ đồng bộ Shore → Tàu
+            </span>
             {totalPending > 0 && (
-              <span className="bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">{totalPending} bản ghi</span>
+              <span className="bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">
+                {totalPending} bản ghi
+              </span>
             )}
           </div>
-          <button onClick={!syncing ? onClose : undefined} className="text-white/70 hover:text-white transition-colors">
+          <button
+            onClick={onClose}
+            disabled={syncing}
+            aria-label="Đóng xác nhận"
+            className="sync-confirm-close"
+          >
             <XCircle className="w-5 h-5" />
           </button>
         </div>
@@ -123,14 +184,15 @@ function ShoreConfirmModal({
           <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-6 py-2.5">
             <WifiOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
             <span className="text-amber-700 text-sm">
-              {selected === 'ALL' ? 'Không có tàu nào online. Dữ liệu sẽ đợi trong hàng đợi.' : `Tàu ${targetNode?.shipName ?? selected} hiện offline.`}
+              {selected === 'ALL'
+                ? 'Không có tàu nào online. Dữ liệu sẽ đợi trong hàng đợi.'
+                : `Tàu ${targetNode?.shipName ?? selected} hiện offline.`}
             </span>
           </div>
         )}
 
         {/* Two-panel body */}
         <div className="flex" style={{ minHeight: 320 }}>
-
           {/* LEFT — Shore outbox */}
           <div className="flex-1 px-6 py-5 border-r border-gray-100">
             <div className="flex items-center gap-2 mb-4">
@@ -138,43 +200,63 @@ function ShoreConfirmModal({
                 <Server className="w-4 h-4 text-[#0b2545]" />
               </div>
               <div>
-                <div className="text-xs font-bold text-gray-700 tracking-wide">BỜC (SHORE)</div>
-                <div className="text-xs text-gray-400">Dữ liệu chuẩn bị gửi xuống</div>
+                <div className="text-xs font-bold text-gray-700 tracking-wide">
+                  BỜC (SHORE)
+                </div>
+                <div className="text-xs text-gray-400">
+                  Hàng chờ hiện tại của bờ
+                </div>
               </div>
             </div>
 
             {groups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <CheckCircle2 className="w-10 h-10 text-emerald-400 mb-2" />
-                <p className="text-sm text-gray-500 font-medium">Hàng đợi trống</p>
-                <p className="text-xs text-gray-400">Không có dữ liệu chờ gửi</p>
+                <p className="text-sm text-gray-500 font-medium">
+                  Hàng đợi trống
+                </p>
+                <p className="text-xs text-gray-400">
+                  Không có dữ liệu chờ gửi
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {groups.map(g => (
+                {groups.map((g) => (
                   <div key={g.label}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm text-gray-700">{g.label}</span>
                       <div className="flex items-center gap-2">
                         {g.errors > 0 && (
-                          <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{g.errors} lỗi</span>
+                          <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                            {g.errors} lỗi
+                          </span>
                         )}
-                        <span className="text-xs font-semibold text-gray-600 tabular-nums w-5 text-right">{g.total}</span>
+                        <span className="text-xs font-semibold text-gray-600 tabular-nums w-5 text-right">
+                          {g.total}
+                        </span>
                       </div>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
-                          syncing ? 'bg-[#4c6a8f] animate-pulse' : g.errors > 0 ? 'bg-amber-400' : 'bg-[#1b4c7e]'
+                          syncing
+                            ? 'bg-[#4c6a8f] animate-pulse'
+                            : g.errors > 0
+                              ? 'bg-amber-400'
+                              : 'bg-[#1b4c7e]'
                         }`}
-                        style={{ width: `${Math.max(4, Math.round((g.total / Math.max(1, groupTotal)) * 100))}%` }}
+                        style={{
+                          width: `${Math.max(4, Math.round((g.total / Math.max(1, groupTotal)) * 100))}%`,
+                        }}
                       />
                     </div>
                   </div>
                 ))}
                 <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
                   <span className="text-xs text-gray-400">Tổng cộng</span>
-                  <span className="text-sm font-bold text-[#16375f]">{totalPending} bản ghi</span>
+                  <span className="text-sm font-bold text-[#16375f]">
+                    {totalPending} bản ghi
+                  </span>
                 </div>
               </div>
             )}
@@ -182,18 +264,30 @@ function ShoreConfirmModal({
 
           {/* MIDDLE — arrow */}
           <div className="flex flex-col items-center justify-center px-3 py-5 bg-gray-50/50 gap-2">
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow ${
-              syncing ? 'bg-[#1b4c7e]' : targetOnline ? 'bg-emerald-500' : 'bg-gray-400'
-            }`}>
-              {syncing
-                ? <Loader2 className="w-4 h-4 text-white animate-spin" />
-                : <ArrowDown className="w-4 h-4 text-white" />
-              }
+            <div
+              className={`w-9 h-9 rounded-full flex items-center justify-center shadow ${
+                syncing
+                  ? 'bg-[#1b4c7e]'
+                  : targetOnline
+                    ? 'bg-emerald-500'
+                    : 'bg-gray-400'
+              }`}
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 text-white animate-spin" />
+              ) : (
+                <ArrowDown className="w-4 h-4 text-white" />
+              )}
             </div>
-            {[0,1,2].map(i => (
-              <div key={i}
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
                 className={`w-0.5 h-3 rounded-full ${
-                  syncing ? 'bg-[#a9bdd6] animate-pulse' : targetOnline ? 'bg-emerald-200' : 'bg-gray-200'
+                  syncing
+                    ? 'bg-[#a9bdd6] animate-pulse'
+                    : targetOnline
+                      ? 'bg-emerald-200'
+                      : 'bg-gray-200'
                 }`}
                 style={{ opacity: 1 - i * 0.3 }}
               />
@@ -207,8 +301,12 @@ function ShoreConfirmModal({
                 <Ship className="w-4 h-4 text-[#0b2545]" />
               </div>
               <div>
-                <div className="text-xs font-bold text-gray-700 tracking-wide">CHỌN TÀU NHẬN</div>
-                <div className="text-xs text-gray-400">Click để chọn mục tiêu</div>
+                <div className="text-xs font-bold text-gray-700 tracking-wide">
+                  CHỌN TÀU NHẬN
+                </div>
+                <div className="text-xs text-gray-400">
+                  Click để chọn mục tiêu
+                </div>
               </div>
             </div>
 
@@ -225,502 +323,1035 @@ function ShoreConfirmModal({
                 <span className="text-xs">📡</span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-gray-800">Tất cả tàu</div>
-                <div className="text-xs text-gray-400">{onlineNodes.length} online / {allNodes.length} tổng</div>
+                <div className="text-xs font-semibold text-gray-800">
+                  Tất cả tàu
+                </div>
+                <div className="text-xs text-gray-400">
+                  {onlineNodes.length} online / {allNodes.length} tổng
+                </div>
               </div>
-              {selected === 'ALL' && <CheckCircle2 className="w-4 h-4 text-[#1b4c7e] flex-shrink-0" />}
+              {selected === 'ALL' && (
+                <CheckCircle2 className="w-4 h-4 text-[#1b4c7e] flex-shrink-0" />
+              )}
             </div>
 
             {/* Individual ship cards */}
-            <div className="flex-1 overflow-y-auto space-y-1.5" style={{ maxHeight: 220 }}>
+            <div
+              className="flex-1 overflow-y-auto space-y-1.5"
+              style={{ maxHeight: 220 }}
+            >
               {allNodes.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Chưa có tàu nào kết nối</p>
-              ) : allNodes.map(node => (
-                <div
-                  key={node.nodeId}
-                  onClick={() => !syncing && setSelected(node.nodeId)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
-                    selected === node.nodeId
-                      ? 'border-[#1b4c7e] bg-[#eef2f7] shadow-sm'
-                      : 'border-gray-200 hover:border-[#d6dee8] hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="relative flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Ship className="w-3 h-3 text-gray-500" />
+                <p className="text-xs text-gray-400 text-center py-4">
+                  Chưa có tàu nào kết nối
+                </p>
+              ) : (
+                allNodes.map((node) => (
+                  <div
+                    key={node.nodeId}
+                    onClick={() => !syncing && setSelected(node.nodeId)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
+                      selected === node.nodeId
+                        ? 'border-[#1b4c7e] bg-[#eef2f7] shadow-sm'
+                        : 'border-gray-200 hover:border-[#d6dee8] hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                        <Ship className="w-3 h-3 text-gray-500" />
+                      </div>
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                          node.isOnline ? 'bg-emerald-400' : 'bg-gray-300'
+                        }`}
+                      />
                     </div>
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                      node.isOnline ? 'bg-emerald-400' : 'bg-gray-300'
-                    }`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-gray-800 truncate">{node.shipName ?? node.nodeId}</div>
-                    <div className="text-xs text-gray-400">
-                      {node.isOnline ? `HB: ${fmtRelative(node.lastHeartbeatAt)}` : 'Offline'}
-                      {node.pendingOutboxCount > 0 ? ` • ${node.pendingOutboxCount} chờ` : ''}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-gray-800 truncate">
+                        {node.shipName ?? node.nodeId}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {node.isOnline
+                          ? `HB: ${fmtRelative(node.lastHeartbeatAt)}`
+                          : 'Offline'}
+                        {node.pendingOutboxCount > 0
+                          ? ` • ${node.pendingOutboxCount} chờ`
+                          : ''}
+                      </div>
                     </div>
+                    {selected === node.nodeId && (
+                      <CheckCircle2 className="w-4 h-4 text-[#1b4c7e] flex-shrink-0" />
+                    )}
                   </div>
-                  {selected === node.nodeId && <CheckCircle2 className="w-4 h-4 text-[#1b4c7e] flex-shrink-0" />}
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
 
+        <div className="px-6 py-3 text-xs text-slate-600 bg-blue-50 border-t border-blue-100">
+          Thao tác này tạo lại bản chụp dữ liệu thuyền viên, chứng chỉ và danh
+          mục liên quan cho tàu nhận. Tàu sẽ lấy dữ liệu khi kết nối; hoàn tất
+          chỉ được xác nhận sau khi tàu phản hồi.
+        </div>
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
-          <button onClick={onClose} disabled={syncing}
-            className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
+          <button
+            onClick={onClose}
+            disabled={syncing}
+            className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+          >
             Hủy
           </button>
           <button
             onClick={() => onConfirm(selected)}
             disabled={syncing}
-            className="flex items-center gap-2 px-5 py-2 bg-[#0b2545] text-white rounded-lg text-sm font-medium hover:bg-[#16375f] disabled:bg-[#a9bdd6] disabled:cursor-not-allowed transition-colors shadow-sm"
+            className="primary flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed transition-colors shadow-sm"
           >
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {syncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
             {confirmLabel}
           </button>
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+const formatTime = (value?: string) =>
+  value
+    ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+    : '—';
+const directionLabel = (value: string) =>
+  ['EDGE_TO_SHORE', 'EdgeToShore', 'Incoming'].includes(value)
+    ? 'Tàu → Bờ'
+    : ['SHORE_TO_EDGE', 'ShoreToEdge', 'Outgoing'].includes(value)
+      ? 'Bờ → Tàu'
+      : value;
+const statusClass = (value: string) =>
+  ['SUCCESS', 'APPLIED'].includes(value.toUpperCase())
+    ? 'ok'
+    : ['FAILED', 'ERROR'].includes(value.toUpperCase())
+      ? 'error'
+      : 'warn';
+const statusLabel = (value: string) =>
+  ({
+    SUCCESS: 'Thành công',
+    APPLIED: 'Đã áp dụng',
+    CONFLICT: 'Xung đột',
+    FAILED: 'Thất bại',
+    ERROR: 'Lỗi',
+    QUEUED: 'Chờ xử lý',
+  })[value.toUpperCase()] ?? value;
+
+function Pagination({
+  page,
+  totalPages,
+  total,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  onChange: (page: number) => void;
+}) {
+  return (
+    <div className="sync-pagination">
+      <span>
+        {total.toLocaleString('vi-VN')} bản ghi · Trang {page}/{totalPages}
+      </span>
+      <div>
+        <button
+          aria-label="Trang trước"
+          disabled={page <= 1}
+          onClick={() => onChange(page - 1)}
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          aria-label="Trang sau"
+          disabled={page >= totalPages}
+          onClick={() => onChange(page + 1)}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export const SyncDashboardPage: React.FC = () => {
   const [data, setData] = useState<SyncStatusResponse | null>(null);
+  const [nodes, setNodes] = useState<SyncNodeDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [interval, setIntervalSeconds] = useState(15);
+  const [refresh, setRefresh] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
   const [showSyncModal, setShowSyncModal] = useState(false);
-  const [logPage, setLogPage] = useState(0);
-  const [syncInterval, setSyncInterval] = useState(15);
+  const [tab, setTab] = useState<'logs' | 'queue'>('logs');
+  const [nodeId, setNodeId] = useState('');
+  const [status, setStatus] = useState('');
+  const [direction, setDirection] = useState('');
+  const [tableName, setTableName] = useState('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedTable, setDebouncedTable] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [pageSize, setPageSize] = useState(25);
+  const [logPage, setLogPage] = useState(1);
+  const [queuePage, setQueuePage] = useState(1);
+  const [logs, setLogs] = useState<SyncLogPage | null>(null);
+  const [queue, setQueue] = useState<SyncOutboxPage | null>(null);
+  const [allQueue, setAllQueue] = useState<SyncOutboxPage | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [logsError, setLogsError] = useState('');
+  const [queueError, setQueueError] = useState('');
+  const [detail, setDetail] = useState<SyncLogEntry | null>(null);
+  const [integrity, setIntegrity] = useState<SyncIntegrity | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await syncApi.getStatus();
-      setData(res);
+      const [snapshot, fleet, pending] = await Promise.all([
+        syncApi.getStatus(signal),
+        syncApi.getNodes(signal),
+        syncApi.getOutbox('', 1, 1, signal),
+      ]);
+      if (signal?.aborted) return;
+      setData(snapshot);
+      setNodes(fleet);
+      setAllQueue(pending);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể kết nối đến Shore API');
+      if (!signal?.aborted)
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Không tải được trạng thái đồng bộ',
+        );
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchData(controller.signal);
+    return () => controller.abort();
+  }, [fetchData, refresh]);
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = setInterval(fetchData, syncInterval * 1000);
-    return () => clearInterval(id);
-  }, [autoRefresh, syncInterval, fetchData]);
-
+    const timer = window.setInterval(
+      () => setRefresh((n) => n + 1),
+      interval * 1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, interval]);
   useEffect(() => {
-    return () => setAutoRefresh(false);
-  }, []);
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedTable(tableName);
+      setLogPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search, tableName]);
+  const filters = useMemo(
+    () => ({
+      nodeId,
+      status,
+      direction,
+      tableName: debouncedTable,
+      search: debouncedSearch,
+      from: from ? new Date(from).toISOString() : undefined,
+      to: to ? new Date(to).toISOString() : undefined,
+      page: logPage,
+      pageSize,
+    }),
+    [
+      nodeId,
+      status,
+      direction,
+      debouncedTable,
+      debouncedSearch,
+      from,
+      to,
+      logPage,
+      pageSize,
+    ],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    setLogsLoading(true);
+    setLogsError('');
+    syncApi
+      .getLogs(filters, controller.signal)
+      .then((result) => {
+        setLogs(result);
+        setLogPage(result.page);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted)
+          setLogsError(err.message || 'Không tải được nhật ký');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLogsLoading(false);
+      });
+    return () => controller.abort();
+  }, [filters, refresh]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setQueueLoading(true);
+    setQueueError('');
+    syncApi
+      .getOutbox(nodeId, queuePage, pageSize, controller.signal)
+      .then((result) => {
+        setQueue(result);
+        setQueuePage(result.page);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted)
+          setQueueError(err.message || 'Không tải được hàng chờ');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setQueueLoading(false);
+      });
+    return () => controller.abort();
+  }, [nodeId, queuePage, pageSize, refresh]);
+  useEffect(() => {
+    if (!detail) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDetail(null);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [detail]);
 
+  const selectNode = (id: string) => {
+    setNodeId(id);
+    setLogPage(1);
+    setQueuePage(1);
+  };
+  const selectedNode = nodes.find((n) => n.nodeId === nodeId);
+  const totalStatus = (values: string[]) =>
+    (logs?.summary ?? [])
+      .filter((s) => values.includes(s.status.toUpperCase()))
+      .reduce((sum, s) => sum + s.count, 0);
   const handleForcePush = async (target: string) => {
     setSyncing(true);
     setError(null);
-    setSyncSuccess(null);
+    setNotice('');
     try {
-      let result;
       if (target === 'ALL') {
-        result = await syncApi.forcePushAll();
-        setSyncSuccess(`✅ Đã gửi ${result.totalQueuedItems} bản ghi đến ${result.nodeCount} tàu`);
+        const result = await syncApi.forcePushAll();
+        setNotice(
+          `Đã tạo hàng chờ ${result.totalQueuedItems ?? result.queuedItems ?? 0} bản ghi cho ${result.nodeCount ?? 0} tàu. Chờ tàu nhận và xác nhận.`,
+        );
       } else {
-        result = await syncApi.forcePush(target);
-        setSyncSuccess(`✅ Đã gửi ${result.queuedItems} bản ghi đến tàu ${target}`);
+        const result = await syncApi.forcePush(target);
+        setNotice(
+          `Đã tạo hàng chờ ${result.queuedItems} bản ghi cho ${nodes.find((n) => n.nodeId === target)?.shipName || target}. Chờ tàu nhận và xác nhận.`,
+        );
       }
-      await fetchData();
       setShowSyncModal(false);
+      setRefresh((n) => n + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi khi đồng bộ');
-      setShowSyncModal(false);
+      setError(err instanceof Error ? err.message : 'Không tạo được hàng chờ');
     } finally {
       setSyncing(false);
     }
   };
-
-  const totalPending = useMemo(() =>
-    data?.outboxStats?.reduce((s, o) => s + o.pending, 0) ?? 0,
-    [data]
-  );
-
-  const nodeCount = useMemo(() =>
-    data?.nodes?.filter(n => n.isOnline).length ?? 0,
-    [data]
-  );
-
-  const recentSuccess = useMemo(() =>
-    data?.recentLogs?.filter(l => ['SUCCESS', 'APPLIED', 'Success', 'Applied'].includes(l.status)).length ?? 0,
-    [data]
-  );
-
-  const recentFailed = useMemo(() =>
-    data?.recentLogs?.filter(l => ['FAILED', 'ERROR', 'CONFLICT', 'Failed', 'Error', 'Conflict'].includes(l.status)).length ?? 0,
-    [data]
-  );
-
-  const formatTime = (d?: string) => {
-    if (!d) return '—';
-    const dt = new Date(d);
-    return dt.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const checkIntegrity = async () => {
+    setChecking(true);
+    try {
+      setIntegrity(await syncApi.getIntegrity());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kiểm tra thất bại');
+    } finally {
+      setChecking(false);
+    }
   };
-
-  const formatRelativeTime = (dateStr?: string) => {
-    if (!dateStr) return 'Chưa có';
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Vừa xong';
-    if (mins < 60) return `${mins} phút trước`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} giờ trước`;
-    return `${Math.floor(hours / 24)} ngày trước`;
+  const reconcile = async () => {
+    setReconciling(true);
+    setError(null);
+    try {
+      const result = await syncApi.reconcile();
+      setNotice(
+        `Đã đưa ${result.count} bản ghi thuyền viên/chứng chỉ chưa đồng bộ vào hàng chờ.`,
+      );
+      setIntegrity(null);
+      setRefresh((n) => n + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đối soát thất bại');
+    } finally {
+      setReconciling(false);
+    }
   };
-
-  const getActionIcon = (dir: string) =>
-    dir === 'Incoming' || dir === 'EdgeToShore'
-      ? <ArrowDownLeft size={14} className="text-[#1b4c7e]" />
-      : <ArrowUpRight size={14} className="text-green-500" />;
-
-  const getStatusBadge = (status: string) => {
-    const s = status?.toUpperCase() ?? '';
-    const isSuccess = ['SUCCESS', 'APPLIED'].includes(s);
-    const isError = ['FAILED', 'ERROR'].includes(s);
-    return (
-      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-        isSuccess ? 'bg-green-100 text-green-700' :
-        isError ? 'bg-red-100 text-red-700' :
-        'bg-yellow-100 text-yellow-700'
-      }`}>
-        {status}
-      </span>
+  const exportPage = () => {
+    const rows =
+      tab === 'logs'
+        ? [
+            [
+              'Hướng',
+              'Nguồn',
+              'Bảng',
+              'Thao tác',
+              'ID',
+              'Trạng thái',
+              'Thời gian',
+              'Chi tiết',
+            ],
+            ...(logs?.items ?? []).map((l) => [
+              directionLabel(l.direction),
+              l.originNode,
+              l.tableName,
+              l.actionType,
+              l.recordKey,
+              l.status,
+              formatTime(l.processedAt),
+              l.conflictDetail || '',
+            ]),
+          ]
+        : [
+            ['Đích', 'Bảng', 'Thao tác', 'ID', 'Tạo lúc'],
+            ...(queue?.items ?? []).map((o) => [
+              o.targetNode,
+              o.tableName,
+              o.actionType,
+              o.recordKey,
+              formatTime(o.createdAt),
+            ]),
+          ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((value) => {
+            const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+            return `"${text.replace(/"/g, '""')}"`;
+          })
+          .join(','),
+      )
+      .join('\r\n');
+    const url = URL.createObjectURL(
+      new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }),
     );
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `sync-${tab}-page-${tab === 'logs' ? logPage : queuePage}.csv`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-
-  const LOGS_PER_PAGE = 10;
-  const totalLogPages = useMemo(() =>
-    Math.max(1, Math.ceil((data?.recentLogs?.length ?? 0) / LOGS_PER_PAGE)),
-    [data?.recentLogs]
-  );
-  const pagedLogs = useMemo(() =>
-    (data?.recentLogs ?? []).slice(logPage * LOGS_PER_PAGE, (logPage + 1) * LOGS_PER_PAGE),
-    [data?.recentLogs, logPage]
-  );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 48px)' }}>
-        <Loader2 className="w-6 h-6 animate-spin text-[#1b4c7e]" />
-        <span className="ml-3 text-slate-500">Đang tải...</span>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex flex-col bg-slate-100 overflow-hidden" style={{ height: 'calc(100vh - 48px)' }}>
-
-      {/* ══ TOOLBAR ══ */}
-      <div className="flex-none flex items-center gap-3 px-5 py-2 bg-white border-b border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Database className="w-4 h-4 text-[#0b2545]" />
-          <span className="text-sm font-bold text-slate-800 tracking-tight">Shore Sync</span>
+    <div className="sync-workspace">
+      <header className="sync-toolbar">
+        <div className="sync-heading">
+          <Database size={19} />
+          <div>
+            <h1>Điều hành đồng bộ</h1>
+            <p>Bờ ↔ Đội tàu · Cập nhật: {formatTime(data?.serverTime)}</p>
+          </div>
         </div>
-        <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
-
-        {/* KPI Chips */}
-        <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-medium text-emerald-700">API Online</span>
-          </div>
-          <div className="w-px h-4 bg-slate-200 flex-shrink-0" />
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Ship className="w-3.5 h-3.5 text-[#1b4c7e]" />
-            <span className="text-xs text-slate-500">
-              <span className="font-semibold text-slate-800">{nodeCount}</span> tàu online
-            </span>
-          </div>
-          <div className="w-px h-4 bg-slate-200 flex-shrink-0" />
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Clock className={`w-3.5 h-3.5 ${totalPending > 0 ? 'text-amber-400' : 'text-slate-300'}`} />
-            <span className="text-xs text-slate-500">
-              <span className={`font-semibold ${totalPending > 0 ? 'text-amber-600' : 'text-slate-800'}`}>{totalPending}</span> chờ gửi
-            </span>
-          </div>
-          <div className="w-px h-4 bg-slate-200 flex-shrink-0" />
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Activity className="w-3.5 h-3.5 text-slate-300" />
-            <span className="text-xs">
-              <span className="font-semibold text-emerald-600">{recentSuccess}</span>
-              <span className="text-slate-300 mx-1">/</span>
-              <span className={`font-semibold ${recentFailed > 0 ? 'text-red-500' : 'text-slate-400'}`}>{recentFailed}</span>
-              <span className="text-slate-400 ml-1 hidden lg:inline">log gần đây</span>
-            </span>
-          </div>
-          <div className="w-px h-4 bg-slate-200 flex-shrink-0 hidden lg:block" />
-          <span className="text-xs text-slate-400 truncate hidden lg:block">{formatTime(data?.serverTime)}</span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} className="w-3.5 h-3.5 accent-[#0b2545] rounded" />
-            <span className="text-xs text-slate-500">Auto</span>
+        <div className="sync-actions">
+          <label className="sync-auto">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+            />{' '}
+            Tự làm mới
           </label>
-          <button onClick={fetchData} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Làm mới</span>
+          <select
+            aria-label="Chu kỳ làm mới màn hình"
+            value={interval}
+            onChange={(e) => setIntervalSeconds(Number(e.target.value))}
+            disabled={!autoRefresh}
+          >
+            {[10, 15, 30, 60].map((n) => (
+              <option key={n} value={n}>
+                {n}s
+              </option>
+            ))}
+          </select>
+          <button onClick={() => setRefresh((n) => n + 1)}>
+            <RefreshCw size={14} /> Làm mới
           </button>
-          <button onClick={() => setShowSyncModal(true)} disabled={syncing}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0b2545] text-white rounded-lg text-xs font-semibold hover:bg-[#16375f] disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm">
-            {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            {syncing ? 'Đang gửi...' : 'Đồng bộ ngay'}
+          <button
+            className="primary"
+            disabled={syncing || !data || nodes.length === 0}
+            onClick={() => setShowSyncModal(true)}
+          >
+            <Send size={14} /> Tạo hàng chờ gửi xuống
           </button>
         </div>
-      </div>
-
-      {/* Banners */}
-      {(syncSuccess || error) && (
-        <div className="flex-none px-4 pt-2 space-y-1">
-          {syncSuccess && !syncing && (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-              <span className="text-emerald-700 text-xs flex-1">{syncSuccess}</span>
-              <button onClick={() => setSyncSuccess(null)} className="text-emerald-400 hover:text-emerald-600 ml-2 text-xs leading-none">✕</button>
-            </div>
-          )}
-          {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              <XCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-              <span className="text-red-700 text-xs flex-1">{error}</span>
-              <button onClick={fetchData} className="text-xs text-red-600 underline hover:text-red-800 mr-2">Thử lại</button>
-              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs leading-none">✕</button>
-            </div>
-          )}
+      </header>
+      {error && (
+        <div className="sync-banner error" role="alert">
+          <XCircle size={16} />
+          <span>{error}</span>
+          <button onClick={() => setRefresh((n) => n + 1)}>Thử lại</button>
         </div>
       )}
-
-      {/* ══ MAIN GRID ══ */}
-      <div className="flex-1 min-h-0 grid p-3 gap-3" style={{ gridTemplateColumns: '1fr 360px' }}>
-
-        {/* COL 1 — Nhật ký đồng bộ */}
-        <div className="flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-0">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-purple-500" />
-              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Nhật ký đồng bộ</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-emerald-600 font-medium">{recentSuccess} thành công</span>
-              {recentFailed > 0 && <span className="text-red-500 font-medium">{recentFailed} lỗi</span>}
-              <span className="text-slate-400">{data?.recentLogs?.length ?? 0} bản ghi</span>
-            </div>
-          </div>
-
-          {(!data?.recentLogs || data.recentLogs.length === 0) ? (
-            <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
-              <Activity className="w-10 h-10 mb-2 opacity-20" />
-              <span className="text-sm">Chưa có bản ghi đồng bộ nào</span>
-            </div>
-          ) : (
-            <>
-              <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">Hướng</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">Nguồn</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">Loại DL</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">HĐ</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">ID</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">Trạng thái</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">Thời gian</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {pagedLogs.map((log, i) => (
-                      <tr key={i} className="hover:bg-[#eef2f7]/40 transition-colors">
-                        <td className="px-3 py-1.5">{getActionIcon(log.direction)}</td>
-                        <td className="px-3 py-1.5 text-slate-400 font-mono">{log.originNode || '—'}</td>
-                        <td className="px-3 py-1.5 font-medium text-slate-700 whitespace-nowrap">{getVietLabel(log.tableName)}</td>
-                        <td className="px-3 py-1.5 text-slate-400 uppercase font-medium">{log.actionType}</td>
-                        <td className="px-3 py-1.5 text-slate-400 font-mono">{log.recordKey?.substring(0, 8) || '—'}</td>
-                        <td className="px-3 py-1.5">{getStatusBadge(log.status)}</td>
-                        <td className="px-3 py-1.5 text-slate-400 whitespace-nowrap">{formatTime(log.processedAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-t border-slate-100 bg-slate-50/60">
-                <span className="text-xs text-slate-400">
-                  Trang {logPage + 1}/{totalLogPages} · {data.recentLogs.length} bản ghi
-                </span>
-                <div className="flex items-center gap-0.5">
-                  <button onClick={() => setLogPage(p => Math.max(0, p - 1))} disabled={logPage === 0}
-                    className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-[#0b2545] hover:bg-[#eef2f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  {Array.from({ length: Math.min(totalLogPages, 5) }, (_, i) => {
-                    const offset = Math.max(0, Math.min(logPage - 2, totalLogPages - 5));
-                    const page = offset + i;
-                    return (
-                      <button key={page} onClick={() => setLogPage(page)}
-                        className={`w-6 h-6 flex items-center justify-center rounded text-xs font-medium transition-colors ${
-                          page === logPage ? 'bg-[#0b2545] text-white' : 'text-slate-500 hover:bg-[#eef2f7] hover:text-[#0b2545]'
-                        }`}>
-                        {page + 1}
-                      </button>
-                    );
-                  })}
-                  <button onClick={() => setLogPage(p => Math.min(totalLogPages - 1, p + 1))} disabled={logPage >= totalLogPages - 1}
-                    className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-[#0b2545] hover:bg-[#eef2f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+      {notice && (
+        <div className="sync-banner ok" role="status">
+          <CheckCircle2 size={16} />
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} aria-label="Đóng thông báo">
+            <X size={14} />
+          </button>
         </div>
-
-        {/* COL 2 — 3 stacked cards */}
-        <div className="flex flex-col gap-3 min-h-0">
-
-          {/* CARD: Đội tàu */}
-          <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-0">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Ship className="w-3.5 h-3.5 text-[#1b4c7e]" />
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Đội tàu</span>
-              </div>
-              <span className="text-xs text-slate-400">{data?.nodes?.length ?? 0} tàu</span>
-            </div>
-            {(!data?.nodes || data.nodes.length === 0) ? (
-              <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
-                <Ship className="w-7 h-7 mb-1.5 opacity-30" />
-                <span className="text-xs">Chưa có tàu kết nối</span>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-50 min-h-0">
-                {data.nodes.map(node => (
-                  <div key={node.nodeId} className="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition-colors">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center">
-                        <Ship className="w-3 h-3 text-slate-400" />
-                      </div>
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-white ${node.isOnline ? 'bg-emerald-400' : 'bg-slate-300'}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 truncate">{node.shipName ?? node.nodeId}</div>
-                      <div className="text-xs">
-                        {node.isOnline
-                          ? <span className="text-emerald-600">{formatRelativeTime(node.lastHeartbeatAt)}</span>
-                          : <span className="text-slate-400">Offline</span>
-                        }
-                      </div>
-                    </div>
-                    {node.pendingOutboxCount > 0 && (
-                      <span className="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 leading-none">
-                        {node.pendingOutboxCount}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* CARD: Hàng đợi Shore */}
-          <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-0">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Inbox className="w-3.5 h-3.5 text-[#1b4c7e]" />
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Hàng đợi Shore</span>
-              </div>
-              <span className={`text-xs font-bold ${totalPending > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                {totalPending} chờ
-              </span>
-            </div>
-            {(data?.outboxStats ?? []).filter(s => s.pending > 0).length === 0 ? (
-              <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
-                <CheckCircle2 className="w-7 h-7 mb-1.5 text-emerald-400 opacity-60" />
-                <span className="text-xs">Hàng đợi trống</span>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0">
-                {(data?.outboxStats ?? []).filter(s => s.pending > 0).map(stat => (
-                  <div key={stat.node}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-600 truncate">{getVietLabel(stat.node)}</span>
-                      <span className="text-xs font-bold text-slate-700 tabular-nums ml-1">{stat.pending}</span>
-                    </div>
-                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#1b4c7e] rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(5, Math.round((stat.pending / Math.max(1, totalPending)) * 100))}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* CARD: Cấu hình Sync */}
-          <div className="flex-shrink-0 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center px-4 py-2.5 border-b border-slate-100">
-              <Settings className="w-3.5 h-3.5 text-slate-500 mr-2" />
-              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Cấu hình Sync</span>
-            </div>
-            <div className="p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold text-slate-700">Tự động làm mới</div>
-                  <div className="text-xs text-slate-400">Polling theo interval</div>
-                </div>
-                <button onClick={() => setAutoRefresh(v => !v)}
-                  className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${autoRefresh ? 'bg-[#1b4c7e]' : 'bg-slate-200'}`}>
-                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoRefresh ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-xs font-semibold text-slate-700">Interval</div>
-                  <div className="text-xs text-slate-400">Giây / lần</div>
-                </div>
-                <select value={syncInterval} onChange={e => setSyncInterval(Number(e.target.value))} disabled={!autoRefresh}
-                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-700 bg-white disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-[#a9bdd6] cursor-pointer">
-                  <option value={10}>10s</option>
-                  <option value={15}>15s</option>
-                  <option value={30}>30s</option>
-                  <option value={60}>60s</option>
-                </select>
-              </div>
-              <button className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-700 transition-colors">
-                <Settings className="w-3 h-3" />
-                Cấu hình nâng cao
-              </button>
-            </div>
-          </div>
-
+      )}
+      {loading && (
+        <div className="sync-banner">
+          <Loader2 size={16} className="animate-spin" /> Đang tải trạng thái...
+        </div>
+      )}
+      <div className="sync-metrics">
+        <div>
+          <Ship size={20} />
+          <span>
+            <strong>
+              {nodes.filter((n) => n.isOnline).length}/{nodes.length}
+            </strong>
+            <small>Tàu đang kết nối</small>
+          </span>
+        </div>
+        <div>
+          <Inbox size={20} />
+          <span>
+            <strong>{allQueue?.total ?? '—'}</strong>
+            <small>Bản ghi bờ đang chờ gửi</small>
+          </span>
+        </div>
+        <div>
+          <CheckCircle2 size={20} className="text-emerald-600" />
+          <span>
+            <strong>
+              {logs && !logsError ? totalStatus(['SUCCESS', 'APPLIED']) : '—'}
+            </strong>
+            <small>Thành công theo bộ lọc</small>
+          </span>
+        </div>
+        <div>
+          <AlertTriangle size={20} className="text-amber-600" />
+          <span>
+            <strong>
+              {logs && !logsError ? totalStatus(['CONFLICT']) : '—'} /{' '}
+              {logs && !logsError ? totalStatus(['FAILED', 'ERROR']) : '—'}
+            </strong>
+            <small>Xung đột / Lỗi theo bộ lọc</small>
+          </span>
         </div>
       </div>
-
-      {/* Shore Sync Confirm Modal */}
+      <div className="sync-layout">
+        <main className="sync-panel">
+          <div className="sync-panel-head">
+            <div className="sync-tabs">
+              <button
+                className={tab === 'logs' ? 'active' : ''}
+                onClick={() => setTab('logs')}
+              >
+                <Activity size={15} /> Nhật ký
+              </button>
+              <button
+                className={tab === 'queue' ? 'active' : ''}
+                onClick={() => {
+                  setTab('queue');
+                  if (nodeId === 'SHORE') selectNode('');
+                }}
+              >
+                <Inbox size={15} /> Hàng chờ {queue ? `(${queue.total})` : ''}
+              </button>
+            </div>
+            <button
+              onClick={exportPage}
+              disabled={
+                tab === 'logs'
+                  ? logsLoading || !!logsError || !logs?.items.length
+                  : queueLoading || !!queueError || !queue?.items.length
+              }
+            >
+              <Download size={14} /> CSV trang này
+            </button>
+          </div>
+          <div className="sync-filters">
+            <label>
+              {tab === 'logs' ? 'Tàu / nguồn' : 'Tàu nhận'}
+              <select
+                value={nodeId}
+                onChange={(e) => selectNode(e.target.value)}
+              >
+                <option value="">
+                  {tab === 'logs' ? 'Tất cả nguồn' : 'Tất cả tàu'}
+                </option>
+                {tab === 'logs' && <option value="SHORE">Bờ (SHORE)</option>}
+                {nodes.map((n) => (
+                  <option key={n.nodeId} value={n.nodeId}>
+                    {n.shipName || n.nodeId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {tab === 'logs' && (
+              <>
+                <label>
+                  Trạng thái
+                  <select
+                    value={status}
+                    onChange={(e) => {
+                      setStatus(e.target.value);
+                      setLogPage(1);
+                    }}
+                  >
+                    <option value="">Tất cả</option>
+                    {['SUCCESS', 'APPLIED', 'CONFLICT', 'FAILED', 'ERROR'].map(
+                      (s) => (
+                        <option key={s} value={s}>
+                          {statusLabel(s)}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label>
+                  Hướng
+                  <select
+                    value={direction}
+                    onChange={(e) => {
+                      setDirection(e.target.value);
+                      setLogPage(1);
+                    }}
+                  >
+                    <option value="">Cả hai hướng</option>
+                    <option value="EDGE_TO_SHORE">Tàu → Bờ</option>
+                    <option value="SHORE_TO_EDGE">Bờ → Tàu</option>
+                  </select>
+                </label>
+                <label>
+                  Bảng dữ liệu
+                  <input
+                    placeholder="VD: crew_certificate"
+                    value={tableName}
+                    onChange={(e) => setTableName(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Từ thời điểm
+                  <input
+                    type="datetime-local"
+                    value={from}
+                    onChange={(e) => {
+                      setFrom(e.target.value);
+                      setLogPage(1);
+                    }}
+                  />
+                </label>
+                <label>
+                  Đến thời điểm
+                  <input
+                    type="datetime-local"
+                    value={to}
+                    onChange={(e) => {
+                      setTo(e.target.value);
+                      setLogPage(1);
+                    }}
+                  />
+                </label>
+                <label className="sync-search">
+                  Tìm bản ghi
+                  <div>
+                    <Search size={14} />
+                    <input
+                      placeholder="ID, nguồn, bảng hoặc nội dung lỗi..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                </label>
+                <button
+                  onClick={() => {
+                    selectNode('');
+                    setStatus('');
+                    setDirection('');
+                    setTableName('');
+                    setSearch('');
+                    setFrom('');
+                    setTo('');
+                  }}
+                >
+                  Xóa bộ lọc
+                </button>
+              </>
+            )}
+            <label>
+              Số dòng
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setLogPage(1);
+                  setQueuePage(1);
+                }}
+              >
+                {[25, 50, 100].map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {tab === 'logs' ? (
+            <>
+              <p className="sync-help">
+                Bấm “Chi tiết” để xem đầy đủ ID và nội dung xử lý. Xung đột được
+                thống kê riêng với lỗi. Bộ lọc tàu sử dụng nguồn ghi trong nhật
+                ký.
+              </p>
+              {logsError ? (
+                <div className="sync-empty text-red-600" role="alert">
+                  {logsError}
+                </div>
+              ) : (
+                <div className="sync-table-wrap" aria-busy={logsLoading}>
+                  <table className="sync-table">
+                    <thead>
+                      <tr>
+                        <th>Hướng</th>
+                        <th>Nguồn</th>
+                        <th>Loại dữ liệu</th>
+                        <th>Thao tác</th>
+                        <th>ID bản ghi</th>
+                        <th>Trạng thái</th>
+                        <th>Thời gian</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(logs?.items ?? []).map((l, index) => (
+                        <tr key={l.id ?? index}>
+                          <td>{directionLabel(l.direction)}</td>
+                          <td title={l.originNode}>
+                            {nodes.find((n) => n.nodeId === l.originNode)
+                              ?.shipName || l.originNode}
+                          </td>
+                          <td title={l.tableName}>
+                            {getVietLabel(l.tableName)}
+                          </td>
+                          <td>{l.actionType}</td>
+                          <td className="mono" title={l.recordKey}>
+                            {l.recordKey.length > 16
+                              ? `${l.recordKey.slice(0, 16)}…`
+                              : l.recordKey}
+                          </td>
+                          <td>
+                            <span
+                              className={`sync-badge ${statusClass(l.status)}`}
+                            >
+                              {statusLabel(l.status)}
+                            </span>
+                          </td>
+                          <td>{formatTime(l.processedAt)}</td>
+                          <td>
+                            <button onClick={() => setDetail(l)}>
+                              Chi tiết
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!logs?.items.length && (
+                        <tr>
+                          <td colSpan={8} className="sync-empty">
+                            {logsLoading
+                              ? 'Đang tải nhật ký...'
+                              : 'Không có nhật ký phù hợp với bộ lọc.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {logs && !logsError && (
+                <Pagination
+                  page={logs.page}
+                  totalPages={logs.totalPages}
+                  total={logs.total}
+                  onChange={setLogPage}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <p className="sync-help">
+                Hàng chờ bờ → tàu. Bản ghi phát cho mọi tàu được tính riêng theo
+                xác nhận của từng tàu; danh sách toàn đội chỉ đếm mỗi bản ghi
+                một lần.
+              </p>
+              {queueError ? (
+                <div className="sync-empty text-red-600" role="alert">
+                  {queueError}
+                </div>
+              ) : (
+                <div className="sync-table-wrap" aria-busy={queueLoading}>
+                  <table className="sync-table">
+                    <thead>
+                      <tr>
+                        <th>Đích nhận</th>
+                        <th>Loại dữ liệu</th>
+                        <th>Thao tác</th>
+                        <th>ID đầy đủ</th>
+                        <th>Chờ từ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(queue?.items ?? []).map((o) => (
+                        <tr key={o.id}>
+                          <td>
+                            {o.targetNode === '*'
+                              ? 'Mọi tàu (broadcast)'
+                              : nodes.find((n) => n.nodeId === o.targetNode)
+                                  ?.shipName || o.targetNode}
+                          </td>
+                          <td>{getVietLabel(o.tableName)}</td>
+                          <td>{o.actionType}</td>
+                          <td className="mono">{o.recordKey}</td>
+                          <td>{formatTime(o.createdAt)}</td>
+                        </tr>
+                      ))}
+                      {!queue?.items.length && (
+                        <tr>
+                          <td colSpan={5} className="sync-empty">
+                            {queueLoading
+                              ? 'Đang tải hàng chờ...'
+                              : 'Không có bản ghi đang chờ cho phạm vi này.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {queue && !queueError && (
+                <Pagination
+                  page={queue.page}
+                  totalPages={queue.totalPages}
+                  total={queue.total}
+                  onChange={setQueuePage}
+                />
+              )}
+            </>
+          )}
+        </main>
+        <aside className="sync-sidebar">
+          <section className="sync-panel">
+            <div className="sync-panel-head">
+              <h2>
+                <Ship size={15} /> Đội tàu
+              </h2>
+              <span>{nodes.length} tàu</span>
+            </div>
+            <div className="sync-fleet">
+              {nodes.map((n) => (
+                <button
+                  key={n.nodeId}
+                  className={`sync-vessel ${nodeId === n.nodeId ? 'selected' : ''}`}
+                  onClick={() =>
+                    selectNode(nodeId === n.nodeId ? '' : n.nodeId)
+                  }
+                >
+                  <span className={`sync-dot ${n.isOnline ? 'online' : ''}`} />
+                  <span>
+                    <strong>{n.shipName || n.nodeId}</strong>
+                    <small>
+                      {n.currentNetworkType || 'Chưa báo mạng'} ·{' '}
+                      {n.isOnline ? 'Online' : 'Offline'}
+                    </small>
+                  </span>
+                  <span
+                    className={`sync-badge ${n.health.consecutiveFailures ? 'error' : 'ok'}`}
+                  >
+                    {n.health.consecutiveFailures
+                      ? `${n.health.consecutiveFailures} lỗi`
+                      : 'Ổn định'}
+                  </span>
+                </button>
+              ))}
+              {!nodes.length && (
+                <p className="sync-help">Chưa có tàu kết nối.</p>
+              )}
+            </div>
+            {selectedNode && (
+              <div className="sync-node-detail">
+                <strong>{selectedNode.shipName || selectedNode.nodeId}</strong>
+                <dl>
+                  <dt>Node</dt>
+                  <dd className="mono">{selectedNode.nodeId}</dd>
+                  <dt>Heartbeat</dt>
+                  <dd>{formatTime(selectedNode.health.lastHeartbeat)}</dd>
+                  <dt>Tàu gửi lên</dt>
+                  <dd>{formatTime(selectedNode.push.lastAt)}</dd>
+                  <dt>Tàu lấy xuống</dt>
+                  <dd>{formatTime(selectedNode.pull.lastAt)}</dd>
+                  <dt>Tổng nhận / giao</dt>
+                  <dd>
+                    {selectedNode.push.totalReceived} /{' '}
+                    {selectedNode.pull.totalDelivered}
+                  </dd>
+                  <dt>Chờ gửi xuống</dt>
+                  <dd>{queue?.total ?? '—'}</dd>
+                  <dt>Đăng ký</dt>
+                  <dd>
+                    {selectedNode.security.isRevoked
+                      ? 'Đã thu hồi'
+                      : selectedNode.security.isRegistered
+                        ? 'Đã đăng ký'
+                        : 'Chưa đăng ký'}
+                  </dd>
+                </dl>
+                {selectedNode.health.lastError && (
+                  <p className="sync-node-error">
+                    {selectedNode.health.lastError}
+                    <br />
+                    <small>{formatTime(selectedNode.health.lastErrorAt)}</small>
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+          <section className="sync-panel">
+            <div className="sync-panel-head">
+              <h2>
+                <Inbox size={15} /> Phân bố hàng chờ
+              </h2>
+            </div>
+            <div className="sync-queue-summary">
+              {(queue?.groups ?? []).map((g) => (
+                <div key={`${g.node}:${g.tableName}`}>
+                  <span>
+                    {getVietLabel(g.tableName)}
+                    <small>
+                      {g.node === '*'
+                        ? 'Mọi tàu'
+                        : nodes.find((n) => n.nodeId === g.node)?.shipName ||
+                          g.node}{' '}
+                      · Từ {formatTime(g.oldestAt)}
+                    </small>
+                  </span>
+                  <strong>{g.pending}</strong>
+                </div>
+              ))}
+              {!queue?.groups.length && (
+                <p>
+                  {queueError ||
+                    (queueLoading ? 'Đang tải...' : 'Hàng chờ trống')}
+                </p>
+              )}
+            </div>
+          </section>
+          <section className="sync-panel">
+            <div className="sync-panel-head">
+              <h2>
+                <Settings size={15} /> Kiểm tra dữ liệu
+              </h2>
+            </div>
+            <div className="sync-tools">
+              <button onClick={checkIntegrity} disabled={checking}>
+                <Activity size={14} />{' '}
+                {checking ? 'Đang kiểm tra...' : 'Kiểm tra dữ liệu bờ'}
+              </button>
+              <button onClick={reconcile} disabled={reconciling}>
+                <RefreshCw size={14} />{' '}
+                {reconciling
+                  ? 'Đang đối soát...'
+                  : 'Đưa dữ liệu chưa đồng bộ vào hàng chờ'}
+              </button>
+              <p className="sync-help">
+                Áp dụng cho thuyền viên và chứng chỉ tại bờ. Chu kỳ làm mới chỉ
+                cập nhật màn hình.
+              </p>
+              {integrity && (
+                <div className="sync-integrity">
+                  <strong>
+                    {integrity.healthy ? 'Kiểm tra đạt' : 'Cần kiểm tra thêm'}
+                  </strong>
+                  <small>{formatTime(integrity.timestamp)}</small>
+                  <dl>
+                    <dt>Thuyền viên chưa đồng bộ</dt>
+                    <dd>{integrity.syncGaps.unsyncedCrew}</dd>
+                    <dt>Chứng chỉ chưa đồng bộ</dt>
+                    <dd>{integrity.syncGaps.unsyncedCerts}</dd>
+                    <dt>Chứng chỉ thiếu thuyền viên</dt>
+                    <dd>{integrity.syncGaps.orphanCertificates}</dd>
+                    <dt>Hàng chờ quá 7 ngày</dt>
+                    <dd>{integrity.syncGaps.staleOutboxItems}</dd>
+                  </dl>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
       {showSyncModal && (
         <ShoreConfirmModal
           data={data}
+          queue={allQueue}
           syncing={syncing}
           onConfirm={handleForcePush}
           onClose={() => setShowSyncModal(false)}
         />
       )}
+      {detail && (
+        <div className="sync-dialog-backdrop" onClick={() => setDetail(null)}>
+          <section
+            className="sync-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sync-log-detail"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sync-panel-head">
+              <h2 id="sync-log-detail">Chi tiết đồng bộ</h2>
+              <button
+                autoFocus
+                aria-label="Đóng chi tiết"
+                onClick={() => setDetail(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="sync-dialog-body">
+              <dl>
+                <dt>Hướng</dt>
+                <dd>{directionLabel(detail.direction)}</dd>
+                <dt>Nguồn</dt>
+                <dd>{detail.originNode}</dd>
+                <dt>Bảng</dt>
+                <dd>{detail.tableName}</dd>
+                <dt>ID bản ghi</dt>
+                <dd className="mono">{detail.recordKey}</dd>
+                <dt>Thao tác</dt>
+                <dd>{detail.actionType}</dd>
+                <dt>Trạng thái</dt>
+                <dd>
+                  {statusLabel(detail.status)} ({detail.status})
+                </dd>
+                <dt>Thời gian</dt>
+                <dd>{formatTime(detail.processedAt)}</dd>
+              </dl>
+              <h3>Nội dung xử lý / xung đột</h3>
+              <pre>
+                {detail.conflictDetail ||
+                  'Máy chủ không ghi nội dung chi tiết cho bản ghi này.'}
+              </pre>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };
-

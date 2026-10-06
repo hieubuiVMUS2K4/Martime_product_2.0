@@ -15,7 +15,7 @@ namespace MaritimeEdge.Services.Voyage;
         private readonly ILogger<TelemetrySimulatorService> _logger;
         private readonly IConfiguration _configuration;
         private readonly Random _random = new Random();
-    private string _vesselImo = "UNKNOWN";
+    private string _nodeId = "UNKNOWN";
     
     // Counters for different update intervals
     private int _tickCounter = 0;
@@ -57,13 +57,14 @@ namespace MaritimeEdge.Services.Voyage;
         // Wait 10 seconds before starting simulation
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
-        _vesselImo = await ResolveVesselImoAsync();
-        _logger.LogInformation("Telemetry Simulator using VesselIMO: {VesselImo}", _vesselImo);
+        _nodeId = await ResolveNodeIdAsync();
+        _logger.LogInformation("Telemetry Simulator using NodeId: {NodeId}", _nodeId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                _nodeId = await ResolveNodeIdAsync();
                 _tickCounter++;
                 
                 using var scope = _serviceProvider.CreateScope();
@@ -137,7 +138,7 @@ namespace MaritimeEdge.Services.Voyage;
                 Source = "GPS",
                 IsSynced = false,
                 CreatedAt = DateTime.UtcNow,
-                OriginNode = _vesselImo // Set IMO thực để khớp với Shore filter
+                OriginNode = _nodeId // Set IMO thực để khớp với Shore filter
             };
 
             await dbContext.PositionData.AddAsync(newPosition);
@@ -330,16 +331,16 @@ namespace MaritimeEdge.Services.Voyage;
     /// (BackgroundService is Singleton) — a service restart is needed to pick up a newly activated
     /// Managed profile. Falls back to "UNKNOWN" (does not throw) on Fail-Closed conditions.
     /// </summary>
-    private async Task<string> ResolveVesselImoAsync()
+    private async Task<string> ResolveNodeIdAsync()
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IEdgeRuntimeConfigService>();
             var syncConfig = await runtimeConfigService.GetSyncConfigAsync();
-            return string.IsNullOrWhiteSpace(syncConfig?.VesselImo)
+            return string.IsNullOrWhiteSpace(syncConfig?.NodeId)
                 ? "UNKNOWN"
-                : syncConfig!.VesselImo!;
+                : syncConfig!.NodeId;
         }
         catch (ProvisioningRequiredException ex)
         {

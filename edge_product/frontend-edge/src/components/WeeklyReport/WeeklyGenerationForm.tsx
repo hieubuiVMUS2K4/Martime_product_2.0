@@ -38,13 +38,13 @@ export const WeeklyGenerationForm: React.FC<WeeklyGenerationFormProps> = ({
   weekDateRange,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100 px-4 py-3">
-        <h3 className="text-base font-semibold flex items-center gap-2 text-green-800">
+    <div className="bg-white rounded border border-gray-200">
+      <div className="bg-blue-50 border-b border-gray-200 px-4 py-2.5">
+        <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-700">
           <Calendar className="w-4 h-4" />
           Generate Weekly Performance Report
         </h3>
-        <p className="text-xs text-green-600 mt-0.5">
+        <p className="text-xs text-gray-500 mt-0.5">
           Auto-aggregates 7 daily noon reports • Week {formData.weekNumber} ({weekDateRange.start} - {weekDateRange.end})
         </p>
       </div>
@@ -68,7 +68,7 @@ export const WeeklyGenerationForm: React.FC<WeeklyGenerationFormProps> = ({
                 onChange={(e) => 
                   onFormDataChange({ ...formData, weekNumber: parseInt(e.target.value) || 1 })
                 }
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 required
               />
             </div>
@@ -92,7 +92,7 @@ export const WeeklyGenerationForm: React.FC<WeeklyGenerationFormProps> = ({
               onChange={(e) => 
                 onFormDataChange({ ...formData, year: parseInt(e.target.value) || currentYear })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -115,7 +115,7 @@ export const WeeklyGenerationForm: React.FC<WeeklyGenerationFormProps> = ({
               onChange={(e) => 
                 onFormDataChange({ ...formData, voyageId: e.target.value || undefined })
               }
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               placeholder="Leave empty to aggregate all voyages in this week"
             />
           </div>
@@ -133,7 +133,7 @@ export const WeeklyGenerationForm: React.FC<WeeklyGenerationFormProps> = ({
               onFormDataChange({ ...formData, remarks: e.target.value })
             }
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
             placeholder="Special notes, operational highlights, or issues during this week..."
             maxLength={500}
           />
@@ -181,7 +181,7 @@ export const WeeklyGenerationForm: React.FC<WeeklyGenerationFormProps> = ({
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
         >
           {loading ? (
             <>

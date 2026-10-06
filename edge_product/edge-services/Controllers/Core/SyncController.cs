@@ -1,3 +1,4 @@
+using Maritime.Shared.Models.Sync;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -111,6 +112,10 @@ public class SyncController : ControllerBase
             var status = new
             {
                 pendingRecords = pendingRecords,
+                oldestPendingAt = await _context.SyncQueue.Where(s => s.SyncedAt == null).MinAsync(s => (DateTime?)s.CreatedAt),
+                pendingWithErrors = await _context.SyncQueue.CountAsync(s => s.SyncedAt == null && s.LastError != null),
+                deferredRecords = await _context.SyncQueue.CountAsync(s => s.SyncedAt == null && s.NextRetryAt > DateTime.UtcNow),
+                pendingFiles = await _context.SyncFileTransferRequests.CountAsync(s => s.Status == SyncFileRequestStatus.Pending || s.Status == SyncFileRequestStatus.Deferred),
                 lastSyncAt = lastSync,
                 isOnline = isOnline,
                 lastConnectionError = connectionError,
@@ -145,7 +150,7 @@ public class SyncController : ControllerBase
             // Count items ready to sync right now (not blocked by retry backoff)
             var readyToSync = await _context.SyncQueue
                 .AsNoTracking()
-                .Where(s => s.SyncedAt == null && s.RetryCount < s.MaxRetries)
+                .Where(s => s.SyncedAt == null)
                 .Where(s => s.NextRetryAt == null || s.NextRetryAt <= DateTime.UtcNow)
                 .CountAsync(cts.Token);
 

@@ -174,6 +174,10 @@ public class SyncController : ControllerBase
         if (items.Count > maxBatchSize)
             return BadRequest(new { error = $"Batch size {items.Count} exceeds maximum of {maxBatchSize}" });
 
+        if (items.Any(i => i.SyncVersion <= 0 || string.IsNullOrWhiteSpace(i.TableName) || string.IsNullOrWhiteSpace(i.RecordKey)) ||
+            items.Where(i => i.EventId != Guid.Empty).GroupBy(i => i.EventId).Any(g => g.Count() > 1))
+            return BadRequest(new { error = "Each sync event requires a positive sequence, table, record key and a distinct event ID." });
+
         var originNode = verifiedNodeId ?? items.FirstOrDefault()?.OriginNode ?? "UNKNOWN";
         _logger.LogInformation("Received {Count} sync items from {Node}", items.Count, originNode);
 
@@ -181,6 +185,7 @@ public class SyncController : ControllerBase
         try
         {
             // Use batch processing with idempotency (each item saved individually)
+            await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({originNode}, 0))");
             var batchResult = await _syncInbox.ProcessBatchAsync(items);
 
             await transaction.CommitAsync();
@@ -206,6 +211,8 @@ public class SyncController : ControllerBase
                 failed = batchResult.Failed,
                 total = items.Count,
                 failedItems = batchResult.FailedItems,
+                acknowledgedEventIds = batchResult.AcknowledgedEventIds,
+                sensorDeferralSyncVersion = 1,
                 serverTime = DateTime.UtcNow
             });
         }
@@ -274,7 +281,7 @@ public class SyncController : ControllerBase
 
             // Return pending outbox count so edge knows how much to pull
             var pendingForNode = await _context.SyncOutbox
-                .Where(o => o.DeliveredAt == null)
+                .Where(o => o.TargetNode != heartbeat.NodeId ? !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == heartbeat.NodeId) : o.DeliveredAt == null)
                 .Where(o => o.TargetNode == heartbeat.NodeId || o.TargetNode == "*")
                 .CountAsync();
 
@@ -301,7 +308,9 @@ public class SyncController : ControllerBase
         [FromQuery] string nodeId,
         [FromQuery] DateTime? since = null,
         [FromQuery] string? cursor = null,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50,
+        [FromQuery] NetworkType networkType = NetworkType.Shore_WiFi,
+        [FromQuery] int maxBytes = 262144)
     {
         var verifiedNodeId = HttpContext.Items[VerifiedNodeIdItemKey] as string;
         if (!string.IsNullOrWhiteSpace(verifiedNodeId) &&
@@ -320,7 +329,7 @@ public class SyncController : ControllerBase
             if (string.IsNullOrEmpty(nodeId))
                 return BadRequest(new { error = "nodeId is required" });
 
-            var response = await _syncOutbox.GetPendingItemsAsync(nodeId, since, cursor, pageSize);
+            var response = await _syncOutbox.GetPendingItemsAsync(nodeId, since, cursor, pageSize, networkType, maxBytes);
 
             // Update node tracker (best-effort)
             try

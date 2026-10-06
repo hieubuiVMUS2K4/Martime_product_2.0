@@ -33,6 +33,77 @@ public class SyncDashboardController : ControllerBase
         _logger = logger;
     }
 
+    [HttpGet("logs")]
+    public async Task<IActionResult> GetLogs(
+        [FromQuery] string? nodeId = null, [FromQuery] string? status = null,
+        [FromQuery] string? tableName = null, [FromQuery] string? direction = null,
+        [FromQuery] string? search = null, [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25)
+    {
+        if (page < 1 || pageSize < 1 || pageSize > 200)
+            return BadRequest(new { error = "Invalid pagination (page >= 1, pageSize 1–200)" });
+        if (from.HasValue && to.HasValue && from > to)
+            return BadRequest(new { error = "Start time must precede end time" });
+
+        var query = _context.SyncLogs.AsNoTracking();
+        // Logs have no recipient field: never attribute every SHORE log to a selected vessel.
+        if (!string.IsNullOrWhiteSpace(nodeId)) query = query.Where(l => l.OriginNode == nodeId);
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(l => l.Status.ToUpper() == status.ToUpper());
+        if (!string.IsNullOrWhiteSpace(tableName)) query = query.Where(l => l.TableName == tableName);
+        if (!string.IsNullOrWhiteSpace(direction)) query = query.Where(l => l.Direction == direction);
+        if (from.HasValue) query = query.Where(l => l.ProcessedAt >= from.Value.UtcDateTime);
+        if (to.HasValue) query = query.Where(l => l.ProcessedAt <= to.Value.UtcDateTime);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(l => l.RecordKey.ToLower().Contains(term) || l.TableName.ToLower().Contains(term)
+                || l.OriginNode.ToLower().Contains(term) || (l.ConflictDetail != null && l.ConflictDetail.ToLower().Contains(term)));
+        }
+        var total = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Min(page, totalPages);
+        var summary = await query.GroupBy(l => l.Status).Select(g => new { status = g.Key, count = g.Count() }).ToListAsync();
+        var items = await query.OrderByDescending(l => l.ProcessedAt).ThenByDescending(l => l.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(l => new { l.Id, l.Direction, l.OriginNode, l.TableName, l.RecordKey, l.ActionType, l.Status, l.ConflictDetail, l.ProcessedAt })
+            .ToListAsync();
+        return Ok(new { items, total, page, pageSize, totalPages, summary });
+    }
+
+    private IQueryable<Maritime.Shared.Models.Sync.SyncOutbox> PendingOutbox(string? nodeId = null)
+    {
+        var query = _context.SyncOutbox.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(nodeId))
+            return query.Where(o => (o.TargetNode == nodeId && o.DeliveredAt == null) ||
+                (o.TargetNode == "*" && !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == nodeId)));
+
+        // A broadcast remains available independently for every registered vessel.
+        return query.Where(o => (o.TargetNode != "*" && o.DeliveredAt == null) ||
+            (o.TargetNode == "*" && (!_context.SyncNodeTrackers.Any(n => n.IsRegistered && !n.IsRevoked) ||
+                _context.SyncNodeTrackers.Any(n => n.IsRegistered && !n.IsRevoked &&
+                    !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == n.NodeId)))));
+    }
+
+    [HttpGet("outbox")]
+    public async Task<IActionResult> GetOutbox([FromQuery] string? nodeId = null,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+    {
+        if (page < 1 || pageSize < 1 || pageSize > 200)
+            return BadRequest(new { error = "Invalid pagination" });
+        var query = PendingOutbox(nodeId);
+        var total = await query.CountAsync();
+        var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+        page = Math.Min(page, totalPages);
+        var groups = await query.GroupBy(o => new { o.TargetNode, o.TableName })
+            .Select(g => new { node = g.Key.TargetNode, tableName = g.Key.TableName, pending = g.Count(), oldestAt = g.Min(o => o.CreatedAt) })
+            .OrderBy(g => g.oldestAt).ToListAsync();
+        var rows = await query.OrderBy(o => o.Id).Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(o => new { o.Id, o.TargetNode, o.TableName, o.RecordKey, o.ActionType, o.CreatedAt }).ToListAsync();
+        return Ok(new { total, page, pageSize, totalPages, groups,
+            items = rows.Select(o => new { o.Id, o.TargetNode, o.TableName, o.RecordKey, actionType = o.ActionType.ToString(), o.CreatedAt }) });
+    }
+
     /// <summary>
     /// GET /api/sync/dashboard/overview — Fleet-wide sync overview.
     /// </summary>
@@ -43,9 +114,7 @@ public class SyncDashboardController : ControllerBase
         {
             var nodes = await _context.SyncNodeTrackers.AsNoTracking().ToListAsync();
 
-            var pendingOutbox = await _context.SyncOutbox
-                .Where(o => o.DeliveredAt == null)
-                .CountAsync();
+            var pendingOutbox = await PendingOutbox().CountAsync();
 
             var last24h = DateTime.UtcNow.AddHours(-24);
             var recentSyncLogs = await _context.SyncLogs
@@ -475,8 +544,8 @@ public class SyncDashboardController : ControllerBase
                 .CountAsync();
 
             // Check for stale outbox items (older than 7 days, undelivered)
-            var staleOutbox = await _context.SyncOutbox
-                .Where(o => o.DeliveredAt == null && o.CreatedAt < DateTime.UtcNow.AddDays(-7))
+            var staleOutbox = await PendingOutbox()
+                .Where(o => o.CreatedAt < DateTime.UtcNow.AddDays(-7))
                 .CountAsync();
 
             return Ok(new

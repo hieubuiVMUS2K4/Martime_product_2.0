@@ -283,7 +283,7 @@ public class CrewSyncOrchestrator : ICrewSyncOrchestrator
 
         // Update pending outbox count
         node.PendingOutboxCount = await _context.SyncOutbox
-            .Where(o => o.DeliveredAt == null)
+            .Where(o => o.TargetNode != nodeId ? !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == nodeId) : o.DeliveredAt == null)
             .Where(o => o.TargetNode == nodeId || o.TargetNode == "*")
             .CountAsync();
 

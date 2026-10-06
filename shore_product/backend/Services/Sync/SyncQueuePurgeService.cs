@@ -51,9 +51,8 @@ namespace ProductApi.Services.Sync
             // Note: Using ExecuteSqlInterpolatedAsync so CancellationToken is not treated as a SQL parameter.
             // SyncIdempotencyRecord has ProcessedAt (not CreatedAt), and SyncLog has ProcessedAt (not Timestamp).
             // Table names use snake_case convention configured in AppDbContext.
-            var deletedIdempotency = await dbContext.Database.ExecuteSqlInterpolatedAsync(
-                $@"DELETE FROM sync_idempotency_records WHERE ""ProcessedAt"" < {cutoffDate}",
-                cancellationToken);
+            // Idempotency receipts are safety state, not disposable diagnostic logs.
+            var deletedIdempotency = 0;
 
             var deletedLogs = await dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $@"DELETE FROM sync_logs WHERE ""ProcessedAt"" < {cutoffDate}",

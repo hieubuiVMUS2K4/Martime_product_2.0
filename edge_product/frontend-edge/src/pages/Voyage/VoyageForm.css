@@ -1,0 +1,218 @@
+.voyage-list-table th {
+  padding: 10px 12px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  background: #eff6ff;
+  color: #4b5563;
+  text-align: left;
+  font-weight: 600;
+}
+.voyage-list-table th:first-child {
+  text-align: center;
+}
+.voyage-list-table th:last-child,
+.voyage-list-table td:last-child {
+  border-right: 0;
+}
+.voyage-list-row td {
+  padding: 10px 12px;
+  border-right: 1px solid #f3f4f6;
+  border-bottom: 1px solid #f3f4f6;
+}
+.voyage-list-row:nth-child(even) {
+  background: #f8fafc;
+}
+.voyage-list-row:hover {
+  background: #eff6ff;
+}
+/* Match the small panels and flat surfaces used by PMS. */
+.voyage-page .rounded-xl {
+  border-radius: 6px;
+}
+.voyage-page .shadow-sm {
+  box-shadow: none;
+}
+.dark .voyage-list-table th {
+  background: #1e3a5f;
+  color: #d1d5db;
+  border-color: #374151;
+}
+.dark .voyage-list-row td {
+  border-color: #374151;
+}
+.dark .voyage-list-row:nth-child(even) {
+  background: #111827;
+}
+.dark .voyage-list-row:hover {
+  background: #1e3a5f;
+}
+
+.voyage-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+.voyage-form-modal {
+  width: 100%;
+  max-width: 1024px;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f9fafb;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+  color: #0f172a;
+}
+.voyage-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 14px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+.voyage-form-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.voyage-form-icon {
+  display: flex;
+  padding: 8px;
+  border-radius: 6px;
+  color: #2563eb;
+  background: #eff6ff;
+}
+.voyage-form-close {
+  padding: 6px;
+  border-radius: 6px;
+  color: #64748b;
+}
+.voyage-form-close:hover {
+  background: #f1f5f9;
+}
+.voyage-form-body {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 20px;
+}
+.voyage-form-lifecycle {
+  padding: 14px 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+}
+.voyage-form-section {
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+.voyage-form-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+.voyage-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+.voyage-form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+}
+.voyage-form-input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 13px;
+}
+.voyage-form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+.voyage-form-footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+.voyage-form-cancel,
+.voyage-form-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.voyage-form-cancel {
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+.voyage-form-save {
+  background: #2563eb;
+  color: #fff;
+}
+.voyage-form-save:hover {
+  background: #1d4ed8;
+}
+.voyage-form-footer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 640px) {
+  .voyage-form-overlay {
+    padding: 12px;
+  }
+  .voyage-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .voyage-form-body {
+    padding: 16px;
+  }
+  .voyage-form-section {
+    padding: 16px;
+  }
+}
+.dark .voyage-form-modal,
+.dark .voyage-form-body {
+  background: #111827;
+  color: #e2e8f0;
+}
+.dark .voyage-form-header,
+.dark .voyage-form-footer,
+.dark .voyage-form-section,
+.dark .voyage-form-input {
+  background: #1f2937;
+  color: #e2e8f0;
+  border-color: #374151;
+}
+.dark .voyage-form-label,
+.dark .voyage-form-section-title {
+  color: #e2e8f0;
+}
+.dark .voyage-form-lifecycle {
+  background: #172554;
+  border-color: #1e40af;
+}

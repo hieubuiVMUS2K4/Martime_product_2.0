@@ -1,0 +1,12 @@
+# Optional: a modem/router adapter updates active-link.txt atomically on the host.
+# Use together with docker-compose.yml; the normal compose file needs no host bind.
+services:
+  backend:
+    environment:
+      Sync__ActiveLinkFile: /app/link/active-link.txt
+      Sync__ActiveLinkMaxAgeSeconds: ${EDGE_LINK_MAX_AGE_SECONDS:-120}
+    volumes:
+      - type: bind
+        source: ${EDGE_LINK_STATUS_DIRECTORY:?EDGE_LINK_STATUS_DIRECTORY must be set}
+        target: /app/link
+        read_only: true

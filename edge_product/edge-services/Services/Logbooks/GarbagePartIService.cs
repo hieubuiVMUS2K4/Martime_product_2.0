@@ -21,9 +21,12 @@ namespace MaritimeEdge.Services.Logbooks
         private static readonly HashSet<string> ProhibitedSeaDischargeCategories = new()
         {
             "A", // Plastics - ALWAYS PROHIBITED
+            "C", // Domestic wastes - prohibited
             "D", // Cooking oil - prohibited
+            "E", // Incinerator ashes - prohibited
             "F", // Operational wastes - prohibited
-            "H"  // Cargo residues HME (cleaned) - prohibited
+            "H", // Fishing gear - prohibited (except accidental loss under regulation 7)
+            "I"  // E-waste - prohibited
         };
 
         public GarbagePartIService(EdgeDbContext context, ILogger<GarbagePartIService> logger, IVoyageContextService voyageContext)

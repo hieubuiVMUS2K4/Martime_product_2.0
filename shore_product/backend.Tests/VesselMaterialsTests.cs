@@ -273,7 +273,7 @@ public class VesselMaterialsTests
         context.ChangeTracker.Clear();
         Assert.NotNull((await context.SyncOutbox.SingleAsync(o => o.Id == pending.Id)).DeliveredAt);
         var newKey = Guid.NewGuid().ToString();
-        await outbox.EnqueueAsync(vessel.IMO, "crew_member", newKey, Maritime.Shared.Models.Sync.SyncActionType.UPDATE, new { id = newKey });
+        await outbox.EnqueueAsync(vessel.IMO, "crew_member", newKey, Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, new { id = newKey });
         Assert.Equal(nodeId, (await context.SyncOutbox.SingleAsync(o => o.RecordKey == newKey)).TargetNode);
     }
 

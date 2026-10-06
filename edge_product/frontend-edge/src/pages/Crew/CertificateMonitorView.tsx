@@ -1561,6 +1561,9 @@ export function CrewCertificatePage() {
         {/* ============ TAB: RANK CERTIFICATES ============ */}
         {activeTab === 'ranks' && (
           <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-shrink-0 px-4 py-2 text-xs text-blue-800 bg-blue-50 border-b border-blue-100">
+              {t('crew.monitor.rankRequirementsManagedOnShore')}
+            </div>
             <div className="flex-1 overflow-auto">
               <table className="min-w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">

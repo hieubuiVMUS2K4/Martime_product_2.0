@@ -16,7 +16,7 @@ namespace MaritimeEdge.Services.Sync;
 /// 1. Get unsynced records in batches
 /// 2. Serialize to JSON payload
 /// 3. Create SyncQueue items
-/// 4. Mark entities as synced
+/// 4. Keep entities pending until Shore confirms receipt
 /// 5. Save changes
 /// </summary>
 public abstract class BaseSyncEnqueuerService<TEntity> : BackgroundService 
@@ -96,6 +96,7 @@ public abstract class BaseSyncEnqueuerService<TEntity> : BackgroundService
         using var scope = ServiceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
 
+        dbContext.SuppressSyncQueue = true;
         var unsynced = await GetUnsyncedRecordsAsync(dbContext, ct);
         if (unsynced.Count == 0) return;
 
@@ -126,9 +127,7 @@ public abstract class BaseSyncEnqueuerService<TEntity> : BackgroundService
                 NextRetryAt = now
             });
 
-            entity.IsSynced = true;
             entity.OriginNode = nodeId;
-            entity.UpdatedAt = now;
         }
 
         await dbContext.SyncQueue.AddRangeAsync(syncQueueItems, ct);
@@ -175,7 +174,7 @@ public abstract class BaseSyncEnqueuerService<TEntity> : BackgroundService
         var set = dbContext.Set<TEntity>();
         
         return await set
-            .Where(e => !e.IsSynced)
+            .Where(e => !e.IsSynced && !dbContext.SyncQueue.Any(q => q.TableName == EntityTableName && q.RecordKey == EF.Property<object>(e, "Id").ToString() && q.SyncedAt == null))
             .OrderBy(e => e.CreatedAt)
             .Take(BatchSize)
             .ToListAsync(ct);
