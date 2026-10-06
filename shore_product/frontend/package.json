@@ -26,6 +26,7 @@
     "axios": "^1.13.6",
     "date-fns": "^4.1.0",
     "dexie": "^4.4.2",
+    "exceljs": "^4.4.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.545.0",
     "react": "^19.1.1",

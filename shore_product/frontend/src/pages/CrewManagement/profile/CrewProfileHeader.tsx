@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowLeft, Camera, Pencil, Ship, CalendarClock, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Camera, Pencil, Ship, CalendarClock, Loader2, Download, ChevronDown, FileText, FileSpreadsheet } from 'lucide-react';
 import ProtectedImage from '../../../components/common/ProtectedImage';
 import { Button } from '../../../components/common';
 import type { CrewMember } from '../../../types/crew.types';
@@ -37,11 +37,49 @@ interface Props {
   onAvatarChoose: () => void;
   onAvatarSave: () => void;
   onAvatarCancel: () => void;
+  onExport: (format: 'pdf' | 'excel') => void;
+  exporting: boolean;
 }
+
+/** Nút "Xuất hồ sơ" kèm menu chọn PDF / Excel. */
+const ExportButton: React.FC<{ onExport: (format: 'pdf' | 'excel') => void; exporting: boolean }> = ({ onExport, exporting }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const item = 'flex w-full items-start gap-2.5 rounded px-3 py-2 text-left hover:bg-primary-soft';
+  return (
+    <div ref={ref} className="relative">
+      <Button loading={exporting} icon={<Download className="h-4 w-4" />} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}>
+        {exporting ? 'Đang chuẩn bị...' : 'Xuất hồ sơ'} {!exporting && <ChevronDown className="h-3.5 w-3.5" />}
+      </Button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-dropdown mt-1 w-64 rounded-md border border-line bg-surface p-1 shadow-lg">
+          <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onExport('pdf'); }}>
+            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+            <span><span className="block text-sm font-medium text-ink">PDF (in / lưu PDF)</span>
+              <span className="block text-xs text-ink-muted">Mở hộp thoại in, chọn "Lưu thành PDF"</span></span>
+          </button>
+          <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onExport('excel'); }}>
+            <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+            <span><span className="block text-sm font-medium text-ink">Excel (.xlsx)</span>
+              <span className="block text-xs text-ink-muted">Tải file Excel để sửa hoặc gửi đi</span></span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CrewProfileHeader: React.FC<Props> = ({
   crew, rankName, vesselName, onBack, editing, onEdit,
-  avatarPreview, avatarPending, avatarUploading, onAvatarChoose, onAvatarSave, onAvatarCancel,
+  avatarPreview, avatarPending, avatarUploading, onAvatarChoose, onAvatarSave, onAvatarCancel, onExport, exporting,
 }) => {
   const rank = crew.rankName || rankName;
   const vessel = crew.vesselName || vesselName;
@@ -133,9 +171,12 @@ export const CrewProfileHeader: React.FC<Props> = ({
         </div>
 
         {/* Nút chính */}
-        {!editing && (
-          <Button variant="primary" icon={<Pencil className="h-4 w-4" />} onClick={onEdit}>Sửa hồ sơ</Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportButton onExport={onExport} exporting={exporting} />
+          {!editing && (
+            <Button variant="primary" icon={<Pencil className="h-4 w-4" />} onClick={onEdit}>Sửa hồ sơ</Button>
+          )}
+        </div>
       </div>
       </div>
     </div>

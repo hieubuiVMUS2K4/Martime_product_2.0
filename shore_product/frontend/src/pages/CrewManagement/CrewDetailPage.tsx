@@ -21,6 +21,8 @@ import { CrewLogbookSection } from './CrewLogbookSection';
 import { CrewProfileHeader } from './profile/CrewProfileHeader';
 import { CrewBasicInfo } from './profile/CrewBasicInfo';
 import { ALL_FIELD_KEYS } from './profile/crewProfileFields';
+import { buildBioData } from './bio-data/bioData';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/common';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/common/ConfirmDialog';
@@ -55,6 +57,8 @@ export const CrewDetailPage: React.FC = () => {
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const { vessels } = useVessels();
+  const { user } = useAuth();
+  const [exporting, setExporting] = useState(false);
 
   // Edge changes tracking
   const edgeChanges: { field: string; oldValue: string; newValue: string; changedAt: string }[] = React.useMemo(() => {
@@ -204,6 +208,33 @@ export const CrewDetailPage: React.FC = () => {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [isDirty]);
+
+  /** Xuất "Hồ sơ thuyền viên" ra PDF (qua trang in) hoặc Excel. Thư viện xuất chỉ tải khi bấm. */
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    if (!crew) return;
+    setExporting(true);
+    try {
+      const data = await buildBioData({
+        crew,
+        rankName: ranks.find(r => r.id === crew.rankId)?.rankName,
+        vesselName: vessels.find(v => v.id === crew.vesselId)?.name,
+        certificates,
+        preparedBy: user?.username ?? '',
+      });
+      if (format === 'pdf') {
+        const { printBioData } = await import('./bio-data/bioDataPdf');
+        await printBioData(data);
+      } else {
+        const { exportBioDataExcel } = await import('./bio-data/bioDataExcel');
+        await exportBioDataExcel(data);
+        toast.success('Đã xuất hồ sơ ra Excel', `${data.fileName}.xlsx`);
+      }
+    } catch (e) {
+      toast.error('Không xuất được hồ sơ', e instanceof Error ? e.message : undefined);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const startEdit = () => { setActiveTab('basic-data'); setEditing(true); };
 
@@ -516,6 +547,8 @@ export const CrewDetailPage: React.FC = () => {
         onAvatarChoose={handleAvatarChoose}
         onAvatarSave={handleAvatarSave}
         onAvatarCancel={handleAvatarCancel}
+        onExport={handleExport}
+        exporting={exporting}
       />
       {/* Hold Notification Banner */}
       {crew.onboardStatus === 'OnHold' && (
