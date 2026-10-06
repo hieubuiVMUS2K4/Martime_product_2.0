@@ -12,58 +12,8 @@ import { MARITAL_OPTIONS, RELATION_OPTIONS, departmentLabel, optionLabel, calcAg
   cho chủ tàu, người thuê tàu nước ngoài.
 */
 
-export type DocStatus = 'valid' | 'expiring' | 'expired' | 'none';
-
-export interface BioField { vi: string; en: string; value: string }
-
-export interface BioDocRow {
-  name: string;
-  number: string;
-  issuedBy: string;
-  issueDate: string;
-  expiryDate: string;
-  status: DocStatus;
-  remark: string;
-}
-
-export interface BioServiceRow {
-  vessel: string;
-  imo: string;
-  flagType: string;
-  rank: string;
-  signOn: string;
-  signOff: string;
-  duration: string;
-  remark: string;
-}
-
-export interface BioData {
-  fileName: string;
-  preparedBy: string;
-  preparedAt: string;
-  crewCode: string;
-  fullName: string;
-  rank: string;
-  vessel: string;
-  photoDataUrl: string | null;
-  personal: BioField[];
-  employment: BioField[];
-  physical: BioField[];
-  kin: BioField[];
-  education: BioField[];
-  identityDocs: BioDocRow[];
-  certificates: BioDocRow[];
-  healthDocs: BioDocRow[];
-  seaService: BioServiceRow[];
-  notes: string;
-}
-
-export const STATUS_LABEL: Record<DocStatus, { vi: string; en: string }> = {
-  valid: { vi: 'Còn hạn', en: 'Valid' },
-  expiring: { vi: 'Sắp hết hạn', en: 'Expiring' },
-  expired: { vi: 'Hết hạn', en: 'Expired' },
-  none: { vi: 'Không thời hạn', en: 'No expiry' },
-};
+export * from './bioDataTypes';
+import type { BioData, BioDocRow, BioField, BioServiceRow, DocStatus } from './bioDataTypes';
 
 /** Còn ≤ 90 ngày coi là sắp hết hạn — cùng mốc với màn theo dõi chứng chỉ. */
 const statusOf = (expiry?: string | null): DocStatus => {

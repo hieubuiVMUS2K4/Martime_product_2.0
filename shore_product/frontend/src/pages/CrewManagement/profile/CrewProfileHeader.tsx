@@ -63,8 +63,8 @@ const ExportButton: React.FC<{ onExport: (format: 'pdf' | 'excel') => void; expo
         <div role="menu" className="absolute right-0 top-full z-dropdown mt-1 w-64 rounded-md border border-line bg-surface p-1 shadow-lg">
           <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onExport('pdf'); }}>
             <FileText className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-            <span><span className="block text-sm font-medium text-ink">PDF (in / lưu PDF)</span>
-              <span className="block text-xs text-ink-muted">Mở hộp thoại in, chọn "Lưu thành PDF"</span></span>
+            <span><span className="block text-sm font-medium text-ink">PDF (.pdf)</span>
+              <span className="block text-xs text-ink-muted">Tải file PDF để gửi hoặc lưu hồ sơ</span></span>
           </button>
           <button type="button" role="menuitem" className={item} onClick={() => { setOpen(false); onExport('excel'); }}>
             <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />

@@ -75,7 +75,11 @@ export const CrewBasicInfo: React.FC<Props> = ({
       case 'date':
         return <DateInput id={id} value={(v as string) ?? ''} disabled={locked} onChange={iso => set(f.key, iso)} />;
       case 'select': {
-        const opts = optionsFor(f) ?? [];
+        const base = optionsFor(f) ?? [];
+        const raw = v === undefined || v === null ? '' : String(v);
+        // Giá trị đang lưu không khớp đúng chữ hoa/thường (vd. "MARRIED") thì giữ nguyên nó làm một
+        // lựa chọn, để mở form rồi lưu không tự đổi dữ liệu.
+        const opts = raw && !base.some(o => o.value === raw) ? [{ value: raw, label: optionLabel(base, raw) }, ...base] : base;
         return (
           <select id={id} className={cls} value={v === undefined || v === null ? '' : String(v)}
             onChange={e => {

@@ -209,7 +209,7 @@ export const CrewDetailPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', warn);
   }, [isDirty]);
 
-  /** Xuất "Hồ sơ thuyền viên" ra PDF (qua trang in) hoặc Excel. Thư viện xuất chỉ tải khi bấm. */
+  /** Xuất "Hồ sơ thuyền viên" ra file PDF hoặc Excel (tải thẳng về). Thư viện xuất chỉ tải khi bấm. */
   const handleExport = async (format: 'pdf' | 'excel') => {
     if (!crew) return;
     setExporting(true);
@@ -222,8 +222,9 @@ export const CrewDetailPage: React.FC = () => {
         preparedBy: user?.username ?? '',
       });
       if (format === 'pdf') {
-        const { printBioData } = await import('./bio-data/bioDataPdf');
-        await printBioData(data);
+        const { downloadBioDataPdf } = await import('./bio-data/bioDataPdf');
+        await downloadBioDataPdf(data);
+        toast.success('Đã xuất hồ sơ ra PDF', `${data.fileName}.pdf`);
       } else {
         const { exportBioDataExcel } = await import('./bio-data/bioDataExcel');
         await exportBioDataExcel(data);

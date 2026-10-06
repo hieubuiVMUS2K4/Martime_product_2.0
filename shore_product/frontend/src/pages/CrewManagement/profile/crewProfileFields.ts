@@ -77,8 +77,11 @@ export const departmentOptions = (current?: string | null): Option[] => {
   return [{ value: current, label: departmentLabel(current) }, ...DEPARTMENT_OPTIONS.filter(o => o.value !== current.toUpperCase())];
 };
 
-export const optionLabel = (options: Option[] | undefined, value: unknown) =>
-  options?.find(o => o.value === String(value ?? ''))?.label ?? (value == null ? '' : String(value));
+/** Nhãn của một lựa chọn. So không phân biệt hoa thường: dữ liệu cũ/đồng bộ từ tàu có cả "MARRIED" lẫn "Married". */
+export const optionLabel = (options: Option[] | undefined, value: unknown) => {
+  const v = String(value ?? '');
+  return options?.find(o => o.value === v || o.value.toUpperCase() === v.toUpperCase())?.label ?? v;
+};
 
 export const calcAge = (dob?: string | null) => {
   if (!dob) return null;
