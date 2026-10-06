@@ -138,7 +138,11 @@ export async function buildBioDataWorkbook(d: BioData): Promise<Workbook> {
     // Ảnh 3×4 khoảng 105×140 px, canh giữa khối A:B (≈ 35 ký tự ≈ 250 px), cao vừa 6 hàng (≈ 105 pt).
     ws.addImage(id, { tl: { col: 0.62, row: top - 1 + 0.08 }, ext: { width: 105, height: 136 } });
   } else {
-    s.put(top, 1, 2, 'Ảnh 3×4', { font: { color: { argb: FAINT } }, align: 'center' });
+    // Khung ảnh A:B đã gộp ở trên — ghi thẳng vào ô gộp, không gộp lại (exceljs báo lỗi gộp trùng).
+    const ph = s.cell(top, 1);
+    ph.value = 'Ảnh 3×4';
+    ph.font = font({ color: { argb: FAINT } });
+    ph.alignment = { vertical: 'middle', horizontal: 'center' };
   }
   s.put(top, 3, 8, d.fullName, { font: { size: 16, bold: true } });
   s.put(top + 1, 3, 8, d.rank || '—', { font: { size: 12, bold: true, color: { argb: ACCENT } } });
