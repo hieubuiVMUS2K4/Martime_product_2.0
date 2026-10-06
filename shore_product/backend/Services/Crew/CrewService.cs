@@ -1284,6 +1284,9 @@ public class CrewService : ICrewService
             Id = baseDto.Id, CrewId = baseDto.CrewId, FirstName = baseDto.FirstName,
             LastName = baseDto.LastName, FullName = baseDto.FullName, Rank = baseDto.Rank,
             RankId = baseDto.RankId, IsOnboard = baseDto.IsOnboard, Department = baseDto.Department,
+            // Chép đủ tên chức danh và tàu như MapToDto; thiếu thì trang hồ sơ thấy "đang trên tàu" mà không biết tàu nào.
+            RankName = baseDto.RankName, RankCode = baseDto.RankCode, RankGroup = baseDto.RankGroup,
+            VesselId = baseDto.VesselId, VesselName = baseDto.VesselName,
             CountryId = baseDto.CountryId, CountryName = baseDto.CountryName, EmailAddress = baseDto.EmailAddress, PhoneNumber = baseDto.PhoneNumber,
             EmbarkDate = baseDto.EmbarkDate, DisembarkDate = baseDto.DisembarkDate,
             ContractEnd = baseDto.ContractEnd, JoinDate = baseDto.JoinDate,

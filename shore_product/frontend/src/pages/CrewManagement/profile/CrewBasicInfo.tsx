@@ -15,7 +15,8 @@ import {
   - Chế độ sửa: cùng bố cục, giá trị thành ô nhập.
   - Một lưới 4 cột chung cho mọi nhóm; ô rộng theo nội dung (`span`).
   - Trường tàu đã sửa (edgeChanges) được tô đỏ và ghi "Tàu đã sửa: cũ → mới" ở cả hai chế độ.
-  - Ngày lên/xuống tàu và trạng thái trên tàu do quy trình quản lý: chỉ sửa khi bật "Sửa thủ công".
+  - Ngày lên/xuống tàu do quy trình quản lý: chỉ sửa khi bật "Sửa thủ công". Trạng thái trên tàu
+    thì máy chủ không cho sửa qua form này (chỉ qua lên/xuống tàu), nên không có ô sửa.
 */
 
 interface Props {
@@ -142,13 +143,6 @@ export const CrewBasicInfo: React.FC<Props> = ({
               <h2 className="text-base font-semibold text-primary">{section.title}</h2>
               {section.id === 'employment' && editing && (
                 <div className="flex items-center gap-3">
-                {manualOverride && (
-                  <label className="flex items-center gap-2 text-[13px] font-medium text-amber-800">
-                    <input type="checkbox" className="h-4 w-4 accent-primary" checked={!!edited.isOnboard}
-                      onChange={e => set('isOnboard', e.target.checked)} />
-                    Đang ở trên tàu
-                  </label>
-                )}
                 <button type="button" onClick={() => onManualOverrideChange(!manualOverride)}
                   className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[13px] font-medium ${
                     manualOverride ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-line bg-surface text-ink-muted hover:text-primary'
@@ -164,8 +158,9 @@ export const CrewBasicInfo: React.FC<Props> = ({
               <div className="flex items-start gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
-                  Ngày lên/xuống tàu và trạng thái trên tàu bình thường được cập nhật qua quy trình gán lên tàu / duyệt xuống tàu
-                  và sổ thuyền viên. Chỉ sửa tay khi cần chỉnh lại dữ liệu nhập sai.
+                  Ngày lên/xuống tàu bình thường được cập nhật qua quy trình gán lên tàu / duyệt xuống tàu và sổ thuyền viên.
+                  Chỉ sửa tay khi cần chỉnh lại ngày nhập sai. Trạng thái trên tàu không sửa ở đây được — dùng
+                  "Gán lên tàu" / "Cho xuống tàu" ở Chi tiết tàu.
                 </span>
               </div>
             )}

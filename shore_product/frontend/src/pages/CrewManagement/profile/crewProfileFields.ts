@@ -160,4 +160,4 @@ export const SECTIONS: SectionDef[] = [
 ];
 
 /** Mọi trường mà hồ sơ có thể sửa — dùng để so "có thay đổi chưa lưu". */
-export const ALL_FIELD_KEYS: FieldKey[] = [...SECTIONS.flatMap(s => s.fields.map(f => f.key)), 'isOnboard'];
+export const ALL_FIELD_KEYS: FieldKey[] = SECTIONS.flatMap(s => s.fields.map(f => f.key));
