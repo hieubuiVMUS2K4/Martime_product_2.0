@@ -15,6 +15,8 @@ import { exportToCsv, exportToExcel, type ExportColumn } from './exportTable';
   - Chữ căn trái, số căn phải, nút căn giữa. Tiêu đề cột căn giữa.
   - Nét kẻ cột đậm (token --rgb-grid), dưới tiêu đề đậm hơn.
   - Phân trang 20 dòng, tự lùi trang khi lọc làm số trang giảm.
+  - Độ rộng cột CỐ ĐỊNH theo % (table-layout: fixed): chuyển tab, sắp xếp, lọc không làm cột
+    co giãn theo dữ liệu. Chữ dài hơn cột thì cắt bằng "…", rê chuột vào hiện toàn bộ.
 
   Trang chỉ khai báo cột:
     { key: 'name', header: 'Tên cảng', value: p => p.portName }
@@ -40,7 +42,13 @@ export interface Column<T> {
   /** Cột số: căn phải, sắp xếp theo trị số. */
   numeric?: boolean;
   align?: 'left' | 'right' | 'center';
+  /**
+   * Độ rộng cột. Số = trọng số tương đối, quy ra % bề ngang bảng (150 cạnh 300 → cột hẹp
+   * bằng nửa). Chuỗi '12%' dùng nguyên. Bỏ trống = cột "co giãn" lấy phần lớn chỗ còn lại.
+   */
   width?: number | string;
+  /** Cắt chữ dài bằng "…" (mặc định có; cột "actions" không cắt). */
+  truncate?: boolean;
   /** Có xuất ra file không. Mặc định có nếu cột khai `value`. */
   exportable?: boolean;
   exportValue?: (item: T) => CellValue;
@@ -224,6 +232,7 @@ export function DataTable<T>({
     .map(c => ({ header: c.header, value: (c.exportValue ?? c.value)!, numeric: c.numeric }));
 
   const colCount = columns.length + (showIndex ? 1 : 0) + (selection ? 1 : 0);
+  const widths = useMemo(() => columnPercents(columns), [columns]);
   const alignOf = (c: Column<T>) => c.align ?? (c.numeric ? 'right' : 'left');
   const alignClass = { left: 'text-left', right: 'text-right tabular-nums', center: 'text-center' } as const;
 
@@ -293,24 +302,29 @@ export function DataTable<T>({
 
       {/* ── Bảng ── */}
       <div className="min-h-0 flex-1 overflow-auto" tabIndex={0} aria-label="Bảng dữ liệu, có thể cuộn ngang">
-        <table className="w-full border-collapse text-[13px] text-ink" style={{ minWidth }}>
+        <table className="w-full table-fixed border-collapse text-[13px] text-ink" style={{ minWidth }}>
+          <colgroup>
+            {selection && <col style={{ width: 40 }} />}
+            {showIndex && <col style={{ width: 52 }} />}
+            {columns.map((col, i) => <col key={col.key} style={{ width: widths[i] }} />)}
+          </colgroup>
           <thead>
             <tr>
               {selection && (
-                <th scope="col" className={`${thClass} w-10`}>
+                <th scope="col" className={thClass}>
                   <input type="checkbox" className="h-4 w-4 accent-primary" aria-label="Chọn cả trang"
                     checked={allOnPage} ref={n => { if (n) n.indeterminate = someOnPage; }} onChange={togglePage} />
                 </th>
               )}
-              {showIndex && <th scope="col" className={`${thClass} w-12`}>STT</th>}
+              {showIndex && <th scope="col" className={thClass}>STT</th>}
               {columns.map(col => {
                 const get = filterOf(col);
                 const sortable = col.sortable ?? !!col.value;
                 const sorting = sort?.key === col.key ? sort.dir : null;
                 return (
-                  <th key={col.key} scope="col" className={`${thClass} ${get ? 'pr-6' : ''}`} style={{ width: col.width }}
-                    title={col.headerHint}>
-                    <span className="inline-flex items-center justify-center gap-1">
+                  <th key={col.key} scope="col" className={`${thClass} ${get ? 'pr-6' : ''}`}
+                    title={col.headerHint ?? col.header}>
+                    <span className="inline-flex max-w-full items-center justify-center gap-1 break-words">
                       {col.header}
                       {sorting === 'asc' && <ArrowUp className="h-3.5 w-3.5 text-primary" aria-label="tăng dần" />}
                       {sorting === 'desc' && <ArrowDown className="h-3.5 w-3.5 text-primary" aria-label="giảm dần" />}
@@ -375,7 +389,9 @@ export function DataTable<T>({
                     {showIndex && <td className={`${tdClass} text-right tabular-nums text-ink-muted`}>{first + i + 1}</td>}
                     {columns.map(col => (
                       <td key={col.key} className={`${tdClass} ${alignClass[alignOf(col)]} ${col.className ?? ''}`}>
-                        {col.render ? col.render(item) : str(col.value?.(item))}
+                        {(col.truncate ?? col.key !== 'actions')
+                          ? <TruncatedText>{col.render ? col.render(item) : str(col.value?.(item))}</TruncatedText>
+                          : (col.render ? col.render(item) : str(col.value?.(item)))}
                       </td>
                     ))}
                   </tr>
@@ -401,9 +417,47 @@ export function DataTable<T>({
   );
 }
 
+/**
+ * Quy độ rộng khai ở cột ra %. Cột không khai độ rộng là cột co giãn (tên, mô tả...),
+ * được trọng số lớn hơn cột thường để nhận phần chỗ còn lại.
+ */
+const FLEX_WEIGHT = 260;
+function columnPercents<T>(columns: Column<T>[]): string[] {
+  let fixedPercent = 0;
+  let weightSum = 0;
+  const weights = columns.map(c => {
+    if (typeof c.width === 'string' && c.width.trim().endsWith('%')) { fixedPercent += parseFloat(c.width); return null; }
+    const w = typeof c.width === 'number' ? c.width : typeof c.width === 'string' ? parseFloat(c.width) || FLEX_WEIGHT : FLEX_WEIGHT;
+    weightSum += w;
+    return w;
+  });
+  const free = Math.max(0, 100 - fixedPercent);
+  return columns.map((c, i) => {
+    const w = weights[i];
+    return w === null ? (c.width as string) : `${((w / weightSum) * free).toFixed(3)}%`;
+  });
+}
+
+/**
+ * Ô chữ một dòng: dài hơn cột thì "…"; rê chuột vào hiện toàn bộ nội dung (chỉ khi bị cắt,
+ * để ô ngắn không bật chú thích thừa).
+ */
+const TruncatedText: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    className="truncate"
+    onMouseEnter={e => {
+      const el = e.currentTarget;
+      if (el.scrollWidth > el.clientWidth + 1) el.title = (el.textContent ?? '').trim();
+      else el.removeAttribute('title');
+    }}
+  >
+    {children}
+  </div>
+);
+
 const thClass =
-  'sticky top-0 z-[1] h-11 border-b border-r border-b-grid-strong border-r-grid bg-canvas px-2 py-1.5 text-center align-middle text-[13px] font-semibold leading-tight text-ink last:border-r-0';
-const tdClass = 'border-b border-r border-grid px-2.5 py-2 align-middle last:border-r-0';
+  'sticky top-0 z-[1] h-11 border-b border-r border-b-grid-strong border-r-grid bg-canvas px-2 py-1.5 overflow-hidden text-center align-middle text-[13px] font-semibold leading-tight text-ink last:border-r-0';
+const tdClass = 'overflow-hidden border-b border-r border-grid px-2.5 py-2 align-middle last:border-r-0';
 const toolbarBtn =
   'inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-primary-soft hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
 

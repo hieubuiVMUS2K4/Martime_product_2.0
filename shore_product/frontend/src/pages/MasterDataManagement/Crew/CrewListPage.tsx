@@ -1,568 +1,338 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Users, UserCheck, UserMinus, ShieldAlert,
-  Plus, ChevronLeft, ChevronRight,
-  Eye, Pencil, Trash2, RefreshCw,
-  Download, Ship, Anchor, X, Check, Clock, Loader2,
-  FileText, ExternalLink,
-  ShieldCheck, AlertTriangle, XCircle, CheckCircle2,
-  Search, ChevronDown, ChevronUp, Filter,
+  Users, UserCheck, UserMinus, ShieldAlert, Clock,
+  Eye, Pencil, Trash2, Anchor, Ship,
 } from 'lucide-react';
-import { useCrewList, useReferenceData, useExpiringCertificates, useCompliance, useCrewStats, useVessels } from '../../../hooks/useCrew';
+import { toast } from 'sonner';
+import { useReferenceData, useExpiringCertificates, useCrewStats, useVessels } from '../../../hooks/useCrew';
 import { crewApi } from '../../../services/crew.service';
-import { useToast } from '../../../components/common/Toast';
-import { useConfirmDialog } from '../../../components/common/ConfirmDialog';
+import {
+  DataTable, ImportExcelModal, PageHeader, QuickFilterBar, TableActions, TableIconButton, fieldClass,
+  useConfirm, type Column, type ImportField,
+} from '../../../components/common';
 import { CrewFormModal } from './CrewFormModal';
 import { AssignShipModal } from './AssignShipModal';
 import ProtectedImage from '../../../components/common/ProtectedImage';
 import type { CrewMember, CreateCrewRequest, CrewCertificate } from '../../../types/crew.types';
-import './CrewListPage.css';
+import { formatDateVi, parseImportDate } from '../../../utils/date';
+
+type View = 'all' | 'onboard' | 'pool' | 'certificates';
+
+/** Máy chủ trả tối đa 200 thuyền viên mỗi lần; tải hết theo lô để lọc theo cột. */
+const FETCH_PAGE = 200;
 
 function getInitials(name: string) {
   const p = name.split(' ').filter(Boolean);
   return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]).toUpperCase() : name.substring(0, 2).toUpperCase();
 }
-function fmtDate(d?: string) { return d ? new Date(d).toLocaleDateString('vi-VN') : '\u2014'; }
+
+const statusOf = (m: CrewMember) =>
+  m.isOnboard ? 'Trên tàu'
+    : m.onboardStatus === 'PendingReview' ? 'Đang duyệt'
+      : m.onboardStatus === 'OnHold' ? 'Tạm giữ'
+        : m.onboardStatus === 'Rejected' ? 'Từ chối'
+          : 'Ở bờ';
+
+const STATUS_TONE: Record<string, string> = {
+  'Trên tàu': 'bg-emerald-50 text-emerald-700 [&>i]:bg-emerald-500',
+  'Đang duyệt': 'bg-amber-50 text-amber-700 [&>i]:bg-amber-500',
+  'Tạm giữ': 'bg-orange-50 text-orange-700 [&>i]:bg-orange-500',
+  'Từ chối': 'bg-red-50 text-red-700 [&>i]:bg-red-500',
+  'Ở bờ': 'bg-slate-100 text-slate-600 [&>i]:bg-slate-400',
+};
+
+const CERT_STATUS: Record<string, { label: string; tone: string }> = {
+  VALID: { label: 'Còn hiệu lực', tone: 'bg-emerald-50 text-emerald-700' },
+  EXPIRING_SOON: { label: 'Sắp hết hạn', tone: 'bg-amber-50 text-amber-700' },
+  EXPIRED: { label: 'Đã hết hạn', tone: 'bg-red-50 text-red-700' },
+};
+
+const IMPORT_FIELDS: ImportField[] = [
+  { key: 'crewId', header: 'Mã thuyền viên', required: true, example: 'TV0001' },
+  { key: 'fullName', header: 'Họ và tên', required: true, example: 'Nguyễn Văn An' },
+  { key: 'rank', header: 'Chức danh (mã hoặc tên)', example: 'CAPT' },
+  { key: 'department', header: 'Bộ phận', example: 'DECK' },
+  { key: 'dateOfBirth', header: 'Ngày sinh', example: '15/03/1985' },
+  { key: 'placeOfBirth', header: 'Nơi sinh', example: 'Hải Phòng' },
+  { key: 'idCardNumber', header: 'Số CCCD', example: '031085001234' },
+  { key: 'seamanBookNumber', header: 'Số sổ thuyền viên', example: 'HP-123456' },
+  { key: 'phoneNumber', header: 'Điện thoại', example: '0912345678' },
+  { key: 'emailAddress', header: 'Email', example: 'an.nguyen@example.com' },
+  { key: 'address', header: 'Địa chỉ' },
+];
 
 export const CrewListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { data: crew, loading, error, totalCount, totalPages, filters, setFilters, refetch } = useCrewList();
+  const ask = useConfirm();
   const { ranks } = useReferenceData();
   const { data: expiringCerts } = useExpiringCertificates(90);
   const { data: crewStats, refetch: refetchStats } = useCrewStats();
   const { vessels } = useVessels();
-  const toast = useToast();
-  const { confirm } = useConfirmDialog();
+
+  const [crew, setCrew] = useState<CrewMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('all');
+
   const [formOpen, setFormOpen] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingCrew, setEditingCrew] = useState<CrewMember | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Certificate monitor view
-  const [viewMode, setViewMode] = useState<'crew' | 'certificates'>('crew');
-  const [certDaysAhead, setCertDaysAhead] = useState(90);
-  const { data: certMonitorData, loading: certMonLoading, refetch: refetchCertMon } = useExpiringCertificates(certDaysAhead);
-  const { data: _compliance } = useCompliance();
-  const [certSearch, setCertSearch] = useState('');
-  const [certStatusFilter, setCertStatusFilter] = useState<'all' | 'VALID' | 'EXPIRING_SOON' | 'EXPIRED'>('all');
-  const [certSortField, setCertSortField] = useState<'name' | 'cert' | 'expiry' | 'status'>('expiry');
-  const [certSortDir, setCertSortDir] = useState<'asc' | 'desc'>('asc');
-  const [certShowFilters, setCertShowFilters] = useState(false);
-  const [certVesselFilter, setCertVesselFilter] = useState('');
-
-  // Multi-select
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [assignMode, setAssignMode] = useState<'assign' | 'unassign' | null>(null);
   const [assignList, setAssignList] = useState<CrewMember[]>([]);
 
-  // Context menu
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; crew: CrewMember } | null>(null);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  // Theo dõi chứng chỉ
+  const [certDaysAhead, setCertDaysAhead] = useState(90);
+  const [certVessel, setCertVessel] = useState('');
+  const { data: certData, loading: certLoading } = useExpiringCertificates(certDaysAhead);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, m: CrewMember) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, crew: m });
-    setSelectedRowId(m.id);
+  const fetchCrew = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const all: CrewMember[] = [];
+      for (let page = 1; ; page++) {
+        const res = await crewApi.getAll({ page, pageSize: FETCH_PAGE });
+        all.push(...res.data);
+        if (all.length >= res.totalCount || res.data.length === 0) break;
+      }
+      setCrew(all);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tải được danh sách thuyền viên');
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  const closeContextMenu = useCallback(() => { setContextMenu(null); setSelectedRowId(null); }, []);
 
-  // Close context menu on any click
-  React.useEffect(() => {
-    const handler = () => closeContextMenu();
-    window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
-  }, [closeContextMenu]);
+  useEffect(() => { fetchCrew(); }, [fetchCrew]);
 
-  const stats = useMemo(() => ({
-    total: crewStats.total || totalCount,
-    onboard: crewStats.onboard,
-    pool: crewStats.pool,
-    pendingReview: crewStats.pendingReview,
-    expiring: expiringCerts.length,
-  }), [crewStats, totalCount, expiringCerts]);
+  const reload = () => { fetchCrew(); refetchStats(); };
 
-  // Selection
-  const clearSel = useCallback(() => setSelectedIds(new Set()), []);
-
-  // Search/filter
-  const handleStatusFilter = useCallback((status: boolean | null) => {
-    setFilters(prev => ({ ...prev, isOnboard: status, page: 1 }));
-    setViewMode('crew');
-  }, [setFilters]);
-  const handlePageChange = useCallback((page: number) => {
-    setFilters(prev => ({ ...prev, page }));
-  }, [setFilters]);
-  const handleColFilter = useCallback((key: 'search' | 'rankName' | 'department' | 'vesselName', value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
-  }, [setFilters]);
-
-  // CRUD
-  const handleCreate = useCallback(async (data: CreateCrewRequest | Partial<CreateCrewRequest>) => {
+  const handleCreate = async (data: CreateCrewRequest | Partial<CreateCrewRequest>) => {
     setSaving(true);
     try {
       await crewApi.create(data as CreateCrewRequest);
-      setFormOpen(false); refetch(); refetchStats();
-      toast.success('Tạo thành công', 'Đã thêm thuyền viên mới.');
+      setFormOpen(false); reload();
+      toast.success('Đã thêm thuyền viên', { description: data.fullName });
     } catch (err) {
-      toast.error('Lỗi tạo thuyền viên', err instanceof Error ? err.message : 'Không thể tạo.');
+      toast.error('Không thể thêm thuyền viên', { description: err instanceof Error ? err.message : undefined });
     } finally { setSaving(false); }
-  }, [refetch, refetchStats, toast]);
+  };
 
-  const handleUpdate = useCallback(async (data: CreateCrewRequest | Partial<CreateCrewRequest>) => {
+  const handleUpdate = async (data: CreateCrewRequest | Partial<CreateCrewRequest>) => {
     if (!editingCrew) return;
     setSaving(true);
     try {
       await crewApi.update(editingCrew.id, data);
-      setEditingCrew(null); setFormOpen(false); refetch(); refetchStats();
-      toast.success('Cập nhật thành công');
+      setEditingCrew(null); setFormOpen(false); reload();
+      toast.success('Đã cập nhật thuyền viên', { description: data.fullName ?? editingCrew.fullName });
     } catch (err) {
-      toast.error('Lỗi cập nhật', err instanceof Error ? err.message : 'Không thể cập nhật.');
+      toast.error('Không thể cập nhật thuyền viên', { description: err instanceof Error ? err.message : undefined });
     } finally { setSaving(false); }
-  }, [editingCrew, refetch, refetchStats, toast]);
+  };
 
-  const handleDelete = useCallback(async (id: string, name: string) => {
-    const { confirmed } = await confirm({
-      title: 'Xóa thuyền viên',
-      message: `Bạn có chắc muốn xóa "${name}"? Không thể hoàn tác.`,
-      confirmLabel: 'Xóa', cancelLabel: 'Hủy', variant: 'danger',
-    });
-    if (!confirmed) return;
-    try { await crewApi.delete(id); refetch(); refetchStats(); toast.success('Đã xóa thuyền viên'); }
-    catch (err) { toast.error('Lỗi xóa', err instanceof Error ? err.message : 'Không thể xóa.'); }
-  }, [refetch, refetchStats, confirm, toast]);
-
-  const openEdit = useCallback((c: CrewMember) => { setEditingCrew(c); setFormOpen(true); }, []);
-  const openNew = useCallback(() => { setEditingCrew(null); setFormOpen(true); }, []);
-
-  // Batch assign/unassign
-  const handleBatchAssign = useCallback(async (ids: string[], vesselId: string) => {
-    setSaving(true);
+  const handleDelete = async (m: CrewMember) => {
+    if (!(await ask(`Xóa thuyền viên "${m.fullName}"?\nThao tác này không thể hoàn tác.`))) return;
     try {
-      await Promise.all(ids.map(id => crewApi.assignToVessel(id, vesselId)));
-      setAssignList([]); setAssignMode(null); clearSel(); refetch(); refetchStats();
-      toast.success(`Đã gán ${ids.length} thuyền viên lên tàu`);
+      await crewApi.delete(m.id);
+      reload();
+      toast.success('Đã xóa thuyền viên', { description: `${m.crewId} — ${m.fullName}` });
     } catch (err) {
-      toast.error('Lỗi gán tàu', err instanceof Error ? err.message : 'Không thể gán.');
-    } finally { setSaving(false); }
-  }, [clearSel, refetch, refetchStats, toast]);
+      toast.error('Không thể xóa thuyền viên', { description: err instanceof Error ? err.message : undefined });
+    }
+  };
 
-  const handleBatchUnassign = useCallback(async (ids: string[]) => {
+  const handleUnassign = async (ids: string[]) => {
     setSaving(true);
     try {
       await Promise.all(ids.map(id => crewApi.unassignFromVessel(id)));
-      setAssignList([]); setAssignMode(null); clearSel(); refetch(); refetchStats();
+      setAssignList([]); reload();
       toast.success(`Đã rút ${ids.length} thuyền viên về bờ`);
     } catch (err) {
-      toast.error('Lỗi rút thuyền viên', err instanceof Error ? err.message : 'Không thể rút.');
+      toast.error('Không thể rút thuyền viên', { description: err instanceof Error ? err.message : undefined });
     } finally { setSaving(false); }
-  }, [clearSel, refetch, refetchStats, toast]);
+  };
 
-  // Lưu ý: chức năng "Gán lên tàu" đã chuyển sang trang chi tiết tàu → tab Thuyền viên.
+  const openEdit = (m: CrewMember) => { setEditingCrew(m); setFormOpen(true); };
+  const openNew = () => { setEditingCrew(null); setFormOpen(true); };
 
-  const openSingleUnassign = useCallback((m: CrewMember) => {
-    setAssignList([m]); setAssignMode('unassign');
-  }, []);
-
-
-  // Vessel name lookup map
-  const vesselMap = useMemo(() => {
-    const m = new Map<string, string>();
-    vessels.forEach(v => m.set(v.id, v.name));
+  const vesselMap = useMemo(() => new Map(vessels.map(v => [v.id, v.name])), [vessels]);
+  const rankByText = useMemo(() => {
+    const m = new Map<string, number>();
+    ranks.forEach(r => { m.set(r.rankCode.toUpperCase(), r.id); m.set(r.rankName.toUpperCase(), r.id); });
     return m;
-  }, [vessels]);
+  }, [ranks]);
 
-  // Certificate monitor KPI + filtering
-  const vesselFilteredCertData = useMemo(() => {
-    if (!certVesselFilter) return certMonitorData;
-    return certMonitorData.filter(c => c.vesselId === certVesselFilter);
-  }, [certMonitorData, certVesselFilter]);
+  const crewInView = useMemo(() => (
+    view === 'onboard' ? crew.filter(m => m.isOnboard)
+      : view === 'pool' ? crew.filter(m => !m.isOnboard)
+        : crew
+  ), [crew, view]);
 
-  const certKpi = useMemo(() => {
-    if (!vesselFilteredCertData.length) return { valid: 0, expiringSoon: 0, expired: 0, total: 0 };
-    const valid = vesselFilteredCertData.filter(c => c.status === 'VALID').length;
-    const expSoon = vesselFilteredCertData.filter(c => c.status === 'EXPIRING_SOON').length;
-    const expired = vesselFilteredCertData.filter(c => c.status === 'EXPIRED').length;
-    return { valid, expiringSoon: expSoon, expired, total: vesselFilteredCertData.length };
-  }, [vesselFilteredCertData]);
-
-  const filteredCertificates = useMemo(() => {
-    let list = [...vesselFilteredCertData];
-    if (certSearch.trim()) {
-      const q = certSearch.toLowerCase();
-      list = list.filter(c =>
-        (c.certificateName || '').toLowerCase().includes(q) ||
-        (c.certificateCode || '').toLowerCase().includes(q) ||
-        (c.certificateNumber || '').toLowerCase().includes(q) ||
-        (c.crewMemberName || '').toLowerCase().includes(q)
-      );
-    }
-    if (certStatusFilter !== 'all') list = list.filter(c => c.status === certStatusFilter);
-    list.sort((a, b) => {
-      let cmp = 0;
-      switch (certSortField) {
-        case 'name': cmp = (a.crewMemberName || '').localeCompare(b.crewMemberName || ''); break;
-        case 'cert': cmp = (a.certificateName || '').localeCompare(b.certificateName || ''); break;
-        case 'expiry': cmp = new Date(a.expiryDate || 0).getTime() - new Date(b.expiryDate || 0).getTime(); break;
-        case 'status': {
-          const order: Record<string, number> = { EXPIRED: 0, EXPIRING_SOON: 1, VALID: 2 };
-          cmp = (order[a.status || ''] ?? 3) - (order[b.status || ''] ?? 3);
-          break;
-        }
-      }
-      return certSortDir === 'asc' ? cmp : -cmp;
-    });
-    return list;
-  }, [vesselFilteredCertData, certSearch, certStatusFilter, certSortField, certSortDir]);
-
-  const handleCertSort = (field: 'name' | 'cert' | 'expiry' | 'status') => {
-    if (certSortField === field) setCertSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setCertSortField(field); setCertSortDir('asc'); }
-  };
-
-  const CertSortIcon = ({ field }: { field: 'name' | 'cert' | 'expiry' | 'status' }) => {
-    if (certSortField !== field) return <ChevronDown size={12} style={{ opacity: 0.2 }} />;
-    return certSortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
-  };
-
-  const getCertStatusClass = (s?: string) => {
-    if (s === 'VALID') return 'cl-cert-valid';
-    if (s === 'EXPIRING_SOON') return 'cl-cert-expiring';
-    if (s === 'EXPIRED') return 'cl-cert-expired';
-    return '';
-  };
-
-  const getCertStatusLabel = (s?: string) => {
-    if (s === 'VALID') return 'Hiệu lực';
-    if (s === 'EXPIRING_SOON') return 'Sắp hết hạn';
-    if (s === 'EXPIRED') return 'Hết hạn';
-    return s || '—';
-  };
-
-  // Full-page loading only on first load (no data yet)
-  const isInitialLoad = loading && crew.length === 0 && !filters.search && !filters.rankName && !filters.department && !filters.vesselName;
-
-  if (isInitialLoad) return (
-    <div className="cl-page">
-      <div className="cl-loading"><Loader2 size={28} className="spin" /><p>Đang tải danh sách thuyền viên...</p></div>
-    </div>
+  const certsInView = useMemo(
+    () => (certVessel ? certData.filter(c => c.vesselId === certVessel) : certData),
+    [certData, certVessel],
   );
 
-  return (
-    <div className="cl-page">
-
-      {/* Page header */}
-      <div className="cl-header">
-        <div className="cl-header-left">
-          <Users size={16} className="cl-header-icon" />
-          <h1 className="cl-title">Quản lý thuyền viên</h1>
-          <span className="cl-count-badge">{stats.total}</span>
-        </div>
-        <div className="cl-header-right">
-          <button className="cl-btn cl-btn--ghost" onClick={() => { refetch(); refetchStats(); }} title="Làm mới"><RefreshCw size={13} /></button>
-          <button className="cl-btn cl-btn--outline"><Download size={13} /> Xuất Excel</button>
-          <button className="cl-btn cl-btn--primary" onClick={openNew}><Plus size={13} /> Thêm mới</button>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      <div className="cl-stats">
-        <button className={`cl-stat${viewMode === 'crew' && filters.isOnboard == null ? ' cl-stat--active' : ''}`} onClick={() => handleStatusFilter(null)}>
-          <Users size={14} />
-          <span className="cl-stat-val">{stats.total}</span>
-          <span className="cl-stat-lbl">Tổng</span>
-        </button>
-        <button className={`cl-stat cl-stat--onboard${viewMode === 'crew' && filters.isOnboard === true ? ' cl-stat--active' : ''}`} onClick={() => handleStatusFilter(true)}>
-          <UserCheck size={14} />
-          <span className="cl-stat-val">{stats.onboard}</span>
-          <span className="cl-stat-lbl">Trên tàu</span>
-        </button>
-        <button className={`cl-stat cl-stat--pool${viewMode === 'crew' && filters.isOnboard === false ? ' cl-stat--active' : ''}`} onClick={() => handleStatusFilter(false)}>
-          <UserMinus size={14} />
-          <span className="cl-stat-val">{stats.pool}</span>
-          <span className="cl-stat-lbl">Bờ</span>
-        </button>
-        <button className="cl-stat cl-stat--pending" disabled>
-          <Clock size={14} />
-          <span className="cl-stat-val">{stats.pendingReview}</span>
-          <span className="cl-stat-lbl">Đang duyệt</span>
-        </button>
-        <button className={`cl-stat cl-stat--warn${viewMode === 'certificates' ? ' cl-stat--active' : ''}`} onClick={() => setViewMode(viewMode === 'certificates' ? 'crew' : 'certificates')}>
-          <ShieldAlert size={14} />
-          <span className="cl-stat-val">{stats.expiring}</span>
-          <span className="cl-stat-lbl">CC sắp hết hạn</span>
-        </button>
-      </div>
-
-      {/* Error banner */}
-      {error && viewMode === 'crew' && (
-        <div className="cl-error">
-          <ShieldAlert size={13} /> {error}
-          <button className="cl-link-btn" onClick={refetch}>Thử lại</button>
-        </div>
-      )}
-
-      {/* ======== CREW LIST VIEW ======== */}
-      {viewMode === 'crew' && (
-        <>
-      {/* Main table */}
-      <div className="cl-table-card" style={{ position: 'relative' }}>
-        {loading && (
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Loader2 size={24} className="spin" style={{ color: 'var(--moc-blue)' }} />
-          </div>
-        )}
-        <table className="cl-table">
-          <thead>
-            {/* Label row */}
-            <tr className="cl-tr-labels">
-              <th style={{ width: '20%' }}>Thuyền viên</th>
-              <th style={{ width: '14%' }}>Chức danh</th>
-              <th style={{ width: '11%' }}>Bộ phận</th>
-              <th style={{ width: '17%' }}>Tên Tàu</th>
-              <th style={{ width: '12%' }}>Trạng thái</th>
-              <th style={{ width: '11%' }}>Lên tàu</th>
-              <th style={{ width: '11%', borderRight: 'none' }}>Hợp đồng</th>
-            </tr>
-            {/* Filter row */}
-            <tr className="cl-tr-filters">
-              <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm kiếm" value={filters.search} onChange={e => handleColFilter('search', e.target.value)} /></div></th>
-              <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm kiếm" value={filters.rankName ?? ''} onChange={e => handleColFilter('rankName', e.target.value)} /></div></th>
-              <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm kiếm" value={filters.department ?? ''} onChange={e => handleColFilter('department', e.target.value)} /></div></th>
-              <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm kiếm" value={filters.vesselName ?? ''} onChange={e => handleColFilter('vesselName', e.target.value)} /></div></th>
-              <th></th>
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {crew.length === 0 ? (
-              <tr><td colSpan={8} className="cl-empty">
-                <Users size={24} />
-                <p>Không tìm thấy thuyền viên phù hợp</p>
-                {!filters.search && !filters.rankName && !filters.department && !filters.vesselName && filters.isOnboard == null &&
-                  <button className="cl-btn cl-btn--primary" onClick={openNew}><Plus size={13} /> Thêm thuyền viên</button>}
-              </td></tr>
-            ) : crew.map((m, idx) => {
-              return (
-                <tr
-                  key={m.id}
-                  className={`cl-tr${idx % 2 === 1 ? ' cl-tr--alt' : ''}${selectedRowId === m.id ? ' cl-tr--selected' : ''}`}
-                  onContextMenu={e => handleContextMenu(e, m)}
-                >
-                  <td >
-                    <button className="cl-name-link" onClick={() => navigate(`/crew/${m.id}`)}>
-                      <span className="cl-av">
-                        {m.avatarUrl ? <ProtectedImage src={m.avatarUrl} alt="" /> : getInitials(m.fullName)}
-                      </span>
-                      <div>
-                        <div className="cl-name">{m.fullName}</div>
-                        <div className="cl-code">{m.crewId}</div>
-                      </div>
-                    </button>
-                  </td>
-                  <td >{m.rankName || '\u2014'}</td>
-                  <td >{m.department || '\u2014'}</td>
-                  <td >
-                    {m.vesselName
-                      ? <span className="cl-vessel-tag"><Ship size={11} /> {m.vesselName}</span>
-                      : <span className="cl-muted">Pool</span>}
-                  </td>
-                  <td className="cl-cell-status" >
-                    <span className={`cl-status-badge ${m.isOnboard ? 'cl-status-badge--on' : m.onboardStatus === 'PendingReview' ? 'cl-status-badge--pending' : m.onboardStatus === 'OnHold' ? 'cl-status-badge--hold' : m.onboardStatus === 'Rejected' ? 'cl-status-badge--rejected' : 'cl-status-badge--off'}`}>
-                      <span className="cl-status-badge__dot" />
-                      {m.isOnboard ? 'Onboard' : m.onboardStatus === 'PendingReview' ? 'Đang duyệt' : m.onboardStatus === 'OnHold' ? 'Tạm giữ' : m.onboardStatus === 'Rejected' ? 'Từ chối' : 'Pool'}
-                    </span>
-                    {m.edgeChanges && !m.edgeChangesViewed && (() => {
-                      try { const c = JSON.parse(m.edgeChanges!); return c.length > 0 ? <span className="cl-changes-badge" title={`${c.length} thay đổi từ tàu`}>{c.length}</span> : null } catch { return null }
-                    })()}
-                  </td>
-                  <td className="cl-muted" >{fmtDate(m.embarkDate)}</td>
-                  <td className="cl-muted" style={{ borderRight: 'none' }}>{fmtDate(m.contractEnd)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer / Pagination */}
-      <div className="cl-footer">
-        <span className="cl-footer-info">
-          Hiển thị {crew.length} / {totalCount} thuyền viên
+  /* ── Cột bảng thuyền viên ── */
+  const crewColumns: Column<CrewMember>[] = [
+    {
+      key: 'name', header: 'Thuyền viên', value: m => m.fullName,
+      render: m => (
+        <span className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-[11px] font-bold text-primary">
+            {m.avatarUrl ? <ProtectedImage src={m.avatarUrl} alt="" className="h-full w-full object-cover" /> : getInitials(m.fullName)}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate font-semibold text-ink">{m.fullName}</span>
+            <span className="block font-mono text-xs text-ink-muted">{m.crewId}</span>
+          </span>
         </span>
-        {totalPages > 1 && (
-          <div className="cl-pagi-btns">
-            <button className="cl-pagi-btn" disabled={filters.page <= 1} onClick={() => handlePageChange(filters.page - 1)}><ChevronLeft size={14} /></button>
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              let p: number;
-              if (totalPages <= 7) p = i + 1;
-              else if (filters.page <= 4) p = i + 1;
-              else if (filters.page >= totalPages - 3) p = totalPages - 6 + i;
-              else p = filters.page - 3 + i;
-              return <button key={p} className={`cl-pagi-btn${p === filters.page ? ' cl-pagi-btn--cur' : ''}`} onClick={() => handlePageChange(p)}>{p}</button>;
-            })}
-            <button className="cl-pagi-btn" disabled={filters.page >= totalPages} onClick={() => handlePageChange(filters.page + 1)}><ChevronRight size={14} /></button>
-          </div>
-        )}
-      </div>
-
-      {/* Context Menu */}
-      {contextMenu && (
-        <div className="cl-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
-          <button className="cl-ctx-item" onClick={() => { navigate(`/crew/${contextMenu.crew.id}`); closeContextMenu(); }}>
-            <FileText size={13} /> Xem chi tiết
-          </button>
-          <button className="cl-ctx-item" onClick={() => { window.open(`/crew/${contextMenu.crew.id}`, '_blank'); closeContextMenu(); }}>
-            <ExternalLink size={13} /> Mở trong tab mới
-          </button>
-          <div className="cl-ctx-divider" />
-          {/* "Gán lên tàu" đã chuyển sang trang chi tiết tàu → tab Thuyền viên */}
-          {contextMenu.crew.isOnboard && (
-            <button className="cl-ctx-item" onClick={() => { openSingleUnassign(contextMenu.crew); closeContextMenu(); }}>
-              <Anchor size={13} /> Rút về bờ
-            </button>
-          )}
-          <button className="cl-ctx-item" onClick={() => { openEdit(contextMenu.crew); closeContextMenu(); }}>
-            <Pencil size={13} /> Chỉnh sửa
-          </button>
-          <div className="cl-ctx-divider" />
-          <button className="cl-ctx-item cl-ctx-item--danger" onClick={() => { handleDelete(contextMenu.crew.id, contextMenu.crew.fullName); closeContextMenu(); }}>
-            <Trash2 size={13} /> Xóa thuyền viên
-          </button>
-        </div>
-      )}
-
-        </>
-      )}
-
-      {/* ======== CERTIFICATE MONITOR VIEW ======== */}
-      {viewMode === 'certificates' && (
-        <>
-          {/* Cert KPI Cards */}
-          <div className="cl-cert-kpi-grid">
-            <div className="cl-cert-kpi cl-cert-kpi--total">
-              <ShieldCheck size={18} />
-              <span className="cl-cert-kpi-val">{certKpi.total}</span>
-              <span className="cl-cert-kpi-lbl">Tổng chứng chỉ</span>
-            </div>
-            <div className={`cl-cert-kpi cl-cert-kpi--valid${certStatusFilter === 'VALID' ? ' cl-cert-kpi--active' : ''}`} onClick={() => setCertStatusFilter(certStatusFilter === 'VALID' ? 'all' : 'VALID')}>
-              <CheckCircle2 size={18} />
-              <span className="cl-cert-kpi-val">{certKpi.valid}</span>
-              <span className="cl-cert-kpi-lbl">Còn hiệu lực</span>
-            </div>
-            <div className={`cl-cert-kpi cl-cert-kpi--warning${certStatusFilter === 'EXPIRING_SOON' ? ' cl-cert-kpi--active' : ''}`} onClick={() => setCertStatusFilter(certStatusFilter === 'EXPIRING_SOON' ? 'all' : 'EXPIRING_SOON')}>
-              <AlertTriangle size={18} />
-              <span className="cl-cert-kpi-val">{certKpi.expiringSoon}</span>
-              <span className="cl-cert-kpi-lbl">Sắp hết hạn</span>
-            </div>
-            <div className={`cl-cert-kpi cl-cert-kpi--danger${certStatusFilter === 'EXPIRED' ? ' cl-cert-kpi--active' : ''}`} onClick={() => setCertStatusFilter(certStatusFilter === 'EXPIRED' ? 'all' : 'EXPIRED')}>
-              <XCircle size={18} />
-              <span className="cl-cert-kpi-val">{certKpi.expired}</span>
-              <span className="cl-cert-kpi-lbl">Đã hết hạn</span>
-            </div>
-          </div>
-
-          {/* Cert toolbar */}
-          <div className="cl-cert-toolbar">
-            <div className="cl-cert-search-wrap">
-              <Search size={14} className="cl-cert-search-icon" />
-              <input
-                type="text"
-                className="cl-cert-search"
-                placeholder="Tìm chứng chỉ, thuyền viên..."
-                value={certSearch}
-                onChange={e => setCertSearch(e.target.value)}
-              />
-              {certSearch && <button className="cl-cert-search-clear" onClick={() => setCertSearch('')}>×</button>}
-            </div>
-            <select className="cl-cert-days-select" value={certVesselFilter} onChange={e => setCertVesselFilter(e.target.value)}>
-              <option value="">Tất cả tàu</option>
-              {vessels.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
-            <select className="cl-cert-days-select" value={certDaysAhead} onChange={e => setCertDaysAhead(Number(e.target.value))}>
-              <option value={30}>30 ngày tới</option>
-              <option value={60}>60 ngày tới</option>
-              <option value={90}>90 ngày tới</option>
-              <option value={180}>180 ngày tới</option>
-              <option value={365}>1 năm tới</option>
-            </select>
-            <button className="cl-btn cl-btn--ghost" onClick={() => { refetchCertMon(); }} title="Làm mới"><RefreshCw size={13} /></button>
-          </div>
-
-          {/* Cert table */}
-          <div className="cl-table-card">
-            {certMonLoading ? (
-              <div className="cl-loading">
-                <Loader2 size={24} className="spin" />
-                <p>Đang tải chứng chỉ...</p>
-              </div>
-            ) : filteredCertificates.length === 0 ? (
-              <div className="cl-cert-empty">
-                <ShieldCheck size={36} style={{ opacity: 0.3 }} />
-                <p>{certSearch ? 'Không tìm thấy chứng chỉ phù hợp' : 'Không có chứng chỉ nào trong khoảng thời gian này'}</p>
-              </div>
-            ) : (
-              <table className="cl-table cl-cert-table">
-                <thead>
-                  <tr className="cl-tr-labels">
-                    <th onClick={() => handleCertSort('name')} style={{ cursor: 'pointer' }}>
-                      Thuyền viên <CertSortIcon field="name" />
-                    </th>
-                    <th>Tàu</th>
-                    <th onClick={() => handleCertSort('cert')} style={{ cursor: 'pointer' }}>
-                      Chứng chỉ <CertSortIcon field="cert" />
-                    </th>
-                    <th>Số chứng chỉ</th>
-                    <th>Ngày cấp</th>
-                    <th onClick={() => handleCertSort('expiry')} style={{ cursor: 'pointer' }}>
-                      Ngày hết hạn <CertSortIcon field="expiry" />
-                    </th>
-                    <th>Còn lại</th>
-                    <th onClick={() => handleCertSort('status')} style={{ cursor: 'pointer' }}>
-                      Trạng thái <CertSortIcon field="status" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCertificates.map(cert => (
-                    <tr
-                      key={cert.id}
-                      className={`cl-tr ${getCertStatusClass(cert.status)}`}
-                      onClick={() => cert.crewMemberId && navigate(`/crew/${cert.crewMemberId}`)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td className="cl-cert-crew-name">{cert.crewMemberName || '—'}</td>
-                      <td className="cl-muted">{(cert.vesselId && vesselMap.get(cert.vesselId)) || '—'}</td>
-                      <td>
-                        <span className="cl-cert-name">{cert.certificateName || cert.certificateCode}</span>
-                        {cert.category && <span className="cl-cert-cat">{cert.category}</span>}
-                      </td>
-                      <td className="cl-cert-num">{cert.certificateNumber || '—'}</td>
-                      <td className="cl-muted">{fmtDate(cert.issueDate)}</td>
-                      <td>{fmtDate(cert.expiryDate)}</td>
-                      <td>
-                        {cert.daysUntilExpiry !== undefined ? (
-                          <span className={`cl-cert-days ${cert.daysUntilExpiry <= 0 ? 'cl-cert-days--danger' : cert.daysUntilExpiry <= 30 ? 'cl-cert-days--warning' : ''}`}>
-                            {cert.daysUntilExpiry <= 0 ? 'Quá hạn' : `${cert.daysUntilExpiry} ngày`}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td>
-                        <span className={`cl-cert-status-badge ${getCertStatusClass(cert.status)}`}>
-                          {getCertStatusLabel(cert.status)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      ),
+    },
+    { key: 'crewId', header: 'Mã TV', width: 110, value: m => m.crewId, render: m => <span className="font-mono">{m.crewId}</span> },
+    { key: 'rank', header: 'Chức danh', width: 160, value: m => m.rankName ?? '' },
+    { key: 'dept', header: 'Bộ phận', width: 110, value: m => m.department ?? '' },
+    {
+      key: 'vessel', header: 'Tàu', width: 170, value: m => m.vesselName ?? '',
+      render: m => m.vesselName
+        ? <span className="inline-flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-accent" aria-hidden="true" />{m.vesselName}</span>
+        : <span className="text-ink-light">—</span>,
+    },
+    {
+      key: 'status', header: 'Trạng thái', width: 130, align: 'center', value: statusOf,
+      render: m => {
+        const s = statusOf(m);
+        let changes = 0;
+        if (m.edgeChanges && !m.edgeChangesViewed) { try { changes = JSON.parse(m.edgeChanges).length; } catch { /* bỏ qua */ } }
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[s]}`}>
+              <i className="h-1.5 w-1.5 rounded-full" />{s}
+            </span>
+            {changes > 0 && (
+              <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white" title={`${changes} thay đổi từ tàu chưa xem`}>{changes}</span>
             )}
-          </div>
+          </span>
+        );
+      },
+    },
+    { key: 'embark', header: 'Ngày lên tàu', width: 115, align: 'center', value: m => m.embarkDate ?? '',
+      filter: m => formatDateVi(m.embarkDate), exportValue: m => formatDateVi(m.embarkDate), render: m => formatDateVi(m.embarkDate) || '—' },
+    { key: 'contract', header: 'Hết hợp đồng', width: 115, align: 'center', value: m => m.contractEnd ?? '',
+      filter: m => formatDateVi(m.contractEnd), exportValue: m => formatDateVi(m.contractEnd), render: m => formatDateVi(m.contractEnd) || '—' },
+    {
+      key: 'actions', header: 'Thao tác', width: 140, align: 'center',
+      render: m => (
+        <TableActions>
+          <TableIconButton label={`Xem hồ sơ ${m.fullName}`} icon={<Eye />} onClick={() => navigate(`/crew/${m.id}`)} />
+          <TableIconButton label={`Sửa ${m.fullName}`} icon={<Pencil />} onClick={() => openEdit(m)} />
+          {m.isOnboard && <TableIconButton label={`Rút ${m.fullName} về bờ`} icon={<Anchor />} onClick={() => setAssignList([m])} />}
+          <TableIconButton label={`Xóa ${m.fullName}`} icon={<Trash2 />} variant="danger" onClick={() => handleDelete(m)} />
+        </TableActions>
+      ),
+    },
+  ];
 
-        </>
+  /* ── Cột bảng theo dõi chứng chỉ ── */
+  const certColumns: Column<CrewCertificate>[] = [
+    { key: 'crew', header: 'Thuyền viên', width: 200, value: c => c.crewMemberName ?? '', className: 'font-semibold' },
+    { key: 'vessel', header: 'Tàu', width: 160, value: c => (c.vesselId && vesselMap.get(c.vesselId)) || '' },
+    { key: 'cert', header: 'Chứng chỉ', value: c => c.certificateName || c.certificateCode || '' },
+    { key: 'number', header: 'Số chứng chỉ', width: 150, value: c => c.certificateNumber ?? '', className: 'font-mono' },
+    { key: 'issue', header: 'Ngày cấp', width: 110, align: 'center', value: c => c.issueDate ?? '',
+      filter: c => formatDateVi(c.issueDate), exportValue: c => formatDateVi(c.issueDate), render: c => formatDateVi(c.issueDate) || '—' },
+    { key: 'expiry', header: 'Ngày hết hạn', width: 115, align: 'center', value: c => c.expiryDate ?? '',
+      filter: c => formatDateVi(c.expiryDate), exportValue: c => formatDateVi(c.expiryDate), render: c => formatDateVi(c.expiryDate) || '—' },
+    {
+      key: 'days', header: 'Còn lại (ngày)', width: 110, numeric: true, filter: false, value: c => c.daysUntilExpiry ?? null,
+      render: c => c.daysUntilExpiry === undefined ? '—'
+        : <span className={c.daysUntilExpiry <= 0 ? 'font-semibold text-red-700' : c.daysUntilExpiry <= 30 ? 'font-semibold text-amber-700' : ''}>
+          {c.daysUntilExpiry <= 0 ? 'Quá hạn' : c.daysUntilExpiry}
+        </span>,
+    },
+    {
+      key: 'status', header: 'Trạng thái', width: 125, align: 'center', value: c => CERT_STATUS[c.status ?? '']?.label ?? c.status ?? '',
+      render: c => {
+        const s = CERT_STATUS[c.status ?? ''];
+        return s ? <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${s.tone}`}>{s.label}</span> : (c.status ?? '—');
+      },
+    },
+  ];
+
+  return (
+    <div>
+      <PageHeader
+        icon={<Users />}
+        title="Quản lý thuyền viên"
+        description="Hồ sơ thuyền viên toàn đội tàu. Bấm vào một dòng để mở hồ sơ chi tiết."
+      />
+
+      <QuickFilterBar<View>
+        active={view}
+        onChange={setView}
+        items={[
+          { key: 'all', label: 'Tổng', count: crewStats.total || crew.length, icon: <Users /> },
+          { key: 'onboard', label: 'Trên tàu', count: crewStats.onboard, icon: <UserCheck />, tone: 'text-emerald-600' },
+          { key: 'pool', label: 'Ở bờ', count: crewStats.pool, icon: <UserMinus />, tone: 'text-slate-500' },
+          { key: 'certificates', label: 'Chứng chỉ sắp hết hạn', count: expiringCerts.length, icon: <ShieldAlert />, tone: 'text-amber-600' },
+        ]}
+      />
+      {crewStats.pendingReview > 0 && view !== 'certificates' && (
+        <p className="-mt-1 mb-3 flex items-center gap-1.5 text-[13px] text-amber-700">
+          <Clock className="h-4 w-4" aria-hidden="true" /> {crewStats.pendingReview} thuyền viên đang chờ duyệt lên tàu.
+        </p>
       )}
 
-      {/* Form Modal */}
+      {view !== 'certificates' ? (
+        <DataTable
+          key="crew"
+          columns={crewColumns}
+          data={crewInView}
+          rowKey={m => m.id}
+          loading={loading}
+          error={error}
+          itemLabel="thuyền viên"
+          emptyMessage="Chưa có thuyền viên nào."
+          searchPlaceholder="Tìm theo tên, mã, chức danh, tàu..."
+          exportOptions={{ fileName: 'danh-sach-thuyen-vien', title: 'DANH SÁCH THUYỀN VIÊN' }}
+          onImport={() => setShowImport(true)}
+          onAdd={openNew}
+          addLabel="Thêm thuyền viên"
+          onRowClick={m => navigate(`/crew/${m.id}`)}
+          minWidth={1180}
+        />
+      ) : (
+        <DataTable
+          key="certificates"
+          columns={certColumns}
+          data={certsInView}
+          rowKey={c => c.id}
+          loading={certLoading}
+          itemLabel="chứng chỉ"
+          emptyMessage="Không có chứng chỉ nào trong khoảng thời gian này."
+          searchPlaceholder="Tìm chứng chỉ, thuyền viên, số chứng chỉ..."
+          exportOptions={{ fileName: 'chung-chi-sap-het-han', title: 'CHỨNG CHỈ SẮP HẾT HẠN' }}
+          onRowClick={c => c.crewMemberId && navigate(`/crew/${c.crewMemberId}`)}
+          minWidth={1180}
+          toolbarLeft={
+            <>
+              <select aria-label="Lọc theo tàu" value={certVessel} onChange={e => setCertVessel(e.target.value)} className={`${fieldClass} h-9 w-auto py-1`}>
+                <option value="">Tất cả tàu</option>
+                {vessels.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+              <select aria-label="Khoảng thời gian" value={certDaysAhead} onChange={e => setCertDaysAhead(Number(e.target.value))} className={`${fieldClass} h-9 w-auto py-1`}>
+                <option value={30}>Hết hạn trong 30 ngày</option>
+                <option value={60}>Hết hạn trong 60 ngày</option>
+                <option value={90}>Hết hạn trong 90 ngày</option>
+                <option value={180}>Hết hạn trong 180 ngày</option>
+                <option value={365}>Hết hạn trong 1 năm</option>
+              </select>
+            </>
+          }
+        />
+      )}
+
       {formOpen && (
         <CrewFormModal
           crew={editingCrew}
@@ -572,17 +342,43 @@ export const CrewListPage: React.FC = () => {
         />
       )}
 
-      {/* Assign Modal */}
-      {assignMode && assignList.length > 0 && (
+      {assignList.length > 0 && (
         <AssignShipModal
           crewMembers={assignList}
-          mode={assignMode}
-          onClose={() => { setAssignMode(null); setAssignList([]); }}
-          onAssign={handleBatchAssign}
-          onUnassign={handleBatchUnassign}
+          mode="unassign"
+          onClose={() => setAssignList([])}
+          onAssign={async () => { /* Gán lên tàu làm ở Chi tiết tàu → tab Thuyền viên */ }}
+          onUnassign={handleUnassign}
           saving={saving}
         />
       )}
+
+      <ImportExcelModal
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        title="Import danh sách thuyền viên"
+        note="Chức danh ghi mã (CAPT) hoặc tên (Thuyền trưởng) đúng như danh mục. Ngày ghi dd/mm/yyyy. Mã thuyền viên đã có sẽ báo lỗi ở dòng đó."
+        templateName="mau-import-thuyen-vien"
+        fields={IMPORT_FIELDS}
+        importRow={row => {
+          const rankId = row.rank ? rankByText.get(row.rank.trim().toUpperCase()) : undefined;
+          if (row.rank && rankId === undefined) return Promise.reject(new Error(`Không có chức danh "${row.rank}" trong danh mục`));
+          return crewApi.create({
+            crewId: row.crewId,
+            fullName: row.fullName,
+            rankId,
+            department: row.department || undefined,
+            dateOfBirth: parseImportDate(row.dateOfBirth) || undefined,
+            placeOfBirth: row.placeOfBirth || undefined,
+            idCardNumber: row.idCardNumber || undefined,
+            seamanBookNumber: row.seamanBookNumber || undefined,
+            phoneNumber: row.phoneNumber || undefined,
+            emailAddress: row.emailAddress || undefined,
+            address: row.address || undefined,
+          });
+        }}
+        onDone={reload}
+      />
     </div>
   );
 };

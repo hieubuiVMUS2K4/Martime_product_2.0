@@ -6,3 +6,5 @@ export { exportToExcel, exportToCsv } from './exportTable';
 export { ImportExcelModal } from './ImportExcelModal';
 export type { ImportField } from './ImportExcelModal';
 export { TableIconButton, TableActions } from './TableIconButton';
+export { QuickFilterBar } from './QuickFilterBar';
+export type { QuickFilter } from './QuickFilterBar';
