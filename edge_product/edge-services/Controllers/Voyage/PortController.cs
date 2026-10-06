@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MaritimeEdge.Data;
 using MaritimeEdge.Models;
@@ -114,90 +114,30 @@ public class PortController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new port
+    /// Reject writes to the Shore-managed port catalog
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreatePortDto dto)
+    public Task<IActionResult> Create([FromBody] CreatePortDto dto)
     {
-        try
-        {
-            var code = dto.PortCode.ToUpper().Trim();
-            
-            if (code.Length != 5)
-                return BadRequest(new { error = "UN/LOCODE must be exactly 5 characters (e.g., VNSGN)" });
-
-            var exists = await _context.Ports.AnyAsync(p => p.PortCode == code);
-            if (exists)
-                return Conflict(new { error = $"Port with code {code} already exists" });
-
-            var port = new Port
-            {
-                PortCode = code,
-                PortName = dto.PortName.Trim(),
-                Country = dto.Country,
-                CountryCode = dto.CountryCode?.ToUpper(),
-                Latitude = dto.Latitude,
-                Longitude = dto.Longitude,
-                TimeZone = dto.TimeZone
-            };
-
-            _context.Ports.Add(port);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetById), new { id = port.Id }, port);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating port");
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>
-    /// Update a port
+    /// Reject port updates on Edge
     /// </summary>
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UpdatePortDto dto)
+    public Task<IActionResult> Update(int id, [FromBody] UpdatePortDto dto)
     {
-        try
-        {
-            var port = await _context.Ports.FindAsync(id);
-            if (port == null) return NotFound();
-
-            if (dto.PortName != null) port.PortName = dto.PortName;
-            if (dto.Country != null) port.Country = dto.Country;
-            if (dto.CountryCode != null) port.CountryCode = dto.CountryCode.ToUpper();
-            if (dto.Latitude.HasValue) port.Latitude = dto.Latitude;
-            if (dto.Longitude.HasValue) port.Longitude = dto.Longitude;
-            if (dto.TimeZone != null) port.TimeZone = dto.TimeZone;
-            if (dto.IsActive.HasValue) port.IsActive = dto.IsActive.Value;
-            
-            port.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            return Ok(port);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating port {PortId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>
-    /// Delete a port (soft delete - set inactive)
+    /// Reject port deletion on Edge
     /// </summary>
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    public Task<IActionResult> Delete(int id)
     {
-        var port = await _context.Ports.FindAsync(id);
-        if (port == null) return NotFound();
-
-        port.IsActive = false;
-        port.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>

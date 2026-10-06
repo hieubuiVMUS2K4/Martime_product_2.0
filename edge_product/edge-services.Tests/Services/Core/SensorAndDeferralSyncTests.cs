@@ -121,6 +121,8 @@ public partial class SyncReliabilityTests
         {
             var sent = new List<SyncQueueItemDto>(); var storage = new Mock<ISyncFileStorageService>();
             storage.Setup(s => s.Exists(It.IsAny<string>())).Returns(true);
+            // File-reference capture reads the local source timestamp as well as prepared metadata.
+            storage.Setup(s => s.ResolveLocalPath(It.IsAny<string>())).Returns(link);
             var preparation = new Mock<ISyncFilePreparationService>();
             preparation.Setup(p => p.PrepareForSyncAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((string source, string table, string key, string role, CancellationToken _) =>

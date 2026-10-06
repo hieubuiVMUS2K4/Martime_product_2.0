@@ -18,6 +18,14 @@ public class RankCertificatesController : ControllerBase
         _logger = logger;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<RankCertificate>>> GetAll()
+    {
+        var requirements = await _context.RankCertificates.AsNoTracking()
+            .Include(rc => rc.Certificate).OrderBy(rc => rc.RankId).ThenBy(rc => rc.CertificateId).ToListAsync();
+        return Ok(requirements);
+    }
+
     /// <summary>
     /// Get all rank-certificate associations for a specific certificate
     /// GET /api/rank-certificates/certificate/{certificateId}

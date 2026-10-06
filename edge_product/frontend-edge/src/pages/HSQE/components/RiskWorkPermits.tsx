@@ -521,7 +521,7 @@ export function RiskWorkPermits() {
 
   if (risks.length === 0 || permits.length === 0) {
     return (
-      <div className="w-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div className="operations-surface w-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-full text-blue-600 dark:text-blue-400 mb-4 animate-pulse">
           <Activity className="w-12 h-12" />
         </div>
@@ -1078,7 +1078,7 @@ export function RiskWorkPermits() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="operations-surface space-y-4 p-4">
       <style>{`
         @media print {
           body * {
@@ -1108,7 +1108,7 @@ export function RiskWorkPermits() {
       <div className="flex border-b border-slate-200 dark:border-slate-700 pb-px">
         <button
           onClick={() => setActiveSubTab('permits')}
-          className={`px-5 py-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`px-3 py-2 font-semibold text-xs border-b-2 transition-all ${
             activeSubTab === 'permits'
               ? 'border-blue-600 text-blue-600 dark:text-blue-400'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1118,7 +1118,7 @@ export function RiskWorkPermits() {
         </button>
         <button
           onClick={() => setActiveSubTab('risks')}
-          className={`px-5 py-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`px-3 py-2 font-semibold text-xs border-b-2 transition-all ${
             activeSubTab === 'risks'
               ? 'border-blue-600 text-blue-600 dark:text-blue-400'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1192,11 +1192,11 @@ export function RiskWorkPermits() {
           </div>
 
           {/* Sổ lưu trữ giấy phép cũ */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Nhật ký Giấy phép làm việc (TL-13)</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+            <h3 className="operations-section-title mb-3">Nhật ký Giấy phép làm việc (TL-13)</h3>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="operations-table w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold bg-slate-50 dark:bg-slate-900">
                     <th className="p-3">Mã giấy phép</th>
@@ -1260,12 +1260,12 @@ export function RiskWorkPermits() {
 
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
           {/* Left: Risks & JSA Registers list */}
-          <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px]">
+          <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Báo cáo đánh giá rủi ro (TL-24-01)</h3>
+              <h3 className="operations-section-title">Báo cáo đánh giá rủi ro (TL-24-01)</h3>
               <button
                 onClick={() => setViewMode('create_risk')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow"
@@ -1305,7 +1305,7 @@ export function RiskWorkPermits() {
           </div>
 
           {/* Right: JSA Steps Details View */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px] overflow-y-auto">
+          <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px] overflow-y-auto">
             {selectedRisk ? (
               <>
                 <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">

@@ -610,6 +610,26 @@
       "exportExcel": "Export Excel",
       "exportPdf": "Export PDF"
     },
+    "rankCatalog": {
+      "managedOnShore": "Ranks and certificate requirements are managed on shore and synchronized to the vessel for reference.",
+      "search": "Search code, name or level",
+      "code": "Rank code",
+      "name": "Rank name",
+      "department": "Department",
+      "allDepartments": "All departments",
+      "level": "Level",
+      "sortOrder": "Order",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "includeInactive": "Include inactive ranks",
+      "requirements": "Certificate requirements",
+      "certificateCount": "{count} certificates",
+      "noRequirements": "No certificate requirements for this rank.",
+      "empty": "No matching ranks. If the catalog is empty, check synchronization from shore.",
+      "loadError": "Unable to load ranks or certificate requirements. Please refresh to try again.",
+      "viewCompliance": "View crew certificate compliance"
+    },
     "monitor": {
       "title": "Crew Certificate Monitoring",
       "crewCertificates": "Crew Certificates",
@@ -1440,6 +1460,7 @@
   "voyage": {
     "title": "Voyage & Cargo",
     "portMgmt": {
+      "managedOnShore": "The port catalog is managed on shore and synchronized to the vessel for reference.",
       "title": "Port Management",
       "subtitle": "Manage port master data (UN/LOCODE standard) — {count} ports",
       "addPort": "Add Port",

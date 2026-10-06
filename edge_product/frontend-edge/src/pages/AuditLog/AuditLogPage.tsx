@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import '@/styles/OperationalTheme.css'
 import { useAuthStore } from '@/stores/auth.store'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 import { auditLogService, type AuditLogEntry, type AuditLogStats } from '@/services/maritime.service'
@@ -27,7 +28,7 @@ import { format, parseISO, subDays } from 'date-fns'
 const LEVEL_CONFIG: Record<string, { color: string; bg: string; icon: typeof Info }> = {
   DEBUG:    { color: 'text-gray-500',   bg: 'bg-gray-100 dark:bg-gray-800',     icon: Info },
   INFO:     { color: 'text-blue-600',   bg: 'bg-blue-50 dark:bg-blue-900/30',   icon: Info },
-  WARNING:  { color: 'text-amber-600',  bg: 'bg-amber-50 dark:bg-amber-900/30', icon: AlertTriangle },
+  WARNING:  { color: 'text-amber-600 dark:text-amber-300',  bg: 'bg-amber-50 dark:bg-amber-900/30', icon: AlertTriangle },
   ERROR:    { color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-900/30',     icon: AlertTriangle },
   CRITICAL: { color: 'text-red-700',    bg: 'bg-red-100 dark:bg-red-900/50',    icon: Ban },
 }
@@ -172,7 +173,7 @@ export function AuditLogPage() {
 
   if (!isAuthorized) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+      <div className="operations-page operations-surface h-full w-full flex items-center justify-center bg-white dark:bg-gray-800">
         <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg max-w-md">
           <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('auditLog.accessDenied')}</h2>
@@ -188,21 +189,21 @@ export function AuditLogPage() {
   // ─── Render ─────────────────────────────────────────────
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-      <div className="max-w-[1600px] mx-auto p-4 space-y-4">
+    <div className="operations-page operations-surface h-full w-full overflow-y-auto bg-white dark:bg-gray-800">
+      <div className="w-full p-4 space-y-4">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Shield className="w-7 h-7 text-blue-600" />
+        <div className="operations-toolbar -mx-4 -mt-4">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-blue-600" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('auditLog.title')}</h1>
+              <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('auditLog.title')}</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t('auditLog.subtitle')}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="operations-actions">
             <button
               onClick={toggleStats}
               className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${
@@ -399,7 +400,7 @@ export function AuditLogPage() {
         {/* Log Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Table Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="operations-section-title flex items-center justify-between">
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {totalCount.toLocaleString()} events
               {totalPages > 1 && ` · Page ${currentPage}/${totalPages}`}
@@ -418,7 +419,7 @@ export function AuditLogPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="operations-table w-full text-xs">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
@@ -585,9 +586,9 @@ function LogDetailModal({ log, onClose }: { log: AuditLogEntry; onClose: () => v
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="operations-section-title flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('auditLog.details')}</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('auditLog.details')}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {log.entityType} #{truncateId(log.entityId || '')} · {formatTimestamp(log.timestamp)}
             </p>

@@ -205,7 +205,7 @@ export const VoyageLogPage: React.FC = () => {
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700"
+            className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700"
           >
             {showForm ? t('common.cancel') : t('voyageLog.newEntry')}
           </button>
@@ -233,12 +233,12 @@ export const VoyageLogPage: React.FC = () => {
 
           {/* Step 1: Select Event Type */}
           {step === 1 && (
-            <div className="bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-              <h2 className="text-blue-600 dark:text-blue-400 font-sans text-xl font-bold mb-6">
+            <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+              <h2 className="operations-section-title text-blue-600 dark:text-blue-400 font-sans text-sm font-bold mb-6">
                 {t('voyageLog.step1Title')}
               </h2>
               
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 {EVENT_CATEGORIES.map(category => (
                   <div key={category.nameKey}>
                     <h3 className="text-gray-500 text-sm font-semibold mb-3 uppercase tracking-wide">
@@ -277,8 +277,8 @@ export const VoyageLogPage: React.FC = () => {
 
           {/* Step 2: Enter Details */}
           {step === 2 && selectedEventType && (
-            <div className="bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-              <h2 className="text-blue-600 dark:text-blue-400 font-sans text-xl font-bold mb-4">
+            <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+              <h2 className="operations-section-title text-blue-600 dark:text-blue-400 font-sans text-sm font-bold mb-4">
                 {t('voyageLog.step2Title')}
               </h2>
               
@@ -294,7 +294,7 @@ export const VoyageLogPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 {/* Date/Time */}
                 <MaritimeInput
                   label={t('voyageLog.form.eventDateTime')}
@@ -440,7 +440,7 @@ export const VoyageLogPage: React.FC = () => {
                   </button>
                   <button
                     onClick={handleSave}
-                    className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700"
+                    className="bg-green-600 text-white font-semibold py-1.5 px-8 rounded-lg shadow-none hover:bg-green-700"
                   >
                     {t('voyageLog.saveEntry')}
                   </button>
@@ -479,7 +479,7 @@ export const VoyageLogPage: React.FC = () => {
                     <div key={item.id} className="relative flex gap-4">
                       {/* Timeline dot */}
                       <div 
-                        className="relative z-10 w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0 border-4 border-white shadow-md"
+                        className="relative z-10 w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0 border-4 border-white shadow-none"
                         style={{ backgroundColor: `${item.eventColor}20` }}
                       >
                         {item.eventIcon}
@@ -531,7 +531,7 @@ export const VoyageLogPage: React.FC = () => {
       {/* Table View */}
       {viewMode === 'table' && !showForm && (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto shadow-sm">
-          <table className="w-full text-left border-collapse">
+          <table className="operations-table w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 font-sans text-sm font-semibold">
                 <th className="p-4 border-b border-gray-200 dark:border-gray-600">{t('voyageLog.dateTime')}</th>

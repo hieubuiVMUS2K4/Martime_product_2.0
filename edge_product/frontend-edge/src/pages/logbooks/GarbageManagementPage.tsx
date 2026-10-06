@@ -1,3 +1,4 @@
+import '@/styles/OperationalTheme.css';
 import React, { useState, useEffect } from 'react';
 import { GarbagePartIForm } from '../../components/logbooks/GarbagePartIForm';
 import { GarbagePartIIForm } from '../../components/logbooks/GarbagePartIIForm';
@@ -553,20 +554,20 @@ export const GarbageManagementPage: React.FC = () => {
   const activeEntryCount = activeTab === 'part-i' ? visiblePartIEntries.length : visiblePartIIEntries.length;
 
   return (
-    <div className="h-full min-h-0 w-full flex flex-col overflow-hidden bg-white">
+    <div className="operations-page operations-surface h-full min-h-0 w-full flex flex-col overflow-hidden bg-white dark:bg-gray-800">
       {/* Header row - same compact visual language as PMS Work Planning */}
       <div className="flex flex-shrink-0 border-b border-gray-200">
-        <div className="w-64 flex-shrink-0 flex items-center gap-2 px-3 py-3 bg-blue-800 text-white border-r border-blue-900">
+        <div className="hidden lg:flex w-64 flex-shrink-0 items-center gap-2 px-3 py-3 bg-blue-800 text-white border-r border-blue-900">
           <Trash2 className="w-4 h-4" />
           <span className="text-sm font-semibold truncate">MARPOL Annex V</span>
         </div>
-        <div className="flex-1 flex items-center justify-between gap-4 px-4 py-3 bg-white">
-          <div className="min-w-0 flex items-center gap-2">
+        <div className="min-w-0 flex-1 flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-white">
+          <div className="min-w-0 flex-1 flex items-center gap-2">
             <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <h1 className="text-sm font-semibold text-gray-700 truncate">
               {t('logbooks.garbageRecord.marpolTitle')}
             </h1>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+            <span className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
               {activeEntryCount}
             </span>
           </div>
@@ -603,8 +604,8 @@ export const GarbageManagementPage: React.FC = () => {
       </div>
 
       {/* Search + tabs */}
-      <div className="flex flex-shrink-0 border-b border-gray-200 bg-white">
-        <div className="w-64 flex-shrink-0 border-r border-gray-200 flex items-center px-2 py-1.5">
+      <div className="flex flex-col lg:flex-row flex-shrink-0 border-b border-gray-200 bg-white">
+        <div className="w-full lg:w-64 flex-shrink-0 lg:border-r border-gray-200 flex items-center px-2 py-1.5">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input
@@ -615,7 +616,7 @@ export const GarbageManagementPage: React.FC = () => {
             />
           </div>
         </div>
-        <div className="flex flex-1 items-center gap-1 px-4">
+        <div className="min-w-0 flex flex-wrap flex-1 items-center gap-1 px-4">
           <button
             onClick={() => {
               setActiveTab('part-i');
@@ -679,7 +680,7 @@ export const GarbageManagementPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white overflow-x-auto border-t border-gray-200">
-        <table className="w-full min-w-[1120px] text-left border-collapse text-sm">
+        <table className="operations-table w-full min-w-[1120px] text-left border-collapse text-sm">
           <thead className="sticky top-0 z-10">
             <tr className="bg-blue-50 text-gray-600 text-xs font-semibold">
               <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.dateTime')}</th>

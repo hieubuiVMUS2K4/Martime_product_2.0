@@ -81,10 +81,12 @@ public class SyncOutboxService : ISyncOutboxService
             var prepared = await PrepareOutgoingAsync(tableName, recordKey, action, payload);
             action = prepared.Action;
             var serializedPayload = prepared.Payload;
+            if (VoyageSyncRouting.IsVoyageTable(tableName))
+                targetNode = await VoyageSyncRouting.ResolveTargetAsync(_context, tableName, recordKey, serializedPayload);
 
             // Only identical pending snapshots can be coalesced. Exposed events are immutable.
             if (await _context.SyncOutbox.AnyAsync(o => o.DeliveredAt == null &&
-                (o.TargetNode == targetNode || o.TargetNode == "*") && o.TableName == tableName && o.RecordKey == recordKey &&
+                o.TargetNode == targetNode && o.TableName == tableName && o.RecordKey == recordKey &&
                 o.ActionType == action && o.Payload == serializedPayload)) return;
 
             var outboxItem = new SyncOutbox
@@ -135,9 +137,12 @@ public class SyncOutboxService : ISyncOutboxService
         {
             var prepared = await PrepareOutgoingAsync(item.TableName, item.RecordKey, item.Action, item.Payload);
             var serializedPayload = prepared.Payload;
+            var itemTarget = VoyageSyncRouting.IsVoyageTable(item.TableName)
+                ? await VoyageSyncRouting.ResolveTargetAsync(_context, item.TableName, item.RecordKey, serializedPayload)
+                : targetNode;
             var outboxItem = new SyncOutbox
             {
-                TargetNode = targetNode,
+                TargetNode = itemTarget,
                 TableName = item.TableName,
                 RecordKey = item.RecordKey,
                 ActionType = prepared.Action,

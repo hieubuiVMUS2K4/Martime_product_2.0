@@ -3021,6 +3021,10 @@ public class EdgeDbContext : DbContext
             // 1. Skip SyncQueue itself to avoid infinite recursion
             if (entry.Entity is SyncQueue) continue;
 
+            // Global reference data is written only by Shore sync, never uploaded from Edge.
+            if (entry.Entity is Port or Rank or Country or Certificate or RankCertificate or CountryCertificate)
+                continue;
+
             // Dedicated telemetry enqueuers own these tables; sensors below use automatic capture.
             if (entry.Entity is SystemLog || entry.Entity is PositionData || entry.Entity is EngineData
                 || entry.Entity is SafetyAlarm || entry.Entity is EngineEvent)

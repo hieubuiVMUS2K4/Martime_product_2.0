@@ -141,7 +141,7 @@ export const EngineLogPage: React.FC = () => {
   return (
     <LogbookGrid title={t('logbooks.engineLog.mainEngineTitle')}>
       <div className="overflow-x-auto bg-white border border-gray-200">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('logbooks.engineLog.time')}</th>
@@ -339,7 +339,7 @@ export const EngineLogPage: React.FC = () => {
               <td className="p-2">
                 <button 
                   onClick={handleAdd}
-                  className="bg-blue-600 text-white px-4 py-2.5 font-semibold rounded-lg hover:bg-blue-700"
+                  className="bg-blue-600 text-white px-4 py-1.5 font-semibold rounded-lg hover:bg-blue-700"
                 >
                   {t('common.add')}
                 </button>

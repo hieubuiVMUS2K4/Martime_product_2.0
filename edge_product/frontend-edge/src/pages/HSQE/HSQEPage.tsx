@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import '@/styles/OperationalTheme.css';
 import { FileText, AlertOctagon, Activity } from 'lucide-react';
 import { DocumentControl } from './components/DocumentControl';
 import { IncidentManagement } from './components/IncidentManagement';
@@ -15,10 +16,10 @@ export function HSQEPage() {
   const [activeTab, setActiveTab] = useState<TabType>('documents');
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 shadow-sm">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+    <div className="operations-page flex h-full min-h-0 flex-col bg-white dark:bg-slate-800 transition-colors duration-200">
+      <div className="operations-toolbar bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+        <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <h1 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             Quản lý tài liệu và tuân thủ
           </h1>
 
@@ -61,7 +62,7 @@ export function HSQEPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 p-0">
-        <div className="min-h-0 flex-1 transition-all duration-300">
+        <div className="min-h-0 flex-1 overflow-auto transition-all duration-300">
           {activeTab === 'documents' && <DocumentControl />}
           {activeTab === 'incidents' && <IncidentManagement />}
           {activeTab === 'permits' && <RiskWorkPermits />}

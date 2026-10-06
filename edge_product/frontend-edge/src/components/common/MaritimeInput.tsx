@@ -7,7 +7,7 @@ interface MaritimeInputProps extends React.InputHTMLAttributes<HTMLInputElement>
 
 export const MaritimeInput: React.FC<MaritimeInputProps> = ({ label, error, className, ...props }) => {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="maritime-field flex flex-col gap-2">
       {label && (
         <label className="text-sm font-medium text-gray-700">
           {label}

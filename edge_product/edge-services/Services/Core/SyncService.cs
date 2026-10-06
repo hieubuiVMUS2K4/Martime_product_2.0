@@ -271,18 +271,8 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Pull updates from Shore → Edge (master data, certificate renewals, crew assignments)
-    /// </summary>
-    /// <summary>
-    /// Đưa các bản ghi danh mục còn IsSynced = false vào hàng đợi đồng bộ.
-    ///
-    /// Hàng đợi chỉ được nạp bởi interceptor của EdgeDbContext khi có SaveChanges. Dữ liệu
-    /// seed thẳng vào cơ sở dữ liệu (script SQL, dump khởi tạo) không đi qua đường đó, nên nằm
-    /// lại vĩnh viễn với IsSynced = false mà không bao giờ được đẩy đi — 80 cảng của tàu này
-    /// đã kẹt như vậy, khiến bờ trống danh mục cảng.
-    ///
-    /// Chạy mỗi chu kỳ đồng bộ, chỉ xếp thêm những gì CHƯA có trong hàng đợi nên không nhân đôi.
-    /// Dùng SNAPSHOT (upsert) để lặp lại bao nhiêu lần vẫn ra một bản ghi bên nhận.
+    /// Recover missing uploads for operational reference records created before automatic capture.
+    /// Shore-managed catalogs are excluded; bounded batches eventually cover every missing row.
     /// </summary>
     private async Task ReconcileUnqueuedMasterDataAsync(EdgeDbContext context, CancellationToken cancellationToken)
     {
@@ -295,9 +285,6 @@ public class SyncService : ISyncService
             // Thứ tự quan trọng: phiếu cha phải lên trước dòng chi tiết, vì bờ nối khoá ngoại
             // của dòng chi tiết bằng cách tra mã phiếu cha.
             var added = 0;
-            added += await ReconcileTableAsync(context, "port",
-                context.Ports.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
-
             added += await ReconcileTableAsync(context, "store_location",
                 context.StoreLocations.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
 

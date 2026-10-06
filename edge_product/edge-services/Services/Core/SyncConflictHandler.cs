@@ -63,6 +63,9 @@ public class SyncConflictHandler : ISyncConflictHandler
         ["voyage_record"] = typeof(VoyageRecord),
         ["voyage_plan_leg"] = typeof(VoyagePlanLeg),
         ["voyage_status_history"] = typeof(VoyageStatusHistory),
+        ["voyage_crew_assignment"] = typeof(VoyageCrewAssignment),
+        ["voyage_log_entry"] = typeof(VoyageLogEntry),
+        ["cargo_operation"] = typeof(CargoOperation),
         ["port_call"] = typeof(PortCall),
         ["voyage_cargo_plan"] = typeof(VoyageCargoPlan),
         ["voyage_bunker_plan"] = typeof(VoyageBunkerPlan),
@@ -176,11 +179,14 @@ public class SyncConflictHandler : ISyncConflictHandler
 
         var action = item.ActionType?.ToUpperInvariant() ?? "CREATE";
 
-        // Edge-owned tables: reject shore updates
-        if (_edgeOwnedTables.Contains(item.TableName) && action != "CREATE")
+        // Full recovery may insert a missing Edge-owned record, but cannot replace local history.
+        if (_edgeOwnedTables.Contains(item.TableName))
         {
-            _logger.LogDebug("Rejected shore {Action} for edge-owned {Table}/{Key}",
-                action, item.TableName, item.RecordKey);
+            if (action is not ("CREATE" or "SNAPSHOT"))
+                throw new InvalidOperationException($"Shore {action} is not allowed for edge-owned {item.TableName}.");
+            var stored = await FindByKeyAsync(context, entityType, item.RecordKey, item.Payload);
+            if (stored == null) await HandleCreateAsync(context, entityType, item);
+            else _logger.LogDebug("Preserved local history for {Table}/{Key}", item.TableName, item.RecordKey);
             return;
         }
 
@@ -464,6 +470,9 @@ public class SyncConflictHandler : ISyncConflictHandler
         var incomingRecordStatus = tableName == "crew_logbook_entry"
             ? (incoming as Maritime.Shared.Models.Crew.CrewLogbookEntry)?.RecordStatus
             : null;
+        var acceptShoreVoyageStatus = tableName == "voyage_record" && existing is VoyageRecord localVoyage
+            && incoming is VoyageRecord shoreVoyage
+            && Maritime.Shared.Models.Sync.VoyageSyncOwnership.AcceptShoreStatus(localVoyage.VoyageStatus, shoreVoyage.VoyageStatus);
 
         foreach (var prop in props)
         {
@@ -476,7 +485,13 @@ public class SyncConflictHandler : ISyncConflictHandler
 
             bool shouldApply = true;
 
-            if (tableName == "crew_logbook_entry")
+            if (tableName == "voyage_record")
+            {
+                shouldApply = !Maritime.Shared.Models.Sync.VoyageSyncOwnership.EdgeRecordFields.Contains(prop.Name);
+                if (prop.Name is "VoyageStatus" or "CancelledAt") shouldApply = acceptShoreVoyageStatus;
+                if (prop.Name == "CreatedAt") shouldApply = false;
+            }
+            else if (tableName == "crew_logbook_entry")
             {
                 // Sổ thuyền viên: tàu làm chủ sự kiện lên/rời tàu và thông số con tàu.
                 //

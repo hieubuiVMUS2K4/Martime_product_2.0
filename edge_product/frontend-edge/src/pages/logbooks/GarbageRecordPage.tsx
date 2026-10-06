@@ -195,7 +195,7 @@ export const GarbageRecordPage: React.FC = () => {
       actions={
         <button
           onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
+          className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.garbageRecord.newEntry')}
         </button>
@@ -222,8 +222,8 @@ export const GarbageRecordPage: React.FC = () => {
 
         {/* Step 1: Select Garbage Category */}
         {step === 1 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-6">
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-6">
               {t('logbooks.garbageRecord.step1Title')}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -254,8 +254,8 @@ export const GarbageRecordPage: React.FC = () => {
 
         {/* Step 2: Select Operation Type */}
         {step === 2 && selectedCategory && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">
               {t('logbooks.garbageRecord.step2Title')}
             </h2>
             <div className="bg-gray-50/30 p-4 mb-6 border border-gray-200">
@@ -304,8 +304,8 @@ export const GarbageRecordPage: React.FC = () => {
 
         {/* Step 3: Enter Details & Save */}
         {step === 3 && selectedCategory && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-6">
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-6">
               {t('logbooks.garbageRecord.step3Title')}
             </h2>
             
@@ -424,7 +424,7 @@ export const GarbageRecordPage: React.FC = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700 "
+                  className="bg-green-600 text-white font-semibold py-1.5 px-8 rounded-lg shadow-none hover:bg-green-700 "
                 >
                   {t('logbooks.garbageRecord.saveEntry')}
                 </button>
@@ -437,7 +437,7 @@ export const GarbageRecordPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white border border-gray-200 overflow-x-auto mt-6">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.dateTime')}</th>

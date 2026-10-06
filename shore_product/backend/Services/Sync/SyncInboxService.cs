@@ -323,7 +323,7 @@ public class SyncInboxService : ISyncInboxService
     // chúng và bờ phải nhận.
     private static readonly HashSet<string> _shoreMasterOnlyTables = new(StringComparer.OrdinalIgnoreCase)
     {
-        "ism_elements", "sms_procedures", "sms_form_templates"
+        "ism_elements", "sms_procedures", "sms_form_templates", "port"
     };
 
     // Tables that edge auto-syncs but shore intentionally does not store.

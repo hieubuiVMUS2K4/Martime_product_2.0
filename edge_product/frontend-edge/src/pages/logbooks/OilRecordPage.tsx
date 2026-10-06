@@ -140,7 +140,7 @@ export const OilRecordPage: React.FC = () => {
               setShowForm(true);
             }
           }}
-          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
+          className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.oilRecord.newEntry')}
         </button>
@@ -167,8 +167,8 @@ export const OilRecordPage: React.FC = () => {
 
         {/* Step 1: Select Operation */}
         {step === 1 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">{t('logbooks.oilRecord.step1Title')}</h2>
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">{t('logbooks.oilRecord.step1Title')}</h2>
             <div className="flex flex-col gap-2">
               {OPERATIONS.map(op => (
                 <button
@@ -189,8 +189,8 @@ export const OilRecordPage: React.FC = () => {
 
         {/* Step 2: Enter Details */}
         {step === 2 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">{t('logbooks.oilRecord.step2Title')} (Code {formData.operationCode})</h2>
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">{t('logbooks.oilRecord.step2Title')} (Code {formData.operationCode})</h2>
             <div className="flex flex-col gap-4">
               <MaritimeInput 
                 label={t('logbooks.oilRecord.itemNo')} 
@@ -220,7 +220,7 @@ export const OilRecordPage: React.FC = () => {
                 <button onClick={handleBack} className="text-gray-900 font-sans underline">{t('common.back')}</button>
                 <button 
                   onClick={handleNext}
-                  className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700"
+                  className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700"
                 >
                   {t('common.next')}
                 </button>
@@ -231,8 +231,8 @@ export const OilRecordPage: React.FC = () => {
 
         {/* Step 3: Review & Sign */}
         {step === 3 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">{t('logbooks.oilRecord.step3Title')}</h2>
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">{t('logbooks.oilRecord.step3Title')}</h2>
             <div className="bg-gray-50/30 p-4 mb-6 border border-gray-200 font-sans text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <span className="text-gray-400">{t('logbooks.oilRecord.codeLabel')}:</span>
@@ -256,7 +256,7 @@ export const OilRecordPage: React.FC = () => {
               <button onClick={handleBack} className="text-gray-900 font-sans underline">{t('common.back')}</button>
               <button 
                 onClick={handleSave}
-                className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-green-700"
+                className="bg-green-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-green-700"
               >
                 {t('common.confirm')}
               </button>
@@ -268,7 +268,7 @@ export const OilRecordPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white border border-gray-200 overflow-x-auto mt-6">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('voyageLog.dateTime')}</th>

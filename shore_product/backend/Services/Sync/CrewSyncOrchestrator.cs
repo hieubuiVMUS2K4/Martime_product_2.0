@@ -63,6 +63,10 @@ public class CrewSyncOrchestrator : ICrewSyncOrchestrator
 
     public async Task<int> QueueFullCrewSnapshotAsync(string targetNode)
     {
+        targetNode = await VesselSyncIdentity.CanonicalTargetAsync(_context, targetNode);
+        var vesselId = await VesselSyncIdentity.ResolveVesselIdAsync(_context, targetNode)
+            ?? throw new InvalidOperationException("Crew recovery requires a registered node bound to a vessel.");
+        var recoveryOrigins = await VesselSyncIdentity.HistoricalOriginsAsync(_context, vesselId);
         var batch = new List<(string TableName, string RecordKey, SyncActionType Action, object Payload)>();
 
         // 1. Master data first (dependencies)
@@ -101,7 +105,8 @@ public class CrewSyncOrchestrator : ICrewSyncOrchestrator
             batch.Add(("crew_certificate", cc.Id.ToString(), SyncActionType.SNAPSHOT, cc));
 
         // 4. Service records
-        var serviceRecords = await _context.ServiceRecords.AsNoTracking().ToListAsync();
+        var serviceRecords = await _context.ServiceRecords.AsNoTracking()
+            .Where(sr => recoveryOrigins.Contains(sr.OriginNode)).ToListAsync();
         foreach (var sr in serviceRecords)
             batch.Add(("service_record", sr.Id.ToString(), SyncActionType.SNAPSHOT, sr));
 

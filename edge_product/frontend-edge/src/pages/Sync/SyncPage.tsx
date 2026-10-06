@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import '@/styles/OperationalTheme.css'
 import { toast } from 'sonner'
 import {
   RefreshCw, Cloud, Clock, AlertTriangle,
@@ -90,20 +91,20 @@ function SyncConfirmModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!syncing ? onClose : undefined} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700">
-          <div className="flex items-center gap-3 text-white">
+        <div className="flex items-center justify-between operations-section-title flex-shrink-0">
+          <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
             <Send className="w-5 h-5" />
-            <span className="font-semibold text-lg">{t('sync.confirmTitle')}</span>
+            <span className="font-semibold text-sm">{t('sync.confirmTitle')}</span>
             {total > 0 && (
-              <span className="bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">
+              <span className="bg-blue-100 text-blue-700 dark:text-blue-300 text-xs px-2.5 py-1 rounded-full">
                 {t('sync.confirmRecordCount', { count: total })}
               </span>
             )}
           </div>
-          <button onClick={!syncing ? onClose : undefined} className="text-white/70 hover:text-white transition-colors disabled:opacity-40">
+          <button onClick={!syncing ? onClose : undefined} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-40">
             <XCircle className="w-5 h-5" />
           </button>
         </div>
@@ -149,7 +150,7 @@ function SyncConfirmModal({
                         <span className="text-sm text-gray-700">{g.label}</span>
                         <div className="flex items-center gap-2">
                           {g.errors > 0 && (
-                            <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                            <span className="text-xs text-amber-600 dark:text-amber-300 bg-amber-50 px-1.5 py-0.5 rounded">
                               {t('sync.errorsCount', { count: g.errors })}
                             </span>
                           )}
@@ -211,7 +212,7 @@ function SyncConfirmModal({
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                 isOnline ? 'bg-emerald-100' : 'bg-red-100'
               }`}>
-                <Cloud className={`w-4 h-4 ${isOnline ? 'text-emerald-600' : 'text-red-500'}`} />
+                <Cloud className={`w-4 h-4 ${isOnline ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-500'}`} />
               </div>
               <div>
                 <div className="text-xs font-bold text-gray-700 tracking-wide">{t('sync.shore')}</div>
@@ -227,7 +228,7 @@ function SyncConfirmModal({
                     isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
                   }`} />
                   <span className={`text-xs font-semibold ${
-                    isOnline ? 'text-emerald-600' : 'text-red-600'
+                    isOnline ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600'
                   }`}>
                     {isOnline ? t('sync.online') : t('sync.offline')}
                   </span>
@@ -242,7 +243,7 @@ function SyncConfirmModal({
               <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5">
                 <span className="text-xs text-gray-500">{t('sync.waitingAtShore')}</span>
                 <span className={`text-xs font-semibold ${
-                  (status?.pendingRecords ?? 0) > 0 ? 'text-amber-600' : 'text-emerald-600'
+                  (status?.pendingRecords ?? 0) > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300'
                 }`}>
                   {status?.pendingRecords != null ? t('sync.confirmRecordCount', { count: status.pendingRecords }) : '—'}
                 </span>
@@ -350,15 +351,15 @@ function SnapshotModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!loading ? onClose : undefined} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-700 to-slate-800">
-          <div className="flex items-center gap-3 text-white">
+        <div className="flex items-center justify-between operations-section-title flex-shrink-0">
+          <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
             <Database className="w-5 h-5" />
-            <span className="font-semibold text-lg">{t('sync.snapshotTitle')}</span>
+            <span className="font-semibold text-sm">{t('sync.snapshotTitle')}</span>
           </div>
-          <button onClick={!loading ? onClose : undefined} className="text-white/70 hover:text-white transition-colors">
+          <button onClick={!loading ? onClose : undefined} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
             <XCircle className="w-5 h-5" />
           </button>
         </div>
@@ -405,7 +406,7 @@ function SnapshotModal({
           {needsDateFilter && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-300 flex-shrink-0" />
                 <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">{t('sync.dateRange')}</p>
               </div>
               <div className="flex gap-3">
@@ -430,7 +431,7 @@ function SnapshotModal({
                   />
                 </div>
               </div>
-              <p className="text-xs text-amber-600">💡 {t('sync.dateHint')}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-300">💡 {t('sync.dateHint')}</p>
             </div>
           )}
         </div>
@@ -588,7 +589,7 @@ export function SyncPage() {
 
   const getPriorityColor = (priority: number) => {
     if (priority <= 1) return 'text-red-600 bg-red-50'
-    if (priority <= 3) return 'text-amber-600 bg-amber-50'
+    if (priority <= 3) return 'text-amber-600 dark:text-amber-300 bg-amber-50'
     return 'text-blue-600 bg-blue-50'
   }
 
@@ -600,8 +601,8 @@ export function SyncPage() {
 
   if (loading) {
     return (
-      <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-        <div className="max-w-7xl mx-auto p-6">
+      <div className="operations-page operations-surface h-full w-full overflow-y-auto bg-white dark:bg-gray-800">
+        <div className="w-full p-4">
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             <span className="ml-3 text-gray-500 text-lg">{t('sync.loading')}</span>
@@ -616,14 +617,14 @@ export function SyncPage() {
   const failedItems = queue.filter(q => q.retryCount > 0)
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className="operations-page operations-surface h-full w-full overflow-y-auto bg-white dark:bg-gray-800">
+      <div className="w-full space-y-4 p-4">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="operations-toolbar -mx-4 -mt-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-              <ArrowUpDown className="w-7 h-7 text-blue-600" />
+            <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+              <ArrowUpDown className="w-4 h-4 text-blue-600" />
               {t('sync.title')}
             </h1>
             <p className="text-gray-500 mt-1">
@@ -631,7 +632,7 @@ export function SyncPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="operations-actions">
             {/* Auto-refresh toggle */}
             <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
               <input
@@ -707,7 +708,7 @@ export function SyncPage() {
           <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="text-teal-700 text-sm font-medium">
+              <span className="text-teal-700 dark:text-teal-300 text-sm font-medium">
                 {snapshotResult.queued > 0
                   ? t('sync.snapshotQueued', { count: snapshotResult.queued.toLocaleString() })
                   : t('sync.snapshotAllQueued')}
@@ -715,14 +716,14 @@ export function SyncPage() {
               {snapshotResult.groups?.length > 0 && snapshotResult.queued > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {snapshotResult.groups.filter(g => g.count > 0).map(g => (
-                    <span key={g.name} className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
+                    <span key={g.name} className="text-xs bg-teal-100 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded-full">
                       {g.label}: {g.count}
                     </span>
                   ))}
                 </div>
               )}
             </div>
-            <button onClick={() => setSnapshotResult(null)} className="text-teal-500 hover:text-teal-700 flex-shrink-0">✕</button>
+            <button onClick={() => setSnapshotResult(null)} className="text-teal-500 hover:text-teal-700 dark:text-teal-300 flex-shrink-0">✕</button>
           </div>
         )}
 
@@ -730,10 +731,10 @@ export function SyncPage() {
         {syncResult && !syncing && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-            <span className="text-emerald-700 text-sm">
+            <span className="text-emerald-700 dark:text-emerald-300 text-sm">
               {t('sync.syncComplete', { synced: syncResult.totalSynced.toLocaleString(), pending: syncResult.pendingRecords.toLocaleString() })}
             </span>
-            <button onClick={() => setSyncResult(null)} className="ml-auto text-emerald-500 hover:text-emerald-700">
+            <button onClick={() => setSyncResult(null)} className="ml-auto text-emerald-500 hover:text-emerald-700 dark:text-emerald-300">
               ✕
             </button>
           </div>
@@ -753,7 +754,7 @@ export function SyncPage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Connection Status */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-500 font-medium">{t('sync.connection')}</span>
               {isOnline ? (
@@ -764,7 +765,7 @@ export function SyncPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-              <span className={`text-lg font-bold ${isOnline ? 'text-emerald-600' : 'text-red-600'}`}>
+              <span className={`text-sm font-semibold ${isOnline ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600'}`}>
                 {isOnline ? t('sync.connected') : t('sync.disconnected')}
               </span>
             </div>
@@ -776,36 +777,36 @@ export function SyncPage() {
           </div>
 
           {/* Pending Records */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-500 font-medium">{t('sync.pendingChanges')}</span>
               <Database className="w-5 h-5 text-amber-500" />
             </div>
-            <span className={`text-3xl font-bold ${pendingCount > 0 ? 'text-amber-600' : 'text-gray-800'}`}>
+            <span className={`text-xl font-semibold ${pendingCount > 0 ? 'text-amber-600 dark:text-amber-300' : 'text-gray-800'}`}>
               {pendingCount}
             </span>
             <p className="text-xs text-gray-400 mt-1">{t('sync.recordsPending')}</p>
           </div>
 
           {/* Last Sync */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-500 font-medium">{t('sync.lastSync')}</span>
               <Clock className="w-5 h-5 text-blue-500" />
             </div>
-            <span className="text-lg font-bold text-gray-800">
+            <span className="text-sm font-semibold text-gray-800">
               {formatRelativeTime(status?.lastSyncAt)}
             </span>
             <p className="text-xs text-gray-400 mt-1">{formatTime(status?.lastSyncAt)}</p>
           </div>
 
           {/* Failed Items */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-gray-500 font-medium">{t('sync.syncErrors')}</span>
               <AlertTriangle className={`w-5 h-5 ${failedItems.length > 0 ? 'text-red-500' : 'text-gray-400'}`} />
             </div>
-            <span className={`text-3xl font-bold ${failedItems.length > 0 ? 'text-red-600' : 'text-gray-800'}`}>
+            <span className={`text-xl font-semibold ${failedItems.length > 0 ? 'text-red-600' : 'text-gray-800'}`}>
               {failedItems.length}
             </span>
             <p className="text-xs text-gray-400 mt-1">{t('sync.recordsNeedRetry')}</p>
@@ -815,12 +816,12 @@ export function SyncPage() {
         {/* Sync Queue */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div
-            className="flex items-center justify-between p-5 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="operations-section-title flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
             onClick={() => setShowQueue(!showQueue)}
           >
             <div className="flex items-center gap-3">
               <Database className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                 {t('sync.queue')}
               </h2>
               <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
@@ -843,7 +844,7 @@ export function SyncPage() {
                   <p className="text-gray-400 text-sm mt-1">{t('sync.queueEmptyDesc')}</p>
                 </div>
               ) : (
-                <table className="w-full">
+                <table className="operations-table w-full">
                   <thead>
                     <tr className="bg-gray-50 text-left">
                       <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
@@ -898,7 +899,7 @@ export function SyncPage() {
         </div>
 
         {/* Sync Config Info */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <Cloud className="w-4 h-4 text-blue-500" />
             {t('sync.syncConfig')}
@@ -906,7 +907,7 @@ export function SyncPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-3">
               <span className="text-gray-500">{t('sync.autoSync')}</span>
-              <span className={`font-medium ${SYNC_CONFIG.AUTO_SYNC_ENABLED ? 'text-emerald-600' : 'text-gray-600'}`}>
+              <span className={`font-medium ${SYNC_CONFIG.AUTO_SYNC_ENABLED ? 'text-emerald-600 dark:text-emerald-300' : 'text-gray-600'}`}>
                 {SYNC_CONFIG.AUTO_SYNC_ENABLED ? t('sync.enabled') : t('sync.disabled')}
               </span>
             </div>

@@ -287,7 +287,7 @@ export const BallastWaterPage: React.FC = () => {
               setShowForm(true);
             }
           }}
-          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
+          className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.ballastWater.newEntry')}
         </button>
@@ -314,8 +314,8 @@ export const BallastWaterPage: React.FC = () => {
 
         {/* Step 1: Select Operation */}
         {step === 1 && (
-          <div className="bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 dark:text-blue-400 font-sans text-xl font-bold mb-6">
+          <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 dark:text-blue-400 font-sans text-sm font-bold mb-6">
               {t('logbooks.ballastWater.step1Title')}
             </h2>
             <div className="flex flex-col gap-3">
@@ -346,8 +346,8 @@ export const BallastWaterPage: React.FC = () => {
 
         {/* Step 2: Enter Details */}
         {step === 2 && selectedOperation && (
-          <div className="bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 dark:text-blue-400 font-sans text-xl font-bold mb-4">
+          <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 dark:text-blue-400 font-sans text-sm font-bold mb-4">
               {t('logbooks.ballastWater.step2Title')}
             </h2>
             
@@ -358,7 +358,7 @@ export const BallastWaterPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4">
               {/* Tank & Volume */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MaritimeInput
@@ -574,7 +574,7 @@ export const BallastWaterPage: React.FC = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700 "
+                  className="bg-green-600 text-white font-semibold py-1.5 px-8 rounded-lg shadow-none hover:bg-green-700 "
                 >
                   {t('voyageLog.saveEntry')}
                 </button>
@@ -587,7 +587,7 @@ export const BallastWaterPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto mt-6 shadow-sm">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('voyageLog.dateTime')}</th>
@@ -697,7 +697,7 @@ export const BallastWaterPage: React.FC = () => {
       {/* Sign Confirmation Modal */}
       {signModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 max-w-md w-full mx-4">
             <h3 className="text-xl font-bold text-blue-600 font-sans mb-4">
               🖊 {t('logbooks.deckLog.sign')} {t('logbooks.ballastWater.title')}
             </h3>
@@ -724,13 +724,13 @@ export const BallastWaterPage: React.FC = () => {
                   setSignModal({ show: false, entryId: null });
                   setMasterSignature('Captain');
                 }}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
+                className="px-6 py-1.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={confirmSign}
-                className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
+                className="px-6 py-1.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
               >
                 ✓ {t('logbooks.deckLog.sign')}
               </button>

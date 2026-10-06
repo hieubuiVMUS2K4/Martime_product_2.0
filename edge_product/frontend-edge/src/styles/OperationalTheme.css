@@ -1,0 +1,209 @@
+/* Shared PMS visual language for onboard operations. Screen-only so exported
+   logbook sheets and safety documents retain their document formatting. */
+@media screen {
+  .operations-page {
+    background: #fff;
+    color: #374151;
+  }
+
+  .operations-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+  }
+
+  .operations-toolbar h1 {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .operations-toolbar p {
+    font-size: 12px;
+  }
+
+  .operations-toolbar button,
+  .operations-toolbar a,
+  .operations-toolbar select,
+  .operations-toolbar label {
+    font-size: 12px;
+  }
+
+  .operations-toolbar button,
+  .operations-toolbar a,
+  .operations-toolbar select {
+    border-radius: 4px;
+    padding: 6px 12px;
+  }
+
+  .operations-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .operations-surface .rounded-lg,
+  .operations-surface .rounded-xl,
+  .operations-surface .rounded-2xl {
+    border-radius: 6px;
+  }
+
+  .operations-surface .shadow-sm,
+  .operations-surface .shadow-md {
+    box-shadow: none;
+  }
+
+  .operations-section-title {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #eff6ff;
+    font-size: 12px;
+    line-height: 18px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .operations-table {
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .operations-table th {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    background: #eff6ff;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .operations-table td {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    font-size: 12px;
+  }
+
+  .operations-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+  }
+
+  .operations-table tbody tr:hover {
+    background: #eff6ff;
+  }
+
+  .operations-table input,
+  .operations-table select,
+  .operations-table .text-sm,
+  .operations-surface button,
+  .operations-surface input,
+  .operations-surface select {
+    font-size: 12px;
+  }
+
+  .operations-page .maritime-field {
+    gap: 4px;
+  }
+
+  .operations-page .maritime-field label,
+  .operations-page .maritime-field input {
+    font-size: 12px;
+  }
+
+  .operations-page .maritime-field input {
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+
+  .operations-virtual-table > .grid {
+    background: #eff6ff;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .operations-virtual-table .grid > div {
+    padding: 8px 12px;
+    border-right: 1px solid #e5e7eb;
+    font-size: 12px;
+  }
+
+  .operations-virtual-table .grid:hover {
+    background: #eff6ff;
+  }
+
+  .operations-page a.bg-blue-600,
+  .operations-page a.bg-green-600 {
+    color: #fff !important;
+  }
+
+  .dark .operations-page,
+  .dark .operations-toolbar {
+    background: #1f2937;
+    color: #e5e7eb;
+    border-color: #374151;
+  }
+
+  .dark .operations-section-title,
+  .dark .operations-table th {
+    background: #1e3a5f !important;
+    color: #dbeafe !important;
+    border-color: #374151;
+  }
+
+  .dark .operations-table td {
+    border-color: #374151;
+  }
+
+  .dark .operations-section-title .overflow-x-auto {
+    background: #1e3a5f !important;
+  }
+
+  .dark .operations-virtual-table > .grid,
+  .dark .operations-virtual-table .grid:hover {
+    background: #1e3a5f;
+  }
+
+  .dark .operations-virtual-table .grid > div {
+    border-color: #374151;
+  }
+
+  .dark .operations-table tbody tr:nth-child(even) {
+    background: #111827;
+  }
+
+  .dark .operations-table tbody tr:hover {
+    background: #1e3a5f;
+  }
+
+  .dark .operations-surface .bg-amber-50,
+  .dark .operations-surface .bg-amber-100 {
+    background-color: rgb(245 158 11 / 15%) !important;
+  }
+
+  .dark .operations-surface .bg-emerald-50,
+  .dark .operations-surface .bg-emerald-100 {
+    background-color: rgb(16 185 129 / 15%) !important;
+  }
+
+  .dark .operations-surface .bg-teal-50,
+  .dark .operations-surface .bg-teal-100 {
+    background-color: rgb(20 184 166 / 15%) !important;
+  }
+
+  .dark .operations-surface .shadow-sm,
+  .dark .operations-surface .shadow-md {
+    box-shadow: none !important;
+  }
+
+  .dark .operations-page input[type="date"],
+  .dark .operations-page input[type="datetime-local"] {
+    color-scheme: dark;
+  }
+}

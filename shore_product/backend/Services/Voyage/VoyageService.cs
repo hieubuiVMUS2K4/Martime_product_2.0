@@ -11,13 +11,11 @@ public class VoyageService : IVoyageService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<VoyageService> _logger;
-    private readonly ISyncOutboxService _syncOutbox;
 
     public VoyageService(AppDbContext context, ILogger<VoyageService> logger, ISyncOutboxService syncOutbox)
     {
         _context = context;
         _logger = logger;
-        _syncOutbox = syncOutbox;
     }
 
     public async Task<FleetDashboardDto> GetFleetDashboardAsync()
@@ -836,34 +834,7 @@ public class VoyageService : IVoyageService
         _context.VoyageRecords.Add(voyage);
         await _context.SaveChangesAsync();
 
-        // Enqueue sync to edge
-        await _syncOutbox.BroadcastAsync("voyage_record", voyage.Id.ToString(), SyncActionType.CREATE, voyage);
-        foreach (var leg in voyage.PlanLegs)
-            await _syncOutbox.BroadcastAsync("voyage_plan_leg", leg.Id.ToString(), SyncActionType.CREATE, leg);
-        foreach (var pc in voyage.PortCalls)
-            await _syncOutbox.BroadcastAsync("port_call", pc.Id.ToString(), SyncActionType.CREATE, pc);
-        foreach (var cp in voyage.CargoPlans)
-            await _syncOutbox.BroadcastAsync("voyage_cargo_plan", cp.Id.ToString(), SyncActionType.CREATE, cp);
-        foreach (var bp in voyage.BunkerPlans)
-            await _syncOutbox.BroadcastAsync("voyage_bunker_plan", bp.Id.ToString(), SyncActionType.CREATE, bp);
-        foreach (var ccp in voyage.CrewChangePlans)
-            await _syncOutbox.BroadcastAsync("voyage_crew_change_plan", ccp.Id.ToString(), SyncActionType.CREATE, ccp);
-        foreach (var ce in voyage.CostEstimates)
-            await _syncOutbox.BroadcastAsync("voyage_cost_estimate", ce.Id.ToString(), SyncActionType.CREATE, ce);
-        foreach (var re in voyage.RevenueEstimates)
-            await _syncOutbox.BroadcastAsync("voyage_revenue_estimate", re.Id.ToString(), SyncActionType.CREATE, re);
-        foreach (var er in voyage.ExpenseRequests)
-            await _syncOutbox.BroadcastAsync("voyage_expense_request", er.Id.ToString(), SyncActionType.CREATE, er);
-        foreach (var ap in voyage.AdvancePayments)
-            await _syncOutbox.BroadcastAsync("voyage_advance_payment", ap.Id.ToString(), SyncActionType.CREATE, ap);
-        foreach (var d in voyage.Disbursements)
-            await _syncOutbox.BroadcastAsync("voyage_disbursement", d.Id.ToString(), SyncActionType.CREATE, d);
-        foreach (var ar in voyage.ActualRevenues)
-            await _syncOutbox.BroadcastAsync("voyage_actual_revenue", ar.Id.ToString(), SyncActionType.CREATE, ar);
-        foreach (var s in voyage.Settlements)
-            await _syncOutbox.BroadcastAsync("voyage_settlement", s.Id.ToString(), SyncActionType.CREATE, s);
-        foreach (var sh in voyage.StatusHistory)
-            await _syncOutbox.BroadcastAsync("voyage_status_history", sh.Id.ToString(), SyncActionType.CREATE, sh);
+        // Scoped events are captured atomically by SaveChanges.
 
         _logger.LogInformation("Created voyage {VoyageNumber} ({VoyageId}) from shore", voyage.VoyageNumber, voyage.Id);
         return voyage.Id;
@@ -890,18 +861,6 @@ public class VoyageService : IVoyageService
 
         var oldStatus = voyage.VoyageStatus;
         VoyageStatusHistory? createdStatusHistory = null;
-        var removedPlanLegIds = new List<Guid>();
-        var removedPortCallIds = new List<Guid>();
-        var removedCargoPlanIds = new List<Guid>();
-        var removedBunkerPlanIds = new List<Guid>();
-        var removedCrewChangePlanIds = new List<Guid>();
-        var removedCostEstimateIds = new List<Guid>();
-        var removedRevenueEstimateIds = new List<Guid>();
-        var removedExpenseRequestIds = new List<Guid>();
-        var removedAdvancePaymentIds = new List<Guid>();
-        var removedDisbursementIds = new List<Guid>();
-        var removedActualRevenueIds = new List<Guid>();
-        var removedSettlementIds = new List<Guid>();
 
         // Update fields
         if (request.VoyageNumber != null) voyage.VoyageNumber = request.VoyageNumber.Trim();
@@ -948,7 +907,6 @@ public class VoyageService : IVoyageService
         // Replace plan legs if provided
         if (request.PlanLegs != null)
         {
-            removedPlanLegIds = voyage.PlanLegs.Select(x => x.Id).ToList();
             _context.Set<VoyagePlanLeg>().RemoveRange(voyage.PlanLegs);
             voyage.PlanLegs.Clear();
             foreach (var leg in request.PlanLegs)
@@ -982,7 +940,6 @@ public class VoyageService : IVoyageService
         // Replace port calls if provided
         if (request.PortCalls != null)
         {
-            removedPortCallIds = voyage.PortCalls.Select(x => x.Id).ToList();
             _context.Set<PortCall>().RemoveRange(voyage.PortCalls);
             voyage.PortCalls.Clear();
             foreach (var pc in request.PortCalls)
@@ -1007,7 +964,6 @@ public class VoyageService : IVoyageService
         // Replace cargo plans if provided
         if (request.CargoPlans != null)
         {
-            removedCargoPlanIds = voyage.CargoPlans.Select(x => x.Id).ToList();
             _context.Set<VoyageCargoPlan>().RemoveRange(voyage.CargoPlans);
             voyage.CargoPlans.Clear();
             foreach (var cp in request.CargoPlans)
@@ -1036,7 +992,6 @@ public class VoyageService : IVoyageService
         // Replace bunker plans if provided
         if (request.BunkerPlans != null)
         {
-            removedBunkerPlanIds = voyage.BunkerPlans.Select(x => x.Id).ToList();
             _context.Set<VoyageBunkerPlan>().RemoveRange(voyage.BunkerPlans);
             voyage.BunkerPlans.Clear();
             foreach (var bp in request.BunkerPlans)
@@ -1062,7 +1017,6 @@ public class VoyageService : IVoyageService
         // Replace crew change plans if provided
         if (request.CrewChangePlans != null)
         {
-            removedCrewChangePlanIds = voyage.CrewChangePlans.Select(x => x.Id).ToList();
             _context.Set<VoyageCrewChangePlan>().RemoveRange(voyage.CrewChangePlans);
             voyage.CrewChangePlans.Clear();
             foreach (var ccp in request.CrewChangePlans)
@@ -1088,7 +1042,6 @@ public class VoyageService : IVoyageService
         // Replace cost estimates if provided
         if (request.CostEstimates != null)
         {
-            removedCostEstimateIds = voyage.CostEstimates.Select(x => x.Id).ToList();
             _context.Set<VoyageCostEstimate>().RemoveRange(voyage.CostEstimates);
             voyage.CostEstimates.Clear();
             foreach (var ce in request.CostEstimates)
@@ -1110,7 +1063,6 @@ public class VoyageService : IVoyageService
         // Replace revenue estimates if provided
         if (request.RevenueEstimates != null)
         {
-            removedRevenueEstimateIds = voyage.RevenueEstimates.Select(x => x.Id).ToList();
             _context.Set<VoyageRevenueEstimate>().RemoveRange(voyage.RevenueEstimates);
             voyage.RevenueEstimates.Clear();
             foreach (var re in request.RevenueEstimates)
@@ -1132,7 +1084,6 @@ public class VoyageService : IVoyageService
         // Replace expense requests if provided
         if (request.ExpenseRequests != null)
         {
-            removedExpenseRequestIds = voyage.ExpenseRequests.Select(x => x.Id).ToList();
             _context.Set<VoyageExpenseRequest>().RemoveRange(voyage.ExpenseRequests);
             voyage.ExpenseRequests.Clear();
             foreach (var er in request.ExpenseRequests)
@@ -1170,7 +1121,6 @@ public class VoyageService : IVoyageService
         // Replace advance payments if provided
         if (request.AdvancePayments != null)
         {
-            removedAdvancePaymentIds = voyage.AdvancePayments.Select(x => x.Id).ToList();
             _context.Set<VoyageAdvancePayment>().RemoveRange(voyage.AdvancePayments);
             voyage.AdvancePayments.Clear();
             foreach (var ap in request.AdvancePayments)
@@ -1203,7 +1153,6 @@ public class VoyageService : IVoyageService
         // Replace disbursements if provided
         if (request.Disbursements != null)
         {
-            removedDisbursementIds = voyage.Disbursements.Select(x => x.Id).ToList();
             _context.Set<VoyageDisbursement>().RemoveRange(voyage.Disbursements);
             voyage.Disbursements.Clear();
             foreach (var d in request.Disbursements)
@@ -1242,7 +1191,6 @@ public class VoyageService : IVoyageService
         // Replace actual revenues if provided
         if (request.ActualRevenues != null)
         {
-            removedActualRevenueIds = voyage.ActualRevenues.Select(x => x.Id).ToList();
             _context.Set<VoyageActualRevenue>().RemoveRange(voyage.ActualRevenues);
             voyage.ActualRevenues.Clear();
             foreach (var ar in request.ActualRevenues)
@@ -1272,7 +1220,6 @@ public class VoyageService : IVoyageService
         // Replace settlements if provided
         if (request.Settlements != null)
         {
-            removedSettlementIds = voyage.Settlements.Select(x => x.Id).ToList();
             _context.Set<VoyageSettlement>().RemoveRange(voyage.Settlements);
             voyage.Settlements.Clear();
             foreach (var s in request.Settlements)
@@ -1307,73 +1254,24 @@ public class VoyageService : IVoyageService
         voyage.UpdatedAt = DateTime.UtcNow;
         voyage.SyncVersion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
+        // Replacement children already have application-generated GUIDs. Explicitly mark them
+        // Added so EF does not infer Modified and attempt to UPDATE rows that do not exist.
+        if (request.PlanLegs != null) _context.Set<VoyagePlanLeg>().AddRange(voyage.PlanLegs);
+        if (request.PortCalls != null) _context.Set<PortCall>().AddRange(voyage.PortCalls);
+        if (request.CargoPlans != null) _context.Set<VoyageCargoPlan>().AddRange(voyage.CargoPlans);
+        if (request.BunkerPlans != null) _context.Set<VoyageBunkerPlan>().AddRange(voyage.BunkerPlans);
+        if (request.CrewChangePlans != null) _context.Set<VoyageCrewChangePlan>().AddRange(voyage.CrewChangePlans);
+        if (request.CostEstimates != null) _context.Set<VoyageCostEstimate>().AddRange(voyage.CostEstimates);
+        if (request.RevenueEstimates != null) _context.Set<VoyageRevenueEstimate>().AddRange(voyage.RevenueEstimates);
+        if (request.ExpenseRequests != null) _context.Set<VoyageExpenseRequest>().AddRange(voyage.ExpenseRequests);
+        if (request.AdvancePayments != null) _context.Set<VoyageAdvancePayment>().AddRange(voyage.AdvancePayments);
+        if (request.Disbursements != null) _context.Set<VoyageDisbursement>().AddRange(voyage.Disbursements);
+        if (request.ActualRevenues != null) _context.Set<VoyageActualRevenue>().AddRange(voyage.ActualRevenues);
+        if (request.Settlements != null) _context.Set<VoyageSettlement>().AddRange(voyage.Settlements);
+
         await _context.SaveChangesAsync();
 
-        // Enqueue sync
-        await _syncOutbox.BroadcastAsync("voyage_record", voyage.Id.ToString(), SyncActionType.UPDATE, voyage);
-        if (createdStatusHistory != null)
-            await _syncOutbox.BroadcastAsync("voyage_status_history", createdStatusHistory.Id.ToString(), SyncActionType.CREATE, createdStatusHistory);
-
-        await BroadcastDeletesAsync("voyage_plan_leg", removedPlanLegIds);
-        await BroadcastDeletesAsync("port_call", removedPortCallIds);
-        await BroadcastDeletesAsync("voyage_cargo_plan", removedCargoPlanIds);
-        await BroadcastDeletesAsync("voyage_bunker_plan", removedBunkerPlanIds);
-        await BroadcastDeletesAsync("voyage_crew_change_plan", removedCrewChangePlanIds);
-        await BroadcastDeletesAsync("voyage_cost_estimate", removedCostEstimateIds);
-        await BroadcastDeletesAsync("voyage_revenue_estimate", removedRevenueEstimateIds);
-        await BroadcastDeletesAsync("voyage_expense_request", removedExpenseRequestIds);
-        await BroadcastDeletesAsync("voyage_advance_payment", removedAdvancePaymentIds);
-        await BroadcastDeletesAsync("voyage_disbursement", removedDisbursementIds);
-        await BroadcastDeletesAsync("voyage_actual_revenue", removedActualRevenueIds);
-        await BroadcastDeletesAsync("voyage_settlement", removedSettlementIds);
-
-        if (request.PlanLegs != null)
-            foreach (var leg in voyage.PlanLegs)
-                await _syncOutbox.BroadcastAsync("voyage_plan_leg", leg.Id.ToString(), SyncActionType.CREATE, leg);
-
-        if (request.PortCalls != null)
-            foreach (var pc in voyage.PortCalls)
-                await _syncOutbox.BroadcastAsync("port_call", pc.Id.ToString(), SyncActionType.CREATE, pc);
-
-        if (request.CargoPlans != null)
-            foreach (var cp in voyage.CargoPlans)
-                await _syncOutbox.BroadcastAsync("voyage_cargo_plan", cp.Id.ToString(), SyncActionType.CREATE, cp);
-
-        if (request.BunkerPlans != null)
-            foreach (var bp in voyage.BunkerPlans)
-                await _syncOutbox.BroadcastAsync("voyage_bunker_plan", bp.Id.ToString(), SyncActionType.CREATE, bp);
-
-        if (request.CrewChangePlans != null)
-            foreach (var ccp in voyage.CrewChangePlans)
-                await _syncOutbox.BroadcastAsync("voyage_crew_change_plan", ccp.Id.ToString(), SyncActionType.CREATE, ccp);
-
-        if (request.CostEstimates != null)
-            foreach (var ce in voyage.CostEstimates)
-                await _syncOutbox.BroadcastAsync("voyage_cost_estimate", ce.Id.ToString(), SyncActionType.CREATE, ce);
-
-        if (request.RevenueEstimates != null)
-            foreach (var re in voyage.RevenueEstimates)
-                await _syncOutbox.BroadcastAsync("voyage_revenue_estimate", re.Id.ToString(), SyncActionType.CREATE, re);
-
-        if (request.ExpenseRequests != null)
-            foreach (var er in voyage.ExpenseRequests)
-                await _syncOutbox.BroadcastAsync("voyage_expense_request", er.Id.ToString(), SyncActionType.CREATE, er);
-
-        if (request.AdvancePayments != null)
-            foreach (var ap in voyage.AdvancePayments)
-                await _syncOutbox.BroadcastAsync("voyage_advance_payment", ap.Id.ToString(), SyncActionType.CREATE, ap);
-
-        if (request.Disbursements != null)
-            foreach (var d in voyage.Disbursements)
-                await _syncOutbox.BroadcastAsync("voyage_disbursement", d.Id.ToString(), SyncActionType.CREATE, d);
-
-        if (request.ActualRevenues != null)
-            foreach (var ar in voyage.ActualRevenues)
-                await _syncOutbox.BroadcastAsync("voyage_actual_revenue", ar.Id.ToString(), SyncActionType.CREATE, ar);
-
-        if (request.Settlements != null)
-            foreach (var s in voyage.Settlements)
-                await _syncOutbox.BroadcastAsync("voyage_settlement", s.Id.ToString(), SyncActionType.CREATE, s);
+        // Scoped events are captured atomically by SaveChanges.
 
         _logger.LogInformation("Updated voyage {VoyageNumber} ({VoyageId}) from shore", voyage.VoyageNumber, voyage.Id);
     }
@@ -1401,22 +1299,6 @@ public class VoyageService : IVoyageService
             .FirstOrDefaultAsync(v => v.Id == voyageId)
             ?? throw new KeyNotFoundException($"Voyage {voyageId} not found");
 
-        var planLegIds = voyage.PlanLegs.Select(x => x.Id).ToList();
-        var portCallIds = voyage.PortCalls.Select(x => x.Id).ToList();
-        var statusHistoryIds = voyage.StatusHistory.Select(x => x.Id).ToList();
-        var crewAssignmentIds = voyage.CrewAssignments.Select(x => x.Id).ToList();
-        var logEntryIds = voyage.LogEntries.Select(x => x.Id).ToList();
-        var cargoOperationIds = voyage.CargoOperations.Select(x => x.Id).ToList();
-        var cargoPlanIds = voyage.CargoPlans.Select(x => x.Id).ToList();
-        var bunkerPlanIds = voyage.BunkerPlans.Select(x => x.Id).ToList();
-        var crewChangePlanIds = voyage.CrewChangePlans.Select(x => x.Id).ToList();
-        var costEstimateIds = voyage.CostEstimates.Select(x => x.Id).ToList();
-        var revenueEstimateIds = voyage.RevenueEstimates.Select(x => x.Id).ToList();
-        var expenseRequestIds = voyage.ExpenseRequests.Select(x => x.Id).ToList();
-        var advancePaymentIds = voyage.AdvancePayments.Select(x => x.Id).ToList();
-        var disbursementIds = voyage.Disbursements.Select(x => x.Id).ToList();
-        var actualRevenueIds = voyage.ActualRevenues.Select(x => x.Id).ToList();
-        var settlementIds = voyage.Settlements.Select(x => x.Id).ToList();
 
         // Remove all child entities
         _context.Set<VoyagePlanLeg>().RemoveRange(voyage.PlanLegs);
@@ -1443,24 +1325,7 @@ public class VoyageService : IVoyageService
         _context.VoyageRecords.Remove(voyage);
         await _context.SaveChangesAsync();
 
-        // Enqueue delete sync
-        await BroadcastDeletesAsync("voyage_plan_leg", planLegIds);
-        await BroadcastDeletesAsync("port_call", portCallIds);
-        await BroadcastDeletesAsync("voyage_status_history", statusHistoryIds);
-        await BroadcastDeletesAsync("voyage_crew_assignment", crewAssignmentIds);
-        await BroadcastDeletesAsync("voyage_log_entry", logEntryIds);
-        await BroadcastDeletesAsync("cargo_operation", cargoOperationIds);
-        await BroadcastDeletesAsync("voyage_cargo_plan", cargoPlanIds);
-        await BroadcastDeletesAsync("voyage_bunker_plan", bunkerPlanIds);
-        await BroadcastDeletesAsync("voyage_crew_change_plan", crewChangePlanIds);
-        await BroadcastDeletesAsync("voyage_cost_estimate", costEstimateIds);
-        await BroadcastDeletesAsync("voyage_revenue_estimate", revenueEstimateIds);
-        await BroadcastDeletesAsync("voyage_expense_request", expenseRequestIds);
-        await BroadcastDeletesAsync("voyage_advance_payment", advancePaymentIds);
-        await BroadcastDeletesAsync("voyage_disbursement", disbursementIds);
-        await BroadcastDeletesAsync("voyage_actual_revenue", actualRevenueIds);
-        await BroadcastDeletesAsync("voyage_settlement", settlementIds);
-        await _syncOutbox.BroadcastAsync("voyage_record", voyageId.ToString(), SyncActionType.DELETE, new { Id = voyageId });
+        // Scoped events are captured atomically by SaveChanges.
 
         _logger.LogInformation("Deleted voyage {VoyageNumber} ({VoyageId}) from shore", voyage.VoyageNumber, voyageId);
     }
@@ -1479,14 +1344,6 @@ public class VoyageService : IVoyageService
         voyage.TotalDisbursed = voyage.Disbursements
             .Where(d => d.Status == "PAID").Sum(d => d.AmountUsd);
         voyage.OutstandingBalance = voyage.TotalAdvanced - voyage.TotalDisbursed;
-    }
-
-    private async Task BroadcastDeletesAsync(string tableName, IEnumerable<Guid> ids)
-    {
-        foreach (var id in ids)
-        {
-            await _syncOutbox.BroadcastAsync(tableName, id.ToString(), SyncActionType.DELETE, new { Id = id });
-        }
     }
 
     private static void SetStatusTimestamp(VoyageRecord voyage, string status)

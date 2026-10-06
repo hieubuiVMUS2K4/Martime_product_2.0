@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "baseUrl": "http://127.0.0.1:3002",
+  "mockedApi": true,
+  "errors": [],
+  "checks": [
+    "legacy redirect",
+    "single menu",
+    "catalog columns",
+    "filters",
+    "inactive ranks",
+    "crew compliance",
+    "expanded requirements",
+    "batch API",
+    "refresh",
+    "API error recovery",
+    "query tab navigation and reload",
+    "mobile",
+    "Vietnamese dark theme"
+  ]
+}

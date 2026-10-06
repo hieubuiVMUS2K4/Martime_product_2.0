@@ -372,7 +372,7 @@ export function IncidentManagement() {
 
   if (incidents.length === 0) {
     return (
-      <div className="w-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div className="operations-surface w-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-full text-amber-600 dark:text-amber-400 mb-4 animate-pulse">
           <AlertTriangle className="w-12 h-12" />
         </div>
@@ -402,13 +402,13 @@ export function IncidentManagement() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="operations-surface space-y-4 p-4">
       
       {/* Top Section: Dashboard Analytics with Safety Pyramid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* Heinrich Safety Pyramid (Glassmorphic Styled Container) */}
-        <div className="lg:col-span-6 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col items-center">
+        <div className="lg:col-span-6 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col items-center">
           <div className="w-full flex justify-between items-center mb-6">
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-blue-500" /> Mô hình Kim tự tháp An toàn (Heinrich Pyramid)
@@ -473,7 +473,7 @@ export function IncidentManagement() {
 
         {/* Quick analytics metrics */}
         <div className="lg:col-span-6 grid grid-cols-2 gap-4">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Tổng Sự cố & Khiếu nại</span>
               <span className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-lg"><ClipboardList className="w-5 h-5" /></span>
@@ -484,7 +484,7 @@ export function IncidentManagement() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Hành động CAPA quá hạn</span>
               <span className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 rounded-lg"><AlertTriangle className="w-5 h-5" /></span>
@@ -495,7 +495,7 @@ export function IncidentManagement() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Đang điều tra (RCA)</span>
               <span className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 rounded-lg"><Activity className="w-5 h-5" /></span>
@@ -508,7 +508,7 @@ export function IncidentManagement() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Đã khắc phục hoàn tất</span>
               <span className="p-2 bg-green-50 dark:bg-green-900/30 text-green-600 rounded-lg"><CheckCircle2 className="w-5 h-5" /></span>
@@ -525,12 +525,12 @@ export function IncidentManagement() {
       </div>
 
       {/* Bottom Section: Incident Register and CAPA Investigator */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         {/* Left Side: Sổ nhật ký sự cố */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[650px]">
+        <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[650px]">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sổ theo dõi sự cố & điểm KPH</h3>
+            <h3 className="operations-section-title">Sổ theo dõi sự cố & điểm KPH</h3>
             <button 
               onClick={() => setIsNewModalOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
@@ -629,7 +629,7 @@ export function IncidentManagement() {
         </div>
 
         {/* Right Side: Chi tiết sự cố, Điều tra 5 Whys & CAPA */}
-        <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[650px] overflow-y-auto">
+        <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[650px] overflow-y-auto">
           
           <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
             <div>

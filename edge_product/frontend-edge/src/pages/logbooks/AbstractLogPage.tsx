@@ -435,7 +435,9 @@ export const AbstractLogPage: React.FC = () => {
             data={listItems}
             columns={columns}
             height={500}
-            rowHeight={52}
+            rowHeight={44}
+            headerHeight={36}
+            className="operations-virtual-table"
             onRowClick={handleSelectLog}
           />
         )
@@ -597,7 +599,7 @@ const SumTab: React.FC<{
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -657,7 +659,7 @@ const SumTab: React.FC<{
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">{t('abstractLog.reconciliation')}</h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+          <table className="operations-table w-full text-sm border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-600 font-semibold">
                 <th className="p-2 border text-left">{t('abstractLog.item')}</th>
@@ -924,7 +926,7 @@ const LegTab: React.FC<{
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Leg header info */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
@@ -1012,26 +1014,26 @@ const LegTab: React.FC<{
       {/* Daily entries table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <table className="operations-table min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Ngày' : 'Day'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Ngày tháng' : 'Date'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Tọa độ trưa' : 'Noon Pos'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Gió' : 'Wind'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Biển' : 'Sea'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Giờ hành hải' : 'Hrs UW'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Giờ chạy máy' : 'Hrs Prop'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Q.đường OG' : 'Dist OG'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'T.độ OG' : 'Spd OG'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'H.số trượt%' : 'Slip%'}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RPM</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M/E FOC</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D/E FOC</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CylOil</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FW</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('abstractLog.remarks')}</th>
-              <th className="px-2.5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Thao tác' : 'Actions'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Ngày' : 'Day'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Ngày tháng' : 'Date'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Tọa độ trưa' : 'Noon Pos'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Gió' : 'Wind'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Biển' : 'Sea'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Giờ hành hải' : 'Hrs UW'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Giờ chạy máy' : 'Hrs Prop'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Q.đường OG' : 'Dist OG'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'T.độ OG' : 'Spd OG'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'H.số trượt%' : 'Slip%'}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RPM</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M/E FOC</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">D/E FOC</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CylOil</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FW</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('abstractLog.remarks')}</th>
+              <th className="px-2.5 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isVi ? 'Thao tác' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -1079,7 +1081,7 @@ const LegTab: React.FC<{
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">{isVi ? 'Tiêu thụ dầu nhiên liệu (Tổng chặng)' : 'Fuel Oil Consumption (Leg Total)'}</h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+          <table className="operations-table w-full text-sm border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-600 font-semibold text-xs">
                 <th className="p-2 border text-left">{isVi ? 'Thiết bị' : 'Equipment'}</th>
@@ -1146,7 +1148,7 @@ const FocGrid: React.FC<{
     { label: 'LSMGO', key: 'Lsmgo' },
   ]
   return (
-    <table className="w-full text-sm border-collapse">
+    <table className="operations-table w-full text-sm border-collapse">
       <thead>
         <tr className="bg-gray-50">
           <th className="p-1.5 border text-left text-xs font-semibold text-gray-600">{isVi ? 'Thiết bị' : 'Equipment'}</th>
@@ -1213,7 +1215,7 @@ const DailyEntryModal: React.FC<{
   }
   const sectionToggle = (title: string, expanded: boolean, toggle: () => void) => (
     <button onClick={toggle} type="button"
-      className="w-full flex items-center justify-between py-2.5 px-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+      className="w-full flex items-center justify-between py-1.5 px-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
       <span className="text-sm font-medium text-gray-700">{title}</span>
       {expanded
         ? <ChevronDown className="w-4 h-4 text-gray-400" />

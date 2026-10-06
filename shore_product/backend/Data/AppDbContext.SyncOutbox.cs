@@ -16,15 +16,16 @@ public partial class AppDbContext
         "certificate", "country", "rank", "rank_certificate", "country_certificate", "port", "report_type",
         "crew_member", "crew_certificate", "crew_logbook_entry", "travel_document", "seafarer_document",
         "employment_document", "health_document", "ism_element", "sms_procedure", "sms_form_template",
-        "voyage_record", "voyage_plan_leg", "voyage_crew_assignment", "voyage_cargo_plan", "voyage_bunker_plan",
+        "voyage_record", "voyage_plan_leg", "port_call", "voyage_status_history", "voyage_crew_assignment",
+        "voyage_log_entry", "cargo_operation", "voyage_cargo_plan", "voyage_bunker_plan",
         "voyage_crew_change_plan", "voyage_cost_estimate", "voyage_revenue_estimate", "voyage_expense_request",
         "voyage_advance_payment", "voyage_disbursement", "voyage_actual_revenue", "voyage_settlement",
         "material_category", "material_item_catalog"
     };
 
-    private List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey)> CaptureOutgoingChanges()
+    private async Task<List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey, string Target)>> CaptureOutgoingChangesAsync(CancellationToken token)
     {
-        var result = new List<(object, string, SyncActionType, string?, string?)>();
+        var result = new List<(object, string, SyncActionType, string?, string?, string)>();
         if (SuppressAutoOutbox) return result;
         ChangeTracker.DetectChanges();
         foreach (var entry in ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList())
@@ -35,12 +36,31 @@ public partial class AppDbContext
             if (entry.State == EntityState.Modified && !entry.Properties.Any(p => p.IsModified &&
                 p.Metadata.Name is not ("IsSynced" or "SyncVersion" or "OriginNode" or "LastSyncedAt" or "UpdatedAt" or "EdgeChanges" or "EdgeChangesViewed"))) continue;
             var deleting = entry.State == EntityState.Deleted;
+            var target = "*";
+            if (ProductApi.Services.Sync.VoyageSyncRouting.IsVoyageTable(table))
+            {
+                target = await ProductApi.Services.Sync.VoyageSyncRouting.ResolveTargetAsync(this, table,
+                    entry.Properties.First(p => p.Metadata.IsPrimaryKey()).CurrentValue!.ToString()!, SerializeSyncScalars(entry.Entity), token);
+            }
+            else if (entry.Entity.GetType().GetProperty("VesselId")?.GetValue(entry.Entity) is Guid vesselId)
+            {
+                target = await ProductApi.Services.Sync.VesselSyncIdentity.CanonicalTargetAsync(this, $"vessel:{vesselId}");
+            }
             result.Add((entry.Entity, table, deleting ? SyncActionType.DELETE : SyncActionType.SNAPSHOT,
                 deleting ? SerializeSyncScalars(entry.Entity) : null,
-                deleting ? entry.Properties.First(p => p.Metadata.IsPrimaryKey()).CurrentValue?.ToString() : null));
+                deleting ? entry.Properties.First(p => p.Metadata.IsPrimaryKey()).CurrentValue?.ToString() : null, target));
         }
-        return result;
+        return result.OrderBy(change => change.Item3 == SyncActionType.DELETE
+            ? -OutgoingDependencyOrder(change.Item2) : OutgoingDependencyOrder(change.Item2)).ToList();
     }
+
+    private static int OutgoingDependencyOrder(string table) => table switch
+    {
+        "country" or "rank" or "certificate" or "report_type" or "ism_element" => 0,
+        "crew_member" or "voyage_record" => 10,
+        "voyage_plan_leg" or "sms_procedure" => 20,
+        _ => 30
+    };
 
     private string SerializeSyncScalars(object entity)
     {
@@ -48,22 +68,15 @@ public partial class AppDbContext
         return JsonSerializer.Serialize(values);
     }
 
-    private async Task AddCapturedOutboxAsync(List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey)> changes, CancellationToken token)
+    private void AddCapturedOutbox(List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey, string Target)> changes)
     {
         foreach (var change in changes)
         {
             var key = change.DeletedKey ?? Entry(change.Entity).Properties.First(p => p.Metadata.IsPrimaryKey()).CurrentValue?.ToString();
             if (string.IsNullOrEmpty(key)) throw new InvalidOperationException("Cannot persist an outbox event without a record key.");
-            var target = "*";
-            if (change.Entity.GetType().GetProperty("VesselId")?.GetValue(change.Entity) is Guid vesselId)
-            {
-                var imo = await Vessels.Where(v => v.Id == vesselId).Select(v => v.IMO).FirstOrDefaultAsync(token)
-                    ?? throw new InvalidOperationException("Cannot route a vessel-scoped outbox event.");
-                target = await ProductApi.Services.Sync.VesselSyncIdentity.CanonicalTargetAsync(this, imo);
-            }
             SyncOutbox.Add(new SyncOutbox
             {
-                TargetNode = target, TableName = change.Table, RecordKey = key, ActionType = change.Action,
+                TargetNode = change.Target, TableName = change.Table, RecordKey = key, ActionType = change.Action,
                 Payload = change.DeletedPayload ?? SerializeSyncScalars(change.Entity), CreatedAt = DateTime.UtcNow,
                 SyncVersion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             });
@@ -76,11 +89,11 @@ public partial class AppDbContext
     {
         await using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
             ? await Database.BeginTransactionAsync(cancellationToken) : null;
-        var outgoing = CaptureOutgoingChanges();
+        var outgoing = await CaptureOutgoingChangesAsync(cancellationToken);
         var result = await base.SaveChangesAsync(cancellationToken);
         if (outgoing.Count > 0)
         {
-            await AddCapturedOutboxAsync(outgoing, cancellationToken);
+            AddCapturedOutbox(outgoing);
             await base.SaveChangesAsync(cancellationToken);
         }
         if (transaction != null) await transaction.CommitAsync(cancellationToken);

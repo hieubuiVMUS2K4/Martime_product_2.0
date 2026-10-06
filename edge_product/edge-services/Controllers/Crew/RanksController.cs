@@ -35,7 +35,8 @@ public class RanksController : ControllerBase
             }
             
             return await query
-                .OrderBy(r => r.RankName)
+                .OrderBy(r => r.SortOrder)
+                .ThenBy(r => r.RankName)
                 .ToListAsync();
         }
         catch (Exception ex)
@@ -71,145 +72,43 @@ public class RanksController : ControllerBase
     }
 
     /// <summary>
-    /// Create new rank
+    /// Reject writes to the Shore-managed rank catalog
     /// POST /api/ranks
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<Rank>> CreateRank(Rank rank)
+    public Task<ActionResult<Rank>> CreateRank(Rank rank)
     {
-        try
-        {
-            // Check for duplicate rank code
-            var existingRank = await _context.Ranks
-                .FirstOrDefaultAsync(r => r.RankCode.ToLower() == rank.RankCode.ToLower());
-            
-            if (existingRank != null)
-            {
-                return BadRequest(new { error = "Rank code already exists" });
-            }
-
-            _context.Ranks.Add(rank);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetRank), new { id = rank.Id }, rank);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating rank");
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return Task.FromResult<ActionResult<Rank>>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>
-    /// Update rank
+    /// Reject rank updates on Edge
     /// PUT /api/ranks/{id}
     /// </summary>
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateRank(int id, Rank rank)
+    public Task<IActionResult> UpdateRank(int id, Rank rank)
     {
-        if (id != rank.Id)
-        {
-            return BadRequest(new { error = "ID mismatch" });
-        }
-
-        try
-        {
-            // Check for duplicate rank code (excluding current rank)
-            var duplicateRank = await _context.Ranks
-                .FirstOrDefaultAsync(r => r.Id != id && r.RankCode.ToLower() == rank.RankCode.ToLower());
-            
-            if (duplicateRank != null)
-            {
-                return BadRequest(new { error = "Rank code already exists" });
-            }
-
-            var existing = await _context.Ranks.FindAsync(id);
-            if (existing == null)
-            {
-                return NotFound(new { error = "Rank not found" });
-            }
-
-            // Only update provided fields
-            if (rank.RankCode != null) existing.RankCode = rank.RankCode;
-            if (rank.RankName != null) existing.RankName = rank.RankName;
-            existing.IsActive = rank.IsActive;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!await RankExists(id))
-            {
-                return NotFound(new { error = "Rank not found" });
-            }
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating rank {RankId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>
-    /// Delete rank (soft delete by setting IsActive = false)
+    /// Reject rank deletion on Edge
     /// DELETE /api/ranks/{id}
     /// </summary>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteRank(int id)
+    public Task<IActionResult> DeleteRank(int id)
     {
-        try
-        {
-            var rank = await _context.Ranks.FindAsync(id);
-            if (rank == null)
-            {
-                return NotFound(new { error = "Rank not found" });
-            }
-
-            // Soft delete
-            rank.IsActive = false;
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting rank {RankId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>
-    /// Permanently delete rank
+    /// Reject permanent rank deletion on Edge
     /// DELETE /api/ranks/{id}/permanent
     /// </summary>
     [HttpDelete("{id}/permanent")]
-    public async Task<IActionResult> PermanentDeleteRank(int id)
+    public Task<IActionResult> PermanentDeleteRank(int id)
     {
-        try
-        {
-            var rank = await _context.Ranks.FindAsync(id);
-            if (rank == null)
-            {
-                return NotFound(new { error = "Rank not found" });
-            }
-
-            _context.Ranks.Remove(rank);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error permanently deleting rank {RankId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
-    private async Task<bool> RankExists(int id)
-    {
-        return await _context.Ranks.AnyAsync(e => e.Id == id);
-    }
 }

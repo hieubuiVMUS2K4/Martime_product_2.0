@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import '@/styles/OperationalTheme.css';
 import { ChevronRight, ChevronDown, Plus, Filter, Calendar, RefreshCw, Download, Trash2, Search, X, FileText } from 'lucide-react';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import { toast } from 'sonner';
@@ -272,20 +273,20 @@ export function DrillTimelinePage() {
   };
   
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="operations-page operations-surface h-full min-h-0 flex flex-col bg-white dark:bg-gray-800">
       {/* Header */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-4 py-3">
+          <div className="operations-toolbar !p-0 !border-0 mb-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{t('drillTimeline.title')}</h1>
+              <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('drillTimeline.title')}</h1>
               <p className="text-sm text-gray-500 mt-1">{t('drillTimeline.subtitle')}</p>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="operations-actions">
               <button
                 onClick={loadTimeline}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 bg-white text-gray-600 rounded hover:bg-gray-50 transition"
               >
                 <RefreshCw className="w-4 h-4" />
                 {t('drillTimeline.refresh')}
@@ -293,7 +294,7 @@ export function DrillTimelinePage() {
               
               <button
                 onClick={handleAddDrill}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
               >
                 <Plus className="w-4 h-4" />
                 {t('drillTimeline.addDrill')}
@@ -320,7 +321,7 @@ export function DrillTimelinePage() {
           </div>
           
           {/* Filters bar */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="operations-toolbar !p-0 !border-0 !justify-start gap-2">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
@@ -400,7 +401,7 @@ export function DrillTimelinePage() {
         ) : (
           <div className="flex flex-col h-full overflow-hidden">
             {/* Header Row - Fixed */}
-            <div className="flex bg-white border-b sticky top-0 z-10">
+            <div className="operations-section-title !p-0 flex border-b sticky top-0 z-10">
               {/* Left header - Transformative Search */}
               <div className="w-96 px-4 py-3 border-r flex-shrink-0">
                 {searchMode ? (

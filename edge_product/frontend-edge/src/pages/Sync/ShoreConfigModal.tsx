@@ -112,14 +112,14 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[85vh] overflow-y-auto">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[85vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-700 to-slate-800 sticky top-0 z-10">
-          <div className="flex items-center gap-3 text-white">
+        <div className="flex items-center justify-between operations-section-title flex-shrink-0 sticky top-0 z-10">
+          <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
             <Settings className="w-5 h-5" />
-            <span className="font-semibold text-lg">Cấu hình kết nối bờ</span>
+            <span className="font-semibold text-sm">Cấu hình kết nối bờ</span>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -168,7 +168,7 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                       </div>
                     </div>
                   ) : (
-                    <span className="text-amber-600 flex items-center gap-2">
+                    <span className="text-amber-600 dark:text-amber-300 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4" /> Chưa có cấu hình đang hoạt động (Legacy/Chưa cấu hình)
                     </span>
                   )}
@@ -242,7 +242,7 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                         )}
 
                         {testResult?.id === item.id && (
-                          <div className={`mt-2 text-xs flex items-center gap-1 ${testResult.success ? 'text-emerald-600' : 'text-red-600'}`}>
+                          <div className={`mt-2 text-xs flex items-center gap-1 ${testResult.success ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600'}`}>
                             {testResult.success ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                             {testResult.message}
                           </div>

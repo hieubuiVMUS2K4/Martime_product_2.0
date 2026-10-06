@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 // Pencil, Copy, XCircle, CheckCircle, Trash2 đã bỏ cùng các mục Sửa / Nhân bản /
 // Vô hiệu hoá / Xoá trong menu chuột phải của tab Loại chứng chỉ. Bật lại thì import lại.
@@ -9,11 +9,17 @@ import { Users, FileText, Award, User, Search, Download, Shield, ChevronsUpDown,
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
-import { CrewMember, CrewCertificate } from '../../types/maritime.types'
+import { CrewMember, CrewCertificate, Rank } from '../../types/maritime.types'
 import { maritimeService } from '../../services/maritime.service'
-import { getAuthToken } from '../../services/api.client'
+import { apiClient, getAuthToken } from '../../services/api.client'
 import { format, parseISO } from 'date-fns'
 import { AddCrewCertificateModal } from './AddCrewCertificateModal'
+import '@/styles/OperationalTheme.css'
+
+const rankDepartmentLabels: Record<string, string> = {
+  DECK: 'deptDeck', ENGINE: 'deptEngine', CATERING: 'deptCatering',
+  ELECTRICAL: 'deptElectrical', NAVIGATION: 'deptNavigation', MANAGEMENT: 'deptManagement',
+}
 
 export function CrewCertificatePage() {
   const navigate = useNavigate()
@@ -25,7 +31,21 @@ export function CrewCertificatePage() {
   const [sortMenu, setSortMenu] = useState<string | null>(null)
   const [certificateCache, setCertificateCache] = useState<any[] | null>(null)
   const [certificateLoading, setCertificateLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'crew' | 'certTypes' | 'ranks'>('crew')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const activeTab = tabParam === 'ranks' || tabParam === 'certTypes' ? tabParam : 'crew'
+  const activeTabButtonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    activeTabButtonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeTab])
+  const setActiveTab = (tab: 'crew' | 'certTypes' | 'ranks') => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      if (tab === 'crew') next.delete('tab')
+      else next.set('tab', tab)
+      return next
+    })
+  }
   const [reloadTrigger, setReloadTrigger] = useState(0)
   const [countries, setCountries] = useState<any[]>([])
   const [selectedCountry, setSelectedCountry] = useState<string>(() =>
@@ -65,13 +85,19 @@ export function CrewCertificatePage() {
     setCertificateLoading(true)
     setCertificateCache(null)
     try {
-      const raw = await maritimeService.certificates.getWithCrewCount()
+      const [raw] = await Promise.all([
+        maritimeService.certificates.getWithCrewCount(),
+        loadRanks(),
+      ])
       setCertificateCache(raw.map((cert: any) => ({
         ...cert, totalCrew: cert.crewCount || 0, validCount: cert.validCount || 0,
         expiringCount: cert.expiringCount || 0, expiredCount: cert.expiredCount || 0, statsLoaded: true,
       })))
       setReloadTrigger(prev => prev + 1)
-    } catch (e) { console.error('Failed to reload certificates:', e) }
+    } catch (e) {
+      console.error('Failed to reload certificates:', e)
+      toast.error(t('crew.rankCatalog.loadError'))
+    }
     finally { setCertificateLoading(false) }
   }
 
@@ -121,7 +147,20 @@ export function CrewCertificatePage() {
   const [addCertCertificateId, setAddCertCertificateId] = useState<string | undefined>(undefined)
 
   // Ranks section states
-  const [ranks, setRanks] = useState<any[]>([])
+  const [ranks, setRanks] = useState<Rank[]>([])
+  const [ranksLoading, setRanksLoading] = useState(true)
+  const [ranksError, setRanksError] = useState(false)
+  const [rankSearch, setRankSearch] = useState('')
+  const [rankDepartment, setRankDepartment] = useState('')
+  const [includeInactiveRanks, setIncludeInactiveRanks] = useState(false)
+  const rankDepartments = useMemo(() => [...new Set(ranks.map(rank => rank.department).filter(Boolean))].sort(), [ranks])
+  const visibleRanks = useMemo(() => {
+    const query = rankSearch.trim().toLocaleLowerCase()
+    return ranks.filter(rank => (includeInactiveRanks || rank.isActive)
+      && (!rankDepartment || rank.department === rankDepartment)
+      && (!query || `${rank.rankCode} ${rank.rankName} ${rank.level ?? ''}`.toLocaleLowerCase().includes(query)))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.rankName.localeCompare(b.rankName))
+  }, [ranks, rankSearch, rankDepartment, includeInactiveRanks])
   const [rankCertificates, setRankCertificates] = useState<any[]>([])
   const [loadingRankCerts, setLoadingRankCerts] = useState(false)
   const [crewByRank, setCrewByRank] = useState<CrewMember[]>([])
@@ -340,11 +379,23 @@ export function CrewCertificatePage() {
   }, [])
 
   const loadRanks = async () => {
+    setRanksLoading(true)
+    setRanksError(false)
     try {
-      const data = await maritimeService.ranks.getAll()
+      const [data, requirements] = await Promise.all([
+        maritimeService.ranks.getAll(true),
+        apiClient.get<any[]>('/rank-certificates'),
+      ])
+      const grouped = new Map<number, any[]>(data.map(rank => [rank.id, []]))
+      requirements.forEach(requirement => grouped.get(requirement.rankId)?.push(requirement))
       setRanks(data)
+      setRankCertsCache(grouped)
+      if (expandedRankId !== null) setRankCertificates(grouped.get(expandedRankId) || [])
     } catch (error) {
-      console.error('Failed to load ranks:', error)
+      console.error('Failed to load rank catalog:', error)
+      setRanksError(true)
+    } finally {
+      setRanksLoading(false)
     }
   }
 
@@ -490,7 +541,7 @@ export function CrewCertificatePage() {
 
   // Load all crew certificates when crew tab is active - BULK load
   useEffect(() => {
-    if (activeTab === 'crew' && crewMembers.length > 0) {
+    if ((activeTab === 'crew' || activeTab === 'ranks') && crewMembers.length > 0) {
       const onboardCrew = crewMembers.filter(c => c.isOnboard)
       const unloadedIds = onboardCrew
         .filter(crew => !hasCrewCertificatesLoaded(crew.id))
@@ -513,35 +564,16 @@ export function CrewCertificatePage() {
     }
   }, [activeTab, crewMembers])
 
-  // Preload rank certificates and crew counts when ranks tab is active
+  // Requirements are loaded once as a batch; crew counts follow the onboard list.
   useEffect(() => {
-    if (activeTab === 'ranks' && ranks.length > 0) {
-      console.log('🔵 Preloading rank data for collapsed rows...')
-      ranks.forEach(async (rank) => {
-        // Load rank certificates if not cached
-        if (!rankCertsCache.has(rank.id)) {
-          try {
-            const response = await authFetch(`/api/rank-certificates/rank/${rank.id}`)
-            if (response.ok) {
-              const data = await response.json()
-              setRankCertsCache(prev => new Map(prev).set(rank.id, data))
-            }
-          } catch (error) {
-            console.error(`Failed to preload certificates for rank ${rank.rankCode}:`, error)
-          }
-        }
-        
-        // Load crew by rank if not cached
-        if (!crewByRankCache.has(rank.id)) {
-          const crewList = crewMembers.filter(c => c.rankId === rank.id && c.isOnboard)
-          setCrewByRankCache(prev => new Map(prev).set(rank.id, crewList))
-        }
-      })
-      console.log('✅ Rank data preload initiated')
+    if (activeTab === 'ranks') {
+      setCrewByRankCache(new Map(ranks.map(rank => [rank.id,
+        crewMembers.filter(crew => crew.rankId === rank.id && crew.isOnboard),
+      ])))
     }
   }, [activeTab, ranks, crewMembers])
 
-  // Reload cached crew certificates AND rank certificates after add/edit actions
+  // Reload cached crew certificates after add/edit actions
   useEffect(() => {
     if (reloadTrigger === 0 || lastReloadTriggerRef.current === reloadTrigger) {
       return
@@ -553,41 +585,6 @@ export function CrewCertificatePage() {
     crewCertificatesMap.forEach((_, crewId) => crewIdsToReload.add(crewId))
     if (expandedRankId && crewByRank.length > 0) {
       crewByRank.forEach(crew => crewIdsToReload.add(crew.id))
-    }
-
-    // Also reload rank certificates cache for all cached ranks
-    const reloadRankCerts = async () => {
-      const rankIds = Array.from(rankCertsCache.keys())
-      if (rankIds.length > 0) {
-        console.log('🔁 Refreshing rank certificates cache...')
-        const rankEntries = await Promise.all(
-          rankIds.map(async (rankId) => {
-            try {
-              const response = await authFetch(`/api/rank-certificates/rank/${rankId}`)
-              if (response.ok) {
-                const data = await response.json()
-                return { rankId, data }
-              }
-              return { rankId, data: rankCertsCache.get(rankId) || [] }
-            } catch {
-              return { rankId, data: rankCertsCache.get(rankId) || [] }
-            }
-          })
-        )
-        setRankCertsCache(prev => {
-          const updated = new Map(prev)
-          rankEntries.forEach(({ rankId, data }) => updated.set(rankId, data))
-          return updated
-        })
-        // If expanded rank is in the list, update rankCertificates state too
-        if (expandedRankId) {
-          const expandedData = rankEntries.find(e => e.rankId === expandedRankId)
-          if (expandedData) {
-            setRankCertificates(expandedData.data)
-          }
-        }
-        console.log('✅ Rank certificates cache refreshed for', rankIds.length, 'ranks')
-      }
     }
 
     const reloadCrewCerts = async () => {
@@ -609,8 +606,8 @@ export function CrewCertificatePage() {
       }
     }
 
-    // Reload both in parallel
-    Promise.all([reloadCrewCerts(), reloadRankCerts()])
+    // Crew edits do not change Shore-managed requirements; catalog refresh uses loadRanks.
+    void reloadCrewCerts()
   }, [reloadTrigger])
 
   const filteredCerts = certificateStats.filter(cert => {
@@ -1153,10 +1150,10 @@ export function CrewCertificatePage() {
 
   // ===================== RENDER =====================
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden bg-white">
+    <div className="operations-page operations-surface h-full w-full flex flex-col overflow-hidden bg-white">
       {/* === HEADER ROW 1: Title + actions === */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-gray-200 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-gray-700">≡ {t('crew.monitor.title')}</span>
           <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
             {crewWithCertStats.length} {t('crew.monitor.totalCrew')}
@@ -1201,25 +1198,27 @@ export function CrewCertificatePage() {
               Tạo dưới tàu sẽ lệch với danh mục gốc và bị ghi đè ở lần đồng bộ sau. */}
           <button
             onClick={handleReloadCertificates}
+            disabled={certificateLoading || ranksLoading}
             className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50"
             title={t('crew.monitor.refreshTitle')}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${certificateLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${certificateLoading || ranksLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* === HEADER ROW 2: Tab bar === */}
-      <div className="flex items-center gap-1 px-4 border-b border-gray-200 flex-shrink-0 bg-white">
+      <div className="flex items-center gap-1 overflow-x-auto px-4 border-b border-gray-200 flex-shrink-0 bg-white">
         {([
           { key: 'crew' as const, label: `${t('crew.monitor.crewCertificates')} (${crewWithCertStats.length})`, icon: Users },
           { key: 'certTypes' as const, label: `${t('crew.monitor.certificateTypes')} (${certificateStats.length})`, icon: FileText },
-          { key: 'ranks' as const, label: `${t('crew.monitor.rankCertificates')} (${ranks.length})`, icon: Shield },
+          { key: 'ranks' as const, label: `${t('crew.monitor.rankCertificates')} (${visibleRanks.length})`, icon: Shield },
         ]).map(tab => (
           <button
             key={tab.key}
+            ref={activeTab === tab.key ? activeTabButtonRef : null}
             onClick={() => setActiveTab(tab.key)}
-            className={`relative flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+            className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
               activeTab === tab.key
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1561,35 +1560,48 @@ export function CrewCertificatePage() {
         {/* ============ TAB: RANK CERTIFICATES ============ */}
         {activeTab === 'ranks' && (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-shrink-0 px-4 py-2 text-xs text-blue-800 bg-blue-50 border-b border-blue-100">
+            <div className="flex-shrink-0 px-4 py-2 text-xs text-blue-800 bg-blue-50 border-b border-blue-100 dark:text-blue-200 dark:bg-blue-950/40 dark:border-blue-900">
               {t('crew.monitor.rankRequirementsManagedOnShore')}
             </div>
-            <div className="flex-1 overflow-auto">
-              <table className="min-w-full text-sm border-collapse">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+              <label className="relative min-w-0 basis-full sm:w-72 sm:basis-auto">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                <input value={rankSearch} onChange={event => setRankSearch(event.target.value)}
+                  aria-label={t('crew.rankCatalog.search')} placeholder={t('crew.rankCatalog.search')}
+                  className="w-full rounded border border-gray-300 bg-white py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600" />
+              </label>
+              <select value={rankDepartment} onChange={event => setRankDepartment(event.target.value)} aria-label={t('crew.rankCatalog.department')}
+                className="min-w-0 max-w-full rounded border border-gray-300 bg-white px-3 py-1.5 text-xs focus:border-blue-500 dark:border-gray-600">
+                <option value="">{t('crew.rankCatalog.allDepartments')}</option>
+                {rankDepartments.map(value => <option key={value} value={value}>{rankDepartmentLabels[value] ? t(`pms.groups.${rankDepartmentLabels[value]}`) : value}</option>)}
+              </select>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 sm:ml-2">
+                <input type="checkbox" checked={includeInactiveRanks} onChange={event => setIncludeInactiveRanks(event.target.checked)} className="h-3.5 w-3.5 accent-blue-600" />
+                {t('crew.rankCatalog.includeInactive')}
+              </label>
+            </div>
+            {ranksError && <div role="alert" className="m-3 rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:text-red-200">{t('crew.rankCatalog.loadError')}</div>}
+            <div className="min-h-0 min-w-0 flex-1 overflow-auto" aria-busy={ranksLoading}>
+              <table className="operations-table w-full min-w-[1080px] text-xs border-collapse">
+                <colgroup>
+                  <col className="w-28" /><col /><col className="w-28" /><col className="w-24" /><col className="w-16" />
+                  <col className="w-24" /><col className="w-20" /><col className="w-16" /><col className="w-52" />
+                </colgroup>
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-blue-50">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '20%'}}>
-                      {t('crew.monitor.rankCode')}
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '25%'}}>
-                      {t('crew.monitor.rankName')}
-                    </th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '15%'}}>
-                      {t('crew.monitor.requiredCerts')}
-                    </th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '10%'}}>
-                      {t('crew.monitor.crewCount')}
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-gray-200" style={{width: '30%'}}>
-                      {t('crew.monitor.compliance')}
-                    </th>
+                    {['rankCode', 'rankName', 'department', 'level', 'sortOrder', 'status', 'requiredCerts', 'crewCount', 'compliance'].map(field =>
+                      <th key={field} scope="col" className={`px-3 py-2 text-xs font-semibold text-gray-600 border-b border-r border-gray-200 ${['sortOrder', 'requiredCerts', 'crewCount'].includes(field) ? 'text-center' : 'text-left'}`}>
+                        {t(['department', 'level', 'sortOrder', 'status'].includes(field) ? `crew.rankCatalog.${field}` : `crew.monitor.${field}`)}
+                      </th>,
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {ranks.map((rank, idx) => {
+                  {ranksLoading ? <tr><td colSpan={9} className="py-8 text-center"><span role="status">{t('common.loading')}</span></td></tr> : ranksError ? null : visibleRanks.length === 0 ?
+                    <tr><td colSpan={9} className="py-8 text-center text-gray-500">{t('crew.rankCatalog.empty')}</td></tr> : visibleRanks.map((rank, idx) => {
                     const rCerts = rankCertsCache.get(rank.id) || []
                     const crewList = crewByRankCache.get(rank.id) || []
-                    const hasData = crewList.length > 0 && rCerts.length > 0
+                    const hasData = crewList.length > 0 && rCerts.length > 0 && crewList.every(crew => hasCrewCertificatesLoaded(crew.id))
                     const compliance = hasData ? getComplianceSummary(rank.id) : { fullyCompliant: 0, partiallyCompliant: 0, nonCompliant: 0 }
 
                     return (
@@ -1599,30 +1611,35 @@ export function CrewCertificatePage() {
                           className={`cursor-pointer hover:bg-blue-50 transition-colors ${expandedRankId === rank.id ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
                         >
                           <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                            <div className="truncate flex items-center gap-2">
-                              <span className={`text-xs transition-transform ${expandedRankId === rank.id ? 'rotate-90' : ''}`}>▶</span>
+                            <button type="button" onClick={event => { event.stopPropagation(); void handleRankClick(rank.id) }} aria-expanded={expandedRankId === rank.id} aria-controls={`rank-detail-${rank.id}`}
+                              className="flex items-center gap-2 rounded font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                              <span aria-hidden="true" className={`text-[10px] transition-transform ${expandedRankId === rank.id ? 'rotate-90' : ''}`}>▶</span>
                               {rank.rankCode}
-                            </div>
+                            </button>
                           </td>
-                          <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"><div className="truncate">{rank.rankName}</div></td>
-                          <td className="px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">{rCerts.length > 0 ? rCerts.length : '-'}</td>
-                          <td className="px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">{crewList.length > 0 ? crewList.length : '-'}</td>
+                          <td className="px-3 py-2 text-xs font-medium text-gray-900 border-r border-gray-200">{rank.rankName}</td>
+                          <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200">{rank.department || '—'}</td>
+                          <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200">{rank.level || '—'}</td>
+                          <td className="px-3 py-2 text-center text-xs tabular-nums text-gray-700 border-r border-gray-200">{rank.sortOrder}</td>
+                          <td className="px-3 py-2 text-xs border-r border-gray-200"><span className={`whitespace-nowrap rounded px-2 py-0.5 font-medium ${rank.isActive ? 'bg-green-100 text-green-800 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:text-gray-300'}`}>{t(rank.isActive ? 'crew.rankCatalog.active' : 'crew.rankCatalog.inactive')}</span></td>
+                          <td className="px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">{rCerts.length}</td>
+                          <td className="px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">{crewList.length}</td>
                           <td className="px-3 py-2 text-xs">
                             {hasData ? (
-                              <div className="flex gap-2">
-                                <span className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800">{compliance.fullyCompliant} {t('crew.monitor.compliant')}</span>
-                                <span className="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800">{compliance.partiallyCompliant} {t('crew.monitor.partial')}</span>
-                                <span className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800">{compliance.nonCompliant} {t('crew.monitor.missing')}</span>
+                              <div className="flex flex-wrap gap-1">
+                                {compliance.fullyCompliant > 0 && <span className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800 dark:text-green-200">{compliance.fullyCompliant} {t('crew.monitor.compliant')}</span>}
+                                {compliance.partiallyCompliant > 0 && <span className="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800 dark:text-yellow-200">{compliance.partiallyCompliant} {t('crew.monitor.partial')}</span>}
+                                {compliance.nonCompliant > 0 && <span className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800 dark:text-red-200">{compliance.nonCompliant} {t('crew.monitor.missing')}</span>}
                               </div>
                             ) : (
-                              <span className="text-gray-400 italic text-xs">{t('crew.monitor.clickToLoad')}</span>
+                              <span className="text-gray-400 italic text-xs">{t(crewList.length === 0 ? 'crew.monitor.noCrewWithRank' : rCerts.length === 0 ? 'crew.monitor.noCertsRequired' : 'crew.monitor.clickToLoad')}</span>
                             )}
                           </td>
                         </tr>
                         {/* Expanded row */}
                         {expandedRankId === rank.id && (
                           <tr>
-                            <td colSpan={5} className="px-4 py-2 bg-gray-50">
+                            <td colSpan={9} id={`rank-detail-${rank.id}`} className="px-4 py-2 bg-gray-50">
                               {loadingRankCerts ? (
                                 <div className="text-center py-4">
                                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
@@ -1838,4 +1855,3 @@ export function CrewCertificatePage() {
     </div>
   )
 }
-

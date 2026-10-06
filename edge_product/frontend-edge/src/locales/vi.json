@@ -610,6 +610,26 @@
       "exportExcel": "Xuất Excel",
       "exportPdf": "Xuất PDF"
     },
+    "rankCatalog": {
+      "managedOnShore": "Danh mục chức danh và yêu cầu chứng chỉ được quản lý tại bờ, đồng bộ xuống tàu để tra cứu.",
+      "search": "Tìm theo mã, tên hoặc cấp bậc",
+      "code": "Mã chức danh",
+      "name": "Tên chức danh",
+      "department": "Bộ phận",
+      "allDepartments": "Tất cả bộ phận",
+      "level": "Cấp bậc",
+      "sortOrder": "Thứ tự",
+      "status": "Trạng thái",
+      "active": "Đang dùng",
+      "inactive": "Ngừng dùng",
+      "includeInactive": "Hiện cả chức danh ngừng dùng",
+      "requirements": "Yêu cầu chứng chỉ",
+      "certificateCount": "{count} chứng chỉ",
+      "noRequirements": "Chưa có yêu cầu chứng chỉ cho chức danh này.",
+      "empty": "Không có chức danh phù hợp. Nếu danh mục chưa có dữ liệu, kiểm tra đồng bộ từ bờ.",
+      "loadError": "Không tải được danh mục hoặc yêu cầu chứng chỉ. Hãy thử làm mới.",
+      "viewCompliance": "Xem tình trạng tuân thủ chứng chỉ của thuyền viên"
+    },
     "monitor": {
       "title": "Giám sát Chứng chỉ Thuyền viên",
       "crewCertificates": "Chứng chỉ thuyền viên",
@@ -1440,6 +1460,7 @@
   "voyage": {
     "title": "Hành trình & Hàng hóa",
     "portMgmt": {
+      "managedOnShore": "Danh mục cảng được quản lý tại bờ và đồng bộ xuống tàu để tra cứu.",
       "title": "Quản lý cảng",
       "subtitle": "Quản lý dữ liệu cảng (tiêu chuẩn UN/LOCODE) — {count} cảng",
       "addPort": "Thêm cảng",

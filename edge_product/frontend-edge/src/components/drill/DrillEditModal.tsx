@@ -260,8 +260,8 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-2xl w-[90vw] max-w-5xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-xl font-bold text-gray-900">
+        <div className="operations-section-title flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
             {scheduleId ? 'Edit Drill' : 'Add New Drill'}
           </h2>
           <button

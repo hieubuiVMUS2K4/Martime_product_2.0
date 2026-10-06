@@ -1,4 +1,5 @@
 import React from 'react';
+import '@/styles/OperationalTheme.css';
 
 interface LogbookGridProps {
   children: React.ReactNode;
@@ -8,18 +9,18 @@ interface LogbookGridProps {
 
 export const LogbookGrid: React.FC<LogbookGridProps> = ({ children, title, actions }) => {
   return (
-    <div className="bg-white min-h-screen p-6">
-      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+    <div className="operations-page operations-surface bg-white dark:bg-gray-800 min-h-full w-full">
+      <div className="operations-toolbar">
         {title && (
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
             {title}
           </h1>
         )}
-        <div className="flex gap-2">
+        <div className="operations-actions">
           {actions}
         </div>
       </div>
-      <div className="grid gap-4">
+      <div className="grid gap-4 p-4 min-w-0">
         {children}
       </div>
     </div>

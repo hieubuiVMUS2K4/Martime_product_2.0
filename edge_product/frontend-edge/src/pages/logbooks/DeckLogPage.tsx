@@ -120,10 +120,10 @@ export const DeckLogPage: React.FC = () => {
 
   return (
     <LogbookGrid title={t('logbooks.deckLog.title')}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Input Form */}
-        <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+        <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+          <h2 className="operations-section-title text-sm font-semibold text-gray-900 dark:text-white mb-4">
             {editingId ? (t('logbooks.deckLog.editEntry') || 'Edit Entry') : t('logbooks.deckLog.newEntry')}
           </h2>
           <div className="flex flex-col gap-4">
@@ -221,22 +221,22 @@ export const DeckLogPage: React.FC = () => {
           {entries.map(entry => (
             <div key={entry.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-2 relative shadow-sm">
               <div className="flex justify-between items-start">
-                <span className="text-blue-600 dark:text-blue-400 font-semibold text-lg">{new Date(entry.logDateTime).toLocaleString()}</span>
+                <span className="text-blue-600 dark:text-blue-400 font-semibold text-sm">{new Date(entry.logDateTime).toLocaleString()}</span>
                 {entry.masterSignature ? (
                   <span className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded font-semibold">{t('logbooks.deckLog.signed')}</span>
                 ) : (
                   <span className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs px-2 py-1 rounded font-semibold">{t('voyageLog.draft')}</span>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400 mt-2">
                 <div>POS: <span className="text-gray-900 dark:text-white font-medium">{entry.latitude?.toFixed(4)}, {entry.longitude?.toFixed(4)}</span></div>
                 <div>COG: <span className="text-gray-900 dark:text-white font-medium">{entry.courseOverGround}°</span></div>
                 <div>SOG: <span className="text-gray-900 dark:text-white font-medium">{entry.speedOverGround} kts</span></div>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="text-xs text-gray-600 dark:text-gray-400">
                 OOW: <span className="text-gray-900 dark:text-white font-medium">{entry.officerOnWatch}</span> | {t('logbooks.deckLog.watchPeriod')}: <span className="text-gray-900 dark:text-white font-medium">{entry.watchPeriod}</span>
               </div>
-              <p className="text-gray-900 dark:text-white mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">{entry.description}</p>
+              <p className="text-xs text-gray-900 dark:text-white mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">{entry.description}</p>
               
               {!entry.masterSignature && (
                 <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4 flex flex-col gap-3 max-w-md">

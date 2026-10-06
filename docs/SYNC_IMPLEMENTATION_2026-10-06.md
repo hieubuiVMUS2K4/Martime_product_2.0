@@ -111,3 +111,9 @@ Trước pilot cần đo riêng trên tuyến mạng thực tế: latency, throu
 Phạm vi dữ liệu vẫn theo model và ownership hiện có: raw NMEA, một số logbook, task deferral và các bảng HSQE legacy trong `_ignoredTables` không có model nhận ở Shore, nên ACK của chúng là xử lý theo chính sách bỏ qua, không có nghĩa là đã tạo bản sao nghiệp vụ ở Shore. Bản sửa không bổ sung các module Shore còn thiếu này. Trạng thái workflow `TRANSMITTED` của report vẫn biểu thị thao tác gửi; dùng transmission log `QUEUED` / `SUCCESS` để phân biệt đang chờ và đã được Shore xác nhận đủ.
 
 Các giới hạn này là phạm vi kiểm chứng còn lại; không được coi kết quả test cục bộ là chứng nhận chạy ổn trên mọi mạng hàng hải.
+
+## Rà soát logic bổ sung ngày 06/10/2026
+
+Các phát hiện F01–F07 đã được xử lý trong đợt sửa tiếp theo. Xem [hành vi sau sửa, kiểm thử và danh mục chức danh mới trên Edge](SYNC_DIRECTION_FIXES_2026-10-06.md).
+
+Xem [bản rà soát hướng đồng bộ và danh sách chức danh trên Edge](SYNC_LOGIC_REVIEW_2026-10-06.md). Bản này đối chiếu source hiện tại và đọc trạng thái database Docker; ghi nhận vấn đề scope hải trình, ownership field, receiver còn thiếu và snapshot phục hồi. Source đã bổ sung receiver cho raw NMEA/sensor/task deferral sau phạm vi sửa mô tả ở trên. Các kết quả test và deploy trong tài liệu này là kết quả của đợt sửa tương ứng, không phải kết quả chạy lại trong lượt review bổ sung.

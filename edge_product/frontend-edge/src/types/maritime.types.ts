@@ -321,6 +321,9 @@ export interface Rank {
   rankCode: string // Mã cấp bậc: CAPT, C/O, 2/O, etc.
   rankName: string // Tên cấp bậc: Captain, Chief Officer, etc.
   isActive: boolean
+  department: string
+  level?: string | null
+  sortOrder: number
 }
 
 // Crew Certificate (actual certificate of crew member)
