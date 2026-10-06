@@ -1,4 +1,12 @@
 {
+  "map": {
+    "shipPosition": "Vị trí tàu",
+    "lat": "Vĩ độ",
+    "lon": "Kinh độ",
+    "sog": "Tốc độ đối đất",
+    "cog": "Hướng đi đối đất",
+    "time": "Thời gian"
+  },
   "common": {
     "save": "Lưu",
     "cancel": "Hủy",

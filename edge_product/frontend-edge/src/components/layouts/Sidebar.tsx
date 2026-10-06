@@ -292,7 +292,7 @@ export function Sidebar() {
         ))}
 
         {/* Logbooks Section */}
-        <div>
+        {logbooksMenu.length > 0 && <div>
           <button
             onClick={() => {
               if (isCollapsed) {
@@ -345,7 +345,7 @@ export function Sidebar() {
               ))}
             </div>
           )}
-        </div>
+        </div>}
       </nav>
 
       {/* Toggle Button */}

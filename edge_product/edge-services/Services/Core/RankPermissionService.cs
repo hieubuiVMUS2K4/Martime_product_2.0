@@ -9,6 +9,7 @@ public record PermissionBinding(string Controller, string Action, string[] Grant
 public record PermissionRegistryData(PermissionModule[] Modules, PermissionBinding[] Bindings);
 public static class PermissionRegistry
 {
+    public static readonly string[] DefaultGrants = ["dashboard.access", "dashboard.view"];
     public static readonly PermissionRegistryData Data = Load();
     public static readonly HashSet<string> Codes = Data.Modules
         .SelectMany(m => m.Actions.Append("access").Select(a => m.Code + "." + a)).ToHashSet();
@@ -22,7 +23,20 @@ public static class PermissionRegistry
     public static bool Allows(ISet<string> grants, string permission)
     {
         var module = permission[..permission.LastIndexOf('.')];
-        return grants.Contains(module + ".access") && grants.Contains(permission);
+        if (!grants.Contains(module + ".access") || !Codes.Contains(permission)) return false;
+        var action = permission[(permission.LastIndexOf('.') + 1)..];
+        if (action is "access" or "view") return true;
+        var bundle = action switch {
+            "create" or "delete" or "import" => new[] { "create", "delete", "import" },
+            "update" or "assign" => new[] { "update", "assign" },
+            _ => new[] { action }
+        };
+        return bundle.Any(a => Codes.Contains(module + "." + a) && grants.Contains(module + "." + a));
+    }
+    public static string[] ConfigurableGrants(IEnumerable<string> grants)
+    {
+        var source = grants.Where(Codes.Contains).ToHashSet();
+        return Codes.Where(g => !DefaultGrants.Contains(g) && Allows(source, g)).ToArray();
     }
 }
 
@@ -37,13 +51,14 @@ public sealed class RankPermissionService(EdgeDbContext db)
         if (user == null || user.Role?.IsActive != true) return new(false, null, null, [], false);
         if (user.Role.RoleCode.Equals("ADMIN", StringComparison.OrdinalIgnoreCase))
             return new(true, null, null, PermissionRegistry.Codes.ToArray());
-        if (string.IsNullOrWhiteSpace(user.CrewId)) return new(false, null, null, []);
+        if (string.IsNullOrWhiteSpace(user.CrewId)) return new(false, null, null, PermissionRegistry.DefaultGrants.ToArray());
         var crew = await db.CrewMembers.AsNoTracking().Include(c => c.Rank)
             .SingleOrDefaultAsync(c => c.CrewId == user.CrewId);
-        if (crew?.Rank?.IsActive != true) return new(false, null, null, []);
+        if (crew?.Rank?.IsActive != true) return new(false, null, null, PermissionRegistry.DefaultGrants.ToArray());
         var config = await db.RankPermissionConfigs.AsNoTracking().SingleOrDefaultAsync(p => p.RankId == crew.RankId);
         return new(false, crew.RankId, crew.Rank.RankName,
-            config == null ? [] : JsonSerializer.Deserialize<string[]>(config.GrantsJson)!
-                .Where(PermissionRegistry.Codes.Contains).ToArray());
+            PermissionRegistry.DefaultGrants.Concat(config == null ? [] :
+                PermissionRegistry.ConfigurableGrants(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? []))
+                .Distinct().ToArray());
     }
 }

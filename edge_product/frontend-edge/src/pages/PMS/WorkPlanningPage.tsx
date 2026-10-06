@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { usePermissionsStore, canPerform } from '@/stores/permissions.store';
 /**
  * Danh sách công việc (Work Planning) - Avison-style
@@ -1376,7 +1377,7 @@ export default function WorkPlanningPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <PermissionGate permission={'pms.work.delete'}><button
               onClick={handleBulkTaskDelete}
               disabled={!canPerform('pms.work.delete') || selectedTaskCount === 0}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1385,7 +1386,7 @@ export default function WorkPlanningPage() {
               <Trash2 className="w-3.5 h-3.5" />
               {t('pms.workPlanning.table.bulkDelete')}
               {selectedTaskCount > 0 && <span className="font-semibold">({selectedTaskCount})</span>}
-            </button>
+            </button></PermissionGate>
             <button onClick={() => loadData(true)} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.workPlanning.refresh')}>
               <RefreshCw className={`w-3.5 h-3.5 ${isBackgroundRefreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -1669,12 +1670,12 @@ export default function WorkPlanningPage() {
                                 <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title={t('pms.workPlanning.table.view')}>
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
-                                <button disabled={!canPerform('pms.config.update')} onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
+                                <PermissionGate permission="pms.config.update"><button disabled={!canPerform('pms.config.update')} onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
                                   <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('pms.workPlanning.table.delete')} disabled={!canPerform('pms.work.delete')} onClick={() => handleTaskDelete(task.id)}>
+                                </button></PermissionGate>
+                                <PermissionGate permission={'pms.work.delete'}><button className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('pms.workPlanning.table.delete')} disabled={!canPerform('pms.work.delete')} onClick={() => handleTaskDelete(task.id)}>
                                   <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                </button></PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -2083,7 +2084,7 @@ export default function WorkPlanningPage() {
                           </td>
                           <td className="px-2 py-2">
                             <div className="flex items-center justify-center">
-                              <button
+                              <PermissionGate permission={'pms.counter.update'}><button
                                 onClick={() => handleCounterSave(asset.id)}
                                 disabled={!canPerform('pms.counter.update') || counterEditing[asset.id] === undefined || counterSaving.has(asset.id)}
                                 className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-40 disabled:cursor-not-allowed"
@@ -2094,7 +2095,7 @@ export default function WorkPlanningPage() {
                                 ) : (
                                   <Save className="w-3.5 h-3.5" />
                                 )}
-                              </button>
+                              </button></PermissionGate>
                             </div>
                           </td>
                         </tr>
@@ -2133,15 +2134,15 @@ export default function WorkPlanningPage() {
                       <button onClick={() => { const sch = schedules.find(s => s.id === cfgEditingId); if (sch) viewScheduleTasks(sch.scheduleCode); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
                         <ExternalLink className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.viewTasks')}
                       </button>
-                      <button onClick={() => { if (cfgEditingId) { handleScheduleDelete(schedules.find(s => s.id === cfgEditingId)!); } }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50">
+                      <PermissionGate permission="pms.config.delete"><button onClick={() => { if (cfgEditingId) { handleScheduleDelete(schedules.find(s => s.id === cfgEditingId)!); } }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50">
                         <Trash2 className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.deleteConfig')}
-                      </button>
+                      </button></PermissionGate>
                     </>
                   )}
                   <button type="button" onClick={cfgReset} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
                     <XIcon className="w-3.5 h-3.5" /> {cfgEditingId ? t('pms.workPlanning.config.cancel') : t('pms.workPlanning.config.reset')}
                   </button>
-                  <button type="button" disabled={!canPerform('pms.config.import')} onClick={() => setShowImportMaintenance(true)} className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Import Excel</button>
+                  <PermissionGate permission="pms.config.import"><button type="button" disabled={!canPerform('pms.config.import')} onClick={() => setShowImportMaintenance(true)} className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Import Excel</button></PermissionGate>
                   <div className="relative">
                     <button type="button" onClick={() => setCfgShowHistory(!cfgShowHistory)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded ${cfgShowHistory ? 'border-blue-400 text-blue-700 bg-blue-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                       <History className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.configHistory')}
@@ -2156,7 +2157,7 @@ export default function WorkPlanningPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-white border-b border-gray-200">
                           <div className="flex items-center gap-2 text-xs text-gray-600"><span>{cfgListItems.length} / {schedules.length} cấu hình</span>{cfgSelectedIds.size > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">Đã chọn: {cfgSelectedIds.size}</span>}</div>
                           <div className="flex items-center gap-2">
-                          <button type="button" onClick={handleBulkScheduleDelete} disabled={cfgBulkDeleting || cfgSelectedIds.size === 0} className="flex items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={14} />{cfgBulkDeleting ? 'Đang xóa…' : 'Xóa nhiều'}</button>
+                          <PermissionGate permission="pms.config.delete"><button type="button" onClick={handleBulkScheduleDelete} disabled={cfgBulkDeleting || cfgSelectedIds.size === 0} className="flex items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={14} />{cfgBulkDeleting ? 'Đang xóa…' : 'Xóa nhiều'}</button></PermissionGate>
                           <div className="relative max-w-full">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input type="text" aria-label="Tìm cấu hình" value={cfgListSearch} onChange={e => setCfgListSearch(e.target.value)} placeholder={t('pms.workPlanning.config.searchPlaceholder')} className="pl-9 pr-3 py-1.5 text-xs border border-gray-300 rounded w-64 max-w-full focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
@@ -2207,9 +2208,9 @@ export default function WorkPlanningPage() {
                                     </td>
                                     <td className="whitespace-nowrap px-2 py-1.5 text-center text-gray-500">{sch.intervalMonths ? `${sch.intervalMonths} tháng` : sch.intervalYears ? `${sch.intervalYears} năm` : sch.intervalHours ? `${sch.intervalHours} giờ` : sch.intervalDays ? `${sch.intervalDays} ngày` : '—'}</td>
                                     <td className={`sticky right-0 text-center group-hover:bg-blue-50 ${cfgSelectedIds.has(sch.id) || cfgEditingId === sch.id ? 'bg-blue-50' : 'bg-white'}`}><div className="flex items-center justify-center gap-1">
-                                      <button type="button" disabled={cfgBulkDeleting} title="Chỉnh sửa cấu hình" onClick={e => { e.stopPropagation(); cfgLoadForEdit(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Pencil size={14} /></button>
-                                      <button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Copy size={14} /></button>
-                                      <button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); handleScheduleDelete(sch); }} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"><Trash2 size={14} /></button>
+                                      <PermissionGate permission="pms.config.update"><button type="button" disabled={cfgBulkDeleting} title="Chỉnh sửa cấu hình" onClick={e => { e.stopPropagation(); cfgLoadForEdit(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Pencil size={14} /></button></PermissionGate>
+                                      <PermissionGate permission="pms.config.create"><button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Copy size={14} /></button></PermissionGate>
+                                      <PermissionGate permission="pms.config.delete"><button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); handleScheduleDelete(sch); }} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"><Trash2 size={14} /></button></PermissionGate>
                                     </div>
                                     </td>
                                   </tr>
@@ -2223,10 +2224,10 @@ export default function WorkPlanningPage() {
                       </div>, document.body
                     )}
                   </div>
-                  <button type="button" onClick={cfgSubmit} disabled={cfgSaving || !canPerform(cfgEditingId ? 'pms.config.update' : 'pms.config.create')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                  <PermissionGate permission={cfgEditingId ? 'pms.config.update' : 'pms.config.create'}><button type="button" onClick={cfgSubmit} disabled={cfgSaving || !canPerform(cfgEditingId ? 'pms.config.update' : 'pms.config.create')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                     {cfgSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     {cfgEditingId ? t('pms.workPlanning.config.update') : t('pms.workPlanning.config.saveConfig')}
-                  </button>
+                  </button></PermissionGate>
                 </div>
               </div>
 
@@ -2572,9 +2573,9 @@ export default function WorkPlanningPage() {
                                       isLinked ? (
                                         <span className="text-green-500" title={t('pms.workPlanning.config.assignedToEquipment')}><Link2 size={12} /></span>
                                       ) : (
-                                        <button type="button" onClick={() => cfgAssignMaterialToEquipment(part.materialItemId)} title={t('pms.workPlanning.config.assignMaterialToEquipment')} className="text-amber-500 hover:text-amber-700">
+                                        <PermissionGate permission={'pms.assets.assign'}><button type="button" onClick={() => cfgAssignMaterialToEquipment(part.materialItemId)} title={t('pms.workPlanning.config.assignMaterialToEquipment')} className="text-amber-500 hover:text-amber-700">
                                           <Save size={12} />
-                                        </button>
+                                        </button></PermissionGate>
                                       )
                                     )}
                                   </td>
@@ -2599,9 +2600,9 @@ export default function WorkPlanningPage() {
                       <span className="text-sm font-semibold text-gray-700 flex items-center gap-2"><ClipboardList size={14} /> {t('pms.workPlanning.config.checklist')}</span>
                       <div className="flex items-center gap-2">
                         <div className="relative">
-                          <button type="button" onClick={cfgSaveAsTemplate} className="flex items-center gap-1.5 px-2.5 py-1 text-xs border border-teal-300 rounded text-teal-700 hover:bg-teal-50">
+                          <PermissionGate permission="pms.config.create"><button type="button" onClick={cfgSaveAsTemplate} className="flex items-center gap-1.5 px-2.5 py-1 text-xs border border-teal-300 rounded text-teal-700 hover:bg-teal-50">
                             <Plus size={12} /> {t('pms.workPlanning.config.createTemplate')}
-                          </button>
+                          </button></PermissionGate>
                           {cfgShowCreateTemplate && (
                             <div className="absolute right-0 z-40 mt-1 w-72 bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden">
                               <div className="flex items-center justify-between px-3 py-2 bg-teal-50 border-b border-teal-200">
@@ -2618,7 +2619,7 @@ export default function WorkPlanningPage() {
                                 </div>
                                 <div className="flex items-center justify-end gap-2">
                                   <button type="button" onClick={() => setCfgShowCreateTemplate(false)} className="px-3 py-1 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50">{t('pms.workPlanning.config.cancel')}</button>
-                                  <button type="button" onClick={cfgConfirmSaveTemplate} className="px-3 py-1 text-xs bg-teal-600 text-white rounded hover:bg-teal-700">{t('pms.workPlanning.config.saveTemplate')}</button>
+                                  <PermissionGate permission="pms.config.create"><button type="button" onClick={cfgConfirmSaveTemplate} className="px-3 py-1 text-xs bg-teal-600 text-white rounded hover:bg-teal-700">{t('pms.workPlanning.config.saveTemplate')}</button></PermissionGate>
                                 </div>
                               </div>
                             </div>

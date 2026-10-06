@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
@@ -667,7 +668,7 @@ export const WatchkeepingPage: React.FC = () => {
           <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex justify-end gap-3">
             {!entry.masterSignature && (
               <>
-                <button
+                <PermissionGate permission="logbooks.watchkeeping.update"><button
                   onClick={() => {
                     handleStartEdit(entry);
                     closeDetailModal();
@@ -675,8 +676,8 @@ export const WatchkeepingPage: React.FC = () => {
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   ✏️ {t('common.edit') || 'Edit'}
-                </button>
-                <button
+                </button></PermissionGate>
+                <PermissionGate permission="logbooks.watchkeeping.approve"><button
                   onClick={() => {
                     handleSign(entry.id, 'Master Signature');
                     closeDetailModal();
@@ -684,7 +685,7 @@ export const WatchkeepingPage: React.FC = () => {
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                 >
                   ✍️ {t('logbooks.watchkeeping.signAsMaster')}
-                </button>
+                </button></PermissionGate>
               </>
             )}
             <button
@@ -703,7 +704,7 @@ export const WatchkeepingPage: React.FC = () => {
     <LogbookGrid 
       title="Watchkeeping Log - SOLAS Chapter V/28"
       actions={
-        <button
+        <PermissionGate permission="logbooks.watchkeeping.create"><button
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -716,7 +717,7 @@ export const WatchkeepingPage: React.FC = () => {
           className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
         >
           {showForm ? '✕ Cancel' : '+ New Watch'}
-        </button>
+        </button></PermissionGate>
       }
     >
       {showForm && (
@@ -1194,12 +1195,12 @@ export const WatchkeepingPage: React.FC = () => {
             >
               Cancel
             </button>
-            <button
+            <PermissionGate permission={editingId ? 'logbooks.watchkeeping.update' : 'logbooks.watchkeeping.create'}><button
               onClick={handleSubmit}
               className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-md"
             >
               {editingId ? 'Update Watch Entry' : 'Save Watch Entry'}
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       )}
@@ -1294,7 +1295,7 @@ export const WatchkeepingPage: React.FC = () => {
                     </button>
                     {!entry.masterSignature && (
                       <>
-                        <button
+                        <PermissionGate permission="logbooks.watchkeeping.update"><button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleStartEdit(entry);
@@ -1302,8 +1303,8 @@ export const WatchkeepingPage: React.FC = () => {
                           className="text-amber-600 hover:underline font-sans text-sm"
                         >
                           EDIT
-                        </button>
-                        <button
+                        </button></PermissionGate>
+                        <PermissionGate permission="logbooks.watchkeeping.approve"><button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSign(entry.id, 'Master Signature');
@@ -1311,7 +1312,7 @@ export const WatchkeepingPage: React.FC = () => {
                           className="text-green-600 hover:underline font-sans text-sm"
                         >
                           SIGN
-                        </button>
+                        </button></PermissionGate>
                       </>
                     )}
                   </div>

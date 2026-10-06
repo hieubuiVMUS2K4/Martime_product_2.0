@@ -208,6 +208,11 @@ public class MaterialRequestController : ControllerBase
 
         if (request == null) return NotFound();
 
+        if (request.Status != "Draft")
+            return BadRequest("Chỉ được chỉnh sửa yêu cầu ở trạng thái nháp.");
+        if (dto.Status != null && dto.Status != request.Status)
+            return BadRequest("Hãy dùng thao tác gửi, duyệt hoặc từ chối để chuyển trạng thái yêu cầu.");
+
         if (dto.VesselName != null) request.VesselName = dto.VesselName;
         if (dto.VoyageId.HasValue) request.VoyageId = dto.VoyageId;
         if (dto.VoyageName != null) request.VoyageName = dto.VoyageName;
@@ -336,7 +341,7 @@ public class MaterialRequestController : ControllerBase
     public async Task<ActionResult> GetApproved()
     {
         var items = await _context.MaterialRequests
-            .Where(r => r.IsActive && (r.Status == "Submitted" || r.Status == "Approved"))
+            .Where(r => r.IsActive && r.Status == "Approved")
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new
             {
@@ -345,6 +350,7 @@ public class MaterialRequestController : ControllerBase
                 r.Urgency,
                 r.RequestDate,
                 r.RequestedBy,
+                r.Status,
                 ItemCount = r.Items.Count
             })
             .ToListAsync();

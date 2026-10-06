@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Save, Loader2, Ship, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -170,14 +171,14 @@ export function ShipDataPage() {
             </span>
           )}
         </div>
-        <button
+        <PermissionGate permission="ship-data.update"><button
           onClick={handleSave}
           disabled={saving || !isDirty}
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           {saving ? t('shipData.saving') : t('shipData.saveAll')}
-        </button>
+        </button></PermissionGate>
       </div>
 
       {/* Error banner */}

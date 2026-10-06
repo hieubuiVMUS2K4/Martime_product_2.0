@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -203,12 +204,12 @@ export const VoyageLogPage: React.FC = () => {
               {t('voyageLog.table')}
             </button>
           </div>
-          <button
+          <PermissionGate permission="logbooks.voyage.create"><button
             onClick={() => setShowForm(!showForm)}
             className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700"
           >
             {showForm ? t('common.cancel') : t('voyageLog.newEntry')}
-          </button>
+          </button></PermissionGate>
         </div>
       }
     >
@@ -438,12 +439,12 @@ export const VoyageLogPage: React.FC = () => {
                   >
                     ← {t('common.back')}
                   </button>
-                  <button
+                  <PermissionGate permission="logbooks.voyage.create"><button
                     onClick={handleSave}
                     className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700"
                   >
                     {t('voyageLog.saveEntry')}
-                  </button>
+                  </button></PermissionGate>
                 </div>
               </div>
             </div>

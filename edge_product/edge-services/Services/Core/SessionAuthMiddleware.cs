@@ -39,7 +39,6 @@ public class SessionAuthMiddleware
         "/api/health",
         "/swagger",
         "/uploads",
-        "/api/telemetry/navigation", // Sensor data from ESP/MPU6050 (no auth)
     };
 
     // For these paths, resolve Bearer token if present (to allow authenticated users),
@@ -61,7 +60,9 @@ public class SessionAuthMiddleware
         var path = context.Request.Path.Value ?? "";
 
         // Skip entirely for public endpoints (no auth needed)
-        if (SkipPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+        var isSensorUpload = HttpMethods.IsPost(context.Request.Method) &&
+            path.TrimEnd('/').Equals("/api/telemetry/navigation", StringComparison.OrdinalIgnoreCase);
+        if (isSensorUpload || SkipPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
         {
             await _next(context);
             return;

@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Search, Package, DollarSign, AlertTriangle, ChevronsUpDown, Download, Clock, X, Plus, Pencil } from 'lucide-react';
@@ -182,9 +183,9 @@ export default function InventoryPage() {
 
               {/* Action buttons */}
               <div className="border-l border-gray-200 ml-1 pl-3 flex items-center gap-2">
-                <button onClick={handleExport} className="flex items-center gap-1 px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
+                <PermissionGate permission="pms.inventory.export"><button onClick={handleExport} className="flex items-center gap-1 px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
                   <Download size={13} /> Xuất Excel
-                </button>
+                </button></PermissionGate>
                 <button onClick={openHistory} className="flex items-center gap-1 px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
                   <Clock size={13} /> Lịch sử tồn kho
                 </button>
@@ -301,13 +302,13 @@ export default function InventoryPage() {
                     <td className="px-3 py-2 text-xs border-r border-gray-100">{row.unit}</td>
                     <td className="px-3 py-2 text-gray-400 text-xs border-r border-gray-100">{row.updatedAt?.slice(0, 10)}</td>
                     <td className="px-2 py-2 text-center">
-                      <button
+                      <PermissionGate permission="pms.inventory.update"><button
                         onClick={() => openEdit(row)}
                         title="Cập nhật kho"
                         className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                       >
                         <Pencil size={14} />
-                      </button>
+                      </button></PermissionGate>
                     </td>
                   </tr>
                 ))}
@@ -377,9 +378,9 @@ export default function InventoryPage() {
             </div>
             <div className="flex justify-end gap-2 px-5 py-3 border-t">
               <button onClick={() => setEditItem(null)} className="px-4 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">Hủy</button>
-              <button onClick={handleEdit} disabled={editSaving} className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+              <PermissionGate permission="pms.inventory.update"><button onClick={handleEdit} disabled={editSaving} className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                 {editSaving ? 'Đang lưu...' : 'Xác nhận'}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -515,7 +516,7 @@ export default function InventoryPage() {
             </div>
             <div className="flex justify-end gap-2 px-5 py-3 border-t">
               <button onClick={() => setShowDeclare(false)} className="px-4 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50">Hủy</button>
-              <button onClick={handleDeclare} className="px-4 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700">Khai báo</button>
+              <PermissionGate permission="pms.inventory.update"><button onClick={handleDeclare} className="px-4 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700">Khai báo</button></PermissionGate>
             </div>
           </div>
         </div>

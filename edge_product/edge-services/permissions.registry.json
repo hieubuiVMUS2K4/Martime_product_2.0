@@ -8,9 +8,7 @@
         "/dashboard"
       ],
       "actions": [
-        "view",
-        "update",
-        "create"
+        "view"
       ]
     },
     {
@@ -21,8 +19,7 @@
         "/navigation"
       ],
       "actions": [
-        "view",
-        "create"
+        "view"
       ]
     },
     {
@@ -34,8 +31,7 @@
       ],
       "actions": [
         "view",
-        "update",
-        "create"
+        "update"
       ]
     },
     {
@@ -139,11 +135,7 @@
         "/pms/catalog/materials"
       ],
       "actions": [
-        "view",
-        "create",
-        "update",
-        "delete",
-        "assign"
+        "view"
       ]
     },
     {
@@ -173,8 +165,7 @@
         "update",
         "approve",
         "reject",
-        "delete",
-        "assign"
+        "delete"
       ]
     },
     {
@@ -190,7 +181,8 @@
         "create",
         "update",
         "delete",
-        "assign"
+        "approve",
+        "execute"
       ]
     },
     {
@@ -203,8 +195,7 @@
       "actions": [
         "view",
         "export",
-        "update",
-        "assign"
+        "update"
       ]
     },
     {
@@ -269,7 +260,6 @@
         "delete",
         "approve",
         "import",
-        "reject",
         "assign"
       ]
     },
@@ -285,8 +275,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -301,8 +290,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -317,8 +305,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -333,8 +320,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -349,8 +335,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -365,8 +350,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -381,8 +365,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -397,8 +380,7 @@
         "create",
         "update",
         "delete",
-        "approve",
-        "reject"
+        "approve"
       ]
     },
     {
@@ -869,7 +851,7 @@
       "controller": "Logbook",
       "action": "SignOffFollowUp",
       "grants": [
-        "crew.approve"
+        "crew.update"
       ]
     },
     {
@@ -903,9 +885,7 @@
       "controller": "Inventory",
       "action": "Export",
       "grants": [
-        "pms.inventory.export",
-        "pms.assets.view",
-        "pms.work.view"
+        "pms.inventory.export"
       ]
     },
     {
@@ -970,23 +950,17 @@
     {
       "controller": "Material",
       "action": "CreateCategory",
-      "grants": [
-        "pms.materials.create"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
       "action": "UpdateCategory",
-      "grants": [
-        "pms.materials.update"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
       "action": "DeleteCategory",
-      "grants": [
-        "pms.materials.delete"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
@@ -1064,44 +1038,34 @@
     {
       "controller": "Material",
       "action": "CreateItem",
-      "grants": [
-        "pms.materials.create"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
       "action": "UpdateItem",
-      "grants": [
-        "pms.materials.update"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
       "action": "DeleteItem",
-      "grants": [
-        "pms.materials.delete"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
       "action": "AdjustStock",
       "grants": [
-        "pms.materials.update"
+        "pms.inventory.update"
       ]
     },
     {
       "controller": "Material",
       "action": "UploadItemImage",
-      "grants": [
-        "pms.materials.update"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
       "action": "DeleteItemImage",
-      "grants": [
-        "pms.materials.delete"
-      ]
+      "grants": []
     },
     {
       "controller": "Material",
@@ -1131,12 +1095,12 @@
       "controller": "Material",
       "action": "GetAssignedEquipment",
       "grants": [
-        "pms.materials.assign",
-        "pms.assets.assign",
-        "pms.work.assign",
-        "pms.requests.assign",
-        "pms.receipts.assign",
-        "pms.inventory.assign"
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
       ]
     },
     {
@@ -1167,7 +1131,6 @@
       "controller": "Material",
       "action": "AssignEquipment",
       "grants": [
-        "pms.materials.assign",
         "pms.assets.assign"
       ]
     },
@@ -1175,7 +1138,6 @@
       "controller": "Material",
       "action": "RemoveEquipmentAssignment",
       "grants": [
-        "pms.materials.assign",
         "pms.assets.assign"
       ]
     },
@@ -1183,7 +1145,6 @@
       "controller": "Material",
       "action": "UpdateEquipmentAssignment",
       "grants": [
-        "pms.materials.assign",
         "pms.assets.assign"
       ]
     },
@@ -1317,7 +1278,7 @@
       "controller": "StockReceipt",
       "action": "Complete",
       "grants": [
-        "pms.receipts.update"
+        "pms.receipts.execute"
       ]
     },
     {
@@ -2814,7 +2775,7 @@
       "controller": "Hsqe",
       "action": "SubmitDocumentForReview",
       "grants": [
-        "hsqe.approve"
+        "hsqe.update"
       ]
     },
     {
@@ -3173,9 +3134,7 @@
     {
       "controller": "Telemetry",
       "action": "PostNavigationData",
-      "grants": [
-        "navigation.create"
-      ]
+      "grants": []
     },
     {
       "controller": "Telemetry",
@@ -3357,7 +3316,7 @@
       "controller": "Voyage",
       "action": "GetCrewAssignments",
       "grants": [
-        "voyage.assign"
+        "voyage.view"
       ]
     },
     {
@@ -3765,23 +3724,17 @@
     {
       "controller": "Alarms",
       "action": "AcknowledgeAlarm",
-      "grants": [
-        "dashboard.update"
-      ]
+      "grants": []
     },
     {
       "controller": "Alarms",
       "action": "ResolveAlarm",
-      "grants": [
-        "dashboard.update"
-      ]
+      "grants": []
     },
     {
       "controller": "Alarms",
       "action": "CreateAlarm",
-      "grants": [
-        "dashboard.create"
-      ]
+      "grants": []
     },
     {
       "controller": "Alarms",
@@ -3794,6 +3747,21 @@
       "controller": "Alarms",
       "action": "GenerateSampleAlarms",
       "grants": []
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Approve",
+      "grants": [
+        "pms.receipts.approve"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Submit",
+      "grants": [
+        "pms.receipts.create",
+        "pms.receipts.update"
+      ]
     }
   ]
 }

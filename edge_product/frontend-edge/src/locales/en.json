@@ -1,4 +1,12 @@
 {
+  "map": {
+    "shipPosition": "Ship position",
+    "lat": "Latitude",
+    "lon": "Longitude",
+    "sog": "Speed over ground",
+    "cog": "Course over ground",
+    "time": "Time"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

@@ -42,11 +42,11 @@ Giai đoạn hiện tại chỉ triển khai **hai lớp quyền**. Dữ liệu 
 | Lớp | Câu hỏi cần trả lời | Ví dụ |
 | --- | --- | --- |
 | Truy cập | Được mở module/tab nào? | Được mở Danh sách công việc, không được mở tab Cấu hình |
-| Thao tác | Được thực hiện hành động nào? | Xem, thêm, sửa, xóa, import, export, phân công, thực hiện, duyệt |
+| Thao tác | Được thực hiện hành động nào? | Thêm / xóa (gồm import), Cập nhật (gồm phân công/liên kết), xuất, thực hiện, duyệt, từ chối |
 
 Quyết định cho phép = tài khoản hợp lệ + chức danh/quyền hiệu lực (hoặc quyền quản trị phù hợp) + quyền truy cập và thao tác tương ứng + điều kiện workflow/sở hữu dữ liệu được đáp ứng. Bật truy cập module không tự bật mọi thao tác trong module.
 
-Mỗi thao tác được định nghĩa riêng theo chức năng thực tế. Các nhóm thường gặp là xem, thêm, sửa, xóa, import, export; phân công, thực hiện, duyệt, từ chối, cấu hình chỉ có ở module hỗ trợ. Danh mục vật tư Edge chỉ đọc và có thao tác liên kết thiết bị riêng, không có quyền chỉnh sửa danh mục công ty.
+Mã thao tác nội bộ được định nghĩa theo chức năng thực tế. Giao diện gộp Thêm / xóa / import / tải mẫu thành một nhóm và Sửa / phân công / liên kết thành nhóm Cập nhật; công tắc truy cập đã bao gồm xem. Xuất, thực hiện, duyệt, từ chối chỉ có ở module hỗ trợ và vẫn độc lập. Danh mục vật tư Edge chỉ đọc dữ liệu công ty; quyền Cập nhật của module này chỉ cho phép liên kết thiết bị, không chỉnh sửa danh mục.
 
 Không bổ sung DataScope, bộ lọc quyền theo người/bộ phận hoặc dropdown phạm vi trong màn hình phân quyền. Quyền được cấp áp dụng trên dữ liệu của tàu mà chức năng hiện tại phục vụ; không mở rộng sang dữ liệu tàu khác trên Shore.
 
@@ -70,7 +70,7 @@ Cấp quyền duyệt không tự cấp thực hiện, xóa hay cấu hình. Đi
 
 - Bên trái: danh sách tên chức danh đang hoạt động, sắp theo SortOrder rồi tên; có tìm kiếm và bộ phận. Sau khi nhận đồng bộ rank, tự tải lại danh sách, không cần sửa code hay tạo Role thủ công.
 - Bên phải: tên chức danh đang chọn, ô tìm quyền theo tên/mã, nút **Lưu thay đổi** và **Đặt lại**; module được nhóm theo menu hiện tại, mỗi trang/tab có công tắc bật/tắt.
-- Mỗi module có phần **Quyền thao tác** mở rộng: công tắc xem, thêm, sửa, xóa, import, export và các hành động nghiệp vụ thực tế. Không có lựa chọn phạm vi dữ liệu. Công tắc truy cập không tự chọn thêm/sửa/xóa/duyệt.
+- Mỗi module có phần thao tác mở rộng bằng chevron: checkbox Thêm / xóa, Cập nhật, Xuất và các hành động nghiệp vụ thực tế. Công tắc truy cập bao gồm Xem; không có checkbox Xem riêng hoặc lựa chọn phạm vi dữ liệu. Công tắc truy cập không tự chọn quyền ghi hay duyệt.
 - Tắt truy cập module làm các quyền con mất hiệu lực; giao diện khóa chúng, giữ lựa chọn trước đó để admin xem và khôi phục có chủ đích. Khi bật lại phải hiển thị rõ các quyền con sẽ hiệu lực. Lưu trạng thái truy cập và quyền con cùng transaction.
 - Nhóm cha thể hiện trạng thái bật hết/tắt hết/một phần; bật/tắt nhóm áp dụng quyền truy cập các mục con, không cấp hàng loạt quyền thao tác. Search chỉ lọc hiển thị, không xóa hoặc tự sửa quyền bị ẩn.
 - Layout hai cột, phần danh sách và bảng quyền cuộn độc lập, header/nút lưu cố định; dùng font, màu, border và khoảng cách của hệ thống hiện tại.
@@ -167,7 +167,7 @@ Chạy riêng trên database đã có schema: `dotnet run --project shore_produc
 - API /api/permissions/me, /catalog, /ranks, /ranks/{id}. Chỉ ADMIN đọc/sửa cấu hình chức danh. Lưu kiểm tra version, dùng transaction/advisory lock và ghi before/after vào SystemLog cùng transaction. Cấu hình này không đi vào hàng đợi đồng bộ.
 - RankPermissionFilter được đăng ký toàn cục cho controller. Lấy role, thuyền viên, chức danh và quyền hiện tại từ DB; không tin RoleCode cũ trong cache phiên. Giữ các đường công khai/node-token sync và cảm biến hiện hữu.
 - Chặn tạo thuyền viên/gán lại chức danh hoặc đổi CrewId trên Edge để tránh tự chuyển tài khoản sang chức danh có nhiều quyền hơn. Thực hiện các thay đổi định danh/chức danh trên bờ rồi đồng bộ; tài khoản vẫn được provision tự động với CREW.
-- PMS thực hiện/duyệt dùng thuyền viên liên kết tài khoản. Không nhận ApprovedBy/CompletedBy/PerformedBy khác danh tính thật; thao tác từ chối kiểm tra quyền reject riêng. Generic update không được dùng để bỏ qua workflow hoàn thành/duyệt; đổi phân công cần quyền assign. Phần kiểm tra chức danh cũ bị comment được thay bằng quyền approve/reject của chức danh hiện tại trong filter.
+- PMS thực hiện/duyệt dùng thuyền viên liên kết tài khoản. Không nhận ApprovedBy/CompletedBy/PerformedBy khác danh tính thật; thao tác từ chối kiểm tra quyền reject riêng. Generic update không được dùng để bỏ qua workflow hoàn thành/duyệt; đổi phân công thuộc nhóm Cập nhật (update/assign). Phần kiểm tra chức danh cũ bị comment được thay bằng quyền approve/reject của chức danh hiện tại trong filter.
 - Frontend thêm /admin/permissions với hai cột, nhóm module, công tắc thao tác, tìm kiếm, version, toast và nhắc thay đổi chưa lưu khi chọn chức danh khác. Bật module mặc định kèm quyền xem; không tự bật các quyền ghi/duyệt. Tắt module giữ lựa chọn thao tác nhưng làm chúng mất hiệu lực.
 - Sidebar và route guard dùng quyền server. Tab Cấu hình/Counter của PMS và các nút ghi chính của PMS kiểm tra quyền tương ứng. API vẫn kiểm tra mọi thao tác, kể cả các màn hình cũ chưa có đầy đủ trạng thái ẩn/khóa nút. Cần tiếp tục đồng nhất trạng thái nút ở các module còn lại theo registry; không coi việc ẩn nút là lớp bảo vệ.
 - Danh sách công việc lấy toàn tàu; endpoint tasks/my-tasks không còn lọc crewId/assignedTo. Đổi nhãn thành Danh sách công việc; giữ phân công để bổ sung lọc về sau.
@@ -185,11 +185,45 @@ Chạy riêng trên database đã có schema: `dotnet run --project shore_produc
 - Điều chỉnh giao diện theo phản hồi: tab lớn hơn; bỏ hai khối tiêu đề trang; bảng tài khoản hiển thị tên chức danh từ hồ sơ thuyền viên, không dùng dropdown ADMIN/CREW ở cột này. Phân quyền hiển thị dạng ma trận module/thao tác: công tắc có nhãn cho truy cập module, checkbox cho từng thao tác và truy cập cả nhóm, không hiển thị mã kỹ thuật. Có header và cột module cố định, cuộn ngang/dọc.
 - Thiết kế phân quyền mới nhất: danh sách module theo từng nhóm, tên module và công tắc Truy cập ở bên trái; checkbox có nhãn ở bên phải, chỉ hiển thị các thao tác áp dụng. Giao diện tự xuống dòng theo chiều rộng, không còn ma trận 10 cột hoặc ô trống/gạch ngang. Giữ tìm kiếm, chọn truy cập cả nhóm, lưu/version/audit và dữ liệu quyền hiện có.
 - Tối ưu chuyển chức danh: API GET /api/permissions/ranks trả kèm Version/Grants cho tất cả chức danh hoạt động trong một lần tải. Frontend nạp toàn bộ cấu hình vào state/cache khi mở màn hình, tự chọn chức danh đầu tiên và chuyển giữa các chức danh không phát sinh GET riêng. Poll/focus cập nhật ngầm, không ghi đè bản nháp đang sửa; kiểm tra version khi lưu vẫn giữ nguyên. Không lưu cấu hình quyền quản trị vào localStorage. Cần chạy backend mới để dùng payload tải chung.
+### Điều chỉnh quyền module theo rà soát code
+
+- Bảng điều khiển mở mặc định cho mọi tài khoản đã đăng nhập còn hoạt động, không cần cấu hình quyền theo chức danh. Chỉ cấp đọc mặc định; bỏ module này khỏi danh sách bật/tắt của admin. Các API ghi cảnh báo chưa có thao tác trong Dashboard chỉ dành ADMIN.
+- Sidebar ẩn nhóm Nhật ký nếu không có mục con được phép mở.
+- Rà soát 29 module, bỏ quyền không có thao tác/API tương ứng và sửa các mapping đọc/phân công/gửi duyệt/điều chỉnh tồn. Quyền cũ đã bỏ được lọc khi tính quyền và tải cấu hình, không cần xóa dữ liệu cấu hình.
+- Căn cứ chi tiết và danh sách thao tác: [RANK_MODULE_ACTIONS_AUDIT_2026-10-06.md](RANK_MODULE_ACTIONS_AUDIT_2026-10-06.md). Quy định này thay thế yêu cầu cấp quyền Dashboard và tự chuyển sang module khác khi chưa được cấp Dashboard trong các ghi chú trước đó.
+
+### Quy ước quyền thao tác được chốt sau rà soát giao diện
+
+- Công tắc module là **Truy cập / xem**. Bật công tắc cho phép đọc dữ liệu toàn tàu của module; bỏ checkbox Xem riêng. Không cấp quyền ghi chỉ vì module được mở.
+- **Thêm / xóa** là một nhóm: gồm các thao tác thêm, xóa, import và tải mẫu import mà module thực sự hỗ trợ. Chỉ hiện một checkbox cho nhóm này.
+- **Cập nhật** là một nhóm: gồm sửa dữ liệu, phân công và gán/liên kết mà module thực sự hỗ trợ.
+- **Thực hiện**, **Duyệt / ký**, **Từ chối** và **Xuất / tải file** vẫn là các quyền độc lập khi có API tương ứng. Tải mẫu import thuộc nhóm Thêm / xóa; xuất dữ liệu hiện có thuộc quyền Xuất / tải file.
+- Checkbox **Tất cả** chọn/bỏ toàn bộ nhóm thao tác của module; bỏ chọn Tất cả vẫn giữ quyền truy cập/xem. Bật Tất cả khi module đang tắt đồng thời bật truy cập/xem.
+- Áp dụng cùng quy tắc ở frontend và API. Các mã grant chi tiết được giữ để tương thích với registry; khi đọc/lưu cấu hình, một mã trong nhóm được chuẩn hóa thành toàn bộ các mã hợp lệ của nhóm. Vì vậy cấu hình cũ chỉ có import hoặc delete sẽ có cả nhóm Thêm / xóa; cấu hình cũ chỉ có assign sẽ có nhóm Cập nhật. Các quyền này vẫn phải có access và không mở rộng sang quyền thực hiện/duyệt/từ chối.
+- `PermissionGate` theo dõi permission store để ẩn nút không có quyền, bao gồm toolbar, hành động từng dòng, popup và nút lưu. Các ô vật tư liên kết lưu trực tiếp khi blur chuyển sang chỉ đọc khi thiếu quyền Cập nhật. API kiểm tra quyền từ database trên mỗi request, kể cả khi gọi trực tiếp hoặc thu hồi quyền trong lúc đang mở trang.
+- Rà soát giao diện danh mục, kho vận, công việc/counter, thuyền viên/chứng chỉ, dữ liệu tàu, cảng/chuyến đi/tài chính, báo cáo, HSQE, diễn tập, nhật ký và đồng bộ. Giữ các thao tác đọc như tìm kiếm, phân trang, xem vật tư liên kết, mở chi tiết. Tên kho trong bảng chọn kho thay vì mở form chỉnh sửa khi tài khoản chỉ đọc.
+- Quy định sở hữu danh mục của bờ và các điều kiện workflow vẫn có hiệu lực; bật quyền thao tác không thay đổi các điều kiện này.
+- Kiểm chứng: 32 kiểm thử frontend, 39 kiểm thử backend đạt. Kiểm thử render giao diện thiết bị với ba trường hợp: chỉ truy cập/xem, Thêm / xóa, Cập nhật; kiểm thử editor không còn checkbox Xem/Import/Phân công riêng và các nhóm tick đầy đủ. Kiểm thử diễn tập chỉ đọc vẫn xem được tài liệu nhưng không upload hoặc xóa tài liệu. Kiểm thử API chặn thao tác thiết bị khi chỉ có access, đồng thời kiểm tra bundle trên toàn registry. Chưa kiểm thử thủ công toàn bộ màn hình trong trình duyệt.
+
 ### Sửa luồng session khi đổi route và quyền
 
 - Thêm route /admin, /admin/ và fallback /admin/* vào /admin/accounts; không đi qua fallback Dashboard.
 - API client không xóa auth trực tiếp theo mọi response 401. Xác minh phiên qua /auth/validate, refresh token nếu phiên hết hạn và chỉ xóa khi xác thực/refresh xác nhận thất bại. Response 403 không tác động phiên. Response từ token cũ không xóa phiên mới, request được thử lại tối đa một lần.
 - Auth store dùng generation để loại phản hồi cũ sau login/logout; dùng chung promise cho initialize, refresh và recover khi nhiều request chạy đồng thời. Login thành công đặt isLoading=false; remount guard không khởi tạo lại phiên vừa xác thực.
-- Khi Dashboard không được cấp, PermissionGuard chuyển tới module đã được cấp; không chuyển sang Login vì thiếu quyền module. Phiên thật sự bị thu hồi vẫn bị đăng xuất.
+- Dashboard luôn là trang mặc định của tài khoản đã đăng nhập, không chuyển sang module khác vì thiếu cấu hình quyền. Phiên thật sự bị thu hồi vẫn bị đăng xuất.
 - POST /api/auth/refresh xác thực bằng refresh token tại controller, không yêu cầu access token còn hiệu lực ở middleware. Lỗi dịch vụ/database khi validate hoặc refresh trả 503 thay vì 401; frontend giữ thông tin phiên khi gặp lỗi tạm thời.
-- Kiểm chứng bằng npm run test:auth: 17 tình huống với HTTP phản hồi được kiểm soát, gồm route /admin/, reload, 403, 401 với phiên hợp lệ, refresh đồng thời, lỗi 503 và phản hồi cũ sau login/logout. 18 kiểm thử backend về session và phân quyền đã qua; build frontend thành công. Đây là kiểm thử tự động, chưa phải kiểm chứng trực tiếp bằng tài khoản đại phó trong trình duyệt của người dùng. Cần khởi động lại backend để áp dụng sửa middleware.
+- Middleware chỉ bỏ qua xác thực cho POST /api/telemetry/navigation (cảm biến), không bỏ qua các API đọc navigation. Dashboard polling chờ request trước hoàn tất, dừng khi gặp 401/403 và chờ lâu hơn khi gặp 429/lỗi mạng; bổ sung bản dịch map.*.
+- API Material.GetAssignedEquipment là API đọc, dùng quyền view giống GetEquipmentCounts/GetItemEquipment. Vật tư công ty trên tàu chỉ có Truy cập/Xem, không có quyền Cập nhật. Gán/sửa/xóa liên kết thuộc quyền Cập nhật của Thiết bị/Cấu hình công việc.
+
+### Bổ sung kiểm soát phiếu nhập kho
+
+- Chỉ chọn yêu cầu vật tư đang hoạt động, trạng thái Approved. API danh sách không trả Submitted; giao diện kiểm tra lại trạng thái khi chọn. API tạo/sửa/duyệt/hoàn tất phiếu kiểm tra yêu cầu liên kết để chặn gọi trực tiếp hoặc dữ liệu cũ không hợp lệ.
+- Phiếu nhập kho: Nháp → Chờ duyệt (`Submitted`) → Đã duyệt → Hoàn tất. “Lưu và gửi duyệt” lưu nháp rồi gọi API submit, không gọi approve. Quyền Thêm/xóa hoặc Cập nhật cho phép gửi duyệt; phiếu chờ duyệt không được sửa/xóa. `pms.receipts.approve` duyệt riêng qua API approve, chỉ nhận phiếu Submitted; `pms.receipts.execute` hoàn tất nhập kho và ghi tăng tồn kho qua API complete, chỉ nhận phiếu Approved. Quyền Cập nhật không bao gồm hai thao tác này. Chưa có luồng Từ chối cho phiếu nhập nên không hiển thị quyền này.
+- Trên màn hình phân quyền, execute của phiếu nhập được đặt tên **Hoàn tất nhập kho**. Cột Hành động dùng icon có tooltip; popup chi tiết dùng nút có tên. Phiếu nháp/chờ duyệt khóa nút và giải thích điều kiện duyệt trong tooltip (bảng) hoặc dòng hướng dẫn (popup); phiếu Approved cho thao tác; phiếu Completed không còn nút hoàn tất. Duyệt yêu cầu vật tư và duyệt phiếu nhập là hai bước riêng.
+- API cập nhật thông thường không được thay đổi trạng thái yêu cầu/phiếu nhập để bỏ qua bước duyệt. Phiếu đã duyệt không được sửa nội dung; phiếu nháp không được hoàn tất nhập kho.
+
+### Tạm ẩn thao tác thực hiện công việc trên web
+
+- Thanh thao tác báo cáo công việc trên web chỉ giữ **Trả hoàn** và **Phê duyệt**, theo quyền và trạng thái chờ duyệt. Tạm ẩn **Hủy bỏ**, **Tiếp tục**, **Lưu lại**, **Hoàn thành** bằng `WEB_WORK_EXECUTION_ACTIONS_ENABLED = false` trong WorkReportPage; có thể bật lại khi cần.
+- Giữ nguyên API và các quyền thực hiện công việc để mobile tiếp tục sử dụng; không xóa grant `pms.work.execute` hoặc thay đổi luồng trạng thái của backend.
+- Kiểm chứng mới nhất: npm run test:auth đạt 24 tình huống về phiên, polling, Dashboard mặc định và sidebar; 36 kiểm thử backend về session, rate limit và phân quyền đã qua; build frontend thành công. Đây là kiểm thử tự động, chưa phải kiểm chứng trực tiếp bằng tài khoản đại phó trong trình duyệt của người dùng. Cần khởi động lại backend để áp dụng thay đổi registry/middleware.

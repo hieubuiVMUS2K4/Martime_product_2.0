@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using MaritimeEdge.Models;
 using Xunit;
 
 namespace MaritimeEdge.Tests.Services.Core;
@@ -17,6 +18,52 @@ public class SessionAuthMiddlewareTests
 {
     private static EdgeDbContext Database() => new(new DbContextOptionsBuilder<EdgeDbContext>()
         .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options) { SuppressSyncQueue = true };
+
+    [Fact]
+    public async Task NavigationRead_ResolvesCrewIdentityRatherThanSkippingAuthentication()
+    {
+        await using var db = Database();
+        var role = new Role { RoleCode = "CREW", RoleName = "Crew" };
+        db.Roles.Add(role);
+        var user = new User { Username = "test-chief-officer", Role = role, PasswordHash = "test", IsActive = true };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.UserSessions.Add(new() { Id = Guid.NewGuid(), UserId = user.Id, AccessToken = "test-navigation-token",
+            RefreshToken = "test-refresh", IsActive = true, AccessTokenExpiresAt = DateTime.UtcNow.AddHours(1),
+            RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(1), LoginAt = DateTime.UtcNow, LastActivityAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var context = new DefaultHttpContext();
+        context.Request.Path = "/api/telemetry/navigation/latest";
+        context.Request.Method = "GET";
+        context.Request.Headers.Authorization = "Bearer test-navigation-token";
+        var middleware = new SessionAuthMiddleware(http => {
+            Assert.Equal(user.Id, http.GetUserId());
+            Assert.Equal("CREW", http.GetRoleCode());
+            return Task.CompletedTask;
+        }, NullLogger<SessionAuthMiddleware>.Instance);
+        await middleware.InvokeAsync(context, db, cache);
+        Assert.Equal(user.Id, context.GetUserId());
+    }
+
+    [Theory]
+    [InlineData("/api/telemetry/navigation", "POST", true)]
+    [InlineData("/api/telemetry/navigation/", "POST", true)]
+    [InlineData("/api/telemetry/navigation/latest", "GET", false)]
+    [InlineData("/api/telemetry/navigation/latest", "POST", false)]
+    public async Task OnlySensorUpload_IsAnonymous(string path, string method, bool allowed)
+    {
+        await using var db = Database();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var context = new DefaultHttpContext();
+        context.Request.Path = path; context.Request.Method = method;
+        var reachedController = false;
+        var middleware = new SessionAuthMiddleware(_ => { reachedController = true; return Task.CompletedTask; },
+            NullLogger<SessionAuthMiddleware>.Instance);
+        await middleware.InvokeAsync(context, db, cache);
+        Assert.Equal(allowed, reachedController);
+        Assert.Equal(allowed ? 200 : 401, context.Response.StatusCode);
+    }
 
     [Theory]
     [InlineData(null)]

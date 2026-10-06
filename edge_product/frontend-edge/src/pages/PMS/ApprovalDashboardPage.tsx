@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * C/E Approval Dashboard
  * For Chief Engineer to approve/reject maintenance tasks
@@ -361,20 +362,20 @@ export default function ApprovalDashboardPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <PermissionGate permission="pms.work.approve"><button
                         onClick={() => handleApproveClick(task)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                       >
                         <CheckCircle className="w-4 h-4" />
                         {t('pms.approval.approve')}
-                      </button>
-                      <button
+                      </button></PermissionGate>
+                      <PermissionGate permission="pms.work.reject"><button
                         onClick={() => handleRejectClick(task)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-red-600 text-sm font-medium rounded-md border border-red-300 hover:bg-red-50 transition-colors"
                       >
                         <XCircle className="w-4 h-4" />
                         {t('pms.approval.reject')}
-                      </button>
+                      </button></PermissionGate>
                     </div>
                   </td>
                 </tr>
@@ -465,7 +466,7 @@ export default function ApprovalDashboardPage() {
                 >
                   {t('common.cancel')}
                 </button>
-                <button
+                <PermissionGate permission="pms.work.approve"><button
                   onClick={handleApproveConfirm}
                   disabled={actionLoading}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
@@ -481,7 +482,7 @@ export default function ApprovalDashboardPage() {
                       {t('pms.approval.modal.approveTask')}
                     </>
                   )}
-                </button>
+                </button></PermissionGate>
               </div>
             </div>
           </div>
@@ -538,7 +539,7 @@ export default function ApprovalDashboardPage() {
                 >
                   {t('common.cancel')}
                 </button>
-                <button
+                <PermissionGate permission="pms.work.reject"><button
                   onClick={handleRejectConfirm}
                   disabled={actionLoading || !rejectionReason.trim()}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
@@ -554,7 +555,7 @@ export default function ApprovalDashboardPage() {
                       {t('pms.approval.modal.rejectTask')}
                     </>
                   )}
-                </button>
+                </button></PermissionGate>
               </div>
             </div>
           </div>

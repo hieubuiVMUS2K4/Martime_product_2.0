@@ -1,3 +1,5 @@
+import { usePermission } from '@/stores/permissions.store'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Plus, Upload, Download, Search, Package, Trash2, ChevronDown, ChevronRight, FolderOpen, X, Pencil } from 'lucide-react';
 import { getOnboardCrew, type CrewMember } from '@/services/crew.service';
@@ -414,7 +416,7 @@ export default function AssetsPage() {
               {t('pms.assets.allEquipment')}
             </span>
           </button>
-            <button
+            <PermissionGate permission="pms.assets.create"><button
               type="button"
               onClick={() => {
                 setSelectedNodeId(null);
@@ -429,7 +431,7 @@ export default function AssetsPage() {
               aria-label="Thêm nhóm thiết bị"
             >
               <Plus className="w-4 h-4" />
-            </button>
+            </button></PermissionGate>
         </div>
 
         {/* Header phải: title + action buttons */}
@@ -446,32 +448,32 @@ export default function AssetsPage() {
             {/* View mode: bulk delete + copy */}
             {!editMode && (
               <>
-                <button
+                <PermissionGate permission="pms.assets.delete"><button
                   onClick={handleBulkDelete}
                   disabled={selectedRows.size === 0}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded ${selectedRows.size > 0 ? 'text-red-600 hover:bg-red-50 border-red-300' : 'text-gray-400 cursor-not-allowed border-gray-300'}`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {t('pms.assets.deleteMany')}{selectedRows.size > 0 ? ` (${selectedRows.size})` : ''}
-                </button>
+                </button></PermissionGate>
 
               </>
             )}
-            {selectedNodeIsFolder && selectedNode && <button onClick={() => setEditingAsset(selectedNode)} className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"><Pencil className="h-3.5 w-3.5" />Chỉnh sửa nhóm thiết bị</button>}
-            <button
+            {selectedNodeIsFolder && selectedNode && <PermissionGate permission="pms.assets.update"><button onClick={() => setEditingAsset(selectedNode)} className="inline-flex items-center gap-1.5 rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"><Pencil className="h-3.5 w-3.5" />Chỉnh sửa nhóm thiết bị</button></PermissionGate>}
+            <PermissionGate permission="pms.assets.create"><button
               onClick={() => setCreateNodeMode('asset')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-blue-600 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               title="Thêm thiết bị"
             >
               <Plus className="w-3.5 h-3.5" />
               Thêm thiết bị
-            </button>
-            <button onClick={handleDownloadTemplate} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.assets.downloadTemplate')}>
+            </button></PermissionGate>
+            <PermissionGate permission="pms.assets.import"><button onClick={handleDownloadTemplate} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.assets.downloadTemplate')}>
               <Download className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={() => setShowImportModal(true)} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.assets.import')}>
+            </button></PermissionGate>
+            <PermissionGate permission="pms.assets.import"><button onClick={() => setShowImportModal(true)} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.assets.import')}>
               <Upload className="w-3.5 h-3.5" />
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -556,7 +558,7 @@ export default function AssetsPage() {
         <div role="dialog" aria-modal="true" aria-labelledby="linked-materials-title" className="flex h-[75vh] max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
           <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
             <div><h2 id="linked-materials-title" className="text-base font-semibold text-slate-900">Vật tư liên kết</h2><p className="mt-1 text-sm text-slate-500">{materialAsset.assetCode} — {materialAsset.assetName}</p></div>
-            <div className="flex items-center gap-3"><button onClick={() => setShowAssignMaterialModal(true)} className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"><Plus className="h-4 w-4" />Gán vật tư</button><button type="button" aria-label="Đóng" onClick={() => setMaterialAsset(null)} className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button></div>
+            <div className="flex items-center gap-3"><PermissionGate permission="pms.assets.assign"><button onClick={() => setShowAssignMaterialModal(true)} className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"><Plus className="h-4 w-4" />Gán vật tư</button></PermissionGate><button type="button" aria-label="Đóng" onClick={() => setMaterialAsset(null)} className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button></div>
           </div>
           {materialsError ? <div role="alert" className="m-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{materialsError}<button onClick={() => loadEquipmentMaterials(materialAsset.id)} className="ml-3 underline">Thử lại</button></div> : <EquipmentMaterialsPanel
             t={t} materials={equipmentMaterials} loading={materialsLoading}
@@ -636,14 +638,14 @@ export default function AssetsPage() {
         >
           {contextMenu.nodeId ? (
             <>
-              <button
+              <PermissionGate permission="pms.assets.create"><button
                 onClick={() => startInlineNew(contextMenu.nodeId)}
                 className="w-full px-4 py-2 text-left hover:bg-blue-50 text-gray-700 flex items-center gap-2"
               >
                 <Plus className="w-3 h-3 text-blue-500" /> {t('pms.assets.addChildAsset')}
-              </button>
+              </button></PermissionGate>
               <div className="border-t border-gray-100 my-0.5" />
-              <button
+              <PermissionGate permission="pms.assets.delete"><button
                 onClick={() => {
                   const a = assetMap.get(contextMenu.nodeId!);
                   if (a) handleDelete(a);
@@ -652,15 +654,15 @@ export default function AssetsPage() {
                 className="w-full px-4 py-2 text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
               >
                 <Trash2 className="w-3 h-3" /> {t('pms.assets.deleteAsset')}
-              </button>
+              </button></PermissionGate>
             </>
           ) : (
-            <button
+            <PermissionGate permission="pms.assets.create"><button
               onClick={() => startInlineNew(null)}
               className="w-full px-4 py-2 text-left hover:bg-blue-50 text-gray-700 flex items-center gap-2"
             >
               <Plus className="w-3 h-3 text-blue-500" /> {t('pms.assets.addRootAssetContext')}
-            </button>
+            </button></PermissionGate>
           )}
         </div>
       )}
@@ -800,15 +802,15 @@ function EditAssetModal({ asset, onDelete, onClose, onSuccess }: EditAssetModalP
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
-          {isFolderNode(asset) && <button type="button" disabled={saving} onClick={() => onDelete(asset)} className="mr-auto inline-flex items-center gap-2 rounded border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60">
+          {isFolderNode(asset) && <PermissionGate permission="pms.assets.delete"><button type="button" disabled={saving} onClick={() => onDelete(asset)} className="mr-auto inline-flex items-center gap-2 rounded border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60">
             <Trash2 className="h-4 w-4" /> Xóa nhóm thiết bị
-          </button>}
+          </button></PermissionGate>}
           <button type="button" onClick={onClose} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             {t('common.cancel')}
           </button>
-          <button type="submit" disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+          <PermissionGate permission={'pms.assets.update'}><button type="submit" disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
             {saving ? t('pms.assets.saving') : t('common.save')}
-          </button>
+          </button></PermissionGate>
         </div>
       </form>
     </div>
@@ -946,9 +948,9 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
             <button type="button" onClick={onClose} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
               Hủy
             </button>
-            <button type="submit" disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+            <PermissionGate permission={'pms.assets.create'}><button type="submit" disabled={saving} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? 'Đang lưu...' : title}
-            </button>
+            </button></PermissionGate>
           </div>
         </form>
       </div>
@@ -1038,6 +1040,7 @@ function EquipmentMaterialRow({
   const [quantityRequired, setQuantityRequired] = useState(String(material.quantityRequired ?? 1));
   const [notes, setNotes] = useState(material.notes || '');
   const [saving, setSaving] = useState(false);
+  const canAssign = usePermission('pms.assets.assign');
   const inherited = !!material.inheritedFrom;
   const required = Number(quantityRequired || 0);
   const hasStock = material.onHandQuantity !== null && material.onHandQuantity !== undefined;
@@ -1050,7 +1053,7 @@ function EquipmentMaterialRow({
   }, [material.materialItemId, material.quantityRequired, material.notes]);
 
   const save = async () => {
-    if (inherited) return;
+    if (inherited || !canAssign) return;
     const nextQuantity = Math.max(0, Number(quantityRequired || 0));
     try {
       setSaving(true);
@@ -1064,7 +1067,7 @@ function EquipmentMaterialRow({
   };
 
   const remove = async () => {
-    if (inherited) return;
+    if (inherited || !canAssign) return;
     try {
       setSaving(true);
       await onRemove(material);
@@ -1092,7 +1095,7 @@ function EquipmentMaterialRow({
             onChange={event => setQuantityRequired(event.target.value)}
             onFocus={() => onEditingChange(true)}
             onBlur={save}
-            disabled={inherited || saving}
+            disabled={inherited || saving || !canAssign}
             className="h-7 w-20 rounded border border-slate-300 px-2 text-left outline-none focus:border-blue-500 disabled:bg-slate-100"
           />
         </div>
@@ -1120,7 +1123,7 @@ function EquipmentMaterialRow({
           onChange={event => setNotes(event.target.value)}
           onFocus={() => onEditingChange(true)}
           onBlur={save}
-          disabled={inherited || saving}
+          disabled={inherited || saving || !canAssign}
           placeholder={t('pms.assets.requiredMaterials.notesPlaceholder')}
           className="h-7 w-full rounded border border-slate-300 px-2 outline-none focus:border-blue-500 disabled:bg-slate-100"
         />
@@ -1128,15 +1131,15 @@ function EquipmentMaterialRow({
       <td className="border-r border-gray-100 px-3 py-2 text-xs">{material.unit || '—'}</td>
       <td className="whitespace-nowrap border-r border-gray-100 px-3 py-2 text-xs">{material.linkedAt ? formatDate(material.linkedAt) : '—'}</td>
       <td className="px-2 py-2 text-center">
-        <button
+        <PermissionGate permission="pms.assets.assign"><button
           type="button"
           onClick={remove}
-          disabled={inherited || saving}
+          disabled={inherited || saving || !canAssign}
           className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
           title={inherited ? t('pms.assets.requiredMaterials.inheritedTitle') : t('pms.assets.requiredMaterials.remove')}
         >
           <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        </button></PermissionGate>
       </td>
     </tr>
   );
@@ -1321,9 +1324,9 @@ function AssignEquipmentMaterialModal({
             <button type="button" onClick={onClose} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
               Hủy
             </button>
-            <button type="submit" disabled={saving || !selectedMaterialId} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+            <PermissionGate permission={'pms.assets.assign'}><button type="submit" disabled={saving || !selectedMaterialId} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? 'Đang gán...' : 'Gán vật tư'}
-            </button>
+            </button></PermissionGate>
           </div>
         </form>
       </div>

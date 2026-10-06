@@ -25,10 +25,27 @@ export const usePermissionsStore = create<PermissionsState>((set) => ({
   },
 }))
 export function canPerform(code: string) {
-  const { isAdmin, grants, loaded, error } = usePermissionsStore.getState()
-  return loaded && !error && (isAdmin || (grants.includes(code) && grants.includes(code.slice(0, code.lastIndexOf('.')) + '.access')))
+  return hasPermission(usePermissionsStore.getState(), code)
+}
+export function hasPermission(state: Pick<PermissionsState, 'isAdmin' | 'grants' | 'loaded' | 'error' | 'modules'>, code: string): boolean {
+  if (!state.loaded || state.error) return false
+  if (state.isAdmin) return true
+  const index = code.lastIndexOf('.')
+  const module = code.slice(0, index), action = code.slice(index + 1)
+  if (!state.grants.includes(module + '.access')) return false
+  const definition = state.modules.find(m => m.code === module)
+  if (action === 'access' || action === 'view') return !!definition || module === 'dashboard'
+  if (!definition || !definition.actions.includes(action)) return false
+  const bundle = ['create', 'delete', 'import'].includes(action) ? ['create', 'delete', 'import']
+    : ['update', 'assign'].includes(action) ? ['update', 'assign'] : [action]
+  return bundle.some(a => definition.actions.includes(a) && state.grants.includes(module + '.' + a))
+}
+export function usePermission(code: string) {
+  return usePermissionsStore(state => hasPermission(state, code))
 }
 export function canOpen(path: string) {
+  // AuthGuard protects the session; dashboard is the common authenticated landing page.
+  if (path === '/dashboard') return true
   const { modules, isAdmin, loaded, error } = usePermissionsStore.getState()
   if (!loaded || error) return false
   if (isAdmin) return true

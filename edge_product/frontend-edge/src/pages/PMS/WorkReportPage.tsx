@@ -1,3 +1,5 @@
+import { usePermission } from '@/stores/permissions.store'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -37,7 +39,11 @@ const PRIORITY_KEY_MAP: Record<string, string> = {
 
 type BottomTab = 'checklist' | 'materials' | 'risk' | 'inspection'
 
+// Work execution is temporarily handled on mobile; web keeps review actions.
+const WEB_WORK_EXECUTION_ACTIONS_ENABLED = false
+
 export default function WorkReportPage() {
+  const canExecute = usePermission('pms.work.execute')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslationSafe()
@@ -640,24 +646,26 @@ export default function WorkReportPage() {
           <span className="text-gray-700 font-medium">{t('pms.workReport.breadcrumbWorkReport')}</span>
         </div>
         <div className="flex items-center gap-2">
+          {WEB_WORK_EXECUTION_ACTIONS_ENABLED && <>
           <button onClick={handleCancel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
             <X className="w-3.5 h-3.5" /> {t('pms.workReport.cancelBtn')}
           </button>
-          <button onClick={handleStartTask} disabled={!(['SCHEDULED', 'UPCOMING', 'DUE', 'OVERDUE', 'RECTIFY', 'MISSING_PIC', 'MISSING_CHECKLIST', 'MISSING_BOTH'].includes(task.status)) || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <PermissionGate permission="pms.work.execute"><button onClick={handleStartTask} disabled={!(['SCHEDULED', 'UPCOMING', 'DUE', 'OVERDUE', 'RECTIFY', 'MISSING_PIC', 'MISSING_CHECKLIST', 'MISSING_BOTH'].includes(task.status)) || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <PlayCircle className="w-3.5 h-3.5" /> {t('pms.workReport.startBtn')}
-          </button>
-          <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-900 disabled:opacity-50">
+          </button></PermissionGate>
+          <PermissionGate permission="pms.work.update"><button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-900 disabled:opacity-50">
             <Save className="w-3.5 h-3.5" /> {saving ? t('pms.workReport.saving') : t('pms.workReport.saveBtn')}
-          </button>
-          <button onClick={handleComplete} disabled={task.status !== 'IN_PROGRESS' || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          </button></PermissionGate>
+          <PermissionGate permission="pms.work.execute"><button onClick={handleComplete} disabled={task.status !== 'IN_PROGRESS' || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <Send className="w-3.5 h-3.5" /> {t('pms.workReport.completeBtn')}
-          </button>
-          <button onClick={() => setShowRejectModal(true)} disabled={task.status !== 'PENDING_APPROVAL' || verifying} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed">
+          </button></PermissionGate>
+          </>}
+          <PermissionGate permission="pms.work.reject"><button onClick={() => setShowRejectModal(true)} disabled={task.status !== 'PENDING_APPROVAL' || verifying} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed">
             <RotateCcw className="w-3.5 h-3.5" /> {t('pms.workReport.rejectBtn')}
-          </button>
-          <button onClick={handleApprove} disabled={task.status !== 'PENDING_APPROVAL' || verifying} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          </button></PermissionGate>
+          <PermissionGate permission="pms.work.approve"><button onClick={handleApprove} disabled={task.status !== 'PENDING_APPROVAL' || verifying} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <ShieldCheck className="w-3.5 h-3.5" /> {verifying ? t('pms.workReport.processing') : t('pms.workReport.approveBtn')}
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
 
@@ -676,9 +684,9 @@ export default function WorkReportPage() {
               </span>
             )}
           </div>
-          <button onClick={() => setShowDeferralModal(true)} className="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded whitespace-nowrap">
+          <PermissionGate permission="pms.work.update"><button onClick={() => setShowDeferralModal(true)} className="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded whitespace-nowrap">
             {t('pms.workReport.deferralViewDetails')}
-          </button>
+          </button></PermissionGate>
         </div>
       )}
 
@@ -816,7 +824,7 @@ export default function WorkReportPage() {
               {/* Hạng mục kiểm tra tab */}
               {activeTab === 'checklist' && (() => {
                 const items = checklistItems.length > 0 ? checklistItems : (task.checklistItems || [])
-                const canEdit = ['IN_PROGRESS', 'RECTIFY'].includes(task.status)
+                const canEdit = canExecute && ['IN_PROGRESS', 'RECTIFY'].includes(task.status)
                 return (
                 <div>
                   {items.length === 0 ? (
@@ -861,7 +869,7 @@ export default function WorkReportPage() {
                             </td>
                             <td className="px-2 py-1.5 text-center border-r border-gray-200">
                               {canEdit ? (
-                                <button
+                                <PermissionGate permission="pms.work.execute"><button
                                   onClick={() => handleToggleChecklist(item)}
                                   disabled={togglingChecklist === item.id}
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors ${
@@ -871,7 +879,7 @@ export default function WorkReportPage() {
                                   } ${togglingChecklist === item.id ? 'opacity-50' : ''}`}
                                 >
                                   <CheckCircle size={12} /> {item.isCompleted ? t('pms.workReport.clPass') : t('pms.workReport.clNotYet')}
-                                </button>
+                                </button></PermissionGate>
                               ) : (
                                 item.isCompleted ? (
                                   <span className="inline-flex items-center gap-1 text-green-600"><CheckCircle size={12} /> {t('pms.workReport.clPass')}</span>
@@ -882,14 +890,14 @@ export default function WorkReportPage() {
                             </td>
                             <td className="px-2 py-1.5 text-center border-r border-gray-200">
                               {canEdit ? (
-                                <button
+                                <PermissionGate permission="pms.work.execute"><button
                                   onClick={() => handleChecklistFieldUpdate(item, 'isAbnormal', !item.isAbnormal)}
                                   className={`px-2 py-0.5 rounded text-xs font-medium ${
                                     item.isAbnormal ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                   }`}
                                 >
                                   {item.isAbnormal ? t('pms.workReport.clYes') : t('pms.workReport.clNo')}
-                                </button>
+                                </button></PermissionGate>
                               ) : (
                                 item.isAbnormal ? (
                                   <span className="text-red-600 font-medium">{t('pms.workReport.clYes')}</span>
@@ -932,7 +940,7 @@ export default function WorkReportPage() {
 
               {/* Vật tư tab */}
               {activeTab === 'materials' && (() => {
-                const canEdit = ['IN_PROGRESS', 'RECTIFY'].includes(task.status)
+                const canEdit = canExecute && ['IN_PROGRESS', 'RECTIFY'].includes(task.status)
                 return (
                 <div className="space-y-3">
                   {/* Required spare parts from schedule (read-only) */}
@@ -986,7 +994,7 @@ export default function WorkReportPage() {
                           {filteredMaterials.length > 0 && (
                             <div className="absolute z-10 top-full left-0 w-80 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-auto">
                               {filteredMaterials.map(mat => (
-                                <button
+                                <PermissionGate permission="pms.work.execute"><button
                                   key={mat.id}
                                   className="w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
                                   onClick={() => handleAddSparePart(mat)}
@@ -994,7 +1002,7 @@ export default function WorkReportPage() {
                                   <span className="font-medium text-gray-700">{mat.itemCode}</span>
                                   <span className="ml-2 text-gray-600">{mat.name}</span>
                                   <span className="ml-2 text-gray-400">({t('pms.workReport.stockInfo', { qty: mat.onHandQuantity, unit: mat.unit })})</span>
-                                </button>
+                                </button></PermissionGate>
                               ))}
                             </div>
                           )}
@@ -1035,13 +1043,13 @@ export default function WorkReportPage() {
                               <td className="px-2 py-1 text-center">{sp.onHandQuantity ?? '—'}</td>
                               {canEdit && (
                                 <td className="px-2 py-1 text-center">
-                                  <button
+                                  <PermissionGate permission="pms.work.execute"><button
                                     onClick={() => handleRemoveSparePart(sp.materialItemId)}
                                     className="text-red-500 hover:text-red-700"
                                     title={t('pms.workReport.delete')}
                                   >
                                     <X size={14} />
-                                  </button>
+                                  </button></PermissionGate>
                                 </td>
                               )}
                             </tr>
@@ -1067,9 +1075,9 @@ export default function WorkReportPage() {
                       {riskFilled && <span className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.riskFilled')}</span>}
                       {!riskFilled && task?.requireRiskAssessment && <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.riskRequired')}</span>}
                     </div>
-                    <button onClick={handleSaveRisk} disabled={savingRisk} className="flex items-center gap-1 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50">
+                    <PermissionGate permission="pms.work.execute"><button onClick={handleSaveRisk} disabled={savingRisk} className="flex items-center gap-1 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50">
                       <Save size={12} /> {savingRisk ? t('pms.workReport.savingRisk') : t('pms.workReport.saveRisk')}
-                    </button>
+                    </button></PermissionGate>
                   </div>
 
                   {/* I. Thông tin chung */}
@@ -1219,9 +1227,9 @@ export default function WorkReportPage() {
                       {bbktFilled && <span className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.inspFilled')}</span>}
                       {!bbktFilled && task?.requireInspectionReport && <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.inspRequired')}</span>}
                     </div>
-                    <button onClick={handleSaveBbkt} disabled={savingBbkt} className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                    <PermissionGate permission="pms.work.execute"><button onClick={handleSaveBbkt} disabled={savingBbkt} className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                       <Save size={12} /> {savingBbkt ? t('pms.workReport.savingInsp') : t('pms.workReport.saveInsp')}
-                    </button>
+                    </button></PermissionGate>
                   </div>
 
                   {/* I. Thông tin chung */}
@@ -1442,9 +1450,9 @@ export default function WorkReportPage() {
               <button onClick={() => setShowRejectModal(false)} className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-100">
                 {t('pms.workReport.rejectCancel')}
               </button>
-              <button onClick={handleReject} disabled={verifying || !rejectionReason.trim()} className="px-3 py-1.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50">
+              <PermissionGate permission="pms.work.reject"><button onClick={handleReject} disabled={verifying || !rejectionReason.trim()} className="px-3 py-1.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50">
                 {verifying ? t('pms.workReport.processing') : t('pms.workReport.rejectConfirm')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

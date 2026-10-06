@@ -7,8 +7,14 @@ import { usePermissionsStore } from '@/stores/permissions.store'
 
 interface Rank extends Config { id: number; rankName: string; rankCode: string; department: string; isConfigured: boolean }
 interface Config { version: number; grants: string[] }
-const labels: Record<string, string> = { view: 'Xem', create: 'Thêm', update: 'Sửa / cập nhật', delete: 'Xóa', import: 'Import', export: 'Xuất / tải file', assign: 'Phân công / liên kết', execute: 'Thực hiện', approve: 'Duyệt / ký', reject: 'Từ chối' }
-const actionOrder = ['view', 'create', 'update', 'delete', 'import', 'export', 'assign', 'execute', 'approve', 'reject']
+const actionGroups = [
+  { label: 'Thêm / xóa', actions: ['create', 'delete', 'import'] },
+  { label: 'Cập nhật', actions: ['update', 'assign'] },
+  { label: 'Xuất / tải file', actions: ['export'] },
+  { label: 'Thực hiện', actions: ['execute'] },
+  { label: 'Duyệt / ký', actions: ['approve'] },
+  { label: 'Từ chối', actions: ['reject'] },
+]
 const departments: Record<string, string> = { DECK: 'Bộ phận boong', ENGINE: 'Bộ phận máy', CATERING: 'Bộ phận phục vụ', OTHER: 'Khác' }
 function AccessToggle({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: () => void }) {
   return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange}
@@ -103,7 +109,6 @@ export default function RankPermissionsPage() {
       void loadRanks()
     }
   }
-  const toggle = (code: string) => changeGrants(prev => { const next = new Set(prev); if (next.has(code)) next.delete(code); else next.add(code); return next })
   const toggleModule = (code: string) => changeGrants(prev => {
     const next = new Set(prev)
     if (next.has(code + '.access')) next.delete(code + '.access')
@@ -162,8 +167,9 @@ export default function RankPermissionsPage() {
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                   {rows.map(m => {
                     const enabled = grants.has(m.code + '.access')
-                    const allActionsSelected = enabled && m.actions.length > 0 && m.actions.every(action => grants.has(m.code + '.' + action))
-                    const someActionsSelected = enabled && m.actions.some(action => grants.has(m.code + '.' + action))
+                    const operations = m.actions.filter(action => action !== 'view')
+                    const allActionsSelected = enabled && operations.length > 0 && operations.every(action => grants.has(m.code + '.' + action))
+                    const someActionsSelected = enabled && operations.some(action => grants.has(m.code + '.' + action))
                     const expanded = expandedModules.has(m.code)
                     return <div key={m.code} className="border-b border-gray-100 last:border-b-0">
                       <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-5">
@@ -173,28 +179,35 @@ export default function RankPermissionsPage() {
                             else next.add(m.code)
                             return next
                           })} className="inline-flex min-w-0 items-center gap-3 rounded py-1 text-left text-sm font-medium text-gray-900 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
-                            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            {operations.length > 0 && (expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                             <span>{m.name}</span>
                           </button>
-                          <div className="shrink-0"><AccessToggle checked={enabled} disabled={saving} label={`Truy cập ${m.name}`} onChange={() => toggleModule(m.code)} /></div>
+                          <div className="shrink-0"><AccessToggle checked={enabled} disabled={saving} label={`Truy cập / xem ${m.name}`} onChange={() => toggleModule(m.code)} /></div>
                       </div>
-                      <div id={`module-actions-${m.code}`} hidden={!expanded} className={expanded ? 'grid grid-cols-2 gap-x-5 gap-y-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 sm:grid-cols-3 lg:px-5 xl:grid-cols-4' : 'hidden'}>
+                      <div id={`module-actions-${m.code}`} hidden={!expanded || !operations.length} className={expanded && operations.length ? 'grid grid-cols-2 gap-x-5 gap-y-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 sm:grid-cols-3 lg:px-5 xl:grid-cols-4' : 'hidden'}>
                         <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-medium text-gray-600">
-                          <PermissionCheckbox checked={allActionsSelected} partial={someActionsSelected && !allActionsSelected} disabled={saving || !m.actions.length} label={`Tất cả quyền thao tác: ${m.name}`} onChange={() => changeGrants(prev => {
+                          <PermissionCheckbox checked={allActionsSelected} partial={someActionsSelected && !allActionsSelected} disabled={saving || !operations.length} label={`Tất cả quyền thao tác: ${m.name}`} onChange={() => changeGrants(prev => {
                             const next = new Set(prev)
-                            if (!allActionsSelected) next.add(m.code + '.access')
-                            for (const action of m.actions) {
+                            if (!allActionsSelected) { next.add(m.code + '.access'); next.add(m.code + '.view') }
+                            for (const action of operations) {
                               if (allActionsSelected) next.delete(m.code + '.' + action)
                               else next.add(m.code + '.' + action)
                             }
                             return next
                           })} />Tất cả
                         </label>
-                        {actionOrder.filter(action => m.actions.includes(action)).map(action => {
-                          const checked = enabled && grants.has(m.code + '.' + action)
-                          return <label key={action} className={`inline-flex min-w-0 items-center gap-2.5 text-sm ${!enabled || saving ? 'cursor-not-allowed text-gray-400' : checked ? 'cursor-pointer text-blue-700' : 'cursor-pointer text-gray-600'}`}>
-                            <PermissionCheckbox checked={checked} disabled={!enabled || saving} label={`${labels[action]}: ${m.name}`} onChange={() => toggle(m.code + '.' + action)} />
-                            <span>{labels[action]}</span>
+                        {actionGroups.map(group => ({ ...group,
+                          label: m.code === 'pms.receipts' && group.actions.includes('execute') ? 'Hoàn tất nhập kho' : group.label,
+                          actions: group.actions.filter(action => operations.includes(action)),
+                        })).filter(group => group.actions.length).map(group => {
+                          const checked = enabled && group.actions.every(action => grants.has(m.code + '.' + action))
+                          return <label key={group.label} className={`inline-flex min-w-0 items-center gap-2.5 text-sm ${!enabled || saving ? 'cursor-not-allowed text-gray-400' : checked ? 'cursor-pointer text-blue-700' : 'cursor-pointer text-gray-600'}`}>
+                            <PermissionCheckbox checked={checked} disabled={!enabled || saving} label={`${group.label}: ${m.name}`} onChange={() => changeGrants(previous => {
+                              const next = new Set(previous)
+                              for (const action of group.actions) { if (checked) next.delete(m.code + '.' + action); else next.add(m.code + '.' + action) }
+                              return next
+                            })} />
+                            <span>{group.label}</span>
                           </label>
                         })}
                       </div>

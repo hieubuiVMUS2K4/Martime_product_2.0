@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { LogbookGrid } from '../../components/common/LogbookGrid'
@@ -309,13 +310,13 @@ export const AbstractLogPage: React.FC = () => {
 
   // ── Actions for header ──
   const headerActions = activeTab === 'list' ? (
-    <button
+    <PermissionGate permission="logbooks.abstract.create"><button
       onClick={handleOpenCreateModal}
       className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
     >
       <Plus className="w-4 h-4" />
       {t('abstractLog.newAbstractLog')}
-    </button>
+    </button></PermissionGate>
   ) : (
     <div className="flex items-center gap-1.5">
       {/* Back */}
@@ -328,39 +329,39 @@ export const AbstractLogPage: React.FC = () => {
       <div className="w-px h-6 bg-gray-200 mx-1" />
 
       {/* Primary actions */}
-      <button onClick={handleAutoFill} disabled={saving}
+      <PermissionGate permission="logbooks.abstract.update"><button onClick={handleAutoFill} disabled={saving}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
         <Zap className="w-4 h-4" />
         {saving ? t('abstractLog.filling') : t('abstractLog.autoFill')}
-      </button>
-      <button onClick={handleRecalculate} disabled={saving}
+      </button></PermissionGate>
+      <PermissionGate permission="logbooks.abstract.update"><button onClick={handleRecalculate} disabled={saving}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors">
         <RefreshCw className="w-4 h-4" />
         {saving ? '…' : t('abstractLog.recalculate')}
-      </button>
+      </button></PermissionGate>
 
       <div className="w-px h-6 bg-gray-200 mx-1" />
 
       {/* Export group */}
-      <button onClick={handleExportExcel} disabled={saving}
+      <PermissionGate permission="logbooks.abstract.export"><button onClick={handleExportExcel} disabled={saving}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-50 disabled:opacity-50 transition-colors">
         <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
         {t('abstractLog.excel')}
-      </button>
-      <button onClick={handleExportPdf} disabled={saving}
+      </button></PermissionGate>
+      <PermissionGate permission="logbooks.abstract.export"><button onClick={handleExportPdf} disabled={saving}
         className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 border-l-0 rounded-r-lg hover:bg-gray-50 disabled:opacity-50 transition-colors">
         <FileText className="w-4 h-4 text-red-500" />
         {t('abstractLog.pdf')}
-      </button>
+      </button></PermissionGate>
 
       {selectedLog && (
         <>
           <div className="w-px h-6 bg-gray-200 mx-1" />
-          <button onClick={() => handleDelete(selectedLog.id)}
+          <PermissionGate permission="logbooks.abstract.delete"><button onClick={() => handleDelete(selectedLog.id)}
             className="inline-flex items-center gap-1.5 p-2 text-sm text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title={t('voyageLog.form.course').includes('COG') ? 'Xóa nhật ký vắn tắt' : 'Delete Abstract Log'}>
             <Trash2 className="w-4 h-4" />
-          </button>
+          </button></PermissionGate>
         </>
       )}
     </div>
@@ -401,10 +402,10 @@ export const AbstractLogPage: React.FC = () => {
             )}
             <div className="flex justify-end gap-2 pt-4 border-t mt-4">
               <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">{t('common.cancel')}</button>
-              <button onClick={handleCreate} disabled={saving}
+              <PermissionGate permission="logbooks.abstract.create"><button onClick={handleCreate} disabled={saving}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
                 {saving ? '…' : <><Check className="w-4 h-4" /> {t('abstractLog.create')}</>}
-              </button>
+              </button></PermissionGate>
             </div>
             </div>
           </div>
@@ -425,10 +426,10 @@ export const AbstractLogPage: React.FC = () => {
             <BookOpen className="w-14 h-14 text-gray-300 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('abstractLog.noAbstractLogs')}</h3>
             <p className="text-sm text-gray-500 mb-4">{t('abstractLog.createDesc')}</p>
-            <button onClick={handleOpenCreateModal}
+            <PermissionGate permission="logbooks.abstract.create"><button onClick={handleOpenCreateModal}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
               <Plus className="w-4 h-4" /> {t('abstractLog.newAbstractLog')}
-            </button>
+            </button></PermissionGate>
           </div>
         ) : (
           <VirtualizedTable
@@ -478,14 +479,14 @@ export const AbstractLogPage: React.FC = () => {
                   </button>
                 ))}
                 {/* Add leg button */}
-                <button
+                <PermissionGate permission="logbooks.abstract.create"><button
                   onClick={handleCreateLeg}
                   disabled={saving}
                   className="flex items-center gap-1 px-3 py-3 text-sm font-medium text-gray-400 hover:text-blue-600 border-b-2 border-transparent transition-colors disabled:opacity-50"
                   title={t('abstractLog.addLeg')}
                 >
                   <Plus className="w-4 h-4" />
-                </button>
+                </button></PermissionGate>
               </nav>
             </div>
 
@@ -611,16 +612,16 @@ const SumTab: React.FC<{
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="w-4 h-4" /> {t('common.cancel')}
               </button>
-              <button onClick={handleSave} disabled={saving}
+              <PermissionGate permission="logbooks.abstract.update"><button onClick={handleSave} disabled={saving}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
                 <Check className="w-4 h-4" /> {saving ? '…' : t('voyageLog.saveEntry')}
-              </button>
+              </button></PermissionGate>
             </>
           ) : (
-            <button onClick={() => setEditing(true)}
+            <PermissionGate permission="logbooks.abstract.update"><button onClick={() => setEditing(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
               <Edit2 className="w-4 h-4" /> {isVi ? 'Sửa' : 'Edit'}
-            </button>
+            </button></PermissionGate>
           )}
         </div>
       </div>
@@ -820,11 +821,11 @@ const LegTab: React.FC<{
         <Navigation className="w-14 h-14 text-gray-300 mx-auto mb-3" />
         <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('abstractLog.noLegData')}</h3>
         <p className="text-sm text-gray-500 mb-4">{t('abstractLog.noLegDataDesc')}</p>
-        <button onClick={onCreateLeg} disabled={saving}
+        <PermissionGate permission="logbooks.abstract.create"><button onClick={onCreateLeg} disabled={saving}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
           <Plus className="w-4 h-4" />
           {t('abstractLog.createLeg')}
-        </button>
+        </button></PermissionGate>
       </div>
     )
   }
@@ -938,20 +939,20 @@ const LegTab: React.FC<{
                 className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 px-3 py-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="w-3.5 h-3.5" /> {t('common.cancel')}
               </button>
-              <button onClick={handleSaveLeg} disabled={savingLeg}
+              <PermissionGate permission="logbooks.abstract.update"><button onClick={handleSaveLeg} disabled={savingLeg}
                 className="inline-flex items-center gap-1 text-sm font-medium bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
                 <Check className="w-3.5 h-3.5" /> {savingLeg ? '…' : (isVi ? 'Lưu chặng' : 'Save Leg')}
-              </button>
+              </button></PermissionGate>
             </>) : (<>
-              <button onClick={handleEditLeg}
+              <PermissionGate permission="logbooks.abstract.update"><button onClick={handleEditLeg}
                 className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
                 <Edit2 className="w-3.5 h-3.5" /> {isVi ? 'Sửa chặng' : 'Edit Leg'}
-              </button>
-              <button onClick={() => onDeleteLeg(leg.id)}
+              </button></PermissionGate>
+              <PermissionGate permission="logbooks.abstract.delete"><button onClick={() => onDeleteLeg(leg.id)}
                 className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
                 title={isVi ? 'Xóa chặng này' : 'Delete this leg'}>
                 <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              </button></PermissionGate>
             </>)}
           </div>
         </div>
@@ -1003,10 +1004,10 @@ const LegTab: React.FC<{
       {/* Daily entries header */}
       <div className="flex justify-between items-center">
         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">{isVi ? `Nhật ký hàng ngày (${leg.dailyEntries.length})` : `Daily Entries (${leg.dailyEntries.length})`}</h3>
-        <button onClick={handleOpenAddEntry}
+        <PermissionGate permission="logbooks.abstract.create"><button onClick={handleOpenAddEntry}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
           <Plus className="w-4 h-4" /> {isVi ? 'Thêm bản ghi' : 'Add Entry'}
-        </button>
+        </button></PermissionGate>
       </div>
 
       {/* Daily entries table */}
@@ -1058,14 +1059,14 @@ const LegTab: React.FC<{
                 <td className="px-2.5 py-2 text-xs text-gray-500 max-w-[120px] truncate">{entry.remarks || ''}</td>
                 <td className="px-2.5 py-2">
                   <div className="flex gap-0.5">
-                    <button onClick={() => handleOpenEditEntry(entry)}
+                    <PermissionGate permission="logbooks.abstract.update"><button onClick={() => handleOpenEditEntry(entry)}
                       className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Edit">
                       <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleDeleteEntry(entry.id)}
+                    </button></PermissionGate>
+                    <PermissionGate permission="logbooks.abstract.delete"><button onClick={() => handleDeleteEntry(entry.id)}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </button></PermissionGate>
                   </div>
                 </td>
               </tr>
@@ -1320,10 +1321,10 @@ const DailyEntryModal: React.FC<{
         <div className="flex justify-end gap-2 p-5 border-t bg-gray-50/80 rounded-b-xl">
           <button onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">{t('common.cancel')}</button>
-          <button onClick={onSave} disabled={saving}
+          <PermissionGate permission="logbooks.abstract.update"><button onClick={onSave} disabled={saving}
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium shadow-sm">
             {saving ? '…' : <><Check className="w-4 h-4" /> {mode === 'add' ? (isVi ? 'Thêm bản ghi' : 'Add Entry') : (isVi ? 'Lưu thay đổi' : 'Save Changes')}</>}
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>

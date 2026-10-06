@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react'
 import { Search, Plus, Edit2, Trash2, MapPin, Globe, X, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -170,13 +171,13 @@ export function PortManagementPage() {
               {t('voyage.portMgmt.subtitle', { count: totalCount })}
             </p>
           </div>
-          <button
+          <PermissionGate permission="ports.create"><button
             onClick={openCreateModal}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
             {t('voyage.portMgmt.addPort')}
-          </button>
+          </button></PermissionGate>
         </div>
 
         {/* Search & Filter */}
@@ -253,20 +254,20 @@ export function PortManagementPage() {
                       <td className="px-4 py-3 text-gray-500 text-xs">{port.timeZone || '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
-                          <button
+                          <PermissionGate permission="ports.update"><button
                             onClick={() => openEditModal(port)}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title={t('voyage.portMgmt.edit')}
                           >
                             <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="ports.delete"><button
                             onClick={() => handleDelete(port)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                             title={t('voyage.portMgmt.deactivate')}
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </button></PermissionGate>
                         </div>
                       </td>
                     </tr>
@@ -419,14 +420,14 @@ export function PortManagementPage() {
               >
                 {t('voyage.portMgmt.cancel')}
               </button>
-              <button
+              <PermissionGate permission={editingPort ? 'ports.update' : 'ports.create'}><button
                 onClick={handleSave}
                 disabled={saving}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 <Check className="w-4 h-4" />
                 {saving ? t('voyage.portMgmt.saving') : editingPort ? t('voyage.portMgmt.updatePort') : t('voyage.portMgmt.createPort')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

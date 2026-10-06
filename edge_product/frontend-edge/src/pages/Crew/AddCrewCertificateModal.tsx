@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Award, FileText, Save, Upload, Trash2, Image, X } from 'lucide-react'
@@ -639,7 +640,7 @@ export function AddCrewCertificateModal({
           >
             {t('common.cancel')}
           </button>
-          <button
+          <PermissionGate permission={editingCertificate ? 'certificates.update' : 'certificates.create'}><button
             type="submit"
             form="addCrewCertificateForm"
             disabled={loading || loadingData}
@@ -656,7 +657,7 @@ export function AddCrewCertificateModal({
                 {isEditMode ? t('crew.addCrewCert.updateCert') : isFlagStateCreation ? t('crew.addCrewCert.createFlagState') : t('crew.certificateManagement.addCertificate.save')}
               </>
             )}
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>

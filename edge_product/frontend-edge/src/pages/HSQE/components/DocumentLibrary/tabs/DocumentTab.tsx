@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Document Tab - Rich Text Editor with Word-like Ribbon
  * Main document editing/viewing area following the reference screenshot
@@ -516,12 +517,12 @@ export function DocumentTab({
         {/* FILE TAB ACTIONS */}
         {activeRibbonTab === 'File' && (
           <div className="flex items-center gap-1">
-            <button
+            <PermissionGate permission={'hsqe.create'}><button
               onClick={onCreateNew}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition font-medium"
             >
               <FilePlus className="w-3.5 h-3.5 text-blue-500" /> {t('hsqeDocumentRibbon.new')}
-            </button>
+            </button></PermissionGate>
             <button
               onClick={() => toast.info(t('hsqeDocumentRibbon.openFromTree'))}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition font-medium"
@@ -529,12 +530,12 @@ export function DocumentTab({
               <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> {t('hsqeDocumentRibbon.open')}
             </button>
             <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1.5" />
-            <button
+            <PermissionGate permission={'hsqe.update'}><button
               onClick={onSave}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition font-medium"
             >
               <Save className="w-3.5 h-3.5 text-green-500" /> {t('hsqeDocumentRibbon.save')}
-            </button>
+            </button></PermissionGate>
             <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1.5" />
             <div className="relative">
               <button

@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
@@ -193,12 +194,12 @@ export const GarbageRecordPage: React.FC = () => {
     <LogbookGrid 
       title={t('logbooks.garbageRecord.marpolTitle')}
       actions={
-        <button
+        <PermissionGate permission="logbooks.garbage.create"><button
           onClick={() => setShowForm(!showForm)}
           className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.garbageRecord.newEntry')}
-        </button>
+        </button></PermissionGate>
       }
     >
       {showForm && (
@@ -422,12 +423,12 @@ export const GarbageRecordPage: React.FC = () => {
                 >
                   {t('logbooks.garbageRecord.back')}
                 </button>
-                <button
+                <PermissionGate permission="logbooks.garbage.create"><button
                   onClick={handleSave}
                   className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700 "
                 >
                   {t('logbooks.garbageRecord.saveEntry')}
-                </button>
+                </button></PermissionGate>
               </div>
             </div>
           </div>

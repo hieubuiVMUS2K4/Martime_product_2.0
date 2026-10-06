@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -350,13 +351,13 @@ export function VoyagePage() {
               <span className="text-gray-500">{completedVoyageCount} {t('voyage.page.completed')}</span>
             </p>
           </div>
-          <button
+          <PermissionGate permission="voyage.create"><button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-600 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             {t('voyage.page.newVoyage')}
-          </button>
+          </button></PermissionGate>
         </div>
 
         {/* Search */}
@@ -534,24 +535,24 @@ function VoyageDetailView({ voyageId, onBack, initialTab, onTabChange }: {
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             {isVoyageEditable(detail.voyageStatus) && (
-              <button
+              <PermissionGate permission="voyage.update"><button
                 onClick={() => setShowEditModal(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <Edit2 className="w-4 h-4" /> {t('voyage.page.edit')}
-              </button>
+              </button></PermissionGate>
             )}
             {!isVoyageEditable(detail.voyageStatus) && (
-              <button
+              <PermissionGate permission="voyage.update"><button
                 onClick={() => setShowEditModal(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                 title={t('voyage.page.onlyStatusChange')}
               >
                 <Edit2 className="w-4 h-4" /> {t('voyage.page.changeStatus')}
-              </button>
+              </button></PermissionGate>
             )}
             {isVoyageDeletable(detail.voyageStatus) && (
-              <button
+              <PermissionGate permission="voyage.delete"><button
                 onClick={() => {
                   toast(t('voyage.page.deleteConfirm', { number: detail.voyageNumber }), {
                     action: {
@@ -571,7 +572,7 @@ function VoyageDetailView({ voyageId, onBack, initialTab, onTabChange }: {
                 className="flex items-center gap-1.5 px-3 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
               >
                 <Trash2 className="w-4 h-4" /> {t('voyage.page.delete')}
-              </button>
+              </button></PermissionGate>
             )}
           </div>
         </div>
@@ -1010,9 +1011,9 @@ function PortCallsTab({ detail, onRefresh, voyageStatus }: { detail: VoyageDetai
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">{t('voyage.page.portCallsTitle')} ({detail.portCalls.length})</h3>
         {canEdit && (
-          <button onClick={openCreate} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+          <PermissionGate permission="voyage.create"><button onClick={openCreate} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
             <Plus className="w-4 h-4" /> {t('voyage.page.addPortCall')}
-          </button>
+          </button></PermissionGate>
         )}
       </div>
 
@@ -1064,14 +1065,14 @@ function PortCallsTab({ detail, onRefresh, voyageStatus }: { detail: VoyageDetai
                   <td className="px-3 py-3">
                     <div className="flex items-center justify-center gap-1">
                       {canEdit && (
-                        <button onClick={(e) => { e.stopPropagation(); openEdit(pc) }} className="p-1 text-gray-400 hover:text-blue-600 rounded" title={t('voyage.page.edit')}>
+                        <PermissionGate permission="voyage.update"><button onClick={(e) => { e.stopPropagation(); openEdit(pc) }} className="p-1 text-gray-400 hover:text-blue-600 rounded" title={t('voyage.page.edit')}>
                           <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {canDelete && (
-                        <button onClick={(e) => { e.stopPropagation(); handleDelete(pc) }} className="p-1 text-gray-400 hover:text-red-600 rounded" title={t('voyage.page.delete')}>
+                        <PermissionGate permission="voyage.delete"><button onClick={(e) => { e.stopPropagation(); handleDelete(pc) }} className="p-1 text-gray-400 hover:text-red-600 rounded" title={t('voyage.page.delete')}>
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {!canEdit && (
                         <span className="text-xs text-gray-400">{t('voyage.page.locked')}</span>
@@ -1184,9 +1185,9 @@ function PortCallsTab({ detail, onRefresh, voyageStatus }: { detail: VoyageDetai
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">{t('voyage.page.cancel')}</button>
-              <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              <PermissionGate permission={editingCall ? 'voyage.update' : 'voyage.create'}><button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 <Check className="w-4 h-4" /> {saving ? t('voyage.page.saving') : editingCall ? t('voyage.page.update') : t('voyage.page.add')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -1338,12 +1339,12 @@ function CrewAssignmentsTab({ detail, onRefresh, voyageStatus }: { detail: Voyag
         <h3 className="text-lg font-semibold text-gray-900">{t('voyage.page.crewAssignmentsTitle')} ({detail.crewAssignments.length})</h3>
         {canAssignNew && (
           <div className="flex gap-2">
-            <button onClick={() => { setBulkSelectedIds([]); setShowBulkModal(true) }} className="flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 rounded-lg text-sm hover:bg-blue-50">
+            <PermissionGate permission="voyage.assign"><button onClick={() => { setBulkSelectedIds([]); setShowBulkModal(true) }} className="flex items-center gap-2 px-3 py-2 border border-blue-600 text-blue-600 rounded-lg text-sm hover:bg-blue-50">
               <Users className="w-4 h-4" /> {t('voyage.page.bulkAssign')}
-            </button>
-            <button onClick={openAssign} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+            </button></PermissionGate>
+            <PermissionGate permission="voyage.assign"><button onClick={openAssign} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
               <Plus className="w-4 h-4" /> {t('voyage.page.assignCrew')}
-            </button>
+            </button></PermissionGate>
           </div>
         )}
       </div>
@@ -1408,14 +1409,14 @@ function CrewAssignmentsTab({ detail, onRefresh, voyageStatus }: { detail: Voyag
                   <td className="px-3 py-3">
                     <div className="flex items-center justify-center gap-1">
                       {canEdit && (
-                        <button onClick={() => openEdit(a)} className="p-1 text-gray-400 hover:text-blue-600 rounded" title={t('voyage.page.edit')}>
+                        <PermissionGate permission="voyage.assign"><button onClick={() => openEdit(a)} className="p-1 text-gray-400 hover:text-blue-600 rounded" title={t('voyage.page.edit')}>
                           <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {canRemove && (
-                        <button onClick={() => handleRemove(a)} className="p-1 text-gray-400 hover:text-red-600 rounded" title={t('voyage.page.remove')}>
+                        <PermissionGate permission="voyage.assign"><button onClick={() => handleRemove(a)} className="p-1 text-gray-400 hover:text-red-600 rounded" title={t('voyage.page.remove')}>
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {!canEdit && (
                         <span className="text-xs text-gray-400">{t('voyage.page.locked')}</span>
@@ -1522,9 +1523,9 @@ function CrewAssignmentsTab({ detail, onRefresh, voyageStatus }: { detail: Voyag
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">{t('voyage.page.cancel')}</button>
-              <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              <PermissionGate permission={'voyage.assign'}><button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 <Check className="w-4 h-4" /> {saving ? t('voyage.page.saving') : editingAssignment ? t('voyage.page.update') : t('voyage.page.assign')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -1574,10 +1575,10 @@ function CrewAssignmentsTab({ detail, onRefresh, voyageStatus }: { detail: Voyag
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
               <button onClick={() => setShowBulkModal(false)} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">{t('voyage.page.cancel')}</button>
-              <button onClick={handleBulkAssign} disabled={saving || bulkSelectedIds.length === 0}
+              <PermissionGate permission="voyage.assign"><button onClick={handleBulkAssign} disabled={saving || bulkSelectedIds.length === 0}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 <Users className="w-4 h-4" /> {saving ? t('voyage.page.assigning') : t('voyage.page.assignCount', { count: bulkSelectedIds.length })}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -1834,9 +1835,9 @@ function CargoOperationsTab({ voyageId, voyageStatus, onRefresh }: { voyageId: s
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">{t('voyage.page.cargoOpsTitle')} ({cargoList.length})</h3>
         {canEdit && (
-          <button onClick={openCreate} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+          <PermissionGate permission="voyage.create"><button onClick={openCreate} className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
             <Plus className="w-4 h-4" /> {t('voyage.page.addCargoOp')}
-          </button>
+          </button></PermissionGate>
         )}
       </div>
 
@@ -1904,14 +1905,14 @@ function CargoOperationsTab({ voyageId, voyageStatus, onRefresh }: { voyageId: s
                   <td className="px-3 py-3">
                     <div className="flex items-center justify-center gap-1">
                       {canEdit && (
-                        <button onClick={() => openEdit(c)} className="p-1 text-gray-400 hover:text-blue-600 rounded" title={t('voyage.page.edit')}>
+                        <PermissionGate permission="voyage.update"><button onClick={() => openEdit(c)} className="p-1 text-gray-400 hover:text-blue-600 rounded" title={t('voyage.page.edit')}>
                           <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {canDelete && (
-                        <button onClick={() => handleDelete(c)} className="p-1 text-gray-400 hover:text-red-600 rounded" title={t('voyage.page.delete')}>
+                        <PermissionGate permission="voyage.delete"><button onClick={() => handleDelete(c)} className="p-1 text-gray-400 hover:text-red-600 rounded" title={t('voyage.page.delete')}>
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {!canEdit && <span className="text-xs text-gray-400">{t('voyage.page.locked')}</span>}
                     </div>
@@ -2020,10 +2021,10 @@ function CargoOperationsTab({ voyageId, voyageStatus, onRefresh }: { voyageId: s
             </div>
             <div className="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">{t('voyage.page.cancel')}</button>
-              <button onClick={handleSave} disabled={saving}
+              <PermissionGate permission={editingCargo ? 'voyage.update' : 'voyage.create'}><button onClick={handleSave} disabled={saving}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
                 {saving ? t('voyage.page.saving') : (editingCargo ? t('voyage.page.update') : t('voyage.page.add'))}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -2817,9 +2818,9 @@ function EditVoyageModal({ detail, onClose, onSaved }: { detail: VoyageDetail; o
         </div>
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-xl">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">{t('voyage.page.cancel')}</button>
-          <button onClick={handleSave} disabled={saving || (isReadOnly && selectedStatus === currentStatus)} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          <PermissionGate permission={'voyage.update'}><button onClick={handleSave} disabled={saving || (isReadOnly && selectedStatus === currentStatus)} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
             <Check className="w-4 h-4" /> {saving ? t('voyage.page.saving') : isReadOnly ? t('voyage.page.changeStatus') : t('voyage.page.saveChanges')}
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>
@@ -3069,9 +3070,9 @@ function CreateVoyageModal({ onClose, onCreated }: { onClose: () => void; onCrea
         </form>
         <div className="voyage-form-footer">
           <button onClick={onClose} disabled={saving} className="voyage-form-cancel">{t('voyage.page.cancel')}</button>
-          <button type="submit" form="create-voyage-form" disabled={saving || loadingNumber} className="voyage-form-save">
+          <PermissionGate permission={'voyage.create'}><button type="submit" form="create-voyage-form" disabled={saving || loadingNumber} className="voyage-form-save">
             <Ship className="w-4 h-4" /> {saving ? t('voyage.page.creating') : t('voyage.page.createVoyageBtn')}
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>

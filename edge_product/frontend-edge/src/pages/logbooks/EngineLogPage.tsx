@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
@@ -224,12 +225,12 @@ export const EngineLogPage: React.FC = () => {
                     </td>
                     <td className="p-2">
                       <div className="flex gap-2">
-                        <button 
+                        <PermissionGate permission="logbooks.engine.update"><button
                           onClick={handleUpdate}
                           className="bg-green-600 text-white px-2 py-1 text-xs font-semibold rounded hover:bg-green-700"
                         >
                           Save
-                        </button>
+                        </button></PermissionGate>
                         <button 
                           onClick={() => { setEditingId(null); setEditForm({}); }}
                           className="bg-gray-500 text-white px-2 py-1 text-xs font-semibold rounded hover:bg-gray-600"
@@ -256,18 +257,18 @@ export const EngineLogPage: React.FC = () => {
                         <span className="text-green-600 font-sans text-xs">{t('logbooks.deckLog.signed')}</span>
                       ) : (
                         <>
-                          <button 
+                          <PermissionGate permission="logbooks.engine.update"><button
                             onClick={() => handleStartEdit(entry)}
                             className="text-amber-600 hover:underline font-sans text-sm font-semibold"
                           >
                             {t('common.edit') || 'Edit'}
-                          </button>
-                          <button 
+                          </button></PermissionGate>
+                          <PermissionGate permission="logbooks.engine.approve"><button
                             onClick={() => handleSign(entry.id)}
                             className="text-blue-600 hover:underline font-sans text-sm font-semibold"
                           >
                             {t('logbooks.deckLog.sign')}
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -337,12 +338,12 @@ export const EngineLogPage: React.FC = () => {
                 />
               </td>
               <td className="p-2">
-                <button 
+                <PermissionGate permission="logbooks.engine.create"><button
                   onClick={handleAdd}
                   className="bg-blue-600 text-white px-4 py-2.5 font-semibold rounded-lg hover:bg-blue-700"
                 >
                   {t('common.add')}
-                </button>
+                </button></PermissionGate>
               </td>
             </tr>
           </tbody>

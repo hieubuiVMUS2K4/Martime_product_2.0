@@ -74,7 +74,8 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
         }
         // Approval endpoints also accept rejection. Check the actual submitted decision.
         var rejecting = context.ActionArguments.Values.Any(v => v?.GetType().GetProperty("IsApproved")?.GetValue(v) is false ||
-            v?.GetType().GetProperty("Action")?.GetValue(v) is string decision && decision.Equals("REJECT", StringComparison.OrdinalIgnoreCase));
+            v?.GetType().GetProperty("Action")?.GetValue(v) is string decision && decision.Equals("REJECT", StringComparison.OrdinalIgnoreCase) ||
+            v?.GetType().GetProperty("NewStatus")?.GetValue(v) is string statusDecision && statusDecision.Equals("REJECTED", StringComparison.OrdinalIgnoreCase));
         if (rejecting && required != null) required = required.Select(p => p.EndsWith(".approve") ? p[..^8] + ".reject" : p).ToArray();
         if (required?.Any(p => p is "pms.work.execute" or "pms.work.approve" or "pms.work.reject") == true)
         {

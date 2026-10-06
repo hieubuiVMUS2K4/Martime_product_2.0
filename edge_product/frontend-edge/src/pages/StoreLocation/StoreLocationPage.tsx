@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Plus, Search, Trash2, Edit2, Save, X, FolderOpen, Warehouse, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -283,21 +284,21 @@ export default function StoreLocationPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <PermissionGate permission="pms.locations.delete"><button
               onClick={handleBulkDelete}
               disabled={selectedRows.size === 0}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded ${selectedRows.size > 0 ? 'text-red-600 hover:bg-red-50 border-red-300' : 'text-gray-400 cursor-not-allowed border-gray-300'}`}
             >
               <Trash2 className="w-3.5 h-3.5" />
               {t('storeLocations.deleteMany')}{selectedRows.size > 0 ? ` (${selectedRows.size})` : ''}
-            </button>
-            <button
+            </button></PermissionGate>
+            <PermissionGate permission="pms.locations.create"><button
               onClick={openAddModal}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white border border-blue-600 rounded font-medium hover:bg-blue-700"
             >
               <Plus className="w-3.5 h-3.5" />
               Thêm mới
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -362,7 +363,7 @@ export default function StoreLocationPage() {
                         <tr key={loc.id} className={`hover:bg-blue-50 ${selectedRows.has(loc.id) ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}`}>
                           <td className="sticky left-0 z-10 bg-inherit px-2 py-2 text-center text-xs text-gray-500 border-b border-r border-gray-100">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                           <td className="sticky left-10 z-10 bg-inherit px-2 py-2 text-center border-b border-r border-gray-100"><input type="checkbox" checked={selectedRows.has(loc.id)} onChange={() => toggleRow(loc.id)} className="rounded text-blue-600" /></td>
-                          <td title={loc.name} className="sticky left-20 z-20 bg-inherit px-3 py-2 border-b border-r border-gray-100"><button onClick={() => openEditModal(loc)} className="flex items-center gap-1 text-blue-600 hover:underline font-medium text-xs text-left w-full"><FolderOpen className="w-3 h-3 flex-shrink-0 text-gray-400" /><span className="flex-1 min-w-0 truncate"><span className="block truncate">{loc.name} (SL:{locations.filter(l => l.parentId === loc.id).length})</span></span></button></td>
+                          <td title={loc.name} className="sticky left-20 z-20 bg-inherit px-3 py-2 border-b border-r border-gray-100"><button onClick={() => setSelectedLocationId(loc.id)} className="flex items-center gap-1 text-blue-600 hover:underline font-medium text-xs text-left w-full"><FolderOpen className="w-3 h-3 flex-shrink-0 text-gray-400" /><span className="flex-1 min-w-0 truncate"><span className="block truncate">{loc.name} (SL:{locations.filter(l => l.parentId === loc.id).length})</span></span></button></td>
                           <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100 font-mono">{loc.locationCode}</td>
                           <td className="px-3 py-2 text-xs text-gray-500 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.description || ''}</span></div></td>
                           <td className="px-3 py-2 text-xs text-gray-500 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.address || ''}</span></div></td>
@@ -370,7 +371,7 @@ export default function StoreLocationPage() {
                           <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100">{loc.phone || ''}</td>
                           <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.email || ''}</span></div></td>
                           <td className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100 whitespace-nowrap">{loc.updatedAt ? new Date(loc.updatedAt).toLocaleDateString() : ''}</td>
-                          <td className="sticky right-0 z-20 bg-inherit border-b border-l border-gray-100 px-2 py-2"><div className="flex items-center justify-center gap-0.5"><button onClick={() => openEditModal(loc)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('storeLocations.edit')}><Edit2 className="w-3.5 h-3.5" /></button><button onClick={() => handleDelete(loc)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('storeLocations.delete')}><Trash2 className="w-3.5 h-3.5" /></button></div></td>
+                          <td className="sticky right-0 z-20 bg-inherit border-b border-l border-gray-100 px-2 py-2"><div className="flex items-center justify-center gap-0.5"><PermissionGate permission="pms.locations.update"><button onClick={() => openEditModal(loc)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('storeLocations.edit')}><Edit2 className="w-3.5 h-3.5" /></button></PermissionGate><PermissionGate permission="pms.locations.delete"><button onClick={() => handleDelete(loc)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('storeLocations.delete')}><Trash2 className="w-3.5 h-3.5" /></button></PermissionGate></div></td>
                         </tr>
                       ))
                     )}
@@ -451,14 +452,14 @@ export default function StoreLocationPage() {
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
               {modal.mode === 'edit' && modal.item && (
-                <button onClick={() => { handleDelete(modal.item!); closeModal(); }} className="mr-auto px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 flex items-center gap-1">
+                <PermissionGate permission="pms.locations.delete"><button onClick={() => { handleDelete(modal.item!); closeModal(); }} className="mr-auto px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 flex items-center gap-1">
                   <Trash2 size={13} /> Xóa kho
-                </button>
+                </button></PermissionGate>
               )}
               <button onClick={closeModal} className="px-4 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Hủy</button>
-              <button onClick={handleModalSave} disabled={modalSaving} className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
+              <PermissionGate permission={modal.mode === 'add' ? 'pms.locations.create' : 'pms.locations.update'}><button onClick={handleModalSave} disabled={modalSaving} className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
                 <Save size={13} /> {modalSaving ? 'Đang lưu...' : (modal.mode === 'add' ? 'Tạo mới' : 'Lưu')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

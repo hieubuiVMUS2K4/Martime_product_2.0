@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState, useRef } from 'react'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -163,12 +164,12 @@ export function CrewPage() {
               >
                 <Download className="w-3.5 h-3.5" /> {t('crew.actions.exportPdf')}
               </button>
-              <button
+              <PermissionGate permission="crew.create"><button
                 disabled title="Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu" onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 <Plus className="w-3.5 h-3.5" /> {t('crew.addMember')}
-              </button>
+              </button></PermissionGate>
             </>
           )}
         </div>
@@ -1073,14 +1074,14 @@ function InlinePendingReviewSection({
                   </td>
                   <td className="w-40 px-3 py-2 text-xs">
                     <div className="flex items-center justify-center gap-2">
-                      <button
+                      <PermissionGate permission="crew.approve"><button
                         onClick={() => handleApprove(crew.id)}
                         disabled={processingId === crew.id}
                         className="flex items-center gap-1 px-2.5 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
                       >
                         <UserCheck className="w-3 h-3" />
                         {t('crew.page.approve')}
-                      </button>
+                      </button></PermissionGate>
                       <button
                         onClick={() => onViewCrew(crew.id)}
                         className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded hover:bg-blue-100 transition-colors"
