@@ -3762,6 +3762,27 @@
         "pms.receipts.create",
         "pms.receipts.update"
       ]
+    },
+    {
+      "controller": "MaintenanceHistory",
+      "action": "GetAllExecutions",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "MaintenanceHistory",
+      "action": "GetHistory",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "MaintenanceHistory",
+      "action": "GetReport",
+      "grants": [
+        "pms.work.view"
+      ]
     }
   ]
 }

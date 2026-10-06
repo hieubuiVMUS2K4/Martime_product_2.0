@@ -121,8 +121,8 @@ public class MaintenanceSchedulerService : BackgroundService
         {
             try
             {
-                // 1. Fix past due dates in schedules (run once at startup, then periodically)
-                await FixPastDueDatesInSchedules();
+                // Preserve real overdue cycles; never skip their deadlines on restart.
+                await ReopenPeriodicCycles();
                 
                 // 2. Auto-correct task statuses based on due dates
                 await AutoCorrectTaskStatuses();
@@ -143,6 +143,36 @@ public class MaintenanceSchedulerService : BackgroundService
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken).ConfigureAwait(false); // Wait 5 min on error
             }
         }
+    }
+
+    private async Task ReopenPeriodicCycles()
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
+        await PeriodicTaskCycle.ConsolidateLegacyAsync(db);
+        var tasks = await db.MaintenanceTasks.Where(t => !t.IsDeleted && t.ScheduleId.HasValue &&
+            (t.Status == "COMPLETED" || t.Status == "SCHEDULED" || t.Status == "UPCOMING") &&
+            db.MaintenanceSchedules.Any(s => s.Id == t.ScheduleId && s.MaintenanceCategory == "PERIODIC")).ToListAsync();
+        var scheduleIds = tasks.Select(t => t.ScheduleId!.Value).Distinct().ToArray();
+        var schedules = await db.MaintenanceSchedules.Where(s => scheduleIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
+        var assetIds = tasks.Where(t => t.EquipmentAssetId.HasValue).Select(t => t.EquipmentAssetId!.Value).Distinct().ToArray();
+        var assetHours = await db.EquipmentAssets.Where(a => assetIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, a => a.CurrentRunningHours);
+        var groupIds = tasks.Where(t => t.EquipmentGroupId.HasValue).Select(t => t.EquipmentGroupId!.Value).Distinct().ToArray();
+        var groupHours = await db.EquipmentGroupMembers.Where(m => groupIds.Contains(m.GroupId))
+            .GroupBy(m => m.GroupId).Select(g => new { Id = g.Key, Hours = g.Max(m => m.Asset.CurrentRunningHours) })
+            .ToDictionaryAsync(g => g.Id, g => g.Hours);
+        foreach (var task in tasks)
+        {
+            if (!schedules.TryGetValue(task.ScheduleId!.Value, out var schedule)) continue;
+            double? hours = null;
+            if (task.EquipmentAssetId.HasValue)
+                assetHours.TryGetValue(task.EquipmentAssetId.Value, out hours);
+            else if (task.EquipmentGroupId.HasValue)
+                groupHours.TryGetValue(task.EquipmentGroupId.Value, out hours);
+            if (MaintenanceCalendar.HasInterval(schedule) || schedule.IntervalHours > 0)
+                await PeriodicTaskCycle.ReopenIfDueAsync(db, task, schedule, hours, DateTime.UtcNow, prepareNextCycle: true);
+        }
+        await db.SaveChangesAsync();
     }
 
     /// <summary>
@@ -294,6 +324,8 @@ public class MaintenanceSchedulerService : BackgroundService
 
             foreach (var task in tasks)
             {
+                if (task.ScheduleId.HasValue && await context.MaintenanceSchedules.AnyAsync(s =>
+                    s.Id == task.ScheduleId && (s.IntervalType == "RUNNING_HOURS" || s.IntervalType == "HYBRID"))) continue;
                 var dueDate = task.NextDueAt.Date;
                 var isOverdue = dueDate < today;
                 var isDue = dueDate <= today;
@@ -426,6 +458,8 @@ public class MaintenanceSchedulerService : BackgroundService
 
             foreach (var schedule in schedules)
             {
+                if (schedule.MaintenanceCategory == "PERIODIC" && await context.MaintenanceTasks.AnyAsync(t =>
+                    t.ScheduleId == schedule.Id && !t.IsDeleted && t.Status != "CANCELLED")) continue;
                 if (!schedule.NextDueDate.HasValue)
                 {
                     // Calculate next due date if not set
@@ -519,7 +553,7 @@ public class MaintenanceSchedulerService : BackgroundService
                     // This allows auto-regeneration after task deletion
                     var existingTask = await context.MaintenanceTasks
                         .Where(t => t.ScheduleId == schedule.Id &&
-                                   t.Status != "COMPLETED" &&
+                                   (t.Status != "COMPLETED" || schedule.MaintenanceCategory == "PERIODIC") &&
                                    t.Status != "CANCELLED" &&
                                    !t.IsDeleted)  // Only count active (non-deleted) tasks
                         .FirstOrDefaultAsync();

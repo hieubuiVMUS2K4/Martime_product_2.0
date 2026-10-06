@@ -20,7 +20,9 @@ Tài khoản thuyền viên lấy quyền bằng chuỗi `User.CrewId → CrewMe
 
 ADMIN giữ quyền quản trị và có thể phục hồi cấu hình. Quyền chức danh quyết định quyền truy cập trang/tab; quyền thực hiện/phê duyệt PMS, điều kiện trực ca, trạng thái thuyền viên và quyền ghi danh mục do bờ quản lý vẫn kiểm tra riêng. Bật truy cập vật tư trên tàu không cấp quyền thêm/sửa/xóa danh mục vật tư.
 
-ADMIN được quản trị quyền truy cập nhưng vẫn phải tuân thủ quy tắc sở hữu dữ liệu và workflow. Không tự coi tài khoản admin không gắn thuyền viên là người thực hiện hoặc người ký duyệt nghiệp vụ. Nếu cần thao tác thay mặt phải thiết kế quyền riêng, xác định người được đại diện, lý do và audit; không ngầm bỏ qua các điều kiện đó.
+ADMIN vẫn phải tuân thủ quy tắc sở hữu dữ liệu và workflow. Tài khoản admin không gắn thuyền viên được phê duyệt/trả hoàn công việc ở trạng thái chờ duyệt bằng chính danh tính tài khoản admin; không ghi nhận là thao tác thay mặt một thuyền viên. Thực hiện công việc vẫn yêu cầu danh tính thuyền viên đang trên tàu.
+
+Người thực hiện và người duyệt là hai vai trò độc lập. Người được cấp `pms.work.approve` được phê duyệt công việc của người khác; người được cấp `pms.work.reject` được trả hoàn. Không yêu cầu người duyệt là người được giao công việc, không bắt buộc trạng thái đang trên tàu chỉ để duyệt, và không tự cấp quyền duyệt vì chức danh có cấp bậc cao hơn. Server ghi danh tính người thao tác từ phiên đăng nhập, không tin trường người duyệt do client tự gửi. Quyền truy cập/xem đơn thuần không cho phép phê duyệt hoặc trả hoàn.
 
 Chức danh mới chưa được cấu hình mặc định không có quyền module, hiện nhãn “Chưa cấu hình”. Tài khoản không gắn thuyền viên hoặc chưa có chức danh không được tự cấp toàn quyền. Quản trị viên không bị khóa khỏi trang phân quyền.
 

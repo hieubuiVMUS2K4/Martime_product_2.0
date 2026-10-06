@@ -194,6 +194,45 @@ public class RankPermissionTests
 
     public sealed class ApprovalRequest { public bool IsApproved { get; set; } public string ApprovedBy { get; set; } = ""; }
     [Fact]
+    public async Task AdminWithoutCrew_CanReviewButCannotExecute_RecordsAuthenticatedActor()
+    {
+        await using var db = Database();
+        var role = new Role { RoleCode = "ADMIN", RoleName = "Administrator" };
+        db.Roles.Add(role); await db.SaveChangesAsync();
+        var admin = new User { Username = "admin", RoleId = role.Id, PasswordHash = "test" };
+        db.Users.Add(admin); await db.SaveChangesAsync();
+        var approve = new ApprovalRequest { IsApproved = true };
+        Assert.True(await Call(db, admin.Id, "Maintenance", "ApproveTask", "POST", approve));
+        Assert.Equal("admin", approve.ApprovedBy);
+        Assert.True(await Call(db, admin.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "APPROVE" }));
+        Assert.True(await Call(db, admin.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "REJECT" }));
+        Assert.True(await Call(db, admin.Id, "TaskWorkflow", "BulkVerifyTasks", "POST", new { Action = "APPROVE" }));
+        Assert.True(await Call(db, admin.Id, "TaskWorkflow", "BulkVerifyTasks", "POST", new { Action = "REJECT" }));
+        Assert.False(await Call(db, admin.Id, "TaskWorkflow", "StartTask", "POST"));
+        Assert.False(await Call(db, admin.Id, "Maintenance", "ApproveTask", "POST", new ApprovalRequest { IsApproved = true, ApprovedBy = "OTHER" }));
+    }
+
+    [Fact]
+    public async Task ReviewerPermissions_AreIndependentOfTaskAssignmentAndExecutionEligibility()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        var crew = await db.CrewMembers.SingleAsync(); crew.IsOnboard = false; crew.OnboardStatus = "Pending";
+        var config = new RankPermissionConfig { RankId = rankId, GrantsJson = "[\"pms.work.access\",\"pms.work.approve\"]" };
+        db.RankPermissionConfigs.Add(config);
+        var task = new MaintenanceTask { TaskId = "OTHER-PERFORMER", AssignedTo = "SOMEONE-ELSE", Status = "PENDING_APPROVAL" };
+        db.MaintenanceTasks.Add(task); await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "APPROVE" }, task.Id));
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "REJECT" }, task.Id));
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "StartTask", "POST", id: task.Id));
+        config.GrantsJson = "[\"pms.work.access\",\"pms.work.reject\"]"; await db.SaveChangesAsync();
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "APPROVE" }, task.Id));
+        Assert.True(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "REJECT" }, task.Id));
+        config.GrantsJson = "[\"pms.work.access\",\"pms.work.view\"]"; await db.SaveChangesAsync();
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "APPROVE" }, task.Id));
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "REJECT" }, task.Id));
+    }
+
+    [Fact]
     public async Task Approval_RejectsSpoofedActorAndRequiresSeparateRejectionPermission()
     {
         await using var db = Database(); var (user, rankId) = await Seed(db);

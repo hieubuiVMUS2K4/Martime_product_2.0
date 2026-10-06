@@ -79,19 +79,23 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
         if (rejecting && required != null) required = required.Select(p => p.EndsWith(".approve") ? p[..^8] + ".reject" : p).ToArray();
         if (required?.Any(p => p is "pms.work.execute" or "pms.work.approve" or "pms.work.reject") == true)
         {
-            var crewId = await db.Users.Where(u => u.Id == userId).Select(u => u.CrewId).SingleAsync();
-            if (string.IsNullOrWhiteSpace(crewId) || !await db.CrewMembers.AnyAsync(c => c.CrewId == crewId &&
-                c.Rank != null && c.Rank.IsActive && (c.IsOnboard || c.OnboardStatus == "Approved")))
-            { context.Result = new ObjectResult(new { error = "Tài khoản phải liên kết với thuyền viên để thực hiện hoặc duyệt công việc." }) { StatusCode = 403 }; return; }
-            http.Items["ActorCrewId"] = crewId;
+            var actor = await db.Users.Where(u => u.Id == userId).Select(u => new { u.CrewId, u.Username }).SingleAsync();
+            // Execution needs an onboard crew identity; review is governed by approve/reject grants.
+            if (required.Contains("pms.work.execute") &&
+                (string.IsNullOrWhiteSpace(actor.CrewId) || !await db.CrewMembers.AnyAsync(c => c.CrewId == actor.CrewId &&
+                    c.Rank != null && c.Rank.IsActive && (c.IsOnboard || c.OnboardStatus == "Approved"))))
+            { context.Result = new ObjectResult(new { error = "Tài khoản phải liên kết với thuyền viên đang trên tàu để thực hiện công việc." }) { StatusCode = 403 }; return; }
+            var actorId = !string.IsNullOrWhiteSpace(actor.CrewId) && await db.CrewMembers.AnyAsync(c => c.CrewId == actor.CrewId)
+                ? actor.CrewId : actor.Username;
+            http.Items["WorkflowActorId"] = actorId;
             foreach (var argument in context.ActionArguments.Values.Where(v => v != null))
                 foreach (var field in new[] { "ApprovedBy", "CompletedBy", "PerformedBy" })
                 {
                     var property = argument!.GetType().GetProperty(field);
                     if (property?.PropertyType != typeof(string) || !property.CanWrite) continue;
-                    if (property.GetValue(argument) is string claimed && !string.IsNullOrWhiteSpace(claimed) && claimed != crewId)
+                    if (property.GetValue(argument) is string claimed && !string.IsNullOrWhiteSpace(claimed) && claimed != actorId)
                     { Deny(context); return; }
-                    property.SetValue(argument, crewId);
+                    property.SetValue(argument, actorId);
                 }
         }
         if (current.IsAdmin) { await next(); return; }

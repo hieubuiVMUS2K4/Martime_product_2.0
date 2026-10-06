@@ -207,6 +207,7 @@ public class MaintenanceCompletionService
                 
                 var history = new MaintenanceHistory
                 {
+                    ReportSnapshot = await PeriodicTaskCycle.SnapshotAsync(_context, task),
                     ScheduleId = schedule.Id,
                     TaskId = task.Id,
                     ExecutedAt = DateTime.UtcNow,
@@ -228,17 +229,14 @@ public class MaintenanceCompletionService
                 schedule.LastExecutedAt = DateTime.UtcNow;
                 schedule.LastExecutedRunningHours = history.ExecutedRunningHours;
                 
-                if (trackingAsset != null)
-                {
-                    CalculateNextDueDate(schedule, trackingAsset);
-                }
+                CalculateNextDueDate(schedule, trackingAsset ?? new EquipmentAsset { CurrentRunningHours = task.ActualRunningHours });
 
                 await _scheduleRepository.UpdateAsync(schedule);
 
                 // 7. RECURRENCE (Gối đầu): Generate next cycle task for PERIODIC schedules
                 if (schedule.MaintenanceCategory == "PERIODIC" && schedule.IsActive && schedule.AutoGenerate)
                 {
-                    await GenerateNextCycleTask(schedule, task, trackingAsset);
+                    await PrepareNextCycleTask(schedule, task, trackingAsset);
                 }
             }
 
@@ -309,16 +307,16 @@ public class MaintenanceCompletionService
 
             // Update schedule execution stats
             schedule.LastExecutedAt = task.CompletedAt ?? DateTime.UtcNow;
-            schedule.LastExecutedRunningHours = task.RunningHoursAtLastDone ?? task.ActualRunningHours;
+            schedule.LastExecutedRunningHours = task.ActualRunningHours ?? trackingAsset?.CurrentRunningHours ?? task.RunningHoursAtLastDone;
 
-            if (trackingAsset != null)
-                CalculateNextDueDate(schedule, trackingAsset);
+            CalculateNextDueDate(schedule, trackingAsset ?? new EquipmentAsset { CurrentRunningHours = task.ActualRunningHours });
 
             await _scheduleRepository.UpdateAsync(schedule);
 
             // Add maintenance history record
             _context.MaintenanceHistories.Add(new MaintenanceHistory
             {
+                ReportSnapshot = await PeriodicTaskCycle.SnapshotAsync(_context, task),
                 ScheduleId = schedule.Id,
                 TaskId = task.Id,
                 ExecutedAt = task.CompletedAt ?? DateTime.UtcNow,
@@ -330,9 +328,9 @@ public class MaintenanceCompletionService
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Generate next cycle task for PERIODIC schedules
+            // Prepare the next deadline on the same PERIODIC task
             if (schedule.MaintenanceCategory == "PERIODIC" && schedule.IsActive && schedule.AutoGenerate)
-                await GenerateNextCycleTask(schedule, task, trackingAsset);
+                await PrepareNextCycleTask(schedule, task, trackingAsset);
 
             _logger.LogInformation(
                 "PostApprovalScheduleUpdate: schedule {Code} updated, NextDueRH={NextRH}, NextDueDate={NextDate}",
@@ -341,83 +339,27 @@ public class MaintenanceCompletionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "PostApprovalScheduleUpdate failed for task {TaskId}", task.TaskId);
-            // Don't rethrow — don't block the approval if recurrence fails
+            // Never approve a cycle without retaining its report.
+            throw;
         }
     }
 
     /// <summary>
     /// Recovery: called when CheckAndPromoteTasksByRunningHours finds no active task for a PERIODIC
     /// RUNNING_HOURS schedule. This happens when the previous task completed via old code that did not
-    /// call GenerateNextCycleTask. Recreates the next cycle task and immediately sets it DUE if threshold
+    /// call PrepareNextCycleTask. Reopens the same completed task as DUE if the threshold
     /// is already reached.
     /// </summary>
     public async Task RecoverMissingCycleTaskAsync(MaintenanceSchedule schedule, double currentRunningHours)
     {
-        try
-        {
-            // Find the last completed task for this schedule to use as template
-            var lastCompletedTask = await _context.MaintenanceTasks
-                .Where(t => t.ScheduleId == schedule.Id && t.Status == "COMPLETED" && !t.IsDeleted)
-                .OrderByDescending(t => t.CompletedAt)
-                .FirstOrDefaultAsync();
-
-            if (lastCompletedTask == null)
-            {
-                _logger.LogDebug("RecoverMissingCycleTask: no completed task found for schedule {Code}", schedule.ScheduleCode);
-                return;
-            }
-
-            // Recalculate NextDueRunningHours
-            // If NextDueRunningHours is stale (already passed), recalc from current RH
-            var intervalHours = schedule.IntervalHours ?? 100;
-            var completedAtRH = lastCompletedTask.RunningHoursAtLastDone
-                                ?? lastCompletedTask.ActualRunningHours
-                                ?? (schedule.LastExecutedRunningHours ?? currentRunningHours);
-
-            var candidateNextRH = completedAtRH + intervalHours;
-            // If that threshold is already behind current RH, use current RH as base
-            if (candidateNextRH <= currentRunningHours)
-                candidateNextRH = currentRunningHours + intervalHours;
-
-            schedule.NextDueRunningHours = candidateNextRH;
-            var hoursRemaining = candidateNextRH - currentRunningHours;
-            var daysRemaining = (int)Math.Max(hoursRemaining / MaintenanceConstants.AVERAGE_HOURS_PER_DAY, 0);
-            schedule.NextDueDate = DateTime.UtcNow.AddDays(Math.Max(daysRemaining, 1));
-
-            // Preserve execution stats if not already set
-            if (!schedule.LastExecutedAt.HasValue)
-                schedule.LastExecutedAt = lastCompletedTask.CompletedAt ?? DateTime.UtcNow;
-            if (!schedule.LastExecutedRunningHours.HasValue)
-                schedule.LastExecutedRunningHours = completedAtRH;
-
-            await _scheduleRepository.UpdateAsync(schedule);
-
-            // Generate next cycle task (SCHEDULED status)
-            await GenerateNextCycleTask(schedule, lastCompletedTask, null);
-
-            // If already past the new threshold, immediately flip to DUE
-            if (currentRunningHours >= candidateNextRH)
-            {
-                var newTask = await _context.MaintenanceTasks
-                    .FirstOrDefaultAsync(t => t.ScheduleId == schedule.Id &&
-                                             t.Status == "SCHEDULED" && !t.IsDeleted);
-                if (newTask != null)
-                {
-                    newTask.Status = "DUE";
-                    newTask.UpdatedAt = DateTime.UtcNow;
-                }
-            }
-
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "RecoverMissingCycleTask: created next task for schedule {Code}, NextDueRH={NextRH}",
-                schedule.ScheduleCode, schedule.NextDueRunningHours);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "RecoverMissingCycleTask failed for schedule {Code}", schedule.ScheduleCode);
-        }
+        var task = await _context.MaintenanceTasks
+            .Where(t => t.ScheduleId == schedule.Id && t.Status == "COMPLETED" && !t.IsDeleted)
+            .OrderByDescending(t => t.CompletedAt).FirstOrDefaultAsync();
+        if (task == null) return;
+        if (!schedule.NextDueRunningHours.HasValue && schedule.IntervalHours.HasValue)
+            schedule.NextDueRunningHours = (schedule.LastExecutedRunningHours ?? task.ActualRunningHours ?? currentRunningHours) + schedule.IntervalHours.Value;
+        await PeriodicTaskCycle.ReopenIfDueAsync(_context, task, schedule, currentRunningHours, DateTime.UtcNow);
+        await _context.SaveChangesAsync();
     }
 
     private async Task<double?> GetCurrentRunningHours(Guid assetId)
@@ -441,162 +383,20 @@ public class MaintenanceCompletionService
 
     /// <summary>
     /// RECURRENCE (Gối đầu): After a PERIODIC task is completed,
-    /// automatically generate the next cycle task as SCHEDULED.
+    /// preserve the report and schedule the next cycle on the same task.
     /// NextDueRH = LastCompletedRH + IntervalHours (using actual RH at completion for accuracy)
     /// </summary>
-    private async Task GenerateNextCycleTask(MaintenanceSchedule schedule, MaintenanceTask completedTask, EquipmentAsset? trackingAsset)
+    private async Task PrepareNextCycleTask(MaintenanceSchedule schedule, MaintenanceTask completedTask, EquipmentAsset? trackingAsset)
     {
-        try
-        {
-            if (!schedule.NextDueDate.HasValue)
-            {
-                _logger.LogWarning("Schedule {Code}: Cannot generate next cycle task — no NextDueDate calculated", schedule.ScheduleCode);
-                return;
-            }
-
-            // Build new TaskId — use EquipmentId directly (e.g. "MOORING-FP").
-            // Do NOT parse TaskId: equipment codes with dashes (MOORING-FP) break split[^2] logic.
-            var equipmentCode = completedTask.EquipmentId ?? completedTask.EquipmentAssetName ?? "GRP";
-
-            // Build unique TaskId:
-            // - RUNNING_HOURS: suffix with RH threshold (e.g. RH200) to avoid collision with same-date task
-            // - CALENDAR: suffix with next due date
-            string nextTaskId;
-            if (schedule.IntervalType == "RUNNING_HOURS" && schedule.NextDueRunningHours.HasValue)
-            {
-                nextTaskId = $"SCHED-{schedule.ScheduleCode}-{equipmentCode}-RH{(int)schedule.NextDueRunningHours.Value}";
-            }
-            else
-            {
-                nextTaskId = $"SCHED-{schedule.ScheduleCode}-{equipmentCode}-{schedule.NextDueDate.Value:yyyyMMdd}";
-            }
-
-            // Check for duplicates
-            if (await _context.MaintenanceTasks.AnyAsync(t => t.TaskId == nextTaskId && !t.IsDeleted))
-            {
-                _logger.LogDebug("Next cycle task {TaskId} already exists, skipping", nextTaskId);
-                return;
-            }
-
-            // Build spare parts JSON from schedule
-            string? sparePartsJson = null;
-            var spareParts = await _context.ScheduleSpareParts
-                .Where(sp => sp.ScheduleId == schedule.Id)
-                .ToListAsync();
-
-            if (spareParts.Any())
-            {
-                // ScheduleSparePart.MaterialItemId trỏ DANH MỤC (material_items catalog).
-                var materialIds = spareParts.Select(sp => sp.MaterialItemId).ToList();
-                var materials = await _context.MaterialCatalogItems
-                    .Where(m => materialIds.Contains(m.Id))
-                    .ToDictionaryAsync(m => m.Id, m => new { m.ItemCode, m.Name });
-
-                sparePartsJson = JsonSerializer.Serialize(
-                    spareParts.Select(sp => new
-                    {
-                        materialItemId = sp.MaterialItemId,
-                        materialCode = materials.ContainsKey(sp.MaterialItemId) ? materials[sp.MaterialItemId].ItemCode : "",
-                        materialName = materials.ContainsKey(sp.MaterialItemId) ? materials[sp.MaterialItemId].Name : "Unknown",
-                        quantityRequired = sp.QuantityRequired,
-                        isMandatory = sp.IsMandatory
-                    }),
-                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-            }
-
-            var nextTask = new MaintenanceTask
-            {
-                TaskId = nextTaskId,
-                ScheduleId = schedule.Id,
-                EquipmentGroupId = completedTask.EquipmentGroupId,
-                EquipmentGroupName = completedTask.EquipmentGroupName,
-                EquipmentAssetId = completedTask.EquipmentAssetId,
-                EquipmentAssetName = completedTask.EquipmentAssetName,
-                EquipmentId = completedTask.EquipmentId,
-                EquipmentName = completedTask.EquipmentName,
-                TaskType = completedTask.TaskType,
-                TaskDescription = completedTask.TaskDescription,
-                IntervalHours = schedule.IntervalHours,
-                IntervalDays = schedule.IntervalDays,
-                LastDoneAt = schedule.LastExecutedAt,
-                NextDueAt = schedule.NextDueDate!.Value,
-                RunningHoursAtLastDone = schedule.LastExecutedRunningHours,
-                Priority = schedule.Priority ?? completedTask.Priority,
-                Status = "SCHEDULED",
-                EstimatedDuration = completedTask.EstimatedDuration,
-                RequiredSpareParts = sparePartsJson,
-                AssignedTo = completedTask.AssignedTo,
-                Notes = $"Auto-generated: next cycle after {completedTask.TaskId}",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            _context.MaintenanceTasks.Add(nextTask);
-
-            // Copy checklist templates for the new task
-            var checklistTemplates = await _context.ScheduleChecklistTemplates
-                .Where(t => t.ScheduleId == schedule.Id)
-                .OrderBy(t => t.SequenceOrder)
-                .ToListAsync();
-
-            if (checklistTemplates.Any())
-            {
-                // Get assets for checklist
-                List<EquipmentAsset> assets;
-                if (completedTask.EquipmentAssetId.HasValue)
-                {
-                    var asset = await _context.EquipmentAssets.FindAsync(completedTask.EquipmentAssetId.Value);
-                    assets = asset != null ? new List<EquipmentAsset> { asset } : new List<EquipmentAsset>();
-                }
-                else if (completedTask.EquipmentGroupId.HasValue)
-                {
-                    assets = await _context.EquipmentGroupMembers
-                        .Where(egm => egm.GroupId == completedTask.EquipmentGroupId.Value)
-                        .Include(egm => egm.Asset)
-                        .Select(egm => egm.Asset)
-                        .Where(a => a != null && a.IsActive)
-                        .Cast<EquipmentAsset>()
-                        .ToListAsync();
-                }
-                else
-                {
-                    assets = new List<EquipmentAsset>();
-                }
-
-                foreach (var asset in assets)
-                {
-                    foreach (var template in checklistTemplates)
-                    {
-                        _context.TaskChecklistItems.Add(new TaskChecklistItem
-                        {
-                            TaskId = nextTask.TaskId,
-                            AssetId = asset.Id,
-                            AssetCode = asset.AssetCode,
-                            AssetName = asset.AssetName,
-                            SequenceOrder = template.SequenceOrder,
-                            CheckpointDescription = template.CheckpointDescription,
-                            RequiresReading = template.RequiresReading,
-                            NormalRangeMin = template.NormalRangeMin,
-                            NormalRangeMax = template.NormalRangeMax,
-                            Unit = template.Unit,
-                            IsCompleted = false,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
-                }
-            }
-
-            _logger.LogInformation(
-                "RECURRENCE: Generated next cycle task {NextTaskId} (NextDueDate={NextDue}, NextDueRH={NextDueRH}) after completing {CompletedTaskId}",
-                nextTaskId, schedule.NextDueDate?.ToString("yyyy-MM-dd"),
-                schedule.NextDueRunningHours, completedTask.TaskId);
-        }
-        catch (Exception ex)
-        {
-            // Don't fail the completion if next cycle generation fails
-            _logger.LogError(ex, "Error generating next cycle task for schedule {Code} after completing {TaskId}",
-                schedule.ScheduleCode, completedTask.TaskId);
-        }
+        // A recurring job retains its identity; reports belong to maintenance_history.
+        if (schedule.NextDueDate.HasValue) completedTask.NextDueAt = schedule.NextDueDate.Value;
+        completedTask.LastDoneAt = schedule.LastExecutedAt;
+        completedTask.RunningHoursAtLastDone = schedule.LastExecutedRunningHours;
+        completedTask.UpdatedAt = DateTime.UtcNow;
+        completedTask.IsSynced = false;
+        if (MaintenanceCalendar.HasInterval(schedule) || schedule.IntervalHours > 0)
+            await PeriodicTaskCycle.ReopenIfDueAsync(_context, completedTask, schedule,
+                trackingAsset?.CurrentRunningHours, DateTime.UtcNow, prepareNextCycle: true);
     }
 
     private void CalculateNextDueDate(MaintenanceSchedule schedule, EquipmentAsset asset)

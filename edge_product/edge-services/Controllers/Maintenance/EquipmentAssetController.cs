@@ -485,7 +485,7 @@ public class EquipmentAssetController : ControllerBase
             var task = await _context.MaintenanceTasks
                 .FirstOrDefaultAsync(t => !t.IsDeleted &&
                                          t.ScheduleId == schedule.Id &&
-                                         (t.Status == "SCHEDULED" || t.Status == "UPCOMING" || t.Status == "DUE"));
+                                         (t.Status == "SCHEDULED" || t.Status == "UPCOMING" || t.Status == "DUE" || t.Status == "OVERDUE" || t.Status == "COMPLETED"));
 
             if (task == null)
             {
@@ -497,6 +497,11 @@ public class EquipmentAssetController : ControllerBase
             }
 
             var hoursUntilDue = nextDueRH - currentRunningHours;
+            if (task.Status == "COMPLETED")
+            {
+                if (await PeriodicTaskCycle.ReopenIfDueAsync(_context, task, schedule, currentRunningHours, DateTime.UtcNow)) promoted++;
+                continue;
+            }
 
             if (currentRunningHours >= nextDueRH)
             {
