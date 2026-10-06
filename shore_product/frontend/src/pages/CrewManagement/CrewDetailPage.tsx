@@ -594,7 +594,7 @@ export const CrewDetailPage: React.FC = () => {
       </div>
 
       {/* ── Content ── */}
-      <div className="space-y-4 p-5">
+      <div className="space-y-4 px-6 py-5">
 
         {/* ════════ BASIC DATA ════════ */}
         {activeTab === 'basic-data' && (

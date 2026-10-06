@@ -57,7 +57,7 @@ export const CrewProfileHeader: React.FC<Props> = ({
 
   return (
     <div className="border-b border-line bg-surface px-6 pb-5 pt-3">
-      <div className="mx-auto max-w-[1440px]">
+      <div>
       <button type="button" onClick={onBack}
         className="mb-3 inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-sm text-ink-muted hover:bg-primary-soft hover:text-primary">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại danh sách

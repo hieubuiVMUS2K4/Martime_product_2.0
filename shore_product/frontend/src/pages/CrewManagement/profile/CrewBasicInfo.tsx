@@ -132,7 +132,7 @@ export const CrewBasicInfo: React.FC<Props> = ({
   const cellCls = 'min-w-0 bg-surface px-4 py-3';
 
   return (
-    <div className="mx-auto flex max-w-[1440px] flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {SECTIONS.map(section => {
         const spans = section.fields.map(f => f.span ?? 1);
         const fill = fillers(spans);
