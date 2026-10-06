@@ -73,6 +73,32 @@ public class RankPermissionTests
     }
 
     [Fact]
+    public async Task RankList_PreloadsSavedAndEmptyConfigs_WithoutGrantingCrewAccess()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        db.Ranks.AddRange(new Maritime.Shared.Models.Crew.Rank { RankCode = "EMPTY", RankName = "Empty rank" },
+            new Maritime.Shared.Models.Crew.Rank { RankCode = "OFF", RankName = "Inactive rank", IsActive = false });
+        db.RankPermissionConfigs.Add(new() { RankId = rankId, Version = 3, GrantsJson = "[\"pms.work.access\",\"pms.work.view\"]" });
+        await db.SaveChangesAsync();
+        var http = new DefaultHttpContext(); http.Items["UserId"] = user.Id;
+        var controller = new RankPermissionsController(db, new RankPermissionService(db))
+        { ControllerContext = new ControllerContext { HttpContext = http } };
+        Assert.Equal(403, Assert.IsType<StatusCodeResult>(await controller.Ranks()).StatusCode);
+        var role = await db.Roles.SingleAsync(); role.RoleCode = "ADMIN"; await db.SaveChangesAsync();
+        var result = Assert.IsType<OkObjectResult>(await controller.Ranks());
+        var rows = JsonSerializer.SerializeToElement(result.Value).EnumerateArray().ToArray();
+        Assert.Equal(2, rows.Length);
+        var saved = rows.Single(r => r.GetProperty("Id").GetInt32() == rankId);
+        Assert.Equal(3, saved.GetProperty("Version").GetInt64());
+        Assert.Equal(2, saved.GetProperty("Grants").GetArrayLength());
+        var empty = rows.Single(r => r.GetProperty("RankCode").GetString() == "EMPTY");
+        Assert.Equal(0, empty.GetProperty("Version").GetInt64());
+        Assert.Equal(0, empty.GetProperty("Grants").GetArrayLength());
+        Assert.False(empty.GetProperty("IsConfigured").GetBoolean());
+        Assert.Single(await db.RankPermissionConfigs.ToListAsync());
+    }
+
+    [Fact]
     public async Task AccountRoleChanges_RejectProfessionalRanksAsSecurityRoles()
     {
         await using var db = Database(); var (user, _) = await Seed(db);

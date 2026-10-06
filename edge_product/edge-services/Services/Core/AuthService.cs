@@ -418,7 +418,7 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during token refresh");
-            return new TokenRefreshResponse { Success = false, Message = "Lỗi khi refresh token" };
+            throw new AuthSessionUnavailableException(ex);
         }
     }
 
@@ -506,7 +506,7 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating session");
-            return new ValidateSessionResponse { IsValid = false, Message = "Lỗi khi validate session" };
+            throw new AuthSessionUnavailableException(ex);
         }
     }
 

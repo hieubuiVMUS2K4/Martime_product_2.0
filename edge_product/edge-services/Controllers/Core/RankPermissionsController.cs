@@ -25,9 +25,19 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
     public async Task<IActionResult> Ranks()
     {
         if (!await IsAdmin()) return StatusCode(403);
-        var configured = await db.RankPermissionConfigs.Select(c => c.RankId).ToListAsync();
-        return Ok(await db.Ranks.AsNoTracking().Where(r => r.IsActive).OrderBy(r => r.SortOrder).ThenBy(r => r.RankName)
-            .Select(r => new { r.Id, r.RankCode, r.RankName, r.Department, IsConfigured = configured.Contains(r.Id) }).ToListAsync());
+        var configs = await db.RankPermissionConfigs.AsNoTracking().ToDictionaryAsync(c => c.RankId);
+        var ranks = await db.Ranks.AsNoTracking().Where(r => r.IsActive).OrderBy(r => r.SortOrder).ThenBy(r => r.RankName)
+            .Select(r => new { r.Id, r.RankCode, r.RankName, r.Department }).ToListAsync();
+        return Ok(ranks.Select(r =>
+        {
+            configs.TryGetValue(r.Id, out var config);
+            return new
+            {
+                r.Id, r.RankCode, r.RankName, r.Department, IsConfigured = config != null,
+                Version = config?.Version ?? 0,
+                Grants = config == null ? Array.Empty<string>() : JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? []
+            };
+        }).ToArray());
     }
 
     [HttpGet("ranks/{rankId:int}")]

@@ -74,6 +74,15 @@ public class SessionAuthMiddleware
             return;
         }
 
+        // Refresh authenticates with its own refresh token in the controller.
+        // Requiring a live access token here prevents recovery after expiry.
+        if (HttpMethods.IsPost(context.Request.Method) &&
+            path.Equals("/api/auth/refresh", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
         // For optional-auth paths: resolve token if present, but let InternalAccess policy decide authz
         bool isOptionalAuthPath = OptionalAuthPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
 
@@ -84,7 +93,17 @@ public class SessionAuthMiddleware
             var token = authHeader["Bearer ".Length..].Trim();
             if (!string.IsNullOrEmpty(token))
             {
-                var resolved = await ResolveUserFromToken(context, dbContext, cache, token);
+                bool resolved;
+                try
+                {
+                    resolved = await ResolveUserFromToken(context, dbContext, cache, token);
+                }
+                catch (AuthSessionUnavailableException)
+                {
+                    context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    await context.Response.WriteAsJsonAsync(new { success = false, message = "Session service temporarily unavailable. Please retry." });
+                    return;
+                }
                 if (resolved)
                 {
                     await _next(context);
@@ -154,7 +173,7 @@ public class SessionAuthMiddleware
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to resolve user from session token");
-            return false;
+            throw new AuthSessionUnavailableException(ex);
         }
     }
 

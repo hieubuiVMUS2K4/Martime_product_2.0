@@ -151,6 +151,8 @@ function App() {
         {/* Reporting Routes */}
         {/* System Routes */}
         <Route path="audit-log" element={<AuditLogPage />} />
+        <Route path="admin" element={<Navigate to="/admin/accounts" replace />} />
+        <Route path="admin/*" element={<Navigate to="/admin/accounts" replace />} />
         <Route path="admin/accounts" element={<AdminManagementPage />} />
         <Route path="admin/permissions" element={<Navigate to="/admin/accounts?tab=permissions" replace />} />
 

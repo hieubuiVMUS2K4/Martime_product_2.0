@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { usePermissionsStore, canOpen } from '@/stores/permissions.store'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -16,6 +16,10 @@ export function PermissionGuard({ children }: { children: React.ReactNode }) {
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
   }, [token])
   if (!permissions.loaded) return <div className="p-8 text-sm text-gray-500">Đang tải quyền truy cập…</div>
+  if (!permissions.error && location.pathname === '/dashboard' && !canOpen('/dashboard')) {
+    const firstAllowed = permissions.modules.flatMap(module => module.routes).find(path => canOpen(path))
+    if (firstAllowed) return <Navigate to={firstAllowed} replace />
+  }
   if (!canOpen(location.pathname)) return <div className="p-8 text-sm">
     <h1 className="mb-2 text-lg font-semibold">{permissions.error ? 'Không thể tải quyền' : 'Chưa có quyền truy cập'}</h1>
     <p className="text-gray-500">{permissions.error || (permissions.rankName ? 'Liên hệ quản trị viên để được cấp quyền cho chức danh của bạn.' : 'Tài khoản chưa được gán chức danh hoặc chức danh chưa được cấp quyền.')}</p>
