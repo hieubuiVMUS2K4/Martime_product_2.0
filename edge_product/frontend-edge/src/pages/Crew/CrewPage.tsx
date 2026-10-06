@@ -164,7 +164,7 @@ export function CrewPage() {
                 <Download className="w-3.5 h-3.5" /> {t('crew.actions.exportPdf')}
               </button>
               <button
-                onClick={() => setShowAddModal(true)}
+                disabled title="Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu" onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 <Plus className="w-3.5 h-3.5" /> {t('crew.addMember')}

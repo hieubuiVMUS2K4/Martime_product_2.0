@@ -321,7 +321,9 @@ namespace MaritimeEdge
             }
 
             // Add Controllers
-            builder.Services.AddControllers()
+            builder.Services.AddScoped<RankPermissionService>();
+            builder.Services.AddScoped<RankPermissionFilter>();
+            builder.Services.AddControllers(options => options.Filters.AddService<RankPermissionFilter>())
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -492,6 +494,9 @@ namespace MaritimeEdge
                           AND (p.file_path IS NULL OR p.file_path = '')
                           AND m.storage_path IS NOT NULL AND m.storage_path <> '';
                     ");
+
+                    if (await AdminAccountSeed.SeedAsync(dbContext))
+                        logger.LogInformation("Created initial admin account; password change required on first login");
 
                     var crewAccountsCreated = await CrewAccountProvisioning.BackfillApprovedCrewAsync(dbContext);
                     logger.LogInformation("Provisioned {Count} missing crew accounts with CREW role", crewAccountsCreated);

@@ -1,6 +1,6 @@
 # Kế hoạch phân quyền theo chức danh trên tàu
 
-Ngày: 06/10/2026. Trạng thái: đề xuất để duyệt, chưa triển khai yêu cầu số 2.
+Ngày: 06/10/2026. Trạng thái: đã chốt hướng thiết kế; đang triển khai quyền truy cập và thao tác.
 
 ## 1. Kết quả đọc code hiện tại
 
@@ -96,7 +96,7 @@ Lập registry từ route, tab và endpoint thực tế trước khi viết migr
 
 ## 5. Thiết kế dữ liệu đề xuất
 
-Các bảng dưới đây là **bảng mới đề xuất**, chưa có trong code và chưa tạo:
+Thiết kế ban đầu dưới đây là đề xuất. Bản triển khai bước đầu dùng registry cố định trong code và một bảng cấu hình theo chức danh (chi tiết ở mục 11), thay vì tạo hai bảng danh mục/quyền chưa cần thiết:
 
 - `module_permissions`: mã quyền duy nhất, tên hiển thị/khóa dịch, nhóm cha, module/tab, loại quyền (truy cập/thao tác), hành động, thứ tự, trạng thái; seed từ registry của ứng dụng, không do người dùng tùy ý tạo endpoint. Ví dụ `pms.work.board.access`, `pms.work.tasks.view`, `pms.work.tasks.execute`, `pms.work.tasks.approve`.
 - `rank_module_permissions`: `RankId`, `PermissionCode`, `IsAllowed`, phiên bản cấu hình, người và thời điểm cập nhật; unique `(RankId, PermissionCode)`, FK tới rank/quyền. Không thêm DataScope trong đợt này. Lưu rõ false để ghi nhận thu hồi quyền. Version dùng chung cho toàn cấu hình của rank để kiểm soát lưu nguyên tử; schema cụ thể chốt trong bước triển khai.
@@ -157,3 +157,30 @@ Cache quyền theo user/rank và version, vô hiệu hóa khi lưu quyền, đ�
 `RankSeedData.SeedAsync` bổ sung bộ danh mục 25 chức danh cho DECK/ENGINE/CATERING/OTHER. Giữ nguyên bản ghi đã có, kể cả inactive; nhận alias MAST để không tạo thêm Captain trùng nghiệp vụ. EF ghi snapshot rank mới và outbox cùng transaction. Startup chạy lại không thêm trùng hay tạo lại hàng đợi; có advisory lock để tránh hai instance seed đồng thời.
 
 Chạy riêng trên database đã có schema: `dotnet run --project shore_product/backend -- --SeedRanksOnly=true` (sử dụng cấu hình kết nối của môi trường đó). Chế độ này không chạy worker, không tự áp dụng các migration khác. Danh mục vẫn cho phép công ty bổ sung chức danh đặc thù; bộ seed không phải danh sách chức danh pháp lý bắt buộc cho mọi tàu.
+
+## 11. Bản triển khai bước đầu
+
+- Bản seed và kế hoạch đã được push trước khi triển khai: commit 415612c1 trên feature/hiu67.
+- Danh mục module và mapping endpoint nằm ở permissions.registry.json, nhúng vào backend. Có 29 mục module/tab và 451 mapping action hiện hữu, gồm các API đọc dữ liệu phụ trợ cần cho dashboard và các selector. Endpoint chưa được ánh xạ không tự được mở cho CREW. Danh sách này là registry của ứng dụng, khác với danh sách chức danh động từ DB.
+- Bảng mới thực tế là rank_permission_configs: RankId (PK/FK), GrantsJson, Version, UpdatedAt, UpdatedBy. Lưu cả cấu hình trong một bản ghi để version dùng chung và lưu nguyên tử. Không thêm DataScope; không xóa bảng Role/User/Rank. Migration: 20261006110000_AddRankPermissionConfigs.
+- Registry thay vai trò bảng module_permissions trong đợt này; GrantsJson thay các dòng rank_module_permissions. Server kiểm tra mọi mã quyền trước khi lưu; các quyền không được chọn tương đương từ chối. Khi cần mở rộng phạm vi dữ liệu sẽ thiết kế migration riêng, giữ liên kết chức danh và phân công.
+- API /api/permissions/me, /catalog, /ranks, /ranks/{id}. Chỉ ADMIN đọc/sửa cấu hình chức danh. Lưu kiểm tra version, dùng transaction/advisory lock và ghi before/after vào SystemLog cùng transaction. Cấu hình này không đi vào hàng đợi đồng bộ.
+- RankPermissionFilter được đăng ký toàn cục cho controller. Lấy role, thuyền viên, chức danh và quyền hiện tại từ DB; không tin RoleCode cũ trong cache phiên. Giữ các đường công khai/node-token sync và cảm biến hiện hữu.
+- Chặn tạo thuyền viên/gán lại chức danh hoặc đổi CrewId trên Edge để tránh tự chuyển tài khoản sang chức danh có nhiều quyền hơn. Thực hiện các thay đổi định danh/chức danh trên bờ rồi đồng bộ; tài khoản vẫn được provision tự động với CREW.
+- PMS thực hiện/duyệt dùng thuyền viên liên kết tài khoản. Không nhận ApprovedBy/CompletedBy/PerformedBy khác danh tính thật; thao tác từ chối kiểm tra quyền reject riêng. Generic update không được dùng để bỏ qua workflow hoàn thành/duyệt; đổi phân công cần quyền assign. Phần kiểm tra chức danh cũ bị comment được thay bằng quyền approve/reject của chức danh hiện tại trong filter.
+- Frontend thêm /admin/permissions với hai cột, nhóm module, công tắc thao tác, tìm kiếm, version, toast và nhắc thay đổi chưa lưu khi chọn chức danh khác. Bật module mặc định kèm quyền xem; không tự bật các quyền ghi/duyệt. Tắt module giữ lựa chọn thao tác nhưng làm chúng mất hiệu lực.
+- Sidebar và route guard dùng quyền server. Tab Cấu hình/Counter của PMS và các nút ghi chính của PMS kiểm tra quyền tương ứng. API vẫn kiểm tra mọi thao tác, kể cả các màn hình cũ chưa có đầy đủ trạng thái ẩn/khóa nút. Cần tiếp tục đồng nhất trạng thái nút ở các module còn lại theo registry; không coi việc ẩn nút là lớp bảo vệ.
+- Danh sách công việc lấy toàn tàu; endpoint tasks/my-tasks không còn lọc crewId/assignedTo. Đổi nhãn thành Danh sách công việc; giữ phân công để bổ sung lọc về sau.
+- Frontend lấy lại quyền/chức danh khi mở trang, quay lại cửa sổ và mỗi 30 giây. API thu hồi quyền ngay theo DB; menu của phiên khác cập nhật ở lần tải tiếp theo. Chức danh chưa cấu hình mặc định không có quyền nghiệp vụ; ADMIN cần cấu hình trước khi thuyền viên sử dụng bản mới.
+- Màn hình quản lý tài khoản chỉ cho chọn ADMIN/CREW đang hoạt động; backend từ chối dùng chức danh nghề nghiệp làm role tài khoản. Các role cũ vẫn giữ dữ liệu để chuyển đổi, không tự xóa hoặc tự nâng quyền.
+- Khi ký thực hiện/duyệt PMS, thuyền viên liên kết phải có chức danh hoạt động và đã được duyệt lên tàu; quyền truy cập toàn tàu không thay thế điều kiện ký nghiệp vụ.
+
+### Kiểm chứng bản triển khai
+
+- Đã áp dụng migration mới vào database Edge local; xác nhận có 25 chức danh và chưa tự cấp quyền cho chức danh nào.
+- Backend build và frontend production build thành công. 9 bài kiểm thử mới về quyền/role/workflow đạt; bài PostgreSQL về lưu cấu hình, version conflict và audit đạt trên database thử riêng.
+- Lần chạy toàn bộ suite trước kiểm thử role cuối: 90 đạt, 1 lỗi VSAT tại SensorAndDeferralSyncTests.cs:143 (mong đợi 2 payload, thực tế 1). Đã chạy lại cùng bài trên source commit 415612c1 trước thay đổi phân quyền và xác nhận cùng lỗi; chưa sửa luồng VSAT trong phạm vi này.
+- Phần triển khai sau commit 415612c1 hiện nằm local, chưa push lần thứ hai. Cần build/restart dịch vụ Edge để dùng code mới và đăng nhập ADMIN vào Phân quyền để cấp quyền theo chức danh.
+- Cập nhật vị trí giao diện: Quản lý tài khoản tại /admin/accounts có hai tab Tài khoản và Phân quyền, kiểu tab giống Danh sách công việc. Tab Phân quyền dùng /admin/accounts?tab=permissions; bỏ mục Phân quyền riêng trên sidebar. Đường dẫn /admin/permissions cũ chuyển hướng vào tab mới. Giữ nguyên bản nháp phân quyền khi chuyển giữa hai tab.
+- Điều chỉnh giao diện theo phản hồi: tab lớn hơn; bỏ hai khối tiêu đề trang; bảng tài khoản hiển thị tên chức danh từ hồ sơ thuyền viên, không dùng dropdown ADMIN/CREW ở cột này. Phân quyền hiển thị dạng ma trận module/thao tác: công tắc có nhãn cho truy cập module, checkbox cho từng thao tác và truy cập cả nhóm, không hiển thị mã kỹ thuật. Có header và cột module cố định, cuộn ngang/dọc.
+- Thiết kế phân quyền mới nhất: danh sách module theo từng nhóm, tên module và công tắc Truy cập ở bên trái; checkbox có nhãn ở bên phải, chỉ hiển thị các thao tác áp dụng. Giao diện tự xuống dòng theo chiều rộng, không còn ma trận 10 cột hoặc ô trống/gạch ngang. Giữ tìm kiếm, chọn truy cập cả nhóm, lưu/version/audit và dữ liệu quyền hiện có.

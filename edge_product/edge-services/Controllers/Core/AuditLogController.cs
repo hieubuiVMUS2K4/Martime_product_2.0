@@ -318,6 +318,8 @@ public class AuditLogController : ControllerBase
     /// </summary>
     private async Task<IActionResult?> AuthorizeAdminOrCaptain()
     {
+        // The global rank filter has already checked the endpoint's current permission.
+        if (HttpContext.Items["EffectivePermissions"] is EffectivePermissions) return null;
         var roleCode = await ResolveUserRoleCode();
         if (roleCode == null)
             return Unauthorized(new { success = false, message = "Authentication required" });

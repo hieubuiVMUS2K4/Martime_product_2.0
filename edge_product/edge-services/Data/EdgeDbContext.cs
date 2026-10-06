@@ -105,6 +105,7 @@ public class EdgeDbContext : DbContext
 
     // Authentication & Authorization
     public DbSet<Role> Roles { get; set; } = null!;
+    public DbSet<RankPermissionConfig> RankPermissionConfigs { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<UserSession> UserSessions { get; set; } = null!;
     public DbSet<LoginAttempt> LoginAttempts { get; set; } = null!;
@@ -199,6 +200,14 @@ public class EdgeDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<RankPermissionConfig>(entity =>
+        {
+            entity.ToTable("rank_permission_configs");
+            entity.Property(e => e.GrantsJson).HasColumnType("text");
+            entity.Property(e => e.Version).IsConcurrencyToken();
+            entity.HasOne<Maritime.Shared.Models.Crew.Rank>().WithMany()
+                .HasForeignKey(e => e.RankId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         // PostgreSQL specific configurations
         modelBuilder.HasDefaultSchema("public");

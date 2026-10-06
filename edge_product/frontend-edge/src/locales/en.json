@@ -2730,7 +2730,7 @@
       "approvalDashboardDesc": "Review HIGH/CRITICAL tasks (C/E only)",
       "masterSchedule": "Master Schedule",
       "masterScheduleDesc": "View all maintenance schedules",
-      "myTaskList": "My Task List",
+      "myTaskList": "Task List",
       "taskHistory": "Task History",
       "archived": "archived",
       "syncing": "Syncing...",

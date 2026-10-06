@@ -5,6 +5,8 @@ import 'react-toastify/dist/ReactToastify.css'
 import { MainLayout } from './components/layouts/MainLayout'
 import { SettingsDialog } from './components/settings'
 import { AuthGuard } from './components/auth/AuthGuard'
+import { PermissionGuard } from './components/auth/PermissionGuard'
+import { AdminManagementPage } from './pages/Admin/AdminManagementPage'
 import { LoginPage } from './pages/Auth/LoginPage'
 
 // Pages
@@ -68,7 +70,6 @@ import { SmsDocumentPage } from './pages/HSQE/components/SmsDocumentPage'
 
 // System Pages
 import { AuditLogPage } from './pages/AuditLog/AuditLogPage'
-import { AccountManagementPage } from './pages/Admin/AccountManagementPage'
 
 function App() {
   return (
@@ -150,7 +151,8 @@ function App() {
         {/* Reporting Routes */}
         {/* System Routes */}
         <Route path="audit-log" element={<AuditLogPage />} />
-        <Route path="admin/accounts" element={<AccountManagementPage />} />
+        <Route path="admin/accounts" element={<AdminManagementPage />} />
+        <Route path="admin/permissions" element={<Navigate to="/admin/accounts?tab=permissions" replace />} />
 
         <Route path="reporting" element={<ReportingDashboard />} />
         <Route path="reporting/reports" element={<ReportsPage />} />
@@ -168,9 +170,9 @@ function App() {
       </Route>
 
       {/* Full-screen pages outside MainLayout (still protected) */}
-      <Route path="/crew/:id/standalone" element={<AuthGuard><CrewDetailPage /></AuthGuard>} />
-      <Route path="/pms/maintenance/:id" element={<AuthGuard><MaintenanceDetailPage /></AuthGuard>} />
-      <Route path="/safety/hsqe/form/:templateId" element={<AuthGuard><SmsDocumentPage /></AuthGuard>} />
+      <Route path="/crew/:id/standalone" element={<AuthGuard><PermissionGuard><CrewDetailPage /></PermissionGuard></AuthGuard>} />
+      <Route path="/pms/maintenance/:id" element={<AuthGuard><PermissionGuard><MaintenanceDetailPage /></PermissionGuard></AuthGuard>} />
+      <Route path="/safety/hsqe/form/:templateId" element={<AuthGuard><PermissionGuard><SmsDocumentPage /></PermissionGuard></AuthGuard>} />
 
       {/* Catch-all: redirect unknown routes to dashboard */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
