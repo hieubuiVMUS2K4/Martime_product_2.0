@@ -317,6 +317,15 @@ using (var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole())
 
 var app = builder.Build();
 
+// Seed an existing database without starting workers or applying unrelated migrations.
+if (builder.Configuration.GetValue("SeedRanksOnly", false))
+{
+    using var seedScope = app.Services.CreateScope();
+    var added = await RankSeedData.SeedAsync(seedScope.ServiceProvider.GetRequiredService<AppDbContext>());
+    app.Logger.LogInformation("Rank catalogue seeded: {Added} new ranks.", added);
+    return;
+}
+
 
 // Migrate DB using EF Core Migrations
 var autoMigrateDatabase = builder.Configuration.GetValue("Database:AutoMigrate", true);
@@ -649,6 +658,12 @@ else
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
     logger.LogInformation("Database auto-migration disabled by configuration.");
+}
+
+using (var seedScope = app.Services.CreateScope())
+{
+    var added = await RankSeedData.SeedAsync(seedScope.ServiceProvider.GetRequiredService<AppDbContext>());
+    app.Logger.LogInformation("Rank catalogue seeded: {Added} new ranks.", added);
 }
 
 if (app.Environment.IsDevelopment())
