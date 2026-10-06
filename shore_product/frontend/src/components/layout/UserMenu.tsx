@@ -41,7 +41,7 @@ export function UserMenu() {
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-white ring-2 ring-white/20">
           {initial}
         </span>
-        <span className="hidden flex-col items-start leading-tight sm:flex">
+        <span className="hidden flex-col items-start leading-tight xl:flex">
           <span className="text-[13px] font-semibold text-white">{user.username}</span>
           {user.role && <span className="text-[11px] uppercase tracking-wide text-white/60">{user.role}</span>}
         </span>

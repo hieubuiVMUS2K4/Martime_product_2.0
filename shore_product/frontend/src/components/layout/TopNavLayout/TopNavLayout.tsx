@@ -9,14 +9,14 @@ import './TopNavLayout.css';
 /*
   Khung của mọi trang sau đăng nhập: thanh điều hướng trên cùng + vùng nội dung.
 
-  Menu đọc từ components/layout/navigation.ts (nguồn duy nhất).
-  - ≥ 1536px (2xl): biểu tượng + chữ.
-  - 1024–1535px: chỉ biểu tượng (rê chuột hiện tên) để không tràn hàng.
+  Menu đọc từ components/layout/navigation.ts (nguồn duy nhất). Tên mục LUÔN hiện:
+  - ≥ 1280px (xl): biểu tượng + chữ.
+  - 1024–1279px: chỉ chữ (bỏ biểu tượng cho đủ chỗ).
   - < 1024px: nút ☰ mở menu dọc.
 */
 
 const linkBase =
-  'flex h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium transition-colors whitespace-nowrap 2xl:px-3';
+  'flex h-9 items-center gap-2 rounded-md px-2 text-[13px] font-medium transition-colors whitespace-nowrap xl:px-2.5 xl:text-sm 2xl:px-3';
 const linkIdle = 'text-white/75 hover:bg-white/10 hover:text-white';
 const linkActive = 'bg-white/15 text-white shadow-[inset_0_-2px_0_0_#e0b53a]';
 
@@ -48,11 +48,10 @@ const NavDropdown: React.FC<{ group: NavGroup }> = ({ group }) => {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={group.label}
         className={`${linkBase} ${active || open ? linkActive : linkIdle}`}
       >
-        <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-        <span className="hidden 2xl:inline">{group.label}</span>
+        <Icon className="hidden h-[18px] w-[18px] shrink-0 xl:block" aria-hidden="true" />
+        <span>{group.label}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
@@ -103,23 +102,23 @@ export const TopNavLayout: React.FC = () => {
             </span>
             <span className="leading-tight">
               <span className="block text-[15px] font-bold tracking-wide">MARITIME</span>
-              <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-white/55">Trung tâm bờ</span>
+              <span className="hidden text-[10px] font-medium uppercase tracking-[0.18em] text-white/55 xl:block">Trung tâm bờ</span>
             </span>
           </NavLink>
 
           <span className="mx-1 hidden h-7 w-px bg-white/15 lg:block" aria-hidden="true" />
 
           {/* Menu chính (desktop) */}
-          <nav className="hidden min-w-0 flex-1 items-center gap-1 lg:flex" aria-label="Điều hướng chính">
+          <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex xl:gap-1" aria-label="Điều hướng chính">
             {NAVIGATION.map(entry => {
               if (entry.kind === 'group') return <NavDropdown key={entry.label} group={entry} />;
               const Icon = entry.icon;
               const on = isLeafActive(entry.path, location);
               return (
-                <NavLink key={entry.path} to={entry.path} title={entry.label} aria-current={on ? 'page' : undefined}
+                <NavLink key={entry.path} to={entry.path} aria-current={on ? 'page' : undefined}
                   className={`${linkBase} ${on ? linkActive : linkIdle}`}>
-                  <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-                  <span className="hidden 2xl:inline">{entry.label}</span>
+                  <Icon className="hidden h-[18px] w-[18px] shrink-0 xl:block" aria-hidden="true" />
+                  <span>{entry.label}</span>
                 </NavLink>
               );
             })}
