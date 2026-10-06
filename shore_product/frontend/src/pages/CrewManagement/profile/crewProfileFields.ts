@@ -88,25 +88,20 @@ export const calcAge = (dob?: string | null) => {
 
 /** Các nhóm trường, theo thứ tự hiển thị. Chức danh / quốc tịch / bộ phận cần dữ liệu danh mục nên trang tự gắn options. */
 export const SECTIONS: SectionDef[] = [
+  // Mỗi nhóm đủ hàng 4 cột: trường thường chiếm 1 cột, chỉ trường dài (địa chỉ, ghi chú) chiếm trọn hàng.
   {
     id: 'personal',
-    title: 'Thông tin cá nhân',
+    title: 'Thông tin cá nhân & liên hệ',
     fields: [
-      { key: 'fullName', label: 'Họ và tên', kind: 'text', span: 2 },
+      { key: 'fullName', label: 'Họ và tên', kind: 'text' },
       { key: 'dateOfBirth', label: 'Ngày sinh', kind: 'date' },
       { key: 'countryId', label: 'Quốc tịch', kind: 'select' },
-      { key: 'placeOfBirth', label: 'Nơi sinh', kind: 'text', span: 2 },
-      { key: 'idCardNumber', label: 'Số CMND/CCCD', kind: 'text' },
       { key: 'maritalStatus', label: 'Tình trạng hôn nhân', kind: 'select', options: MARITAL_OPTIONS },
-    ],
-  },
-  {
-    id: 'contact',
-    title: 'Liên hệ',
-    fields: [
+      { key: 'placeOfBirth', label: 'Nơi sinh', kind: 'text' },
+      { key: 'idCardNumber', label: 'Số CMND/CCCD', kind: 'text' },
       { key: 'phoneNumber', label: 'Số điện thoại', kind: 'text' },
       { key: 'emailAddress', label: 'Email', kind: 'email' },
-      { key: 'address', label: 'Địa chỉ', kind: 'text', span: 2 },
+      { key: 'address', label: 'Địa chỉ', kind: 'text', span: 4 },
     ],
   },
   {
@@ -151,7 +146,7 @@ export const SECTIONS: SectionDef[] = [
     id: 'education',
     title: 'Học vấn',
     fields: [
-      { key: 'educationInstitution', label: 'Trường / cơ sở đào tạo', kind: 'text', span: 2, placeholder: 'VD: Đại học Hàng hải Việt Nam' },
+      { key: 'educationInstitution', label: 'Trường / cơ sở đào tạo', kind: 'text', placeholder: 'VD: Đại học Hàng hải Việt Nam' },
       { key: 'educationCourse', label: 'Chuyên ngành', kind: 'text', placeholder: 'VD: Điều khiển tàu biển' },
       { key: 'educationGraduationYear', label: 'Năm tốt nghiệp', kind: 'number', placeholder: 'VD: 2020' },
       { key: 'educationPeriodYears', label: 'Số năm học', kind: 'number', unit: 'năm', placeholder: 'VD: 4' },

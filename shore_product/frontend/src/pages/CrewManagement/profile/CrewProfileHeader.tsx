@@ -24,6 +24,9 @@ const AVATAR_FALLBACK =
 
 interface Props {
   crew: CrewMember;
+  /** Tên chức danh / tên tàu tra từ danh mục, khi API chi tiết chỉ trả mã. */
+  rankName?: string;
+  vesselName?: string;
   onBack: () => void;
   editing: boolean;
   onEdit: () => void;
@@ -37,9 +40,11 @@ interface Props {
 }
 
 export const CrewProfileHeader: React.FC<Props> = ({
-  crew, onBack, editing, onEdit,
+  crew, rankName, vesselName, onBack, editing, onEdit,
   avatarPreview, avatarPending, avatarUploading, onAvatarChoose, onAvatarSave, onAvatarCancel,
 }) => {
+  const rank = crew.rankName || rankName;
+  const vessel = crew.vesselName || vesselName;
   const status = crew.isOnboard ? STATUS.onboard : STATUS[crew.onboardStatus ?? ''] ?? STATUS.pool;
 
   const daysLeft = crew.contractEnd
@@ -51,16 +56,17 @@ export const CrewProfileHeader: React.FC<Props> = ({
         : 'text-ink';
 
   return (
-    <div className="border-b border-line bg-surface px-6 pb-4 pt-3">
+    <div className="border-b border-line bg-surface px-6 pb-5 pt-3">
+      <div className="mx-auto max-w-[1440px]">
       <button type="button" onClick={onBack}
-        className="mb-3 inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[13px] text-ink-muted hover:bg-primary-soft hover:text-primary">
+        className="mb-3 inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-sm text-ink-muted hover:bg-primary-soft hover:text-primary">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại danh sách
       </button>
 
       <div className="flex flex-wrap items-start gap-5">
         {/* Ảnh */}
         <div className="flex flex-col items-center gap-1.5">
-          <div className="relative h-28 w-[88px] overflow-hidden rounded-md bg-slate-200 ring-1 ring-line">
+          <div className="relative h-36 w-28 overflow-hidden rounded-lg bg-slate-200 ring-1 ring-line">
             <ProtectedImage src={avatarPreview || crew.avatarUrl} fallbackSrc={AVATAR_FALLBACK} alt={`Ảnh ${crew.fullName}`}
               className="h-full w-full object-cover" />
             {avatarUploading && (
@@ -86,40 +92,40 @@ export const CrewProfileHeader: React.FC<Props> = ({
         {/* Tên và thông tin chính */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-bold text-ink">{crew.fullName}</h1>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${status.tone}`}>{status.label}</span>
+            <h1 className="text-2xl font-bold text-ink">{crew.fullName}</h1>
+            <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ring-1 ${status.tone}`}>{status.label}</span>
           </div>
-          <p className="mt-0.5 text-sm text-ink-muted">
+          <p className="mt-1 text-base text-ink-muted">
             <span className="font-mono">{crew.crewId}</span>
-            {crew.rankName && <> · <span className="text-ink">{crew.rankName}</span></>}
+            {rank && <> · <span className="font-medium text-ink">{rank}</span></>}
             {crew.department && <> · Bộ phận {departmentLabel(crew.department)}</>}
           </p>
 
-          <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3 text-base">
             <div>
-              <dt className="text-xs text-ink-muted">Tàu</dt>
+              <dt className="text-[13px] text-ink-muted">Tàu</dt>
               <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-ink">
-                {crew.vesselName
-                  ? <><Ship className="h-4 w-4 text-accent" aria-hidden="true" />{crew.vesselName}</>
-                  : <span className="text-ink-light">Chưa ở tàu nào</span>}
+                {vessel
+                  ? <><Ship className="h-4 w-4 text-accent" aria-hidden="true" />{vessel}</>
+                  : <span className="text-ink-light">{crew.isOnboard ? 'Chưa rõ tàu' : 'Chưa ở tàu nào'}</span>}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-ink-muted">Ngày lên tàu</dt>
+              <dt className="text-[13px] text-ink-muted">Ngày lên tàu</dt>
               <dd className="mt-0.5 font-medium text-ink">{formatDateVi(crew.embarkDate) || '—'}</dd>
             </div>
             <div>
-              <dt className="text-xs text-ink-muted">Hết hạn hợp đồng</dt>
+              <dt className="text-[13px] text-ink-muted">Hết hạn hợp đồng</dt>
               <dd className={`mt-0.5 flex items-center gap-1.5 font-medium ${contractTone}`}>
                 {daysLeft !== null && daysLeft <= 60 && <CalendarClock className="h-4 w-4" aria-hidden="true" />}
                 {formatDateVi(crew.contractEnd) || '—'}
-                {daysLeft !== null && daysLeft < 0 && <span className="text-xs">(đã quá hạn)</span>}
-                {daysLeft !== null && daysLeft >= 0 && daysLeft <= 60 && <span className="text-xs">(còn {daysLeft} ngày)</span>}
+                {daysLeft !== null && daysLeft < 0 && <span className="text-[13px]">(đã quá hạn)</span>}
+                {daysLeft !== null && daysLeft >= 0 && daysLeft <= 60 && <span className="text-[13px]">(còn {daysLeft} ngày)</span>}
               </dd>
             </div>
             {crew.phoneNumber && (
               <div>
-                <dt className="text-xs text-ink-muted">Điện thoại</dt>
+                <dt className="text-[13px] text-ink-muted">Điện thoại</dt>
                 <dd className="mt-0.5 font-medium text-ink">{crew.phoneNumber}</dd>
               </div>
             )}
@@ -130,6 +136,7 @@ export const CrewProfileHeader: React.FC<Props> = ({
         {!editing && (
           <Button variant="primary" icon={<Pencil className="h-4 w-4" />} onClick={onEdit}>Sửa hồ sơ</Button>
         )}
+      </div>
       </div>
     </div>
   );

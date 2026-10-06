@@ -116,86 +116,96 @@ export const CrewBasicInfo: React.FC<Props> = ({
 
   const SPAN: Record<number, string> = { 1: '', 2: 'sm:col-span-2', 3: 'sm:col-span-2 lg:col-span-3', 4: 'sm:col-span-2 lg:col-span-4' };
 
+  /*
+    Mỗi trường là một ô có khung, lưới kẻ như tờ phiếu (nền khung + gap-px). Hàng cuối thiếu
+    ô thì bù ô trống, để lưới không bị "hở" một mảng xám. Số ô bù tính riêng cho màn 2 cột
+    và màn 4 cột.
+  */
+  const fillers = (spans: number[]) => {
+    const used2 = spans.reduce((n, sp) => n + Math.min(sp, 2), 0);
+    const used4 = spans.reduce((n, sp) => n + Math.min(sp, 4), 0);
+    return { sm: (2 - (used2 % 2)) % 2, lg: (4 - (used4 % 4)) % 4 };
+  };
+
+  const labelCls = 'mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-ink-muted';
+  const valueCls = 'min-h-[24px] whitespace-pre-line break-words text-[15px] leading-6';
+  const cellCls = 'min-w-0 bg-surface px-4 py-3';
+
   return (
-    <div className="flex flex-col gap-3">
-      {SECTIONS.map(section => (
-        <section key={section.id} className="rounded-lg border border-line bg-surface">
-          <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-2.5">
-            <h2 className="text-sm font-semibold text-primary">{section.title}</h2>
-            {section.id === 'employment' && editing && (
-              <button type="button" onClick={() => onManualOverrideChange(!manualOverride)}
-                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium ${
-                  manualOverride ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-line text-ink-muted hover:bg-primary-soft'
-                }`}>
-                {manualOverride ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                {manualOverride ? 'Đang sửa thủ công' : 'Sửa thủ công ngày lên/xuống tàu'}
-              </button>
-            )}
-          </header>
-
-          {section.id === 'employment' && editing && manualOverride && (
-            <div className="mx-5 mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>
-                Ngày lên/xuống tàu và trạng thái trên tàu bình thường được cập nhật qua quy trình gán lên tàu / duyệt xuống tàu
-                và sổ thuyền viên. Chỉ sửa tay khi cần chỉnh lại dữ liệu nhập sai.
-              </span>
-            </div>
-          )}
-
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">
-            {section.fields.map(f => {
-              const change = changeMap[f.key];
-              const id = `crew-field-${f.key}`;
-              const shown = displayValue(f);
-              return (
-                <div key={f.key} className={`min-w-0 ${SPAN[f.span ?? 1]}`}>
-                  <dt>
-                    <label htmlFor={editing ? id : undefined} className="mb-1 flex items-center gap-1.5 text-[13px] text-ink-muted">
-                      {f.label}
-                      {f.managed && <Lock className="h-3 w-3 text-ink-light" aria-label="Do quy trình quản lý" />}
-                    </label>
-                  </dt>
-                  <dd>
-                    {editing ? renderInput(f, id, !!change) : (
-                      <div className={`min-h-[22px] whitespace-pre-line break-words text-sm ${
-                        change ? 'rounded bg-red-50 px-1.5 font-semibold text-red-800 ring-1 ring-red-300' : 'text-ink'
-                      }`}>
-                        {shown ?? <span className="text-ink-light">—</span>}
-                      </div>
-                    )}
-                    {change && (
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-red-700">
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
-                        Tàu đã sửa: <s className="text-ink-light">{change.oldValue || '(trống)'}</s> → <strong>{change.newValue || '(trống)'}</strong>
-                      </p>
-                    )}
-                  </dd>
+    <div className="mx-auto flex max-w-[1440px] flex-col gap-4">
+      {SECTIONS.map(section => {
+        const spans = section.fields.map(f => f.span ?? 1);
+        const fill = fillers(spans);
+        return (
+          <section key={section.id} className="overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
+            <header className="flex items-center justify-between gap-3 border-b border-line bg-primary-soft px-4 py-3">
+              <h2 className="text-base font-semibold text-primary">{section.title}</h2>
+              {section.id === 'employment' && editing && (
+                <div className="flex items-center gap-3">
+                {manualOverride && (
+                  <label className="flex items-center gap-2 text-[13px] font-medium text-amber-800">
+                    <input type="checkbox" className="h-4 w-4 accent-primary" checked={!!edited.isOnboard}
+                      onChange={e => set('isOnboard', e.target.checked)} />
+                    Đang ở trên tàu
+                  </label>
+                )}
+                <button type="button" onClick={() => onManualOverrideChange(!manualOverride)}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[13px] font-medium ${
+                    manualOverride ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-line bg-surface text-ink-muted hover:text-primary'
+                  }`}>
+                  {manualOverride ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  {manualOverride ? 'Đang sửa thủ công' : 'Sửa thủ công ngày lên/xuống tàu'}
+                </button>
                 </div>
-              );
-            })}
+              )}
+            </header>
 
-            {section.id === 'employment' && (
-              <div className="min-w-0">
-                <dt className="mb-1 flex items-center gap-1.5 text-[13px] text-ink-muted">
-                  Trạng thái trên tàu <Lock className="h-3 w-3 text-ink-light" aria-label="Do quy trình quản lý" />
-                </dt>
-                <dd>
-                  {editing && manualOverride ? (
-                    <label className="flex h-[38px] items-center gap-2 text-sm text-ink">
-                      <input type="checkbox" className="h-4 w-4 accent-primary" checked={!!edited.isOnboard}
-                        onChange={e => set('isOnboard', e.target.checked)} />
-                      Đang ở trên tàu
-                    </label>
-                  ) : (
-                    <span className="text-sm text-ink">{edited.isOnboard ? 'Đang ở trên tàu' : 'Ở bờ'}</span>
-                  )}
-                </dd>
+            {section.id === 'employment' && editing && manualOverride && (
+              <div className="flex items-start gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>
+                  Ngày lên/xuống tàu và trạng thái trên tàu bình thường được cập nhật qua quy trình gán lên tàu / duyệt xuống tàu
+                  và sổ thuyền viên. Chỉ sửa tay khi cần chỉnh lại dữ liệu nhập sai.
+                </span>
               </div>
             )}
-          </dl>
-        </section>
-      ))}
+
+            <dl className="grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
+              {section.fields.map(f => {
+                const change = changeMap[f.key];
+                const id = `crew-field-${f.key}`;
+                const shown = displayValue(f);
+                return (
+                  <div key={f.key} className={`${cellCls} ${SPAN[f.span ?? 1]} ${change ? 'bg-red-50' : ''}`}>
+                    <dt>
+                      <label htmlFor={editing ? id : undefined} className={labelCls}>
+                        {f.label}
+                        {f.managed && <Lock className="h-3.5 w-3.5 text-ink-light" aria-label="Do quy trình quản lý" />}
+                      </label>
+                    </dt>
+                    <dd>
+                      {editing ? renderInput(f, id, !!change) : (
+                        <div className={`${valueCls} ${change ? 'font-semibold text-red-800' : 'font-medium text-ink'}`}>
+                          {shown ?? <span className="font-normal text-ink-light">—</span>}
+                        </div>
+                      )}
+                      {change && (
+                        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13px] text-red-700">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                          Tàu đã sửa: <s className="text-ink-light">{change.oldValue || '(trống)'}</s> → <strong>{change.newValue || '(trống)'}</strong>
+                        </p>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
+
+              {Array.from({ length: fill.sm }, (_, i) => <div key={`sm${i}`} aria-hidden="true" className="hidden bg-surface sm:block lg:hidden" />)}
+              {Array.from({ length: fill.lg }, (_, i) => <div key={`lg${i}`} aria-hidden="true" className="hidden bg-surface lg:block" />)}
+            </dl>
+          </section>
+        );
+      })}
     </div>
   );
 };

@@ -5,7 +5,7 @@ import {
   ArrowLeft, Upload, CheckCircle, XCircle, AlertTriangle,
   Ship, MapPin, Calendar, Eye, ClipboardList, FileCheck, History, ScrollText, Plus, Pencil, Trash2,
 } from 'lucide-react';
-import { useCrewDetail, useCrewCertificates } from '../../hooks/useCrew';
+import { useCrewDetail, useCrewCertificates, useVessels } from '../../hooks/useCrew';
 import { useCrewOnboarding, useCrewDocumentSubmissions, useCrewStatusHistory, useCrewAuditLog } from '../../hooks/useCrewManagement';
 import { crewApi, certificateApi, referenceApi } from '../../services/crew.service';
 import { useToast } from '../../components/common/Toast';
@@ -54,6 +54,7 @@ export const CrewDetailPage: React.FC = () => {
   editingRef.current = editing;
   const [ranks, setRanks] = useState<Rank[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
+  const { vessels } = useVessels();
 
   // Edge changes tracking
   const edgeChanges: { field: string; oldValue: string; newValue: string; changedAt: string }[] = React.useMemo(() => {
@@ -501,6 +502,8 @@ export const CrewDetailPage: React.FC = () => {
     <div className="min-h-screen bg-gray-100">
       <CrewProfileHeader
         crew={crew}
+        rankName={ranks.find(r => r.id === crew.rankId)?.rankName}
+        vesselName={vessels.find(v => v.id === crew.vesselId)?.name}
         onBack={async () => {
           if (isDirty && !(await ask('Rời trang và bỏ các thay đổi chưa lưu?', { title: 'Chưa lưu', confirmLabel: 'Rời trang', variant: 'warning' }))) return;
           navigate(vesselId ? `/vessels/${vesselId}` : '/crew');
@@ -591,7 +594,7 @@ export const CrewDetailPage: React.FC = () => {
       </div>
 
       {/* ── Content ── */}
-      <div className="space-y-3 p-4">
+      <div className="space-y-4 p-5">
 
         {/* ════════ BASIC DATA ════════ */}
         {activeTab === 'basic-data' && (
