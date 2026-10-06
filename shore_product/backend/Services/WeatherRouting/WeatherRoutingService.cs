@@ -797,8 +797,3 @@ public sealed class WeatherRoutingService : IWeatherRoutingService
         }
     }
 }
-
-
-
-
-

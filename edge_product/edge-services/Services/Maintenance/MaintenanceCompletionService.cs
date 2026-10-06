@@ -601,17 +601,17 @@ public class MaintenanceCompletionService
 
     private void CalculateNextDueDate(MaintenanceSchedule schedule, EquipmentAsset asset)
     {
-        if (schedule.IntervalType == "CALENDAR" && schedule.IntervalDays.HasValue)
+        if (schedule.IntervalType == "CALENDAR" && MaintenanceCalendar.HasInterval(schedule))
         {
             // Use LastExecutedAt (completion date) as base for next interval
             // This ensures interval consistency regardless of late completion
             var baseDate = schedule.LastExecutedAt ?? DateTime.UtcNow;
-            schedule.NextDueDate = baseDate.AddDays(schedule.IntervalDays.Value);
+            schedule.NextDueDate = MaintenanceCalendar.AddInterval(schedule, baseDate);
             
             _logger.LogInformation(
                 "Schedule {Code}: Next due calculated from {Base} + {Interval} days = {NextDue}",
                 schedule.ScheduleCode, baseDate.ToString("yyyy-MM-dd"), 
-                schedule.IntervalDays.Value, schedule.NextDueDate?.ToString("yyyy-MM-dd"));
+                schedule.IntervalDays, schedule.NextDueDate?.ToString("yyyy-MM-dd"));
         }
         else if (schedule.IntervalType == "RUNNING_HOURS" && schedule.IntervalHours.HasValue)
         {
@@ -636,10 +636,10 @@ public class MaintenanceCompletionService
             DateTime? calendarDue = null;
             DateTime? runningHoursDue = null;
 
-            if (schedule.IntervalDays.HasValue)
+            if (MaintenanceCalendar.HasInterval(schedule))
             {
                 var baseDate = schedule.LastExecutedAt ?? DateTime.UtcNow;
-                calendarDue = baseDate.AddDays(schedule.IntervalDays.Value);
+                calendarDue = MaintenanceCalendar.AddInterval(schedule, baseDate);
             }
 
             if (schedule.IntervalHours.HasValue)

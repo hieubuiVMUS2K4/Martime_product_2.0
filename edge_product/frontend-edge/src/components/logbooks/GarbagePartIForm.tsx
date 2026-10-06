@@ -33,9 +33,9 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
       else if (cat.code === 'D') { name = 'Dầu ăn'; description = 'Dầu ăn có thể ăn được'; }
       else if (cat.code === 'E') { name = 'Tro lò đốt'; description = 'Tro từ lò thiêu chất thải'; }
       else if (cat.code === 'F') { name = 'Chất thải khai thác'; description = 'Vật liệu bảo dưỡng/vệ sinh'; }
-      else if (cat.code === 'G') { name = 'Dư lượng hàng hóa (không HME)'; description = 'Dư lượng hàng hóa không gây hại - đã làm sạch'; }
-      else if (cat.code === 'H') { name = 'Dư lượng hàng hóa (HME)'; description = 'Dư lượng hàng hóa gây hại - đã làm sạch'; }
-      else if (cat.code === 'I') { name = 'Xác động vật'; description = 'Động vật chết'; }
+      else if (cat.code === 'G') { name = 'Xác động vật'; description = 'Xác động vật được vận chuyển như hàng hóa'; }
+      else if (cat.code === 'H') { name = 'Ngư cụ'; description = 'Ngư cụ, dây câu và vật liệu tổng hợp liên quan'; }
+      else if (cat.code === 'I') { name = 'Rác thải điện tử'; description = 'Thiết bị điện, điện tử và các bộ phận bị thải bỏ'; }
     }
     return { ...cat, name, description };
   });
@@ -44,10 +44,12 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
   const seaAmountDisabled = selectedCategory && !selectedCategory.seaDischarge;
 
   return (
-    <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm mb-6">
-      <h2 className="text-blue-600 font-sans text-xl font-bold mb-6">
+    <div className="bg-white border border-gray-200 rounded overflow-hidden mb-4">
+      <h2 className="px-4 py-3 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 font-semibold">
         {t('logbooks.garbageRecord.newPartI')}
       </h2>
+
+      <div className="p-4">
 
       {/* Date & Time */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -88,10 +90,10 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
                 console.log('Selected category:', cat.code, cat.name);
                 onCategorySelect(cat.code, cat.name);
               }}
-              className={`p-4 border-4 transition-all text-left cursor-pointer relative ${
+              className={`p-3 border rounded transition-colors text-left cursor-pointer relative ${
                 form.category === cat.code
-                  ? 'border-blue-600 bg-blue-100 shadow-lg scale-105'
-                  : 'border-gray-200 hover:border-blue-400 hover:shadow-md'
+                  ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                  : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
               }`}
             >
               {form.category === cat.code && (
@@ -122,7 +124,7 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
           ))}
         </div>
         {selectedCategory && (
-          <div className="mt-4 p-3 bg-green-50 border-2 border-green-500 rounded">
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
             <div className="flex items-center gap-2">
               <span className="text-green-600 text-xl">✓</span>
               <div>
@@ -144,8 +146,8 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
       </div>
 
       {/* 3-Column Amounts */}
-      <div className="mb-6 p-4 border-2 border-blue-200 bg-blue-50/30 rounded">
-        <h3 className="text-blue-600 font-sans font-bold mb-4">{t('logbooks.garbageRecord.estimatedAmount')}</h3>
+      <div className="mb-6 p-4 border border-gray-200 bg-gray-50/50 rounded">
+        <h3 className="text-sm text-gray-700 font-semibold mb-4">{t('logbooks.garbageRecord.estimatedAmount')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <MaritimeInput
@@ -182,7 +184,7 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
 
       {/* Conditional: Position for Sea Discharge */}
       {parseFloat(form.amountToSea) > 0 && (
-        <div className="mb-6 p-4 border-2 border-yellow-500 bg-yellow-50 rounded">
+        <div className="mb-6 p-4 border border-amber-200 bg-amber-50 rounded">
           <h3 className="text-yellow-700 font-sans font-bold mb-3 flex items-center gap-2">
             <span>⚠</span>
             {t('logbooks.garbageRecord.positionRequiredSea')}
@@ -206,7 +208,7 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
 
       {/* Conditional: Reception Facility Details */}
       {parseFloat(form.amountToReception) > 0 && (
-        <div className="mb-6 p-4 border-2 border-green-500 bg-green-50 rounded">
+        <div className="mb-6 p-4 border border-green-200 bg-green-50 rounded">
           <h3 className="text-green-700 font-sans font-bold mb-3">{t('logbooks.garbageRecord.receptionDetails')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MaritimeInput
@@ -233,7 +235,7 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
 
       {/* Conditional: Incineration Details */}
       {parseFloat(form.amountIncinerated) > 0 && (
-        <div className="mb-6 p-4 border-2 border-orange-500 bg-orange-50 rounded">
+        <div className="mb-6 p-4 border border-orange-200 bg-orange-50 rounded">
           <h3 className="text-orange-700 font-sans font-bold mb-3">{t('logbooks.garbageRecord.incinerationDetails')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MaritimeInput
@@ -268,7 +270,7 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
       </div>
 
       {/* Exceptional Discharge Section */}
-      <div className="mb-4 p-4 border-2 border-orange-200 bg-orange-50/30 rounded">
+      <div className="mb-4 p-4 border border-gray-200 bg-gray-50/50 rounded">
         <h3 className="text-orange-700 font-sans font-semibold mb-3">{t('logbooks.garbageRecord.exceptionalDischarge')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MaritimeInput
@@ -289,13 +291,13 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
       </div>
 
       <div className="mb-6">
-        <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
+        <label className="text-xs text-gray-600 font-medium block mb-1.5">
           {t('logbooks.garbageRecord.remarks')}
         </label>
         <textarea
           value={form.remarks}
           onChange={e => onChange('remarks', e.target.value)}
-          className="w-full bg-white border-2 border-gray-200 text-gray-900 font-sans p-4 focus:border-blue-500 focus:outline-none h-20 resize-none"
+          className="w-full bg-white border border-gray-300 rounded text-sm text-gray-900 px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none h-20 resize-none"
           placeholder="Additional notes..."
         />
       </div>
@@ -305,17 +307,18 @@ export const GarbagePartIForm: React.FC<PartIFormProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
+          className="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-medium rounded hover:bg-gray-50"
         >
           {t('common.cancel')}
         </button>
         <button
           type="button"
           onClick={onSubmit}
-          className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
+          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
         >
           {t('logbooks.garbageRecord.saveEntry')}
         </button>
+      </div>
       </div>
     </div>
   );

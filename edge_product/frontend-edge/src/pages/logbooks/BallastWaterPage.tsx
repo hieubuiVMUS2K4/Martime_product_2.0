@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
@@ -255,7 +256,7 @@ export const BallastWaterPage: React.FC = () => {
     <LogbookGrid 
       title={t('logbooks.ballastWater.bwmTitle')}
       actions={
-        <button
+        <PermissionGate permission="logbooks.ballast.create"><button
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -290,7 +291,7 @@ export const BallastWaterPage: React.FC = () => {
           className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.ballastWater.newEntry')}
-        </button>
+        </button></PermissionGate>
       }
     >
       {showForm && (
@@ -572,12 +573,12 @@ export const BallastWaterPage: React.FC = () => {
                 >
                   {t('common.back')}
                 </button>
-                <button
+                <PermissionGate permission={editingId ? 'logbooks.ballast.update' : 'logbooks.ballast.create'}><button
                   onClick={handleSave}
                   className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700 "
                 >
                   {t('voyageLog.saveEntry')}
-                </button>
+                </button></PermissionGate>
               </div>
             </div>
           </div>
@@ -665,7 +666,7 @@ export const BallastWaterPage: React.FC = () => {
                     <div className="flex gap-2">
                       {!isSigned && (
                         <>
-                          <button
+                          <PermissionGate permission="logbooks.ballast.update"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartEdit(entry);
@@ -673,8 +674,8 @@ export const BallastWaterPage: React.FC = () => {
                             className="text-amber-600 hover:underline font-sans text-sm font-semibold"
                           >
                             {t('common.edit') || 'EDIT'}
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="logbooks.ballast.approve"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSignEntry(entry.id, false);
@@ -682,7 +683,7 @@ export const BallastWaterPage: React.FC = () => {
                             className="text-green-600 hover:underline font-sans text-sm font-semibold"
                           >
                             {t('common.sign') || 'SIGN'}
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -728,12 +729,12 @@ export const BallastWaterPage: React.FC = () => {
               >
                 {t('common.cancel')}
               </button>
-              <button
+              <PermissionGate permission="logbooks.ballast.approve"><button
                 onClick={confirmSign}
                 className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
               >
                 ✓ {t('logbooks.deckLog.sign')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

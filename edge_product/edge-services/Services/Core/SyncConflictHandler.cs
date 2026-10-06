@@ -1,4 +1,4 @@
-﻿using MaritimeEdge.Data;
+using MaritimeEdge.Data;
 using MaritimeEdge.Models;
 using Maritime.Shared.DTOs.Sync;
 using Maritime.Shared.Interfaces;
@@ -43,6 +43,7 @@ public class SyncConflictHandler : ISyncConflictHandler
         // Danh mục cảng — bờ làm chủ, dùng chung cho mọi tàu.
         // Thiếu dòng này thì cảng bờ phát xuống bị vứt ở "Unknown table from shore".
         ["port"] = typeof(Port),
+        ["report_type"] = typeof(ReportType),
 
         // Crew entities (field-level merge)
         ["crew_member"] = typeof(Maritime.Shared.Models.Crew.CrewMember),
@@ -92,7 +93,7 @@ public class SyncConflictHandler : ISyncConflictHandler
     {
         "certificate", "country", "rank", "rank_certificate", "country_certificate",
         "material_category", "material_item_catalog",
-        "port",
+        "port", "report_type",
         "ism_element", "ism_elements", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates"
     };
 
@@ -163,10 +164,14 @@ public class SyncConflictHandler : ISyncConflictHandler
     public async Task HandleIncomingAsync(
         EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
     {
+        if (item.TableName == "vessel_material_definition")
+        {
+            await ApplyVesselMaterialAsync(context, item, token);
+            return;
+        }
         if (!_tableEntityMap.TryGetValue(item.TableName, out var entityType))
         {
-            _logger.LogWarning("Unknown table from shore: {Table}", item.TableName);
-            return;
+            throw new InvalidOperationException($"Unsupported Shore sync table: {item.TableName}. Update the Edge backend before acknowledging this item.");
         }
 
         var action = item.ActionType?.ToUpperInvariant() ?? "CREATE";
@@ -197,13 +202,63 @@ public class SyncConflictHandler : ISyncConflictHandler
             case "CLEAR_EDGE_CHANGES":
                 await HandleClearEdgeChangesAsync(context, entityType, item);
                 break;
+            default:
+                throw new InvalidOperationException($"Unsupported Shore sync action: {action}");
         }
+    }
+
+    private static async Task ApplyVesselMaterialAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
+    {
+        var incoming = JsonSerializer.Deserialize<VesselMaterialDefinition>(item.Payload, _jsonOptions)
+            ?? throw new InvalidOperationException("Invalid vessel material payload");
+        if (incoming.Id == Guid.Empty || incoming.CatalogId == Guid.Empty || incoming.VesselId == Guid.Empty ||
+            item.RecordKey != incoming.Id.ToString() || string.IsNullOrWhiteSpace(incoming.ItemCode) ||
+            string.IsNullOrWhiteSpace(incoming.MaterialItemCode) || string.IsNullOrWhiteSpace(incoming.Name))
+            throw new InvalidOperationException("Invalid vessel material identity");
+        var catalog = await context.MaterialCatalogItems.AsTracking().SingleOrDefaultAsync(c => c.Id == incoming.CatalogId, token);
+        if (catalog != null && catalog.UpdatedAt > incoming.UpdatedAt) return;
+        if (catalog == null)
+        {
+            catalog = new MaterialCatalogItem { Id = incoming.CatalogId, ItemCode = incoming.MaterialItemCode };
+            context.MaterialCatalogItems.Add(catalog);
+        }
+        catalog.Name = incoming.Name;
+        catalog.UnitPrice = incoming.UnitCost;
+        catalog.IsActive = incoming.IsActive;
+        catalog.UpdatedAt = incoming.UpdatedAt;
+        var ship = await context.MaterialItems.AsTracking().SingleOrDefaultAsync(s => s.Id == incoming.Id, token);
+        if (ship == null)
+        {
+            ship = new MaterialItem { Id = incoming.Id, IsSynced = true };
+            context.MaterialItems.Add(ship);
+        }
+        else if (ship.MaterialItemCode != incoming.MaterialItemCode && !string.IsNullOrEmpty(ship.MaterialItemCode)
+            && !await context.MaterialItems.AnyAsync(s => s.Id != ship.Id && s.MaterialItemCode == ship.MaterialItemCode, token))
+        {
+            var previousCatalog = await context.MaterialCatalogItems.SingleOrDefaultAsync(c => c.ItemCode == ship.MaterialItemCode, token);
+            if (previousCatalog != null)
+                foreach (var link in await context.MaterialItemEquipments.AsTracking().Where(l => l.MaterialItemId == previousCatalog.Id).ToListAsync(token))
+                    link.MaterialItemId = incoming.CatalogId;
+        }
+        ship.ItemCode = incoming.ItemCode;
+        ship.Name = incoming.Name;
+        ship.MaterialItemCode = incoming.MaterialItemCode;
+        ship.Unit = incoming.Unit;
+        ship.Specification = incoming.Specification;
+        ship.Manufacturer = incoming.Manufacturer;
+        ship.PartNumber = incoming.PartNumber;
+        ship.Supplier = incoming.Supplier;
+        ship.Notes = incoming.Notes;
+        ship.UnitCost = incoming.UnitCost;
+        ship.IsActive = incoming.IsActive;
+        // Ignore legacy catalog payload links as well: assignments are maintained on Edge.
+        // Keep quantities, min/max stock and pending operational uploads owned by Edge.
     }
 
     private async Task HandleCreateAsync(EdgeDbContext context, Type entityType, SyncQueueItemDto item)
     {
         var entity = JsonSerializer.Deserialize(item.Payload, entityType, _jsonOptions);
-        if (entity == null) return;
+        if (entity == null) throw new InvalidOperationException("Invalid Shore entity payload");
 
         // Check if already exists
         var existing = await FindByKeyAsync(context, entityType, item.RecordKey, item.Payload);
@@ -217,7 +272,7 @@ public class SyncConflictHandler : ISyncConflictHandler
             }
             else
             {
-                MergeFromShore(existing, entity, item.TableName);
+                MergeFromShore(existing, entity, item.TableName, item.Payload);
             }
             MarkSynced(existing, item);
             return;
@@ -267,6 +322,17 @@ public class SyncConflictHandler : ISyncConflictHandler
         var existing = await FindByKeyAsync(context, entityType, item.RecordKey, item.Payload);
         if (existing == null)
         {
+            if (item.ActionType.Equals("UPDATE", StringComparison.OrdinalIgnoreCase))
+            {
+                // Older Shore versions labelled full snapshots UPDATE. Preserve those,
+                // but never manufacture a row from an incomplete delta.
+                using var document = JsonDocument.Parse(item.Payload);
+                var fields = document.RootElement.EnumerateObject().Select(p => p.Name.Replace("_", "")).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var required = context.Model.FindEntityType(entityType)!.GetProperties().Where(p => !p.IsNullable && p.PropertyInfo != null &&
+                    p.PropertyInfo.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), true).Length == 0);
+                if (required.Any(p => !fields.Contains(p.Name.Replace("_", ""))))
+                    throw new InvalidOperationException("dependency_missing: Shore must send a full snapshot before UPDATE");
+            }
             // Doesn't exist on edge → treat as create
             await HandleCreateAsync(context, entityType, item);
             return;
@@ -278,7 +344,13 @@ public class SyncConflictHandler : ISyncConflictHandler
             var incoming = JsonSerializer.Deserialize(item.Payload, entityType, _jsonOptions);
             if (incoming != null)
             {
-                context.Entry(existing).CurrentValues.SetValues(incoming);
+                using var patch = JsonDocument.Parse(item.Payload);
+                foreach (var field in patch.RootElement.EnumerateObject())
+                {
+                    var property = entityType.GetProperties().FirstOrDefault(p => p.Name.Equals(field.Name, StringComparison.OrdinalIgnoreCase));
+                    if (property?.CanWrite == true && property.Name != "Id" && IsCopyableScalar(property))
+                        property.SetValue(existing, property.GetValue(incoming));
+                }
                 MarkSynced(existing, item);
             }
             return;
@@ -294,7 +366,7 @@ public class SyncConflictHandler : ISyncConflictHandler
                 var crewName = string.IsNullOrWhiteSpace(existingCrew.FullName) ? item.RecordKey : existingCrew.FullName;
 
                 var snapshot = SnapshotTrackedFields(existing);
-                MergeFromShore(existing, incomingEntity, item.TableName);
+                MergeFromShore(existing, incomingEntity, item.TableName, item.Payload);
                 MarkSynced(existing, item);
 
                 var fieldDiffs = DetectFieldDiffs(snapshot, existing);
@@ -307,7 +379,7 @@ public class SyncConflictHandler : ISyncConflictHandler
             }
             else
             {
-                MergeFromShore(existing, incomingEntity, item.TableName);
+                MergeFromShore(existing, incomingEntity, item.TableName, item.Payload);
                 MarkSynced(existing, item);
             }
         }
@@ -315,6 +387,20 @@ public class SyncConflictHandler : ISyncConflictHandler
 
     private async Task HandleDeleteAsync(EdgeDbContext context, Type entityType, SyncQueueItemDto item)
     {
+        // Older Edge seeds used local GUIDs for the same logical Shore procedure.
+        // A full tombstone identifies that exact version without deleting newer revisions.
+        if (entityType == typeof(SmsProcedure))
+        {
+            var deleted = JsonSerializer.Deserialize<SmsProcedure>(item.Payload, _jsonOptions);
+            if (deleted != null && !string.IsNullOrWhiteSpace(deleted.ProcedureCode)
+                && !string.IsNullOrWhiteSpace(deleted.Version) && !string.IsNullOrWhiteSpace(deleted.Title))
+            {
+                var copies = await context.SmsProcedures.AsTracking().Where(p =>
+                    p.ProcedureCode == deleted.ProcedureCode && p.Version == deleted.Version
+                    && p.Title == deleted.Title).ToListAsync();
+                context.SmsProcedures.RemoveRange(copies);
+            }
+        }
         var existing = await FindByKeyAsync(context, entityType, item.RecordKey, item.Payload);
         if (existing == null) return;
 
@@ -368,8 +454,10 @@ public class SyncConflictHandler : ISyncConflictHandler
         "Conduct", "MasterName",
     };
 
-    private void MergeFromShore(object existing, object incoming, string tableName)
+    private void MergeFromShore(object existing, object incoming, string tableName, string payload)
     {
+        using var document = JsonDocument.Parse(payload);
+        var fields = document.RootElement.EnumerateObject().Select(p => p.Name.Replace("_", "")).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var props = existing.GetType().GetProperties();
 
         // Đọc trước trạng thái đích để mọi thuộc tính trong vòng lặp đều biết bờ có đóng kỳ hay không
@@ -381,11 +469,10 @@ public class SyncConflictHandler : ISyncConflictHandler
         {
             if (prop.GetSetMethod() == null) continue;
             if (prop.Name == "Id") continue; // Never overwrite PK
-            if (!IsCopyableScalar(prop)) continue; // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !fields.Contains(prop.Name)) continue; // Never touch navigation properties
 
             var incomingValue = prop.GetValue(incoming);
-            if (incomingValue == null) continue;
-            if (incomingValue is string es && es.Length == 0) continue;
+            // Field presence distinguishes an explicit null/empty value from an omitted delta field.
 
             bool shouldApply = true;
 

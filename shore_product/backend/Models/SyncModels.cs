@@ -9,7 +9,7 @@ namespace ProductApi.Models;
 // Edge has full telemetry, Shore only needs business-critical data
 // ============================================================
 
-// REMOVED: NmeaRawData - Raw NMEA only needed for Edge debugging
+// Additional sensor mirrors are defined in SensorAndDeferralSyncModels.cs.
 
 /// <summary>
 /// GPS/GNSS Position Data
@@ -70,7 +70,7 @@ public class AisData
     public string OriginNode { get; set; } = "SHIP_01";
 }
 
-// REMOVED: NavigationData - Real-time navigation data only needed at Edge
+// Additional sensor mirrors are defined in SensorAndDeferralSyncModels.cs.
 // Shore gets navigation summary in NoonReport (once per day)
 
 /// <summary>
@@ -184,7 +184,7 @@ public class GeneratorData
     public string OriginNode { get; set; } = "SHIP_01";
 }
 
-// REMOVED: EnvironmentalData - Real-time weather data only needed at Edge
+// Additional sensor mirrors are defined in SensorAndDeferralSyncModels.cs.
 // Shore gets environmental summary in NoonReport (once per day)
 
 /// <summary>

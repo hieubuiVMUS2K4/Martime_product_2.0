@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Package, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { downloadMaterialCatalogTemplate } from './materialCatalogTemplate';
+import { Plus, Pencil, Trash2, Loader2, Package, X, ChevronLeft, ChevronRight, Upload, Download } from 'lucide-react';
+import { ImportMaterialCatalogModal } from './ImportMaterialCatalogModal';
 import { materialCatalogService, materialService, type MaterialCatalogItem, type MaterialCatalogPayload } from '../../../services/materialService';
 import { useToast } from '../../../components/common/Toast';
 import { useConfirmDialog } from '../../../components/common/ConfirmDialog';
@@ -10,6 +13,7 @@ const emptyForm: MaterialCatalogPayload = { itemCode: '', name: '', categoryId: 
 
 /* ═══════════════ Tab: Vật tư (material catalog items) ═══════════════ */
 export const MaterialItemsTab: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
   const { confirm } = useConfirmDialog();
 
@@ -17,6 +21,7 @@ export const MaterialItemsTab: React.FC = () => {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   /* filters */
   const [searchCode, setSearchCode] = useState('');
@@ -88,6 +93,14 @@ export const MaterialItemsTab: React.FC = () => {
     setForm({ ...emptyForm, categoryId: categories[0]?.id ?? 0 });
     setShowForm(true);
   }, [categories]);
+  useEffect(() => {
+    if (loading || searchParams.get('action') !== 'create') return;
+    openCreate();
+    const next = new URLSearchParams(searchParams);
+    next.delete('action');
+    setSearchParams(next, { replace: true });
+  }, [loading, searchParams, setSearchParams, openCreate]);
+
   const openEdit = useCallback((i: MaterialCatalogItem) => {
     setEditing(i);
     setForm({ itemCode: i.itemCode, name: i.name, categoryId: i.categoryId, unitPrice: i.unitPrice ?? null });
@@ -133,10 +146,13 @@ export const MaterialItemsTab: React.FC = () => {
           <span className="cl-count-badge">{items.length}</span>
         </div>
         <div className="cl-header-right">
+          <button className="cl-btn" onClick={downloadMaterialCatalogTemplate}><Download size={13} /> Tải mẫu import</button>
+          <button className="cl-btn" onClick={() => setShowImport(true)}><Upload size={13} /> Import vật tư</button>
           <button className="cl-btn cl-btn--primary" onClick={openCreate}><Plus size={13} /> Thêm vật tư</button>
         </div>
       </div>
 
+      {showImport && <ImportMaterialCatalogModal onClose={() => setShowImport(false)} onSuccess={() => { toast.success('Đã import danh mục vật tư'); fetchData(); }} />}
       {/* Table */}
       <div className="cl-table-card">
         <table className="cl-table">

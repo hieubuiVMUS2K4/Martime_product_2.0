@@ -27,7 +27,6 @@ services:
     command: ["postgres", "-c", "timezone=${TZ:-UTC}"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${EDGE_POSTGRES_USER} -d ${EDGE_POSTGRES_DB}"]
       interval: 15s
@@ -72,6 +71,10 @@ services:
       ShoreAPI__ApiKey: ${SHORE_API_KEY}
       ShoreAPI__Enabled: ${SHORE_API_ENABLED:-true}
       Sync__Enabled: ${EDGE_SYNC_ENABLED:-true}
+      Sync__DailyByteBudgets__Satellite_Iridium: ${EDGE_IRIDIUM_DAILY_BYTES:-0}
+      Sync__DailyByteBudgets__Satellite_VSAT: ${EDGE_VSAT_DAILY_BYTES:-0}
+      Sync__MaxChunksPerCycle: ${EDGE_SYNC_CHUNKS_PER_CYCLE:-1}
+      Sync__MaxFilesPerCycle: ${EDGE_SYNC_FILES_PER_CYCLE:-1}
       DocumentConversion__GotenbergUrl: ${EDGE_GOTENBERG_URL:-http://gotenberg:3000}
     volumes:
       - uploads-data:/app/uploads

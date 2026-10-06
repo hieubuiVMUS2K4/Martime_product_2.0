@@ -1,0 +1,37 @@
+﻿[
+    {
+        "Url":  "http://localhost:5000/health/ready",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.3733289+07:00"
+    },
+    {
+        "Url":  "http://localhost:3000/api/sync/status",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.4071527+07:00"
+    },
+    {
+        "Url":  "http://localhost:3000/api/sync/dashboard/logs?page=1\u0026pageSize=10",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.4231635+07:00"
+    },
+    {
+        "Url":  "http://localhost:3000/api/sync/dashboard/outbox?page=1\u0026pageSize=10",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.4425001+07:00"
+    },
+    {
+        "Url":  "http://localhost:3000/api/rank-certificates",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.4567946+07:00"
+    },
+    {
+        "Url":  "http://localhost:3002/api/health",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.4719307+07:00"
+    },
+    {
+        "Url":  "http://localhost:3002/api/sync/status",
+        "HttpStatus":  200,
+        "CheckedAt":  "2026-10-06T01:39:50.4957814+07:00"
+    }
+]

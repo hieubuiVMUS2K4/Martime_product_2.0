@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Drill Training Timeline Page
  * Clone of Ảnh 2 - Gantt chart view with tree structure
@@ -291,23 +292,23 @@ export function DrillTimelinePage() {
                 {t('drillTimeline.refresh')}
               </button>
               
-              <button
+              <PermissionGate permission="drills.create"><button
                 onClick={handleAddDrill}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
               >
                 <Plus className="w-4 h-4" />
                 {t('drillTimeline.addDrill')}
-              </button>
+              </button></PermissionGate>
               
               {/* Delete button - only visible when items selected */}
               {selectedSchedules.size > 0 && (
-                <button
+                <PermissionGate permission="drills.delete"><button
                   onClick={handleBulkDelete}
                   className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                 >
                   <Trash2 className="w-4 h-4" />
                   {t('drillTimeline.delete', { count: selectedSchedules.size })}
-                </button>
+                </button></PermissionGate>
               )}
               
               <button
@@ -656,7 +657,7 @@ export function DrillTimelinePage() {
               >
                 {t('drillTimeline.cancel')}
               </button>
-              <button
+              <PermissionGate permission="drills.delete"><button
                 onClick={executeDelete}
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
@@ -672,7 +673,7 @@ export function DrillTimelinePage() {
                     {t('drillTimeline.confirmDelete')}
                   </>
                 )}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

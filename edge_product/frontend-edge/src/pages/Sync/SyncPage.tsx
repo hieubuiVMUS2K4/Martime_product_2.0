@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
@@ -269,7 +270,7 @@ function SyncConfirmModal({
           >
             {t('sync.cancel')}
           </button>
-          <button
+          <PermissionGate permission="sync.update"><button
             onClick={onConfirm}
             disabled={!isOnline || syncing || total === 0}
             className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors shadow-sm"
@@ -286,7 +287,7 @@ function SyncConfirmModal({
                   ? t('sync.noData')
                   : t('sync.syncNowCount', { count: total })
             }
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>
@@ -446,14 +447,14 @@ function SnapshotModal({
             >
               {t('sync.cancel')}
             </button>
-            <button
+            <PermissionGate permission="sync.update"><button
               onClick={handleConfirm}
               disabled={loading || selected.size === 0}
               className="flex items-center gap-2 px-5 py-2 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors shadow-sm"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
               {loading ? t('sync.processing') : t('sync.snapshotCount', { count: selected.size })}
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -654,7 +655,7 @@ export function SyncPage() {
 
             {/* Reset Errors button - only show when there are failed items */}
             {failedItems.length > 0 && (
-              <button
+              <PermissionGate permission="sync.update"><button
                 onClick={handleResetErrors}
                 disabled={resetting}
                 title={t('sync.resetErrorsTitle')}
@@ -662,11 +663,11 @@ export function SyncPage() {
               >
                 {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                 {t('sync.resetErrors', { count: failedItems.filter(q => q.retryCount >= q.maxRetries).length })}
-              </button>
+              </button></PermissionGate>
             )}
 
             {/* Snapshot button — opens group selector modal */}
-            <button
+            <PermissionGate permission="sync.update"><button
               onClick={() => setShowSnapshotModal(true)}
               disabled={syncing}
               title={t('sync.snapshotDataTitle')}
@@ -674,20 +675,20 @@ export function SyncPage() {
             >
               <Database className="w-4 h-4" />
               {t('sync.snapshotData')}
-            </button>
+            </button></PermissionGate>
 
             {/* Shore config button — opens ShoreConfigModal */}
-            <button
+            <PermissionGate permission="sync.update"><button
               onClick={() => setShowShoreConfigModal(true)}
               title="Cấu hình kết nối bờ"
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
             >
               <Settings className="w-4 h-4" />
               Cấu hình kết nối bờ
-            </button>
+            </button></PermissionGate>
 
             {/* Sync trigger */}
-            <button
+            <PermissionGate permission="sync.update"><button
               onClick={() => setShowSyncModal(true)}
               disabled={syncing}
               className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors text-sm font-medium shadow-sm"
@@ -698,7 +699,7 @@ export function SyncPage() {
                 <Send className="w-4 h-4" />
               )}
               {syncing ? t('sync.syncing') : t('sync.syncNow')}
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
 

@@ -1,0 +1,4 @@
+FROM postgres:15
+
+# Support clients using the legacy Asia/Saigon timezone name.
+RUN ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /usr/share/zoneinfo/Asia/Saigon

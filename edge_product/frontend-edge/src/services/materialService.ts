@@ -133,6 +133,7 @@ export interface MaterialItemEquipmentLink {
 }
 
 export interface EquipmentMaterialLink {
+  equipmentAssetId?: string
   linkId: string
   materialItemId: string
   itemCode: string
@@ -221,6 +222,8 @@ export const materialService = {
     params.append('onlyActive', String(onlyActive))
     return apiClient.get<MaterialItem[]>(`/material/categories/${id}/items?${params}`)
   },
+
+  getAssignedEquipment: () => apiClient.get<{ materialItemId: string; equipmentAssetId: string; equipmentCode: string; equipmentName: string }[]>('/material/items/assigned-equipment'),
 
   // ======== ITEMS ========
 

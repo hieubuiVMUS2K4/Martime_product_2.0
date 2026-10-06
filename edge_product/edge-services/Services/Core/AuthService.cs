@@ -418,7 +418,7 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during token refresh");
-            return new TokenRefreshResponse { Success = false, Message = "Lỗi khi refresh token" };
+            throw new AuthSessionUnavailableException(ex);
         }
     }
 
@@ -506,7 +506,7 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating session");
-            return new ValidateSessionResponse { IsValid = false, Message = "Lỗi khi validate session" };
+            throw new AuthSessionUnavailableException(ex);
         }
     }
 
@@ -648,6 +648,8 @@ public class AuthService : IAuthService
             var role = await _context.Roles.FindAsync(roleId);
             if (role == null)
                 return new CreateUserResponse { Success = false, Message = "Role không tồn tại" };
+            if (!role.IsActive || role.RoleCode.ToUpperInvariant() is not ("ADMIN" or "CREW"))
+                return new CreateUserResponse { Success = false, Message = "Vai trò tài khoản chỉ dùng ADMIN hoặc CREW. Chức danh được gán trong hồ sơ thuyền viên trên bờ." };
 
             string defaultPassword = crewMember.DateOfBirth.HasValue
                 ? crewMember.DateOfBirth.Value.ToString("ddMMyyyy")
@@ -805,6 +807,8 @@ public class AuthService : IAuthService
 
             var role = await _context.Roles.FindAsync(roleId);
             if (role == null) return (false, "Role không tồn tại");
+            if (!role.IsActive || role.RoleCode.ToUpperInvariant() is not ("ADMIN" or "CREW"))
+                return (false, "Vai trò tài khoản chỉ dùng ADMIN hoặc CREW. Quyền nghiệp vụ lấy theo chức danh thuyền viên.");
 
             var oldRoleId = user.RoleId;
             user.RoleId = roleId;

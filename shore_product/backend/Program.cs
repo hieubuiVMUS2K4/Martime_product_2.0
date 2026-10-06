@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
@@ -317,6 +317,15 @@ using (var loggerFactory = LoggerFactory.Create(logging => logging.AddConsole())
 
 var app = builder.Build();
 
+// Seed an existing database without starting workers or applying unrelated migrations.
+if (builder.Configuration.GetValue("SeedRanksOnly", false))
+{
+    using var seedScope = app.Services.CreateScope();
+    var added = await RankSeedData.SeedAsync(seedScope.ServiceProvider.GetRequiredService<AppDbContext>());
+    app.Logger.LogInformation("Rank catalogue seeded: {Added} new ranks.", added);
+    return;
+}
+
 
 // Migrate DB using EF Core Migrations
 var autoMigrateDatabase = builder.Configuration.GetValue("Database:AutoMigrate", true);
@@ -493,87 +502,19 @@ if (autoMigrateDatabase)
                 ALTER TABLE weather_routing_jobs
                 ADD COLUMN IF NOT EXISTS ""PlanJson"" jsonb NOT NULL DEFAULT jsonb_build_object();
 
-                -- Seed hồ sơ nhiên liệu ước lượng cho các tàu hiện có (idempotent).
-                -- Bộ số dưới đây ứng với một tàu nhỏ (coaster ~1.500 GT, máy chính ~700 kW):
-                -- sức chứa 100 t, đang có 75 t, tốc độ khai thác 11 kn, SFOC 185/215 g/kWh.
-                INSERT INTO vessel_fuel_profiles (
-                    ""Id"", ""VesselId"", ""VesselName"", ""FuelType"", ""FuelCapacityTons"", ""CurrentFuelTons"",
-                    ""ReserveFraction"", ""ServiceSpeedKts"", ""ServicePowerKw"", ""SfocMainGPerKwh"",
-                    ""AuxLoadKw"", ""SfocAuxGPerKwh"", ""SeaMarginFraction"", ""SpeedExponent"",
-                    ""WeatherAllowanceFraction"", ""PortStayHours"", ""MaxDetourNm"", ""Source"", ""Notes"",
-                    ""CreatedAt"", ""UpdatedAt""
-                )
-                SELECT
-                    gen_random_uuid(), v.""Id"", v.""Name"", 'VLSFO', 100, 75,
-                    0.20, 11.0, 700, 185,
-                    100, 215, 0.15, 3.0,
-                    0.08, 8.0, 400, 'ESTIMATE',
-                    'Uoc luong cho demo DE4 - nen thay bang so lieu thuc tu ho so tau (SFOC, cong suat, suc chua nhien lieu).',
-                    NOW(), NOW()
-                FROM ""Vessels"" v
-                WHERE v.""Name"" NOT LIKE 'Vessel edge-%'
-                ON CONFLICT (""VesselId"") DO NOTHING;
-
-                -- Bổ sung thông số kỹ thuật còn thiếu cho tàu chở hàng (chỉ điền khi đang NULL,
-                -- không ghi đè số liệu thật nếu sau này nhập từ hồ sơ tàu).
                 ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""MainEnginePowerKw"" double precision;
                 ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""FuelCapacityTons"" double precision;
                 ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""FuelConsumptionTonsPerDay"" double precision;
                 ALTER TABLE ""Vessels"" ADD COLUMN IF NOT EXISTS ""CruisingRangeNm"" double precision;
 
-                UPDATE ""Vessels"" SET
-                    ""VesselType""               = COALESCE(""VesselType"", 'General Cargo'),
-                    ""YearBuilt""                = COALESCE(""YearBuilt"", 2012),
-                    ""Flag""                     = COALESCE(""Flag"", 'Vietnam'),
-                    ""DeadWeight""               = COALESCE(""DeadWeight"", 2600),
-                    ""GrossTonnage""             = COALESCE(""GrossTonnage"", 1850),
-                    ""GrossTonnageInternational""= COALESCE(""GrossTonnageInternational"", 1850),
-                    ""GrossTonnagePanamaCanal""  = COALESCE(""GrossTonnagePanamaCanal"", 1850),
-                    ""GrossTonnageSuezCanal""    = COALESCE(""GrossTonnageSuezCanal"", 1850),
-                    ""NettTonnageInternational"" = COALESCE(""NettTonnageInternational"", 780),
-                    ""NettTonnagePanamaCanal""   = COALESCE(""NettTonnagePanamaCanal"", 780),
-                    ""NettTonnageSuezCanal""     = COALESCE(""NettTonnageSuezCanal"", 780),
-                    ""DepthMoulded""             = COALESCE(""DepthMoulded"", 7.0),
-                    ""DraftMoulded""             = COALESCE(""DraftMoulded"", 5.2),
-                    ""DraftFullBallast""         = COALESCE(""DraftFullBallast"", 2.8),
-                    ""DraftScantling""           = COALESCE(""DraftScantling"", 5.6),
-                    ""TpcAtSummerDraft""         = COALESCE(""TpcAtSummerDraft"", 12.5),
-                    ""GrainCbm""                 = COALESCE(""GrainCbm"", 3400),
-                    ""BalesCbm""                 = COALESCE(""BalesCbm"", 3250),
-                    ""NoOfCargoHolds""           = COALESCE(""NoOfCargoHolds"", 2),
-                    ""NoOfHatches""              = COALESCE(""NoOfHatches"", 2),
-                    ""NoOfCrewSafeManning""      = COALESCE(""NoOfCrewSafeManning"", 12),
-                    ""TeuTotal""                 = COALESCE(""TeuTotal"", 120),
-                    ""TeuOnDeck""                = COALESCE(""TeuOnDeck"", 40),
-                    ""TeuUnderDeck""             = COALESCE(""TeuUnderDeck"", 80),
-                    ""HMaxAirdraft""             = COALESCE(""HMaxAirdraft"", 18.5),
-                    ""AirdraftReductionMastFouled"" = COALESCE(""AirdraftReductionMastFouled"", 0),
-                    ""ServiceSpeedKts""          = COALESCE(""ServiceSpeedKts"", 11.0),
-                    ""MainEnginePowerKw""        = COALESCE(""MainEnginePowerKw"", 700),
-                    ""FuelCapacityTons""         = COALESCE(""FuelCapacityTons"", 100),
-                    ""FuelConsumptionTonsPerDay""= COALESCE(""FuelConsumptionTonsPerDay"", 4.17),
-                    ""CruisingRangeNm""          = COALESCE(""CruisingRangeNm"", 4695),
-                    ""HarbourGeneratorMaxPowerKW"" = COALESCE(""HarbourGeneratorMaxPowerKW"", 120),
-                    ""ClassSocietyName""         = COALESCE(""ClassSocietyName"", 'Vietnam Register'),
-                    ""ClassNotation""            = COALESCE(""ClassNotation"", 'General Cargo Ship, unrestricted navigation')
-                WHERE ""Name"" NOT LIKE 'Vessel edge-%';
             ");
 
-            // â”€â”€ Seed default admin user (idempotent) â”€â”€
+            // Ensure the username uniqueness constraint.
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username""
                     ON ""Users"" (""Username"");
 
-                INSERT INTO ""Users"" (""Id"", ""Username"", ""PasswordHash"", ""Role"")
-                VALUES (
-                    'a0000000-0000-0000-0000-000000000001',
-                    'admin',
-                    'Admin@123',
-                    'Admin'
-                )
-                ON CONFLICT (""Username"") DO NOTHING;
             ");
-            logger.LogInformation("Default admin user seed completed.");
 
             // â”€â”€ Auto-create SMS tables if not present â”€â”€
             await db.Database.ExecuteSqlRawAsync(@"
@@ -699,9 +640,6 @@ if (autoMigrateDatabase)
                 );
             ");
 
-            // â”€â”€ Seed SMS initial data (ISM elements & procedures) â”€â”€
-            await SmsSeedData.SeedAsync(db);
-            logger.LogInformation("SMS Seed Data completed.");
 
             logger.LogInformation("Database migration/verification completed successfully.");
             break;
@@ -720,6 +658,12 @@ else
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
     logger.LogInformation("Database auto-migration disabled by configuration.");
+}
+
+using (var seedScope = app.Services.CreateScope())
+{
+    var added = await RankSeedData.SeedAsync(seedScope.ServiceProvider.GetRequiredService<AppDbContext>());
+    app.Logger.LogInformation("Rank catalogue seeded: {Added} new ranks.", added);
 }
 
 if (app.Environment.IsDevelopment())
@@ -746,7 +690,7 @@ app.UseExceptionHandler(errorApp =>
         var exception = exceptionFeature?.Error;
 
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogError(exception, "Unhandled exception on {Method} {Path}", 
+        logger.LogError(exception, "Unhandled exception on {Method} {Path}",
             context.Request.Method, context.Request.Path);
 
         var (statusCode, message) = exception switch
@@ -834,5 +778,3 @@ app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthC
 app.MapHealthChecks("/health/ready");
 
 app.Run();
-
-

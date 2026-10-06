@@ -5,6 +5,8 @@ import 'react-toastify/dist/ReactToastify.css'
 import { MainLayout } from './components/layouts/MainLayout'
 import { SettingsDialog } from './components/settings'
 import { AuthGuard } from './components/auth/AuthGuard'
+import { PermissionGuard } from './components/auth/PermissionGuard'
+import { AdminManagementPage } from './pages/Admin/AdminManagementPage'
 import { LoginPage } from './pages/Auth/LoginPage'
 
 // Pages
@@ -68,7 +70,6 @@ import { SmsDocumentPage } from './pages/HSQE/components/SmsDocumentPage'
 
 // System Pages
 import { AuditLogPage } from './pages/AuditLog/AuditLogPage'
-import { AccountManagementPage } from './pages/Admin/AccountManagementPage'
 
 function App() {
   return (
@@ -86,7 +87,7 @@ function App() {
       />
       {/* Hai modal tÃ i liá»‡u dÃ¹ng react-toastify, Ä‘á»ƒ cÃ¹ng thá»i lÆ°á»£ng vá»›i sonner cho Ä‘á»“ng nháº¥t. */}
       <ToastContainer position="top-right" autoClose={6000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover draggable theme="colored" transition={Slide} />
-      
+
       {/* Settings Dialog (renders as portal, controlled by zustand store) */}
       <SettingsDialog />
 
@@ -114,7 +115,7 @@ function App() {
         <Route path="sync" element={<SyncPage />} />
 
         {/* <Route path="fuel-analytics" element={<FuelAnalyticsPage />} /> */} {/* Temporarily hidden */}
-        
+
         {/* Logbook Routes */}
         <Route path="logbooks/deck" element={<DeckLogPage />} />
         <Route path="logbooks/engine" element={<EngineLogPage />} />
@@ -127,7 +128,7 @@ function App() {
         <Route path="logbooks/voyage/:id" element={<VoyageLogDetailPage />} />
         <Route path="logbooks/abstract" element={<AbstractLogPage />} />
         <Route path="logbooks/abstract/:id" element={<AbstractLogPage />} />
-        
+
         {/* Safety Routes */}
         <Route path="safety/drills" element={<DrillTimelinePage />} />
         <Route path="safety/hsqe" element={<HSQEPage />} />
@@ -146,11 +147,14 @@ function App() {
         <Route path="pms/maintenance-history" element={<MaintenanceHistoryPage />} />
         <Route path="pms/work-planning" element={<WorkPlanningPage />} />
         <Route path="pms/work-report/:id" element={<WorkReportPage />} />
-        
+
         {/* Reporting Routes */}
         {/* System Routes */}
         <Route path="audit-log" element={<AuditLogPage />} />
-        <Route path="admin/accounts" element={<AccountManagementPage />} />
+        <Route path="admin" element={<Navigate to="/admin/accounts" replace />} />
+        <Route path="admin/*" element={<Navigate to="/admin/accounts" replace />} />
+        <Route path="admin/accounts" element={<AdminManagementPage />} />
+        <Route path="admin/permissions" element={<Navigate to="/admin/accounts?tab=permissions" replace />} />
 
         <Route path="reporting" element={<ReportingDashboard />} />
         <Route path="reporting/reports" element={<ReportsPage />} />
@@ -166,11 +170,11 @@ function App() {
         <Route path="reporting/position/new" element={<PositionReportForm />} />
         <Route path="reporting/position/edit/:id" element={<PositionReportForm />} />
       </Route>
-      
+
       {/* Full-screen pages outside MainLayout (still protected) */}
-      <Route path="/crew/:id/standalone" element={<AuthGuard><CrewDetailPage /></AuthGuard>} />
-      <Route path="/pms/maintenance/:id" element={<AuthGuard><MaintenanceDetailPage /></AuthGuard>} />
-      <Route path="/safety/hsqe/form/:templateId" element={<AuthGuard><SmsDocumentPage /></AuthGuard>} />
+      <Route path="/crew/:id/standalone" element={<AuthGuard><PermissionGuard><CrewDetailPage /></PermissionGuard></AuthGuard>} />
+      <Route path="/pms/maintenance/:id" element={<AuthGuard><PermissionGuard><MaintenanceDetailPage /></PermissionGuard></AuthGuard>} />
+      <Route path="/safety/hsqe/form/:templateId" element={<AuthGuard><PermissionGuard><SmsDocumentPage /></PermissionGuard></AuthGuard>} />
 
       {/* Catch-all: redirect unknown routes to dashboard */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -180,4 +184,3 @@ function App() {
 }
 
 export default App
-

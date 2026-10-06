@@ -65,6 +65,11 @@ namespace MaritimeEdge.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_mandatory");
 
+                    b.Property<string>("IssuingAuthority")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("issuing_authority");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -931,6 +936,11 @@ namespace MaritimeEdge.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<string>("Level")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("level");
+
                     b.Property<string>("RankCode")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -955,118 +965,6 @@ namespace MaritimeEdge.Data.Migrations
                         .HasName("p_k_ranks");
 
                     b.ToTable("ranks", "public");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3117),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "MAST",
-                            RankName = "Master (Captain)",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3121)
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3126),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "C/O",
-                            RankName = "Chief Officer",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3127)
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3128),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "2/O",
-                            RankName = "Second Officer",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3128)
-                        },
-                        new
-                        {
-                            Id = 4,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3129),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "3/O",
-                            RankName = "Third Officer",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3129)
-                        },
-                        new
-                        {
-                            Id = 5,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3130),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "C/E",
-                            RankName = "Chief Engineer",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3130)
-                        },
-                        new
-                        {
-                            Id = 6,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3131),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "2/E",
-                            RankName = "Second Engineer",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3132)
-                        },
-                        new
-                        {
-                            Id = 7,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3133),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "BOSN",
-                            RankName = "Bosun",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3134)
-                        },
-                        new
-                        {
-                            Id = 8,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3134),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "AB",
-                            RankName = "Able Seaman",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3135)
-                        },
-                        new
-                        {
-                            Id = 9,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3135),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "OILR",
-                            RankName = "Oiler",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3136)
-                        },
-                        new
-                        {
-                            Id = 10,
-                            CreatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3136),
-                            Department = "DECK",
-                            IsActive = true,
-                            RankCode = "COOK",
-                            RankName = "Chief Cook",
-                            SortOrder = 0,
-                            UpdatedAt = new DateTime(2026, 7, 28, 9, 34, 37, 607, DateTimeKind.Utc).AddTicks(3137)
-                        });
                 });
 
             modelBuilder.Entity("Maritime.Shared.Models.Crew.RankCertificate", b =>
@@ -1893,6 +1791,10 @@ namespace MaritimeEdge.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
                     b.Property<string>("LastError")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1947,6 +1849,9 @@ namespace MaritimeEdge.Data.Migrations
                     b.HasIndex("Priority", "NextRetryAt")
                         .HasDatabaseName("idx_sync_priority_retry")
                         .HasFilter("synced_at IS NULL");
+
+                    b.HasIndex("TableName", "RecordKey", "Id")
+                        .HasDatabaseName("idx_sync_table_record_id");
 
                     b.ToTable("sync_queue", "public");
                 });
@@ -4963,7 +4868,9 @@ namespace MaritimeEdge.Data.Migrations
 
                     b.HasIndex("AssetId");
 
-                    b.HasIndex("GroupId");
+                    b.HasIndex("GroupId", "AssetId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_equipment_group_asset");
 
                     b.ToTable("equipment_group_members", "public");
                 });
@@ -6860,11 +6767,18 @@ namespace MaritimeEdge.Data.Migrations
                     b.HasKey("Id")
                         .HasName("p_k_inventory_stocks");
 
+                    b.HasIndex("StoreLocationId");
+
                     b.HasIndex("MaterialItemId", "StoreLocationId")
                         .IsUnique()
                         .HasDatabaseName("uk_inventory_material_location");
 
-                    b.ToTable("inventory_stock", "public");
+                    b.ToTable("inventory_stock", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_inventory_quantity_nonnegative", "quantity >= 0");
+
+                            t.HasCheckConstraint("ck_inventory_unit_cost_nonnegative", "unit_cost >= 0");
+                        });
                 });
 
             modelBuilder.Entity("MaritimeEdge.Models.IsmElement", b =>
@@ -7077,11 +6991,19 @@ namespace MaritimeEdge.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("interval_hours");
 
+                    b.Property<int?>("IntervalMonths")
+                        .HasColumnType("integer")
+                        .HasColumnName("interval_months");
+
                     b.Property<string>("IntervalType")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("interval_type");
+
+                    b.Property<int?>("IntervalYears")
+                        .HasColumnType("integer")
+                        .HasColumnName("interval_years");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
@@ -7148,6 +7070,11 @@ namespace MaritimeEdge.Data.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("WorkCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("work_code");
 
                     b.HasKey("Id")
                         .HasName("p_k_maintenance_schedules");
@@ -8029,7 +7956,11 @@ namespace MaritimeEdge.Data.Migrations
                     b.HasKey("Id")
                         .HasName("p_k_material_item_equipments");
 
-                    b.HasIndex("MaterialItemId");
+                    b.HasIndex("EquipmentAssetId");
+
+                    b.HasIndex("MaterialItemId", "EquipmentAssetId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_material_equipment");
 
                     b.ToTable("material_item_equipments", "public");
                 });
@@ -9243,6 +9174,36 @@ namespace MaritimeEdge.Data.Migrations
                     b.ToTable("position_reports", "public");
                 });
 
+            modelBuilder.Entity("MaritimeEdge.Models.RankPermissionConfig", b =>
+                {
+                    b.Property<int>("RankId")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank_id");
+
+                    b.Property<string>("GrantsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("grants_json");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("UpdatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("RankId")
+                        .HasName("p_k_rank_permission_configs");
+
+                    b.ToTable("rank_permission_configs", "public");
+                });
+
             modelBuilder.Entity("MaritimeEdge.Models.ReportAmendment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9500,6 +9461,10 @@ namespace MaritimeEdge.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
+
+                    b.Property<string>("SyncEventIdsJson")
+                        .HasColumnType("text")
+                        .HasColumnName("sync_event_ids_json");
 
                     b.Property<DateTime>("TransmissionDateTime")
                         .HasColumnType("timestamp with time zone")
@@ -12010,6 +11975,8 @@ namespace MaritimeEdge.Data.Migrations
 
                     b.HasIndex("ReceiptId");
 
+                    b.HasIndex("StoreLocationId");
+
                     b.ToTable("stock_receipt_items", "public");
                 });
 
@@ -12613,6 +12580,8 @@ namespace MaritimeEdge.Data.Migrations
                     b.HasKey("Id")
                         .HasName("p_k_task_inspection_reports");
 
+                    b.HasIndex("TaskId");
+
                     b.ToTable("task_inspection_reports", "public");
                 });
 
@@ -12766,6 +12735,8 @@ namespace MaritimeEdge.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("p_k_task_risk_assessments");
+
+                    b.HasIndex("TaskId");
 
                     b.ToTable("task_risk_assessments", "public");
                 });
@@ -15865,6 +15836,21 @@ namespace MaritimeEdge.Data.Migrations
                     b.Navigation("Receipt");
                 });
 
+            modelBuilder.Entity("MaritimeEdge.Models.InventoryStock", b =>
+                {
+                    b.HasOne("MaritimeEdge.Models.MaterialItem", null)
+                        .WithMany()
+                        .HasForeignKey("MaterialItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MaritimeEdge.Models.StoreLocation", null)
+                        .WithMany()
+                        .HasForeignKey("StoreLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MaritimeEdge.Models.MaintenanceSchedule", b =>
                 {
                     b.HasOne("MaritimeEdge.Models.EquipmentAsset", null)
@@ -15911,15 +15897,6 @@ namespace MaritimeEdge.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
-            modelBuilder.Entity("MaritimeEdge.Models.MaterialCatalogItem", b =>
-                {
-                    b.HasOne("MaritimeEdge.Models.MaterialCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("MaritimeEdge.Models.MaterialCategory", b =>
                 {
                     b.HasOne("MaritimeEdge.Models.MaterialCategory", null)
@@ -15930,12 +15907,6 @@ namespace MaritimeEdge.Data.Migrations
 
             modelBuilder.Entity("MaritimeEdge.Models.MaterialItem", b =>
                 {
-                    b.HasOne("MaritimeEdge.Models.MaterialCategory", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("MaritimeEdge.Models.MaterialCatalogItem", null)
                         .WithMany()
                         .HasForeignKey("MaterialItemCode")
@@ -15945,6 +15916,12 @@ namespace MaritimeEdge.Data.Migrations
 
             modelBuilder.Entity("MaritimeEdge.Models.MaterialItemEquipment", b =>
                 {
+                    b.HasOne("MaritimeEdge.Models.EquipmentAsset", null)
+                        .WithMany()
+                        .HasForeignKey("EquipmentAssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("MaritimeEdge.Models.MaterialCatalogItem", null)
                         .WithMany()
                         .HasForeignKey("MaterialItemId")
@@ -16035,6 +16012,16 @@ namespace MaritimeEdge.Data.Migrations
                         .HasConstraintName("f_k_position_reports_maritime_reports_maritime_report_id");
 
                     b.Navigation("MaritimeReport");
+                });
+
+            modelBuilder.Entity("MaritimeEdge.Models.RankPermissionConfig", b =>
+                {
+                    b.HasOne("Maritime.Shared.Models.Crew.Rank", null)
+                        .WithMany()
+                        .HasForeignKey("RankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_rank_permission_configs_ranks_rank_id");
                 });
 
             modelBuilder.Entity("MaritimeEdge.Models.ReportAttachment", b =>
@@ -16290,6 +16277,11 @@ namespace MaritimeEdge.Data.Migrations
                         .IsRequired()
                         .HasConstraintName("f_k_stock_receipt_items_stock_receipts_receipt_id");
 
+                    b.HasOne("MaritimeEdge.Models.StoreLocation", null)
+                        .WithMany()
+                        .HasForeignKey("StoreLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Receipt");
                 });
 
@@ -16336,6 +16328,26 @@ namespace MaritimeEdge.Data.Migrations
                         .HasConstraintName("f_k_task_deferral_requests_maintenance_tasks_task_id");
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("MaritimeEdge.Models.TaskInspectionReport", b =>
+                {
+                    b.HasOne("MaritimeEdge.Models.MaintenanceTask", null)
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .HasPrincipalKey("TaskId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MaritimeEdge.Models.TaskRiskAssessment", b =>
+                {
+                    b.HasOne("MaritimeEdge.Models.MaintenanceTask", null)
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .HasPrincipalKey("TaskId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MaritimeEdge.Models.TaskStatusHistory", b =>

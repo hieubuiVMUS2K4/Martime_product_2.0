@@ -340,6 +340,10 @@ public class EquipmentGroupController : ControllerBase
 
             return Ok(new { message = "Asset added to group successfully" });
         }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        {
+            return Conflict(new { error = "Asset is already a member of this group" });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding asset {AssetId} to group {GroupId}", assetId, groupId);

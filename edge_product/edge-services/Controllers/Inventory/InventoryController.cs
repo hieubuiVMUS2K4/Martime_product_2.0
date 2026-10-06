@@ -1,4 +1,5 @@
 using MaritimeEdge.Data;
+using MaritimeEdge.Services.Inventory;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -287,10 +288,22 @@ public class InventoryController : ControllerBase
         if (dto.Items == null || dto.Items.Count == 0)
             return BadRequest(new { error = "Không có dữ liệu khai báo" });
 
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
+        var materialIds = dto.Items.Select(i => i.MaterialItemId).Distinct().ToArray();
+        var materials = await _context.MaterialItems.Where(m => materialIds.Contains(m.Id) && m.IsActive)
+            .Select(m => m.Id).ToListAsync();
+        var locationIds = dto.Items.Select(i => i.StoreLocationId).Distinct().ToArray();
+        var locations = await _context.StoreLocations.Where(l => locationIds.Contains(l.Id) && l.IsActive)
+            .Select(l => l.Id).ToListAsync();
+        if (materials.Count != materialIds.Length || locations.Count != locationIds.Length ||
+            dto.Items.Any(i => i.Quantity < 0 || i.UnitCost < 0))
+            return BadRequest(new { error = "Vật tư/vị trí kho không hợp lệ hoặc số lượng/đơn giá âm." });
+
+        await _context.InventoryStocks.Where(s => materialIds.Contains(s.MaterialItemId)).LoadAsync();
         foreach (var item in dto.Items)
         {
-            var existing = await _context.InventoryStocks
-                .FirstOrDefaultAsync(s => s.MaterialItemId == item.MaterialItemId && s.StoreLocationId == item.StoreLocationId);
+            var existing = _context.InventoryStocks.Local
+                .FirstOrDefault(s => s.MaterialItemId == item.MaterialItemId && s.StoreLocationId == item.StoreLocationId);
 
             if (existing != null)
             {
@@ -310,18 +323,11 @@ public class InventoryController : ControllerBase
                 });
             }
 
-            // Also update MaterialItem.OnHandQuantity
-            var mi = await _context.MaterialItems.FindAsync(item.MaterialItemId);
-            if (mi != null)
-            {
-                var totalQty = await _context.InventoryStocks
-                    .Where(s => s.MaterialItemId == item.MaterialItemId && s.StoreLocationId != item.StoreLocationId)
-                    .SumAsync(s => (decimal?)s.Quantity) ?? 0;
-                mi.OnHandQuantity = (double)(totalQty + item.Quantity);
-            }
         }
 
+        await InventoryWriteScope.RefreshTotalsAsync(_context, materialIds);
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return Ok(new { success = true, count = dto.Items.Count });
     }
 
@@ -329,6 +335,7 @@ public class InventoryController : ControllerBase
     [HttpPost("adjust")]
     public async Task<ActionResult> Adjust([FromBody] AdjustInventoryDto dto)
     {
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
         var stock = await _context.InventoryStocks
             .FirstOrDefaultAsync(s => s.MaterialItemId == dto.MaterialItemId && s.StoreLocationId == dto.StoreLocationId);
 
@@ -339,17 +346,9 @@ public class InventoryController : ControllerBase
         if (stock.Quantity < 0) stock.Quantity = 0;
         stock.UpdatedAt = DateTime.UtcNow;
 
-        // Update MaterialItem.OnHandQuantity
-        var mi = await _context.MaterialItems.FindAsync(dto.MaterialItemId);
-        if (mi != null)
-        {
-            var totalQty = await _context.InventoryStocks
-                .Where(s => s.MaterialItemId == dto.MaterialItemId)
-                .SumAsync(s => (decimal?)s.Quantity) ?? 0;
-            mi.OnHandQuantity = (double)totalQty;
-        }
-
+        await InventoryWriteScope.RefreshTotalsAsync(_context, new[] { dto.MaterialItemId });
         await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
         return Ok(new { success = true, newQuantity = stock.Quantity });
     }
 }

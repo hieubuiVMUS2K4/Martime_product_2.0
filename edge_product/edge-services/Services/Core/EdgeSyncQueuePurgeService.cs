@@ -58,4 +58,3 @@ namespace MaritimeEdge.Services.Core
         }
     }
 }
-

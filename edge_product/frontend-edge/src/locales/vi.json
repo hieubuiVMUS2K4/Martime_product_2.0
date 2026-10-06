@@ -1,4 +1,12 @@
 {
+  "map": {
+    "shipPosition": "Vị trí tàu",
+    "lat": "Vĩ độ",
+    "lon": "Kinh độ",
+    "sog": "Tốc độ đối đất",
+    "cog": "Hướng đi đối đất",
+    "time": "Thời gian"
+  },
   "common": {
     "save": "Lưu",
     "cancel": "Hủy",
@@ -656,6 +664,7 @@
       "compliant": "Tuân thủ",
       "partial": "Một phần",
       "missing": "Thiếu",
+      "rankRequirementsManagedOnShore": "Yêu cầu chứng chỉ theo chức danh được quản lý tại bờ và đồng bộ xuống tàu. Để thêm, sửa hoặc gỡ yêu cầu, vào Danh mục → Loại chứng chỉ → Chứng chỉ theo chức danh trên hệ thống bờ.",
       "requiredCertificatesTitle": "Chứng chỉ bắt buộc",
       "removeBtn": "Xóa",
       "noCertsRequired": "Không yêu cầu chứng chỉ",
@@ -1856,6 +1865,8 @@
       "voyageNumberHint": "Định dạng: VN-YYYY-NNN (tự động hoặc tùy chỉnh)",
       "auto": "Tự động",
       "lastPortHint": "Cảng ghé cuối trước chuyến đi này (bắt buộc cho FAL/Hải quan)",
+      "cargoWeightMT": "Khối lượng hàng (MT)",
+      "routeDetails": "Thông tin hải trình",
       "planningBaselineDesc": "Ghi nhận kế hoạch thương mại và vận hành trước khi thực hiện.",
       "createVoyageBtn": "Tạo chuyến đi",
       "creating": "Đang tạo...",
@@ -2728,7 +2739,7 @@
       "approvalDashboardDesc": "Xem xét công việc HIGH/CRITICAL (Chỉ Máy trưởng)",
       "masterSchedule": "Lịch tổng",
       "masterScheduleDesc": "Xem tất cả lịch bảo trì",
-      "myTaskList": "Danh sách công việc của tôi",
+      "myTaskList": "Danh sách công việc",
       "taskHistory": "Lịch sử công việc",
       "archived": "đã lưu trữ",
       "syncing": "Đang đồng bộ...",

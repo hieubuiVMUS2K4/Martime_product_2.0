@@ -64,11 +64,13 @@ public class SyncBackgroundWorker : BackgroundService
                         $"Sync:NetworkPushIntervalsSeconds:{network}");
                     pushInterval = networkPushIntervalSeconds.HasValue
                         ? TimeSpan.FromSeconds(Math.Max(1, networkPushIntervalSeconds.Value))
-                        : defaultPushInterval;
+                        : TimeSpan.FromSeconds(Math.Max(defaultPushInterval.TotalSeconds, Maritime.Shared.Models.Sync.SyncLinkPolicy.For(network).PollSeconds));
 
                     if (DateTime.UtcNow - lastHeartbeat >= heartbeatInterval)
                     {
-                        await syncService.SendHeartbeatAsync(stoppingToken);
+                        try { await syncService.SendHeartbeatAsync(stoppingToken); }
+                        catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+                        { _logger.LogWarning(ex, "Heartbeat failed; continuing durable delivery cycle"); }
                         lastHeartbeat = DateTime.UtcNow;
                     }
 
@@ -85,7 +87,7 @@ public class SyncBackgroundWorker : BackgroundService
 
                 await Task.Delay(pushInterval, stoppingToken);
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

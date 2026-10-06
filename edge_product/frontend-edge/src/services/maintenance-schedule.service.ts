@@ -3,7 +3,19 @@ import type { MaintenanceSchedule, CreateMaintenanceScheduleDto, SchedulePreview
 
 const API_BASE_URL = '/api';
 
+export interface ImportMaintenanceRow extends CreateMaintenanceScheduleDto {
+  rowNumber: number;
+  assetCode: string;
+  review?: string;
+  hoursMinimum?: number;
+  hoursMaximum?: number;
+}
+
 export const maintenanceScheduleService = {
+  async importExcel(rows: ImportMaintenanceRow[], validateOnly: boolean): Promise<{ imported: number; count?: number }> {
+    const response = await axios.post(`${API_BASE_URL}/maintenance-schedules/import`, { rows, validateOnly });
+    return response.data;
+  },
   async getAll(): Promise<MaintenanceSchedule[]> {
     const response = await axios.get(`${API_BASE_URL}/maintenance-schedules`);
     return response.data;

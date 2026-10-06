@@ -17,6 +17,7 @@ public interface ISyncService
     Task<NetworkType> GetCurrentNetworkStatusAsync();
     Task PullFromShoreAsync(CancellationToken cancellationToken);
     Task SendHeartbeatAsync(CancellationToken cancellationToken);
+    Task ExecuteFileTransfersAsync(CancellationToken cancellationToken);
     SyncConnectivitySnapshot GetConnectivitySnapshot();
 }
 
@@ -29,6 +30,7 @@ public class SyncService : ISyncService
         public string TableName { get; set; } = string.Empty;
         public string RecordKey { get; set; } = string.Empty;
         public string? ActionType { get; set; }
+        public Guid EventId { get; set; }
         public string Error { get; set; } = string.Empty;
     }
 
@@ -39,6 +41,8 @@ public class SyncService : ISyncService
         public int Failed { get; set; }
         public int Total { get; set; }
         public List<SyncBatchItemFailure>? FailedItems { get; set; }
+        public List<Guid>? AcknowledgedEventIds { get; set; }
+        public int SensorDeferralSyncVersion { get; set; }
     }
 
     private readonly IServiceProvider _serviceProvider;
@@ -51,7 +55,7 @@ public class SyncService : ISyncService
     private readonly ISyncFilePreparationService _syncFilePreparationService;
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "crew_member", "crew_certificate", "travel_document", "seafarer_document",
+        "task_deferral_request", "crew_member", "crew_certificate", "travel_document", "seafarer_document",
         "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
     };
     
@@ -60,6 +64,10 @@ public class SyncService : ISyncService
     private static readonly ConcurrentDictionary<Guid, DateTime> _uploadCooldowns = new();
     private static readonly TimeSpan _uploadFailureCooldown = TimeSpan.FromMinutes(5);
     private static readonly SemaphoreSlim _pushGate = new(1, 1);
+    private static readonly SemaphoreSlim _fileGate = new(1, 1);
+    private static readonly SemaphoreSlim _budgetGate = new(1, 1);
+    private sealed class FileTransferYieldException : Exception { }
+    private sealed class DeltaBaseUnavailableException : Exception { public DeltaBaseUnavailableException(string message) : base(message) { } }
     private static readonly ConcurrentDictionary<string, TokenBucketState> _tokenBuckets = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<long, double> _previousRetryDelaySeconds = new();
     private static readonly object _connectivityLock = new();
@@ -120,8 +128,8 @@ public class SyncService : ISyncService
 
     public async Task<NetworkType> GetCurrentNetworkStatusAsync()
     {
-        // TODO: Implement actual network detection logic (ping, SNMP to router, etc.)
-        if (_currentNetwork.HasValue)
+        // Router adapters publish the active link. Re-read it during long transfer cycles.
+        if (_currentNetwork.HasValue && string.IsNullOrWhiteSpace(_configuration["Sync:ActiveLinkFile"]))
             return _currentNetwork.Value;
 
         string? networkTypeName;
@@ -135,9 +143,20 @@ public class SyncService : ISyncService
             networkTypeName = _configuration.GetValue("Sync:NetworkType", "Shore_WiFi");
         }
 
-        _currentNetwork = Enum.TryParse<NetworkType>(networkTypeName, out var parsed)
+        var activeLinkFile = _configuration["Sync:ActiveLinkFile"];
+        if (!string.IsNullOrWhiteSpace(activeLinkFile))
+        {
+            try
+            {
+                if (DateTime.UtcNow - File.GetLastWriteTimeUtc(activeLinkFile) > TimeSpan.FromSeconds(_configuration.GetValue("Sync:ActiveLinkMaxAgeSeconds", 120)))
+                    networkTypeName = "None";
+                else networkTypeName = (await File.ReadAllTextAsync(activeLinkFile)).Trim();
+            }
+            catch (IOException) { networkTypeName = "None"; }
+        }
+        _currentNetwork = Enum.TryParse<NetworkType>(networkTypeName, true, out var parsed) && Enum.IsDefined(parsed)
             ? parsed
-            : NetworkType.Shore_WiFi;
+            : NetworkType.None;
         return _currentNetwork.Value;
     }
 
@@ -176,7 +195,6 @@ public class SyncService : ISyncService
             if (ShouldDelayForReconnectWarmup(nowUtc, nodeId))
             {
                 _logger.LogInformation("Reconnect warm-up active until {WarmupUntil:u}. Deferring push batch to avoid retry herd.", _warmupUntilUtc);
-                await ProcessFileTransferCycleAsync(context, cancellationToken);
                 return;
             }
 
@@ -187,15 +205,26 @@ public class SyncService : ISyncService
             }
 
             // Đối soát danh mục trước khi lấy hàng đợi — xem ReconcileUnqueuedMasterDataAsync
+            // Discard obsolete pending definition uploads, including retries created by older versions.
+            var obsoleteDefinitions = await context.SyncQueue.Where(q => q.SyncedAt == null &&
+                (q.TableName == "material_item" || q.TableName == "material_item_ship" ||
+                 q.TableName == "material_category" || q.TableName == "material_catalog_item" ||
+                 q.TableName == "material_item_catalog" || q.TableName == "material_items" ||
+                 q.TableName == "vessel_material_definition")).ToListAsync(cancellationToken);
+            if (obsoleteDefinitions.Count > 0) {
+                context.SyncQueue.RemoveRange(obsoleteDefinitions);
+                await context.SaveChangesAsync(cancellationToken);
+            }
             await ReconcileUnqueuedMasterDataAsync(context, cancellationToken);
+            await SensorDeferralSyncBackfill.ReconcileAsync(context, cancellationToken);
 
             // Fetch pending items based on priority and retry count
             var batchSize = await GetAdaptiveBatchSizeAsync(networkType);
             var pendingItems = await context.SyncQueue
                 .Where(q => q.SyncedAt == null)
                 .Where(q => allowedPriorities.Contains(q.Priority))
-                .Where(q => q.RetryCount < q.MaxRetries)
-                .Where(q => q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)
+                    .Where(q => q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)
+                .Where(q => !context.SyncQueue.Any(prior => prior.TableName == q.TableName && prior.RecordKey == q.RecordKey && prior.SyncedAt == null && prior.Id < q.Id))
                 .OrderBy(q => q.Priority) // Critical first
                 .ThenBy(q => q.CreatedAt) // FIFO
                 .Take(batchSize)
@@ -203,7 +232,6 @@ public class SyncService : ISyncService
 
             if (pendingItems.Count == 0)
             {
-                await ProcessFileTransferCycleAsync(context, cancellationToken);
                 return;
             }
 
@@ -220,13 +248,21 @@ public class SyncService : ISyncService
 
                 await context.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("Token bucket throttled retry burst for node {NodeId}. Deferred {Count} items by {Delay:F2}s.", nodeId, pendingItems.Count, tokenDelaySeconds);
-                await ProcessFileTransferCycleAsync(context, cancellationToken);
                 return;
             }
 
+            var byteBudget = _configuration.GetValue($"Sync:AdaptiveProfiles:{networkType}:MetadataBytes", SyncLinkPolicy.For(networkType).MetadataBytes);
+            var usedBytes = 2;
+            pendingItems = pendingItems.Where(item =>
+            {
+                var bytes = Encoding.UTF8.GetByteCount(item.Payload) + 512;
+                if (usedBytes + bytes <= byteBudget) { usedBytes += bytes; return true; }
+                item.LastError = "Metadata payload deferred by current link byte budget";
+                return false;
+            }).ToList();
+            if (pendingItems.Count == 0) { await context.SaveChangesAsync(cancellationToken); return; }
             // Send batch to shore
             await SendBatchToShoreAsync(pendingItems, context, cancellationToken);
-            await ProcessFileTransferCycleAsync(context, cancellationToken);
         }
         finally
         {
@@ -260,10 +296,6 @@ public class SyncService : ISyncService
             //
             // Danh mục cảng KHÔNG đối soát ở đây: bờ làm chủ, tàu chỉ nhận.
             var added = 0;
-            added += await ReconcileTableAsync(context, "material_category",
-                context.MaterialCategories.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
-            added += await ReconcileTableAsync(context, "material_item",
-                context.MaterialItems.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "store_location",
                 context.StoreLocations.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
 
@@ -332,7 +364,7 @@ public class SyncService : ISyncService
         // gửi trót lọt — hai loại này mang payload đầy đủ.
         var alreadyQueued = entries
             .Where(e => (e.Done && (e.Action == SyncActionType.CREATE || e.Action == SyncActionType.SNAPSHOT))
-                        || (!e.Done && e.RetryCount < e.MaxRetries))
+                        || !e.Done)
             .Select(e => e.RecordKey)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -348,7 +380,14 @@ public class SyncService : ISyncService
             alreadyQueued.Add(kv.Key);
 
         // Giới hạn mỗi bảng mỗi chu kỳ để không dựng một mẻ khổng lồ trên đường truyền yếu.
-        var rows = await unsyncedQuery.AsNoTracking().Take(200).ToListAsync(cancellationToken);
+        // Filter coverage before the limit; otherwise the first already-covered rows starve the rest.
+        var parameter = System.Linq.Expressions.Expression.Parameter(typeof(T), "row");
+        var id = System.Linq.Expressions.Expression.Property(parameter, "Id");
+        var keyExpression = System.Linq.Expressions.Expression.Call(id, id.Type.GetMethod("ToString", Type.EmptyTypes)!);
+        var contains = System.Linq.Expressions.Expression.Call(System.Linq.Expressions.Expression.Constant(alreadyQueued),
+            typeof(HashSet<string>).GetMethod("Contains", new[] { typeof(string) })!, keyExpression);
+        var predicate = System.Linq.Expressions.Expression.Lambda<Func<T, bool>>(System.Linq.Expressions.Expression.Not(contains), parameter);
+        var rows = await unsyncedQuery.AsNoTracking().Where(predicate).Take(200).ToListAsync(cancellationToken);
 
         var added = 0;
         foreach (var row in rows)
@@ -363,7 +402,7 @@ public class SyncService : ISyncService
                 ActionType = SyncActionType.SNAPSHOT,
                 // Dựng qua DbContext để dòng phiếu được gắn neo mã phiếu cha như đường tự động.
                 Payload = context.BuildSyncPayload(row),
-                Priority = SyncPriority.Low,
+                Priority = SyncLinkPolicy.TablePriority(tableName),
                 CreatedAt = DateTime.UtcNow,
                 RetryCount = 0,
                 MaxRetries = 5
@@ -383,11 +422,13 @@ public class SyncService : ISyncService
             _logger.LogDebug("Shore API pull disabled or not configured.");
             return;
         }
+        if (await GetCurrentNetworkStatusAsync() == NetworkType.None) return;
         var baseUrl = syncConfig.ShoreBaseUrl;
 
         using var scope = _serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
         var conflictHandler = scope.ServiceProvider.GetService<ISyncConflictHandler>();
+        context.SuppressSyncQueue = true;
 
         var nodeId = syncConfig.NodeId;
         var retryPolicy = LoadRetryPolicyConfig();
@@ -404,7 +445,9 @@ public class SyncService : ISyncService
 
             do
             {
-                var url = $"{baseUrl}/api/sync/pull?nodeId={nodeId}";
+                var pullNetwork = await GetCurrentNetworkStatusAsync();
+                var policy = SyncLinkPolicy.For(pullNetwork);
+                var url = $"{baseUrl}/api/sync/pull?nodeId={Uri.EscapeDataString(nodeId)}&networkType={pullNetwork}&maxBytes={policy.MetadataBytes}&pageSize={Math.Min(50, await GetAdaptiveBatchSizeAsync(pullNetwork))}";
                 if (!string.IsNullOrEmpty(cursor))
                     url += $"&cursor={cursor}";
 
@@ -413,7 +456,7 @@ public class SyncService : ISyncService
                     url,
                     null,
                     cancellationToken);
-                var response = await client.SendAsync(request, cancellationToken);
+                using var response = await SendSyncRequestAsync(client, request, cancellationToken);
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -448,12 +491,21 @@ public class SyncService : ISyncService
                 // multiple entities share the same navigation property (e.g. two CrewMembers
                 // referencing the same Rank will each deserialize a Rank object, causing
                 // "another instance with the same key value is already being tracked").
+                var appliedItemIds = new List<long>();
                 foreach (var item in pullResponse.Items)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
 
                     try
                     {
+                        var stateKey = "shore:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(item.StreamId == Guid.Empty ? $"{item.TableName}:{item.RecordKey}" : $"{item.StreamId:N}:{item.TableName}:{item.RecordKey}")));
+                        var watermark = await context.SyncState.AsTracking().SingleOrDefaultAsync(s => s.Key == stateKey, cancellationToken);
+                        if (watermark != null && long.TryParse(watermark.Value, out var appliedVersion) && item.SyncVersion <= appliedVersion)
+                        {
+                            appliedItemIds.Add(item.OutboxId);
+                            context.ChangeTracker.Clear();
+                            continue;
+                        }
                         item.Payload = StripFileReferenceProperties(item.Payload);
 
                         if (conflictHandler != null)
@@ -463,10 +515,14 @@ public class SyncService : ISyncService
 
                         await UpsertIncomingFileReferencesAsync(context, item, nodeId, cancellationToken);
 
+                        if (watermark == null)
+                            context.SyncState.Add(new SyncState { Key = stateKey, Value = item.SyncVersion.ToString(), UpdatedAt = DateTime.UtcNow });
+                        else { watermark.Value = item.SyncVersion.ToString(); watermark.UpdatedAt = DateTime.UtcNow; }
                         await context.SaveChangesAsync(cancellationToken);
 
                         context.ChangeTracker.Clear();
                         totalProcessed++;
+                        appliedItemIds.Add(item.OutboxId);
                     }
                     catch (Exception ex)
                     {
@@ -480,7 +536,7 @@ public class SyncService : ISyncService
                 var ack = new Maritime.Shared.DTOs.Sync.SyncAcknowledgeDto
                 {
                     NodeId = nodeId,
-                    ItemIds = pullResponse.Items.Select(i => i.OutboxId).ToList()
+                    ItemIds = appliedItemIds
                 };
                 var ackJson = JsonSerializer.Serialize(ack, _jsonOptions);
                 using var ackRequest = await _syncRequestSigningService.CreateSignedRequestAsync(
@@ -488,11 +544,16 @@ public class SyncService : ISyncService
                     $"{baseUrl}/api/sync/acknowledge",
                     ackJson,
                     cancellationToken);
-                await client.SendAsync(ackRequest, cancellationToken);
+                using var ackResponse = await SendSyncRequestAsync(client, ackRequest, cancellationToken);
+                if (!ackResponse.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Pull ACK failed with HTTP {Status}; retaining Shore deliveries for replay", ackResponse.StatusCode);
+                    break;
+                }
 
                 cursor = pullResponse.NextCursor;
                 
-                if (!pullResponse.HasMore) break;
+                if (!pullResponse.HasMore || totalProcessed >= _configuration.GetValue("Sync:MaxPullItemsPerCycle", 50)) break;
 
             } while (true);
 
@@ -501,7 +562,6 @@ public class SyncService : ISyncService
 
             // Persist the pull timestamp so next restart doesn't re-pull old data
             await SaveLastPullTimestampAsync(context, DateTime.UtcNow);
-            await ProcessFileTransferCycleAsync(context, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -524,6 +584,7 @@ public class SyncService : ISyncService
             _logger.LogDebug("Shore API heartbeat disabled or not configured.");
             return;
         }
+        if (await GetCurrentNetworkStatusAsync() == NetworkType.None) return;
         var baseUrl = syncConfig.ShoreBaseUrl;
 
         using var scope = _serviceProvider.CreateScope();
@@ -555,7 +616,7 @@ public class SyncService : ISyncService
             json,
             cancellationToken);
 
-        var response = await client.SendAsync(request, cancellationToken);
+        using var response = await SendSyncRequestAsync(client, request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Signed heartbeat failed with status {Status}", response.StatusCode);
@@ -610,62 +671,34 @@ public class SyncService : ISyncService
         }
     }
 
-    private async Task MarkOriginalRecordSyncedAsync(EdgeDbContext context, string tableName, string recordKey)
+    private async Task MarkOriginalRecordSyncedAsync(EdgeDbContext context, string tableName, string recordKey, long deliveredQueueId)
     {
-        string? pluralTableName = tableName switch
+        // A receipt for an older revision does not confirm a later local edit.
+        if (await context.SyncQueue.AnyAsync(q => q.TableName == tableName && q.RecordKey == recordKey &&
+            q.Id > deliveredQueueId && q.SyncedAt == null)) return;
+        var modelTable = tableName switch
         {
-            "crew_member" => "crew_members",
-            "crew_logbook_entry" => "crew_logbook_entries",
-            "crew_certificate" => "crew_certificates",
-            "travel_document" => "travel_documents",
-            "seafarer_document" => "seafarer_documents",
-            "employment_document" => "employment_documents",
-            "health_document" => "health_documents",
-            "service_record" => "service_records",
-            "maintenance_task" => "maintenance_tasks",
-            "cargo_operation" => "cargo_operations",
-            "watchkeeping_log" => "watchkeeping_logs",
-            "oil_record_book" => "oil_record_books",
-            "deck_log_book" => "deck_log_books",
-            "engine_log_book" => "engine_log_books",
-            "garbage_record_book" => "garbage_record_books",
-            "ballast_water_record_book" => "ballast_water_record_books",
-            "maritime_report" => "maritime_reports",
-            "sms_procedure" => "sms_procedures",
-            "sms_form_template" => "sms_form_templates",
-            "sms_filled_record" => "sms_filled_records",
-            "sms_procedure_acknowledge" => "sms_procedure_acknowledgements",
-            "ism_element" => "ism_elements",
-            _ => null
+            "sms_filled_records" => "sms_filled_record",
+            "sms_procedure_acknowledgements" => "sms_procedure_acknowledge",
+            "material_item_catalog" => "material_catalog_item",
+            _ => tableName
         };
-
-        if (pluralTableName == null) return;
-
-        try
+        var metadata = context.Model.GetEntityTypes().FirstOrDefault(e =>
+            System.Text.RegularExpressions.Regex.Replace(e.ClrType.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant() == modelTable);
+        if (metadata == null || metadata.FindProperty("IsSynced") == null) return;
+        var key = metadata.FindPrimaryKey()?.Properties.SingleOrDefault();
+        if (key == null) return;
+        object? entity;
+        if (tableName == "crew_certificate" && !int.TryParse(recordKey, out _))
+            entity = await context.CrewCertificates.FirstOrDefaultAsync(c => c.CertificateNumber == recordKey);
+        else
         {
-            if (Guid.TryParse(recordKey, out var guidId))
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    $"UPDATE {pluralTableName} SET is_synced = true WHERE id = {{0}}", 
-                    guidId);
-            }
-            else if (long.TryParse(recordKey, out var longId))
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    $"UPDATE {pluralTableName} SET is_synced = true WHERE id = {{0}}", 
-                    longId);
-            }
-            else
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    $"UPDATE {pluralTableName} SET is_synced = true WHERE id = {{0}}", 
-                    recordKey);
-            }
+            object parsed;
+            try { parsed = key.ClrType == typeof(Guid) ? Guid.Parse(recordKey) : Convert.ChangeType(recordKey, key.ClrType, System.Globalization.CultureInfo.InvariantCulture); }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) { return; }
+            entity = await context.FindAsync(metadata.ClrType, parsed);
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to mark record {Key} in {Table} as synced", recordKey, pluralTableName);
-        }
+        if (entity != null) context.Entry(entity).Property("IsSynced").CurrentValue = true;
     }
 
     /// <summary>
@@ -680,15 +713,7 @@ public class SyncService : ISyncService
 
         if (!enabled)
         {
-            _logger.LogDebug("Shore API disabled. Marking items as simulated sync.");
-            // In dev mode without Shore: mark as synced for testing
-            foreach (var item in items)
-            {
-                item.SyncedAt = DateTime.UtcNow;
-                item.LastError = "DEV_MODE: Shore API not configured";
-                await MarkOriginalRecordSyncedAsync(context, item.TableName, item.RecordKey);
-            }
-            await context.SaveChangesAsync(cancellationToken);
+            _logger.LogDebug("Shore API disabled; retaining pending items.");
             return;
         }
 
@@ -703,8 +728,19 @@ public class SyncService : ISyncService
         var retryPolicy = LoadRetryPolicyConfig();
 
         // Map SyncQueue → SyncQueueItemDto (wire format)
+        var stream = await context.SyncState.AsTracking().SingleOrDefaultAsync(s => s.Key == "sync-stream-id", cancellationToken);
+        if (stream == null)
+        {
+            stream = new SyncState { Key = "sync-stream-id", Value = Guid.NewGuid().ToString(), UpdatedAt = DateTime.UtcNow };
+            context.SyncState.Add(stream);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var streamId = Guid.TryParse(_configuration["Sync:StreamId"], out var configuredStream) ? configuredStream : Guid.Parse(stream.Value);
         var dtoItems = items.Select(q => new Maritime.Shared.DTOs.Sync.SyncQueueItemDto
         {
+            EventId = q.EventId,
+            StreamId = streamId,
+            Priority = q.Priority,
             TableName = q.TableName,
             RecordKey = q.RecordKey,
             ActionType = q.ActionType.ToString(),
@@ -716,6 +752,7 @@ public class SyncService : ISyncService
         }).ToList();
 
         // Attach metadata-only file references for items with document file paths.
+        var fileMetadataFailures = new HashSet<Guid>();
         foreach (var dto in dtoItems)
         {
             try
@@ -726,8 +763,27 @@ public class SyncService : ISyncService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to build file refs for {Table}/{Key}", dto.TableName, dto.RecordKey);
+                fileMetadataFailures.Add(dto.EventId);
+                ScheduleRetry(items.Single(i => i.EventId == dto.EventId), "File metadata unavailable: " + ex.Message, retryPolicy, nodeId);
             }
         }
+
+        dtoItems = dtoItems.Where(d => !fileMetadataFailures.Contains(d.EventId)).ToList();
+        await context.SaveChangesAsync(cancellationToken);
+        var pushNetwork = await GetCurrentNetworkStatusAsync();
+        var maxBytes = _configuration.GetValue($"Sync:AdaptiveProfiles:{pushNetwork}:MetadataBytes", SyncLinkPolicy.For(pushNetwork).MetadataBytes);
+        var packed = new List<Maritime.Shared.DTOs.Sync.SyncQueueItemDto>();
+        foreach (var dto in dtoItems)
+        {
+            packed.Add(dto);
+            if (Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(packed, _jsonOptions)) <= maxBytes) continue;
+            packed.RemoveAt(packed.Count - 1);
+            items.Single(i => i.EventId == dto.EventId).LastError = "Metadata including file references exceeds current link byte budget";
+        }
+        var sentEvents = packed.Select(dto => dto.EventId).ToHashSet();
+        items = items.Where(item => sentEvents.Contains(item.EventId)).ToList();
+        dtoItems = packed;
+        if (items.Count == 0) { await context.SaveChangesAsync(cancellationToken); return; }
 
         // Log what we're sending - especially crew_member updates
         var crewUpdates = dtoItems.Where(d => d.TableName == "crew_member").ToList();
@@ -737,7 +793,7 @@ public class SyncService : ISyncService
             foreach (var crew in crewUpdates)
             {
                 _logger.LogInformation("  - crew_member/{RecordKey} {Action}", crew.RecordKey, crew.ActionType);
-                _logger.LogInformation("    Payload: {Payload}", crew.Payload);
+                _logger.LogDebug("Crew payload prepared ({Bytes} bytes)", Encoding.UTF8.GetByteCount(crew.Payload));
             }
         }
 
@@ -753,7 +809,7 @@ public class SyncService : ISyncService
                 $"{baseUrl}/api/sync",
                 json,
                 cancellationToken);
-            var response = await client.SendAsync(request, cancellationToken);
+            using var response = await SendSyncRequestAsync(client, request, cancellationToken);
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
             if (response.IsSuccessStatusCode)
@@ -771,51 +827,37 @@ public class SyncService : ISyncService
                     _logger.LogWarning(ex, "Unable to parse Shore sync response body: {Body}", responseBody);
                 }
 
-                if (batchResponse?.Failed > 0)
+                var receipts = batchResponse?.AcknowledgedEventIds;
+                var valid = receipts != null && batchResponse!.Total == items.Count &&
+                    batchResponse.Succeeded + batchResponse.Failed == items.Count &&
+                    receipts.Count == batchResponse.Succeeded && receipts.Distinct().Count() == receipts.Count &&
+                    receipts.All(id => items.Any(item => item.EventId == id));
+                var acknowledged = valid ? receipts!.ToHashSet() : new HashSet<Guid>();
+                foreach (var item in items)
                 {
-                    var failureSummary = BuildFailureSummary(batchResponse);
-                    _logger.LogWarning(
-                        "Shore partially processed batch: {Succeeded}/{Total} succeeded. {Summary}",
-                        batchResponse.Succeeded,
-                        batchResponse.Total,
-                        failureSummary);
-
-                    var failedKeys = batchResponse.FailedItems != null && batchResponse.FailedItems.Count == batchResponse.Failed
-                        ? batchResponse.FailedItems
-                            .Select(f => $"{f.TableName}|{f.RecordKey}")
-                            .ToHashSet(StringComparer.OrdinalIgnoreCase)
-                        : null;
-
-                    var now = DateTime.UtcNow;
-                    foreach (var item in items)
+                    var mirrorSupported = !SensorDeferralSyncBackfill.Tables.Contains(item.TableName)
+                        || batchResponse?.SensorDeferralSyncVersion >= 1;
+                    if (acknowledged.Contains(item.EventId) && mirrorSupported)
                     {
-                        var itemKey = $"{item.TableName}|{item.RecordKey}";
-                        var shouldRetry = failedKeys == null || failedKeys.Contains(itemKey);
-                        if (!shouldRetry)
-                        {
-                            item.SyncedAt = now;
-                            item.LastError = null;
-                            await MarkOriginalRecordSyncedAsync(context, item.TableName, item.RecordKey);
-                            continue;
-                        }
-
-                        ScheduleRetry(item, failureSummary, retryPolicy, nodeId);
-                    }
-                }
-                else
-                {
-                    UpdateShoreReachability(isReachable: true, nodeId: nodeId, retryPolicy: retryPolicy);
-                    var now = DateTime.UtcNow;
-                    foreach (var item in items)
-                    {
-                        item.SyncedAt = now;
+                        item.SyncedAt = DateTime.UtcNow;
                         item.LastError = null;
                         item.NextRetryAt = null;
                         _previousRetryDelaySeconds.TryRemove(item.Id, out _);
-                        await MarkOriginalRecordSyncedAsync(context, item.TableName, item.RecordKey);
+                        await MarkOriginalRecordSyncedAsync(context, item.TableName, item.RecordKey, item.Id);
                     }
-                    _logger.LogInformation("Shore accepted batch: {Count} items synced", items.Count);
+                    else
+                    {
+                        var failure = batchResponse?.FailedItems?.SingleOrDefault(f => f.EventId == item.EventId);
+                        if (failure?.Error.Contains("dependency_missing", StringComparison.OrdinalIgnoreCase) == true)
+                            await PromoteUpdateToSnapshotAsync(context, item, cancellationToken);
+                        if (item.TableName == "task_deferral_request"
+                            && failure?.Error.Contains("dependency_missing: maintenance_task", StringComparison.OrdinalIgnoreCase) == true)
+                            await SensorDeferralSyncBackfill.EnqueueTaskAsync(context, item.Payload, cancellationToken);
+                        ScheduleRetry(item, !mirrorSupported ? "Shore upgrade required: sensor/deferral persistence receipt missing"
+                            : failure?.Error ?? (valid ? BuildFailureSummary(batchResponse!) : "Invalid or missing per-event receipt"), retryPolicy, nodeId);
+                    }
                 }
+                UpdateShoreReachability(true, nodeId, retryPolicy);
             }
             else
             {
@@ -833,6 +875,10 @@ public class SyncService : ISyncService
                 foreach (var item in items)
                 {
                     ScheduleRetry(item, $"HTTP {(int)response.StatusCode}", retryPolicy, nodeId);
+                    var retryAfter = response.Headers.RetryAfter?.Delta ??
+                        (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
+                    if (retryAfter.HasValue && retryAfter.Value > TimeSpan.Zero)
+                        item.NextRetryAt = DateTime.UtcNow.Add(retryAfter.Value);
                 }
             }
         }
@@ -855,7 +901,113 @@ public class SyncService : ISyncService
             }
         }
 
+        await ConfirmReportDeliveryAsync(context, items.Where(item => item.SyncedAt != null).Select(item => item.EventId).ToHashSet(), cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task ConfirmReportDeliveryAsync(EdgeDbContext context, HashSet<Guid> confirmed, CancellationToken token)
+    {
+        if (confirmed.Count == 0) return;
+        var logs = await context.ReportTransmissionLogs.AsTracking()
+            .Where(log => log.Status == "QUEUED" && log.SyncEventIdsJson != null).ToListAsync(token);
+        foreach (var log in logs)
+        {
+            var required = JsonSerializer.Deserialize<List<Guid>>(log.SyncEventIdsJson!) ?? [];
+            if (required.Count == 0 || !required.Any(confirmed.Contains)) continue;
+            var previous = await context.SyncQueue.Where(q => required.Contains(q.EventId) && q.SyncedAt != null)
+                .Select(q => q.EventId).ToListAsync(token);
+            if (!required.All(id => confirmed.Contains(id) || previous.Contains(id))) continue;
+            log.Status = "SUCCESS";
+            log.ConfirmationNumber = "sync:" + log.Id.ToString("N");
+            log.ErrorMessage = null;
+        }
+    }
+
+    private async Task PromoteUpdateToSnapshotAsync(EdgeDbContext context, SyncQueue item, CancellationToken token)
+    {
+        if (item.ActionType != SyncActionType.UPDATE) return;
+        var entityType = context.Model.GetEntityTypes().FirstOrDefault(t =>
+            System.Text.RegularExpressions.Regex.Replace(t.ClrType.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant() == item.TableName);
+        if (entityType == null) return;
+        var pk = entityType.FindPrimaryKey()?.Properties.SingleOrDefault();
+        if (pk == null) return;
+        object? key = null;
+        if (pk.ClrType == typeof(Guid) && Guid.TryParse(item.RecordKey, out var guid)) key = guid;
+        else if (pk.ClrType == typeof(int) && int.TryParse(item.RecordKey, out var integer)) key = integer;
+        else if (pk.ClrType == typeof(long) && long.TryParse(item.RecordKey, out var number)) key = number;
+        else if (pk.ClrType == typeof(string)) key = item.RecordKey;
+        if (key == null && item.TableName != "crew_certificate") return;
+        var entity = item.TableName == "crew_certificate" && key == null
+            ? await context.CrewCertificates.FirstOrDefaultAsync(c => c.CertificateNumber == item.RecordKey, token)
+            : await context.FindAsync(entityType.ClrType, new[] { key! }, token);
+        if (entity == null) return;
+        item.Payload = context.BuildSyncPayload(entity);
+        item.ActionType = SyncActionType.SNAPSHOT;
+        item.EventId = Guid.NewGuid(); // A different payload is a different event.
+    }
+
+    private async Task<HttpResponseMessage> SendSyncRequestAsync(HttpClient client, HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var network = await GetCurrentNetworkStatusAsync();
+        if (network == NetworkType.None) throw new HttpRequestException("Current link is offline; request retained");
+        var body = request.Content == null ? Array.Empty<byte>() : await request.Content.ReadAsByteArrayAsync(cancellationToken);
+        var path = request.RequestUri!.AbsolutePath.TrimEnd('/');
+        if (path.EndsWith("/api/sync", StringComparison.OrdinalIgnoreCase))
+        {
+            var limit = _configuration.GetValue($"Sync:AdaptiveProfiles:{network}:MetadataBytes", SyncLinkPolicy.For(network).MetadataBytes);
+            if (body.Length > limit) throw new HttpRequestException("Current link changed; metadata must be repacked for its byte limit");
+            using var batch = JsonDocument.Parse(body);
+            var allowed = SyncLinkPolicy.Priorities(network);
+            if (batch.RootElement.EnumerateArray().Any(item => item.TryGetProperty("priority", out var priority) &&
+                priority.ValueKind == JsonValueKind.Number && !allowed.Contains((SyncPriority)priority.GetInt32())))
+                throw new HttpRequestException("Current link changed; metadata priority is deferred on this link");
+        }
+        if (path.EndsWith("file-upload-chunk", StringComparison.OrdinalIgnoreCase) && body.Length > SyncLinkPolicy.For(network).ChunkBytes * 4L / 3 + 4096)
+            throw new HttpRequestException("Current link changed; upload chunk must be renegotiated for its byte limit");
+        var timeout = Math.Max(10, _configuration.GetValue($"Sync:AdaptiveProfiles:{network}:RequestTimeoutSeconds", SyncLinkPolicy.For(network).RequestTimeoutSeconds));
+        var allowance = _configuration.GetValue<long>($"Sync:DailyByteBudgets:{network}", 0);
+        if (allowance > 0)
+        {
+            var outbound = body.LongLength;
+            var expectedInbound = request.RequestUri!.AbsolutePath.Contains("chunk", StringComparison.OrdinalIgnoreCase)
+                ? SyncLinkPolicy.For(network).ChunkBytes * 4L / 3 + 2048
+                : request.Method == HttpMethod.Get ? SyncLinkPolicy.For(network).MetadataBytes + 2048 : 2048;
+            await ReserveTrafficBudgetAsync(network, allowance, outbound + expectedInbound + 1024, cancellationToken);
+        }
+        using var timeoutToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutToken.CancelAfter(TimeSpan.FromSeconds(timeout));
+        return await client.SendAsync(request, timeoutToken.Token);
+    }
+
+    private async Task ReserveTrafficBudgetAsync(NetworkType network, long allowance, long reservation, CancellationToken token)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
+        db.SuppressSyncQueue = true;
+        var key = $"traffic:{network}:{DateTime.UtcNow:yyyyMMdd}";
+        await _budgetGate.WaitAsync(token);
+        try
+        {
+            if (db.Database.IsRelational())
+            {
+                var changed = await db.Database.ExecuteSqlInterpolatedAsync($@"
+                    INSERT INTO public.sync_state (key, value, updated_at)
+                    SELECT {key}, CAST({reservation} AS text), {DateTime.UtcNow} WHERE {reservation} <= {allowance}
+                    ON CONFLICT (key) DO UPDATE SET value = CAST(CAST(sync_state.value AS bigint) + {reservation} AS text), updated_at = {DateTime.UtcNow}
+                    WHERE CAST(sync_state.value AS bigint) + {reservation} <= {allowance}", token);
+                if (changed == 0) throw new HttpRequestException("Daily link byte budget exhausted; event retained for the next allowance window");
+            }
+            else
+            {
+                var state = await db.SyncState.FindAsync(new object[] { key }, token);
+                var used = state == null ? 0 : long.Parse(state.Value);
+                if (used + reservation > allowance) throw new HttpRequestException("Daily link byte budget exhausted");
+                if (state == null) db.SyncState.Add(new SyncState { Key = key, Value = reservation.ToString() });
+                else { state.Value = (used + reservation).ToString(); state.UpdatedAt = DateTime.UtcNow; }
+                await db.SaveChangesAsync(token);
+            }
+        }
+        finally { _budgetGate.Release(); }
     }
 
     private static string BuildFailureSummary(SyncBatchResponse batchResponse)
@@ -908,7 +1060,7 @@ public class SyncService : ISyncService
     private void ScheduleRetry(SyncQueue item, string reason, RetryPolicyConfig policy, string nodeId)
     {
         var nowUtc = DateTime.UtcNow;
-        item.RetryCount++;
+        item.RetryCount = Math.Min(30, item.RetryCount + 1);
         var delay = ComputeJitterDelaySeconds(item, policy);
         item.NextRetryAt = nowUtc.AddSeconds(delay);
         item.LastError = LimitLastError(reason);
@@ -1096,13 +1248,13 @@ public class SyncService : ISyncService
         if (!_fileTableNames.Contains(dto.TableName))
             return refs;
 
-        foreach (var (role, rawPath) in ExtractSyncFilePaths(dto.Payload))
+        foreach (var (role, rawPath) in dto.TableName == "task_deferral_request"
+            ? DeferralSyncFiles.References(dto.Payload) : ExtractSyncFilePaths(dto.Payload))
         {
             var filePath = StripQueryString(rawPath) ?? rawPath;
             if (!_syncFileStorageService.Exists(filePath))
             {
-                _logger.LogWarning("Sync file path not found for {Table}/{Key}: {Path}", dto.TableName, dto.RecordKey, filePath);
-                continue;
+                throw new FileNotFoundException($"Sync attachment missing for {dto.TableName}/{dto.RecordKey}", filePath);
             }
 
             var preparedFile = await _syncFilePreparationService.PrepareForSyncAsync(
@@ -1113,8 +1265,7 @@ public class SyncService : ISyncService
                 cancellationToken);
             if (preparedFile == null)
             {
-                _logger.LogWarning("Unable to prepare sync file for {Table}/{Key}: {Path}", dto.TableName, dto.RecordKey, filePath);
-                continue;
+                throw new InvalidOperationException($"Unable to prepare sync attachment for {dto.TableName}/{dto.RecordKey}: {filePath}");
             }
 
             refs.Add(new Maritime.Shared.DTOs.Sync.SyncFileReferenceDto
@@ -1481,13 +1632,7 @@ public class SyncService : ISyncService
     private Task ApplyIncomingItemAsync(
         EdgeDbContext context, Maritime.Shared.DTOs.Sync.SyncQueueItemDto item, CancellationToken token)
     {
-        // Simple apply without conflict handling — used as fallback
-        _logger.LogDebug("Applying shore item: {Table}/{Key} ({Action})", 
-            item.TableName, item.RecordKey, item.ActionType);
-
-        // This is handled by the SyncConflictHandler for full implementation.
-        // As a fallback, we just log.
-        return Task.CompletedTask;
+        throw new InvalidOperationException("SyncConflictHandler is unavailable; incoming data was not applied and must not be acknowledged.");
     }
 
     private const string LastPullTimestampKey = "LastPullTimestamp";
@@ -1529,6 +1674,19 @@ public class SyncService : ISyncService
         await context.SaveChangesAsync();
     }
 
+    public async Task ExecuteFileTransfersAsync(CancellationToken cancellationToken)
+    {
+        if (!await _fileGate.WaitAsync(0, cancellationToken)) return;
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
+            context.SuppressSyncQueue = true;
+            await ProcessFileTransferCycleAsync(context, cancellationToken);
+        }
+        finally { _fileGate.Release(); }
+    }
+
     private async Task ProcessFileTransferCycleAsync(EdgeDbContext context, CancellationToken cancellationToken)
     {
         var syncConfig = await ResolveSyncConfigAsync();
@@ -1568,7 +1726,7 @@ public class SyncService : ISyncService
             .Where(r => r.Manifest != null && allowedFilePriorities.Contains(r.Manifest.TransferPriority))
             .Where(r => r.NextRetryAt == null || r.NextRetryAt <= DateTime.UtcNow)
             .OrderBy(r => r.RequestedAtUtc)
-            .Take(50)
+            .Take(Math.Max(1, _configuration.GetValue("Sync:MaxFileRequestsPerCycle", 1)))
             .ToListAsync(cancellationToken);
 
         if (pendingRequests.Count == 0)
@@ -1612,13 +1770,19 @@ public class SyncService : ISyncService
                     $"{baseUrl}/api/sync/file-request",
                     json,
                     cancellationToken);
-                var response = await client.SendAsync(requestMessage, cancellationToken);
+                using var response = await SendSyncRequestAsync(client, requestMessage, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
                     DeferFileRequest(request, request.Manifest, $"Failed to register file request at shore: {(int)response.StatusCode}");
                     continue;
                 }
 
+                var receipt = await response.Content.ReadFromJsonAsync<Maritime.Shared.DTOs.Sync.SyncFileTransferResultDto>(_jsonOptions, cancellationToken);
+                if (receipt == null || !receipt.Success || receipt.RequestId != request.Id || receipt.ManifestId != request.ManifestId)
+                {
+                    DeferFileRequest(request, request.Manifest, "Invalid file request registration receipt");
+                    continue;
+                }
                 request.LastError = null;
                 request.NextRetryAt = null;
                 if (request.Status == SyncFileRequestStatus.Deferred)
@@ -1628,6 +1792,7 @@ public class SyncService : ISyncService
                 request.Manifest.LastError = null;
                 request.Manifest.UpdatedAt = DateTime.UtcNow;
             }
+            catch (FileTransferYieldException) { break; }
             catch (Exception ex)
             {
                 DeferFileRequest(request, request.Manifest, $"Error registering file request: {ex.Message}");
@@ -1653,7 +1818,7 @@ public class SyncService : ISyncService
                 $"{baseUrl}/api/sync/file-requests?supplierNodeId={Uri.EscapeDataString(nodeId)}",
                 null,
                 cancellationToken);
-            var response = await client.SendAsync(request, cancellationToken);
+            using var response = await SendSyncRequestAsync(client, request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Unable to retrieve pending shore file requests: {Status}", response.StatusCode);
@@ -1718,6 +1883,7 @@ public class SyncService : ISyncService
                 return;
 
             var bundleCandidates = preparedRequests
+                .Where(item => _currentNetwork is NetworkType.Shore_WiFi or NetworkType.Cellular_4G or NetworkType.Satellite_LEO)
                 .Where(item => item.PreparedFile.SizeBytes < chunkThresholdBytes && _syncFilePreparationService.CanBundle(item.PreparedFile))
                 .ToList();
             var bundledManifestIds = new HashSet<Guid>();
@@ -1751,7 +1917,7 @@ public class SyncService : ISyncService
                 }
             }
 
-            foreach (var preparedRequest in preparedRequests)
+            foreach (var preparedRequest in preparedRequests.Take(Math.Max(1, _configuration.GetValue("Sync:MaxFilesPerCycle", 1))))
             {
                 if (bundledManifestIds.Contains(preparedRequest.Request.ManifestId))
                     continue;
@@ -1799,7 +1965,7 @@ public class SyncService : ISyncService
                     $"{baseUrl}/api/sync/file-upload",
                     json,
                     cancellationToken);
-                var uploadResponse = await client.SendAsync(uploadRequest, cancellationToken);
+                using var uploadResponse = await SendSyncRequestAsync(client, uploadRequest, cancellationToken);
                 if (!uploadResponse.IsSuccessStatusCode)
                 {
                     var statusCode = (int)uploadResponse.StatusCode;
@@ -1819,6 +1985,12 @@ public class SyncService : ISyncService
                         ? _uploadFailureCooldown * 3
                         : _uploadFailureCooldown;
                     _uploadCooldowns[preparedRequest.Request.ManifestId] = DateTime.UtcNow.Add(cooldown);
+                }
+                else
+                {
+                    var receipt = await uploadResponse.Content.ReadFromJsonAsync<Maritime.Shared.DTOs.Sync.SyncFileTransferResultDto>(_jsonOptions, cancellationToken);
+                    if (receipt == null || !receipt.Success || receipt.RequestId != content.RequestId || receipt.ManifestId != content.ManifestId)
+                        throw new InvalidOperationException("Invalid single-file upload receipt");
                 }
             }
         }
@@ -1843,7 +2015,7 @@ public class SyncService : ISyncService
             .Where(r => r.Manifest != null && allowedFilePriorities.Contains(r.Manifest.TransferPriority))
             .Where(r => r.NextRetryAt == null || r.NextRetryAt <= DateTime.UtcNow)
             .OrderBy(r => r.RequestedAtUtc)
-            .Take(20)
+            .Take(Math.Max(1, _configuration.GetValue("Sync:MaxFilesPerCycle", 1)))
             .ToListAsync(cancellationToken);
 
         if (pendingRequests.Count == 0)
@@ -1863,7 +2035,13 @@ public class SyncService : ISyncService
                 Guid fileId;
                 string sha256;
 
-                if (request.Manifest.SizeBytes >= chunkThresholdBytes)
+                if (!string.IsNullOrWhiteSpace(request.Manifest.StoragePath) && _syncFileStorageService.Exists(request.Manifest.StoragePath) &&
+                    _syncFileStorageService.GetFileSize(request.Manifest.StoragePath) == request.Manifest.SizeBytes &&
+                    string.Equals(await _syncFileStorageService.ComputeSha256HexAsync(request.Manifest.StoragePath, cancellationToken), request.Manifest.Sha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    relativePath = request.Manifest.StoragePath; fileId = request.ManifestId; sha256 = request.Manifest.Sha256;
+                }
+                else if (request.Manifest.SizeBytes >= chunkThresholdBytes)
                 {
                     relativePath = await DownloadFileInChunksAsync(context, client, baseUrl, nodeId, request, cancellationToken);
                     fileId = request.ManifestId;
@@ -1877,7 +2055,7 @@ public class SyncService : ISyncService
                         downloadUrl,
                         null,
                         cancellationToken);
-                    var response = await client.SendAsync(downloadRequest, cancellationToken);
+                    using var response = await SendSyncRequestAsync(client, downloadRequest, cancellationToken);
 
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
@@ -1893,9 +2071,11 @@ public class SyncService : ISyncService
 
                     var content = await JsonSerializer.DeserializeAsync<Maritime.Shared.DTOs.Sync.SyncFileContentDto>(
                         await response.Content.ReadAsStreamAsync(cancellationToken), _jsonOptions, cancellationToken);
-                    if (content == null)
+                    if (content == null || content.RequestId != request.Id || content.ManifestId != request.ManifestId ||
+                        content.RequesterNodeId != nodeId || content.SupplierNodeId != shoreNodeId ||
+                        content.SizeBytes != request.Manifest.SizeBytes || !string.Equals(content.Sha256, request.Manifest.Sha256, StringComparison.OrdinalIgnoreCase))
                     {
-                        DeferFileRequest(request, request.Manifest, "Shore returned an empty file payload");
+                        DeferFileRequest(request, request.Manifest, "Shore returned an invalid file payload");
                         continue;
                     }
 
@@ -1930,6 +2110,15 @@ public class SyncService : ISyncService
                     sha256,
                     relativePath,
                     cancellationToken);
+            }
+            catch (FileTransferYieldException) { break; }
+            catch (DeltaBaseUnavailableException ex)
+            {
+                request.PreferDeltaTransfer = false;
+                request.DeltaBlockSizeBytes = null;
+                request.ReceiverBaseSha256 = null;
+                request.ReceiverBlockHashesJson = null;
+                DeferFileRequest(request, request.Manifest, ex.Message);
             }
             catch (Exception ex)
             {
@@ -1991,14 +2180,14 @@ public class SyncService : ISyncService
             $"{baseUrl}/api/sync/file-ack",
             json,
             cancellationToken);
-        var ackResponse = await client.SendAsync(ackRequest, cancellationToken);
+        using var ackResponse = await SendSyncRequestAsync(client, ackRequest, cancellationToken);
         if (!ackResponse.IsSuccessStatusCode)
         {
-            _logger.LogWarning(
-                "Shore file acknowledgment failed for manifest {ManifestId}: {Status}",
-                manifestId,
-                ackResponse.StatusCode);
+            throw new HttpRequestException($"File acknowledgment failed: HTTP {(int)ackResponse.StatusCode}");
         }
+        var receipt = await ackResponse.Content.ReadFromJsonAsync<Maritime.Shared.DTOs.Sync.SyncFileTransferResultDto>(_jsonOptions, cancellationToken);
+        if (receipt?.Success != true || receipt.RequestId != requestId || receipt.ManifestId != manifestId)
+            throw new HttpRequestException("Missing or invalid file acknowledgment receipt");
     }
 
     private async Task UpdateEntityFilePathAsync(
@@ -2076,12 +2265,12 @@ public class SyncService : ISyncService
 
     private int GetFileTransferChunkSizeBytes()
     {
-        return Math.Max(64 * 1024, _configuration.GetValue("Sync:FileTransferChunkSizeBytes", 256 * 1024));
+        return Math.Max(1024, _configuration.GetValue($"Sync:AdaptiveProfiles:{_currentNetwork}:ChunkBytes", Math.Min(_configuration.GetValue("Sync:FileTransferChunkSizeBytes", 256 * 1024), SyncLinkPolicy.For(_currentNetwork ?? NetworkType.Satellite_VSAT).ChunkBytes)));
     }
 
     private long GetFileTransferChunkThresholdBytes()
     {
-        return Math.Max(GetFileTransferChunkSizeBytes(), _configuration.GetValue("Sync:FileTransferChunkThresholdBytes", 1024 * 1024L));
+        return GetFileTransferChunkSizeBytes(); // Use resumable chunks even for small files on constrained links.
     }
 
     private async Task UploadFileInChunksAsync(
@@ -2135,15 +2324,21 @@ public class SyncService : ISyncService
             $"{baseUrl}/api/sync/file-upload-session",
             sessionJson,
             cancellationToken);
-        var sessionResponse = await client.SendAsync(sessionHttpRequest, cancellationToken);
+        using var sessionResponse = await SendSyncRequestAsync(client, sessionHttpRequest, cancellationToken);
         if (!sessionResponse.IsSuccessStatusCode)
             throw new InvalidOperationException($"Shore rejected upload session: {(int)sessionResponse.StatusCode}");
 
         var session = await JsonSerializer.DeserializeAsync<Maritime.Shared.DTOs.Sync.SyncFileChunkSessionDto>(
             await sessionResponse.Content.ReadAsStreamAsync(cancellationToken), _jsonOptions, cancellationToken);
-        if (session == null)
-            throw new InvalidOperationException("Shore returned an empty upload session payload");
+        if (session == null || session.SessionId == Guid.Empty || session.RequestId != transferRequest.RequestId ||
+            session.ManifestId != transferRequest.ManifestId || session.SupplierNodeId != nodeId ||
+            session.RequesterNodeId != transferRequest.RequesterNodeId || session.ChunkSizeBytes <= 0 ||
+            session.TotalChunks <= 0 || session.NextChunkIndex < 0 || session.NextChunkIndex > session.TotalChunks ||
+            session.SizeBytes != preparedFile.SizeBytes || !string.Equals(session.Sha256, preparedFile.Sha256, StringComparison.OrdinalIgnoreCase) ||
+            (session.IsDeltaSession && (session.RequestedChunkIndexes.Count != session.TotalChunks || session.RequestedChunkIndexes.Any(index => index < 0 || (long)index * session.ChunkSizeBytes >= Math.Max(1, session.SizeBytes)))))
+            throw new InvalidOperationException("Shore returned an invalid upload session");
 
+        var chunksSent = 0;
         while (session.NextChunkIndex < session.TotalChunks)
         {
             var chunkIndex = session.NextChunkIndex;
@@ -2177,7 +2372,7 @@ public class SyncService : ISyncService
                 $"{baseUrl}/api/sync/file-upload-chunk",
                 chunkJson,
                 cancellationToken);
-            var chunkResponse = await client.SendAsync(chunkRequest, cancellationToken);
+            using var chunkResponse = await SendSyncRequestAsync(client, chunkRequest, cancellationToken);
             if (!chunkResponse.IsSuccessStatusCode)
                 throw new InvalidOperationException($"Shore rejected upload chunk {chunkIndex}: {(int)chunkResponse.StatusCode}");
 
@@ -2186,8 +2381,13 @@ public class SyncService : ISyncService
             if (chunkResult == null || !chunkResult.Success)
                 throw new InvalidOperationException(chunkResult?.Message ?? "Shore returned an invalid chunk result");
 
+            if (chunkResult.SessionId != session.SessionId || chunkResult.ChunkIndex != chunkIndex ||
+                chunkResult.NextChunkIndex <= chunkIndex || chunkResult.NextChunkIndex > session.TotalChunks ||
+                (chunkIndex == session.TotalChunks - 1 && !chunkResult.IsComplete))
+                throw new InvalidOperationException("Invalid upload chunk receipt");
             session.NextChunkIndex = chunkResult.NextChunkIndex;
             session.ResumeToken = chunkResult.ResumeToken;
+            if (++chunksSent >= Math.Max(1, _configuration.GetValue("Sync:MaxChunksPerCycle", 1))) return;
         }
     }
 
@@ -2208,7 +2408,7 @@ public class SyncService : ISyncService
             sessionUrl,
             null,
             cancellationToken);
-        var sessionResponse = await client.SendAsync(sessionRequest, cancellationToken);
+        using var sessionResponse = await SendSyncRequestAsync(client, sessionRequest, cancellationToken);
         if (sessionResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
             throw new InvalidOperationException("Supplier has not made requested file available yet");
         if (!sessionResponse.IsSuccessStatusCode)
@@ -2216,10 +2416,15 @@ public class SyncService : ISyncService
 
         var remoteSession = await JsonSerializer.DeserializeAsync<Maritime.Shared.DTOs.Sync.SyncFileChunkSessionDto>(
             await sessionResponse.Content.ReadAsStreamAsync(cancellationToken), _jsonOptions, cancellationToken);
-        if (remoteSession == null)
-            throw new InvalidOperationException("Shore returned an empty chunk session payload");
+        if (remoteSession == null || remoteSession.SessionId == Guid.Empty || remoteSession.ManifestId != request.ManifestId ||
+            remoteSession.RequestId != request.Id || remoteSession.RequesterNodeId != nodeId || remoteSession.SupplierNodeId != request.SupplierNodeId ||
+            remoteSession.SizeBytes != request.Manifest.SizeBytes || !string.Equals(remoteSession.Sha256, request.Manifest.Sha256, StringComparison.OrdinalIgnoreCase) ||
+            remoteSession.ChunkSizeBytes <= 0 || remoteSession.TotalChunks <= 0 ||
+            (remoteSession.IsDeltaSession && remoteSession.RequestedChunkIndexes.Count != remoteSession.TotalChunks))
+            throw new InvalidOperationException("Shore returned an invalid download session");
 
         var localSession = await GetOrCreateLocalDownloadChunkSessionAsync(context, request, remoteSession, cancellationToken);
+        var chunksReceived = 0;
         while (localSession.NextChunkIndex < remoteSession.TotalChunks)
         {
             var chunkUrl = $"{baseUrl}/api/sync/file-download-chunk?sessionId={remoteSession.SessionId}&requesterNodeId={Uri.EscapeDataString(nodeId)}&chunkIndex={localSession.NextChunkIndex}&resumeToken={Uri.EscapeDataString(localSession.ResumeToken)}";
@@ -2228,7 +2433,7 @@ public class SyncService : ISyncService
                 chunkUrl,
                 null,
                 cancellationToken);
-            var chunkResponse = await client.SendAsync(chunkRequest, cancellationToken);
+            using var chunkResponse = await SendSyncRequestAsync(client, chunkRequest, cancellationToken);
             if (!chunkResponse.IsSuccessStatusCode)
                 throw new InvalidOperationException($"Shore chunk download failed at chunk {localSession.NextChunkIndex}: {(int)chunkResponse.StatusCode}");
 
@@ -2237,7 +2442,13 @@ public class SyncService : ISyncService
             if (chunk == null)
                 throw new InvalidOperationException("Shore returned an empty chunk payload");
 
+            var expectedIndex = remoteSession.IsDeltaSession ? remoteSession.RequestedChunkIndexes[localSession.NextChunkIndex] : localSession.NextChunkIndex;
+            var expectedOffset = (long)expectedIndex * remoteSession.ChunkSizeBytes;
+            var expectedLength = Math.Min(remoteSession.ChunkSizeBytes, remoteSession.SizeBytes - expectedOffset);
             var bytes = Convert.FromBase64String(chunk.Base64Content);
+            if (chunk.SessionId != remoteSession.SessionId || chunk.ChunkIndex != localSession.NextChunkIndex ||
+                chunk.FileChunkIndex != expectedIndex || chunk.OffsetBytes != expectedOffset || bytes.LongLength != expectedLength)
+                throw new InvalidOperationException("Downloaded chunk identity, index or size mismatch");
             if (!string.Equals(ComputeSha256Hex(bytes), chunk.ChunkSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Chunk checksum mismatch at index {chunk.ChunkIndex}");
 
@@ -2253,6 +2464,8 @@ public class SyncService : ISyncService
             localSession.LastError = null;
 
             await context.SaveChangesAsync(cancellationToken);
+            if (++chunksReceived >= Math.Max(1, _configuration.GetValue("Sync:MaxChunksPerCycle", 1)) && localSession.NextChunkIndex < remoteSession.TotalChunks)
+                throw new FileTransferYieldException();
         }
 
         if (string.IsNullOrWhiteSpace(localSession.StagingPath) || !_syncFileStorageService.Exists(localSession.StagingPath))
@@ -2265,17 +2478,10 @@ public class SyncService : ISyncService
         if (request.Manifest.SizeBytes > 0 && _syncFileStorageService.GetFileSize(localSession.StagingPath) != request.Manifest.SizeBytes)
             throw new InvalidOperationException("Downloaded chunk session size mismatch");
 
-        var stagedBytes = await File.ReadAllBytesAsync(_syncFileStorageService.ResolveLocalPath(localSession.StagingPath), cancellationToken);
-        var relativePath = await StoreIncomingFileAsync(
-            request.Manifest.TableName,
-            request.Manifest.FileRole,
-            request.Manifest.RecordKey,
-            request.Manifest.FileName,
-            request.Manifest.Sha256,
-            request.Manifest.SizeBytes,
-            stagedBytes,
-            cancellationToken);
-        await _syncFileStorageService.DeleteIfExistsAsync(localSession.StagingPath, cancellationToken);
+        var relativePath = _syncFileStorageService.CreateRelativeStoragePath(request.Manifest.TableName, request.Manifest.FileRole,
+            request.Manifest.RecordKey, request.Manifest.FileName, request.Manifest.Sha256);
+        await _syncFileStorageService.CopyAsync(localSession.StagingPath, relativePath, cancellationToken);
+        await ValidateStoredFileAsync(relativePath, request.Manifest.Sha256, request.Manifest.SizeBytes, cancellationToken);
         await UpdateEntityFilePathAsync(context, request.Manifest.TableName, request.Manifest.RecordKey, request.Manifest.FileRole, relativePath, cancellationToken);
 
         localSession.StoragePath = relativePath;
@@ -2284,6 +2490,8 @@ public class SyncService : ISyncService
         localSession.LastError = null;
 
         await context.SaveChangesAsync(cancellationToken);
+        try { await _syncFileStorageService.DeleteIfExistsAsync(localSession.StagingPath, cancellationToken); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Completed download staging cleanup deferred for {SessionId}", localSession.Id); }
         return relativePath;
     }
 
@@ -2368,12 +2576,6 @@ public class SyncService : ISyncService
             localSession.NextChunkIndex = 0;
             localSession.CommittedBytes = 0;
         }
-        else
-        {
-            var stagedBytes = _syncFileStorageService.GetFileSize(localSession.StagingPath);
-            localSession.CommittedBytes = stagedBytes;
-            localSession.NextChunkIndex = (int)Math.Min(remoteSession.TotalChunks, (stagedBytes + remoteSession.ChunkSizeBytes - 1) / remoteSession.ChunkSizeBytes);
-        }
 
         localSession.LastActivityAtUtc = DateTime.UtcNow;
         localSession.LastError = null;
@@ -2442,9 +2644,12 @@ public class SyncService : ISyncService
             $"{baseUrl}/api/sync/file-upload-bundle",
             json,
             cancellationToken);
-        var response = await client.SendAsync(uploadRequest, cancellationToken);
+        using var response = await SendSyncRequestAsync(client, uploadRequest, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException($"Shore rejected file bundle upload: {(int)response.StatusCode}");
+        var receipt = await response.Content.ReadFromJsonAsync<Maritime.Shared.DTOs.Sync.SyncFileBundleResultDto>(_jsonOptions, cancellationToken);
+        if (receipt?.Success != true || receipt.BundleId != bundle.BundleId || receipt.AcceptedCount != bundleItems.Count)
+            throw new InvalidOperationException("Missing or partial file bundle receipt");
     }
 
     private async Task<List<int>> BuildRequestedChunkIndexesAsync(
@@ -2484,16 +2689,17 @@ public class SyncService : ISyncService
             localSession.StagingPath = _syncFileStorageService.CreateRelativeStagingPath(localSession.Id, localSession.FileName);
 
         await _syncFileStorageService.DeleteIfExistsAsync(localSession.StagingPath, cancellationToken);
-        if (!localSession.IsDeltaSession || string.IsNullOrWhiteSpace(localSession.ReceiverBaseSha256))
-            return;
+        if (!localSession.IsDeltaSession) return;
+        if (string.IsNullOrWhiteSpace(localSession.ReceiverBaseSha256))
+            throw new DeltaBaseUnavailableException("Delta base is unspecified; full download will be requested");
 
         var basePath = await FindEntityFilePathAsync(context, request.Manifest!.TableName, request.Manifest.RecordKey);
         if (string.IsNullOrWhiteSpace(basePath) || !_syncFileStorageService.Exists(basePath))
-            return;
+            throw new DeltaBaseUnavailableException("Delta base is unavailable; full download will be requested");
 
         var baseSha256 = await _syncFileStorageService.ComputeSha256HexAsync(basePath, cancellationToken);
         if (!string.Equals(baseSha256, localSession.ReceiverBaseSha256, StringComparison.OrdinalIgnoreCase))
-            return;
+            throw new DeltaBaseUnavailableException("Delta base changed; full download will be requested");
 
         await _syncFileStorageService.CopyAsync(basePath, localSession.StagingPath, cancellationToken);
     }

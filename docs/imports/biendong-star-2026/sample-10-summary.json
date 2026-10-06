@@ -1,0 +1,13 @@
+{
+  "equipment": 10,
+  "groups": 6,
+  "jobs": 10,
+  "kinds": {
+    "MONTHS": 3,
+    "YEARS": 1,
+    "HOURS": 3,
+    "DRY_DOCK": 1,
+    "ON_DEMAND": 1,
+    "VOYAGE": 1
+  }
+}

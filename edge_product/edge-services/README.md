@@ -125,3 +125,8 @@ POST /api/reports/noon
 7. **`Mappings/MappingProfiles.cs`** gom 4 `AutoMapper.Profile` thực sự có nội dung (`VoyageProfile`, `CrewProfile`, `PortProfile`, `ReportingProfile`) và 1 profile rỗng (`MaintenanceProfile` — "No maintenance mappings at this time"). `Extensions/AutoMapperExtensions.cs` chỉ có nhiệm vụ gọi `services.AddAutoMapper(assembly)` để quét toàn bộ profile này.
 
 8. **Chế độ mô phỏng dữ liệu cảm biến khi không có phần cứng thật:** thứ tự ưu tiên hiện tại (theo `appsettings.json`) là `NmeaPlayback` (đọc lại file NMEA đã ghi sẵn tại `TestData/nmea/vietnam-coastal-route.nmea`, sinh bằng script Node trong `package.json`) — **KHÔNG phải** `TelemetrySimulatorService` (sinh số ngẫu nhiên, đang tắt) hay `SignalKDataCollectorService` (gọi demo server signalk.org, đang tắt). Khi lên tàu thật, các cờ `*:Enabled` này sẽ đổi để dùng `GpsCollectorService` (TCP tới gpsd) và Modbus/MQTT thật (đã có package NModbus/MQTTnet trong `.csproj` nhưng theo khảo sát hiện chưa thấy service tương ứng sử dụng — có thể là hạ tầng chuẩn bị cho tương lai).
+# Tài khoản quản trị ban đầu
+
+Khi khởi động, sau bước chuẩn bị database, Edge tự tạo tài khoản `admin` với mật khẩu `Admin@2026` nếu chưa có username này (không phân biệt hoa/thường). Mật khẩu được hash bằng cơ chế PBKDF2 của AuthService; tài khoản mới yêu cầu đổi mật khẩu lần đầu đăng nhập.
+
+Seed dùng role `ADMIN` hiện có hoặc tạo role này nếu thiếu. Khi tài khoản đã tồn tại, seed không thay đổi mật khẩu, role hay trạng thái khóa. Không cần chạy script reset database. Role `ADMIN` đã bị vô hiệu hóa sẽ không được tự kích hoạt lại.

@@ -1,5 +1,6 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Plus, Search, Trash2, Edit2, Save, X, FolderOpen, ChevronsUpDown, Warehouse } from 'lucide-react';
+import { Plus, Search, Trash2, Edit2, Save, X, FolderOpen, Warehouse, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { storeLocationService } from '@/services/store-location.service';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -11,6 +12,8 @@ export default function StoreLocationPage() {
 
   const [locations, setLocations] = useState<StoreLocation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [collapsedLocations, setCollapsedLocations] = useState<Set<string>>(new Set());
 
   const [searchName, setSearchName] = useState('');
   const [searchCode, setSearchCode] = useState('');
@@ -55,6 +58,25 @@ export default function StoreLocationPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    setSelectedRows(new Set());
+    if (selectedLocationId && !locations.some(l => l.id === selectedLocationId)) setSelectedLocationId(null);
+  }, [locations, selectedLocationId]);
+
+  const renderLocation = (location: StoreLocation, depth: number, ancestors: Set<string> = new Set()): React.ReactNode => {
+    if (ancestors.has(location.id)) return null;
+    const path = new Set(ancestors).add(location.id);
+    const children = locations.filter(l => l.parentId === location.id);
+    const collapsed = collapsedLocations.has(location.id);
+    return <div key={location.id}>
+      <div className={'w-full flex items-center gap-1.5 pr-3 py-1.5 text-xs select-none ' + (selectedLocationId === location.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50')} style={{ paddingLeft: 12 + depth * 14 }}>
+        <button type="button" aria-label={collapsed ? 'Mở nhánh kho' : 'Thu gọn nhánh kho'} aria-expanded={children.length ? !collapsed : undefined} disabled={!children.length} onClick={() => setCollapsedLocations(prev => { const next = new Set(prev); next.has(location.id) ? next.delete(location.id) : next.add(location.id); return next; })} className="h-3 w-3 shrink-0 text-blue-500 disabled:opacity-0">{collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}</button>
+        <button type="button" onClick={() => setSelectedLocationId(location.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left"><FolderOpen className="h-3 w-3 shrink-0 text-amber-500" /><span className="flex-1 truncate leading-snug" title={location.name}>{location.name}</span>{children.length > 0 && <span className="shrink-0 text-[10px] font-normal text-gray-400">{children.length}</span>}</button>
+      </div>
+      {!collapsed && children.map(child => renderLocation(child, depth + 1, path))}
+    </div>;
+  };
+
   const locationMap = useMemo(() => {
     const m = new Map<string, StoreLocation>();
     locations.forEach(l => m.set(l.id, l));
@@ -63,6 +85,17 @@ export default function StoreLocationPage() {
 
   const filteredLocations = useMemo(() => {
     let data = locations;
+    if (selectedLocationId) {
+      const ids = new Set<string>();
+      const pending = [selectedLocationId];
+      while (pending.length) {
+        const id = pending.pop()!;
+        if (ids.has(id)) continue;
+        ids.add(id);
+        locations.filter(l => l.parentId === id).forEach(l => pending.push(l.id));
+      }
+      data = data.filter(l => ids.has(l.id));
+    }
 
     if (searchName) data = data.filter(l => l.name.toLowerCase().includes(searchName.toLowerCase()));
     if (searchCode) data = data.filter(l => l.locationCode.toLowerCase().includes(searchCode.toLowerCase()));
@@ -73,7 +106,7 @@ export default function StoreLocationPage() {
     if (searchEmail) data = data.filter(l => l.email?.toLowerCase().includes(searchEmail.toLowerCase()));
 
     return data;
-  }, [locations, locationMap, searchName, searchCode, searchDesc, searchAddress, searchManager, searchPhone, searchEmail]);
+  }, [locations, locationMap, selectedLocationId, searchName, searchCode, searchDesc, searchAddress, searchManager, searchPhone, searchEmail]);
 
   const totalPages = Math.ceil(filteredLocations.length / itemsPerPage);
   const paginatedLocations = useMemo(() => {
@@ -83,7 +116,7 @@ export default function StoreLocationPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchName, searchCode, searchDesc, searchAddress, searchManager, searchPhone, searchEmail]);
+  }, [selectedLocationId, searchName, searchCode, searchDesc, searchAddress, searchManager, searchPhone, searchEmail]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -151,7 +184,7 @@ export default function StoreLocationPage() {
 
   const openAddModal = () => {
     setModal({ mode: 'add' });
-    setModalForm({ locationCode: '', name: '', description: '', parentId: null, address: '', managerName: '', phone: '', email: '' });
+    setModalForm({ locationCode: '', name: '', description: '', parentId: selectedLocationId, address: '', managerName: '', phone: '', email: '' });
   };
 
   const openEditModal = (item: StoreLocation) => {
@@ -236,9 +269,12 @@ export default function StoreLocationPage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden bg-white">
+    <div className="h-full min-h-0 w-full min-w-0 flex flex-col overflow-hidden bg-white">
       <div className="flex flex-shrink-0 border-b border-gray-200">
-        <div className="flex-1 flex items-center justify-between px-4 py-3 bg-white">
+        <button type="button" onClick={() => setSelectedLocationId(null)} className={'flex w-64 shrink-0 items-center gap-1.5 border-r border-gray-200 px-3 py-3 text-left text-sm font-semibold ' + (!selectedLocationId ? 'bg-blue-800 text-white' : 'bg-white text-gray-700')}>
+          <FolderOpen className="h-4 w-4 shrink-0" /><span className="flex-1 truncate text-left">Tất cả kho</span>
+        </button>
+        <div className="min-w-0 flex-1 flex items-center justify-between gap-3 px-4 py-3 bg-white">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-700">
               ≡ {t('storeLocations.locationList')}
@@ -248,34 +284,38 @@ export default function StoreLocationPage() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <PermissionGate permission="pms.locations.delete"><button
               onClick={handleBulkDelete}
               disabled={selectedRows.size === 0}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded ${selectedRows.size > 0 ? 'text-red-600 hover:bg-red-50 border-red-300' : 'text-gray-400 cursor-not-allowed border-gray-300'}`}
             >
               <Trash2 className="w-3.5 h-3.5" />
               {t('storeLocations.deleteMany')}{selectedRows.size > 0 ? ` (${selectedRows.size})` : ''}
-            </button>
-            <button
+            </button></PermissionGate>
+            <PermissionGate permission="pms.locations.create"><button
               onClick={openAddModal}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white border border-blue-600 rounded font-medium hover:bg-blue-700"
             >
               <Plus className="w-3.5 h-3.5" />
               Thêm mới
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="flex min-h-0 w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
+          <div className="min-h-0 flex-1 overflow-y-auto py-1">{locations.filter(l => !l.parentId || !locationMap.has(l.parentId)).map(l => renderLocation(l, 0))}</div>
+        </aside>
+        <div className="min-w-0 flex-1 flex flex-col overflow-hidden min-h-0">
           <>
-              <div className="flex-1 overflow-auto">
-                <table className="min-w-full text-sm border-collapse">
-                  <thead className="sticky top-0 z-10">
+              <div className="min-h-0 min-w-0 flex-1 overflow-x-scroll overflow-y-auto" aria-label="Danh sách vị trí kho">
+                <table className="table-fixed border-separate border-spacing-0 text-sm" style={{ width: 1860 }}>
+                  <colgroup>{[40, 40, 260, 150, 240, 220, 200, 160, 240, 190, 120].map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
+                  <thead className="sticky top-0 z-30">
                     <tr className="bg-blue-50">
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">
+                      <th className="sticky left-0 z-40 bg-blue-50 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
+                      <th className="sticky left-10 z-40 bg-blue-50 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">
                         <input type="checkbox" checked={selectedRows.size === paginatedLocations.length && paginatedLocations.length > 0} onChange={toggleAllRows} className="rounded text-blue-600" />
                       </th>
                       {[
@@ -288,30 +328,29 @@ export default function StoreLocationPage() {
                         { key: 'colEmail', minW: 'w-36' },
                         { key: 'colUpdatedAt', minW: 'w-28' },
                       ].map(col => (
-                        <th key={col.key} className={`${col.minW} px-3 py-2 text-left border-b border-r border-gray-200`}>
+                        <th key={col.key} className={`bg-blue-50 px-3 py-2 text-left border-b border-gray-200 ${col.key === 'colUpdatedAt' ? '' : 'border-r'} ${col.key === 'colName' ? 'sticky left-20 z-40' : ''}`}>
                           <div className="flex items-center justify-between gap-1">
                             <span className="text-xs font-semibold text-gray-600">{t(`storeLocations.${col.key}`)}</span>
-                            <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           </div>
                         </th>
                       ))}
-                      <th className="w-20 px-3 py-2 border-b border-gray-200" />
+                      <th className="sticky right-0 z-40 bg-blue-50 px-2 py-2 border-b border-l border-gray-200 text-xs font-semibold text-gray-600">Hành động</th>
                     </tr>
                     <tr className="bg-white border-b border-gray-200">
-                      <th className="border-r border-gray-200" />
-                      <th className="border-r border-gray-200" />
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchName} onChange={e => setSearchName(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchCode} onChange={e => setSearchCode(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchDesc} onChange={e => setSearchDesc(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchAddress} onChange={e => setSearchAddress(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchManager} onChange={e => setSearchManager(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchPhone} onChange={e => setSearchPhone(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">→</span><input type="text" placeholder={t('common.search')} value={searchEmail} onChange={e => setSearchEmail(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="px-2 py-1 border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><span className="text-gray-400 text-xs select-none">=</span><input type="text" placeholder="mm/dd/yyyy" className="flex-1 text-xs outline-none min-w-0 bg-transparent" readOnly /></div></th>
-                      <th className="border-gray-200" />
+                      <th className="sticky left-0 z-40 bg-white border-b border-r border-gray-200" />
+                      <th className="sticky left-10 z-40 bg-white border-b border-r border-gray-200" />
+                      <th className="sticky left-20 z-40 bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchName} onChange={e => setSearchName(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchCode} onChange={e => setSearchCode(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchDesc} onChange={e => setSearchDesc(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchAddress} onChange={e => setSearchAddress(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchManager} onChange={e => setSearchManager(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchPhone} onChange={e => setSearchPhone(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchEmail} onChange={e => setSearchEmail(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
+                      <th className="bg-white border-b border-gray-200" />
+                      <th className="sticky right-0 z-40 bg-white border-b border-l border-gray-200" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody>
                     {paginatedLocations.length === 0 ? (
                       <tr>
                         <td colSpan={11} className="px-4 py-12 text-center text-gray-400">
@@ -321,18 +360,18 @@ export default function StoreLocationPage() {
                       </tr>
                     ) : (
                       paginatedLocations.map((loc, idx) => (
-                        <tr key={loc.id} className={`hover:bg-blue-50 ${selectedRows.has(loc.id) ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                          <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                          <td className="px-2 py-2 text-center border-r border-gray-100"><input type="checkbox" checked={selectedRows.has(loc.id)} onChange={() => toggleRow(loc.id)} className="rounded text-blue-600" /></td>
-                          <td className="px-3 py-2 border-r border-gray-100"><button onClick={() => openEditModal(loc)} className="flex items-center gap-1 text-blue-600 hover:underline font-medium text-xs text-left w-full"><FolderOpen className="w-3 h-3 flex-shrink-0 text-gray-400" /><span className="marquee-cell flex-1 min-w-0"><span className="marquee-text">{loc.name} (SL:{locations.filter(l => l.parentId === loc.id).length})</span></span></button></td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100 font-mono">{loc.locationCode}</td>
-                          <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100"><div className="marquee-cell"><span className="marquee-text">{loc.description || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100"><div className="marquee-cell"><span className="marquee-text">{loc.address || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100"><div className="marquee-cell"><span className="marquee-text">{loc.managerName || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{loc.phone || ''}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100"><div className="marquee-cell"><span className="marquee-text">{loc.email || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 whitespace-nowrap">{loc.updatedAt ? new Date(loc.updatedAt).toLocaleDateString() : ''}</td>
-                          <td className="px-2 py-2"><div className="flex items-center justify-center gap-0.5"><button onClick={() => openEditModal(loc)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('storeLocations.edit')}><Edit2 className="w-3.5 h-3.5" /></button><button onClick={() => handleDelete(loc)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('storeLocations.delete')}><Trash2 className="w-3.5 h-3.5" /></button></div></td>
+                        <tr key={loc.id} className={`hover:bg-blue-50 ${selectedRows.has(loc.id) ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}`}>
+                          <td className="sticky left-0 z-10 bg-inherit px-2 py-2 text-center text-xs text-gray-500 border-b border-r border-gray-100">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                          <td className="sticky left-10 z-10 bg-inherit px-2 py-2 text-center border-b border-r border-gray-100"><input type="checkbox" checked={selectedRows.has(loc.id)} onChange={() => toggleRow(loc.id)} className="rounded text-blue-600" /></td>
+                          <td title={loc.name} className="sticky left-20 z-20 bg-inherit px-3 py-2 border-b border-r border-gray-100"><button onClick={() => setSelectedLocationId(loc.id)} className="flex items-center gap-1 text-blue-600 hover:underline font-medium text-xs text-left w-full"><FolderOpen className="w-3 h-3 flex-shrink-0 text-gray-400" /><span className="flex-1 min-w-0 truncate"><span className="block truncate">{loc.name} (SL:{locations.filter(l => l.parentId === loc.id).length})</span></span></button></td>
+                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100 font-mono">{loc.locationCode}</td>
+                          <td className="px-3 py-2 text-xs text-gray-500 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.description || ''}</span></div></td>
+                          <td className="px-3 py-2 text-xs text-gray-500 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.address || ''}</span></div></td>
+                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.managerName || ''}</span></div></td>
+                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100">{loc.phone || ''}</td>
+                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.email || ''}</span></div></td>
+                          <td className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100 whitespace-nowrap">{loc.updatedAt ? new Date(loc.updatedAt).toLocaleDateString() : ''}</td>
+                          <td className="sticky right-0 z-20 bg-inherit border-b border-l border-gray-100 px-2 py-2"><div className="flex items-center justify-center gap-0.5"><PermissionGate permission="pms.locations.update"><button onClick={() => openEditModal(loc)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('storeLocations.edit')}><Edit2 className="w-3.5 h-3.5" /></button></PermissionGate><PermissionGate permission="pms.locations.delete"><button onClick={() => handleDelete(loc)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('storeLocations.delete')}><Trash2 className="w-3.5 h-3.5" /></button></PermissionGate></div></td>
                         </tr>
                       ))
                     )}
@@ -413,14 +452,14 @@ export default function StoreLocationPage() {
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
               {modal.mode === 'edit' && modal.item && (
-                <button onClick={() => { handleDelete(modal.item!); closeModal(); }} className="mr-auto px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 flex items-center gap-1">
+                <PermissionGate permission="pms.locations.delete"><button onClick={() => { handleDelete(modal.item!); closeModal(); }} className="mr-auto px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50 flex items-center gap-1">
                   <Trash2 size={13} /> Xóa kho
-                </button>
+                </button></PermissionGate>
               )}
               <button onClick={closeModal} className="px-4 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Hủy</button>
-              <button onClick={handleModalSave} disabled={modalSaving} className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
+              <PermissionGate permission={modal.mode === 'add' ? 'pms.locations.create' : 'pms.locations.update'}><button onClick={handleModalSave} disabled={modalSaving} className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5">
                 <Save size={13} /> {modalSaving ? 'Đang lưu...' : (modal.mode === 'add' ? 'Tạo mới' : 'Lưu')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

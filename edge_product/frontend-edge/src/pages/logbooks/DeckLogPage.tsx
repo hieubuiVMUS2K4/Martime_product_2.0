@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
@@ -202,12 +203,12 @@ export const DeckLogPage: React.FC = () => {
                   {t('common.cancel') || 'Cancel'}
                 </button>
               )}
-              <button 
+              <PermissionGate permission={editingId ? 'logbooks.deck.update' : 'logbooks.deck.create'}><button
                 onClick={handleSubmit}
                 className="flex-1 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {editingId ? (t('logbooks.deckLog.updateEntry') || 'Update Entry') : t('logbooks.deckLog.addEntry')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -252,7 +253,7 @@ export const DeckLogPage: React.FC = () => {
                         id={`sig-input-${entry.id}`}
                       />
                     </div>
-                    <button
+                    <PermissionGate permission="logbooks.deck.approve"><button
                       onClick={() => {
                         const input = document.getElementById(`sig-input-${entry.id}`) as HTMLInputElement;
                         const sigVal = input?.value || '';
@@ -265,15 +266,15 @@ export const DeckLogPage: React.FC = () => {
                       className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       Sign
-                    </button>
+                    </button></PermissionGate>
                   </div>
                   <div>
-                    <button
+                    <PermissionGate permission="logbooks.deck.update"><button
                       onClick={() => handleStartEdit(entry)}
                       className="text-amber-600 dark:text-amber-400 hover:underline text-sm font-semibold flex items-center gap-1"
                     >
                       ✏️ {t('common.edit') || 'Edit Entry'}
-                    </button>
+                    </button></PermissionGate>
                   </div>
                 </div>
               )}

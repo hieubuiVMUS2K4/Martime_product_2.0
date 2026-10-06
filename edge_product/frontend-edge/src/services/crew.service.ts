@@ -6,6 +6,7 @@ import { apiClient } from './api.client';
 
 export interface CrewMember {
   id: string;
+  crewId: string;
   firstName: string;
   lastName: string;
   fullName: string;

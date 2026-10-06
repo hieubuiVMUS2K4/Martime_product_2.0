@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react';
 import { 
   AlertTriangle, Plus, Search, 
@@ -381,21 +382,21 @@ export function IncidentManagement() {
           Bảng Quản lý Sự cố, Tai nạn & Không phù hợp chưa nhận được thông tin báo cáo nào trong cơ sở dữ liệu.
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
-          <button
+          <PermissionGate permission="hsqe.create"><button
             onClick={handleSeedData}
             disabled={isSeeding}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition flex items-center gap-2 shadow-sm disabled:opacity-50"
           >
             {isSeeding ? <Activity className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Khởi tạo dữ liệu mẫu
-          </button>
-          <button
+          </button></PermissionGate>
+          <PermissionGate permission="hsqe.create"><button
             onClick={() => setIsNewModalOpen(true)}
             className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl font-semibold transition flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Tạo báo cáo sự cố mới
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     );
@@ -531,12 +532,12 @@ export function IncidentManagement() {
         <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[650px]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sổ theo dõi sự cố & điểm KPH</h3>
-            <button 
+            <PermissionGate permission="hsqe.create"><button
               onClick={() => setIsNewModalOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
             >
               <Plus className="w-4 h-4" /> Báo cáo mới
-            </button>
+            </button></PermissionGate>
           </div>
 
           {/* Filters and search */}
@@ -650,13 +651,13 @@ export function IncidentManagement() {
               >
                 <FileText className="w-3.5 h-3.5" /> Xuất Mẫu biểu
               </button>
-              <button
+              <PermissionGate permission="hsqe.delete"><button
                 onClick={() => deleteIncident(selectedIncident.id)}
                 className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition"
                 title="Xóa báo cáo"
               >
                 <Trash2 className="w-4.5 h-4.5" />
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
 
@@ -743,12 +744,12 @@ export function IncidentManagement() {
                     placeholder="Nhập kết luận nguyên nhân cốt lõi..."
                     className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <button
+                  <PermissionGate permission="hsqe.update"><button
                     onClick={saveInvestigation}
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm"
                   >
                     Lưu
-                  </button>
+                  </button></PermissionGate>
                 </div>
               </div>
             </div>
@@ -840,12 +841,12 @@ export function IncidentManagement() {
                       onChange={(e) => setCapaDueDate(e.target.value)}
                       className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white focus:outline-none"
                     />
-                    <button
+                    <PermissionGate permission="hsqe.update"><button
                       onClick={addCAPAItem}
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-1.5 rounded-xl flex items-center gap-1 shadow"
                     >
                       Thêm
-                    </button>
+                    </button></PermissionGate>
                   </div>
                 </div>
 
@@ -970,12 +971,12 @@ export function IncidentManagement() {
               >
                 Hủy bỏ
               </button>
-              <button
+              <PermissionGate permission="hsqe.create"><button
                 onClick={handleAddIncident}
                 className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
               >
                 Gửi Báo cáo sự cố
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

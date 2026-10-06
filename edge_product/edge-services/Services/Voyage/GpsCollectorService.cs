@@ -34,7 +34,7 @@ public class GpsCollectorService : BackgroundService
     private readonly int _maxReconnectDelayMs;
     private readonly int _bufferSize;
     private readonly bool _logRawNmea;
-    private string _vesselImo = "UNKNOWN";
+    private string _nodeId = "UNKNOWN";
 
     // Trạng thái kết nối
     private int _reconnectAttempts;
@@ -76,8 +76,8 @@ public class GpsCollectorService : BackgroundService
         // Warmup delay
         await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
 
-        _vesselImo = await ResolveVesselImoAsync();
-        _logger.LogInformation("GPS Collector Service using VesselIMO: {VesselImo}", _vesselImo);
+        _nodeId = await ResolveNodeIdAsync();
+        _logger.LogInformation("GPS Collector Service using NodeId: {NodeId}", _nodeId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -280,7 +280,7 @@ public class GpsCollectorService : BackgroundService
                 position.IsSynced = false;
                 position.CreatedAt = DateTime.UtcNow;
                 position.UpdatedAt = DateTime.UtcNow;
-                position.OriginNode = _vesselImo; // Set IMO thực để khớp với Shore filter
+                position.OriginNode = _nodeId; // Set IMO thực để khớp với Shore filter
 
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
@@ -406,16 +406,16 @@ public class GpsCollectorService : BackgroundService
     /// value; resolving per-sentence would add unnecessary DB load. Falls back to "UNKNOWN" (does not
     /// throw) on Fail-Closed conditions.
     /// </summary>
-    private async Task<string> ResolveVesselImoAsync()
+    private async Task<string> ResolveNodeIdAsync()
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IEdgeRuntimeConfigService>();
             var syncConfig = await runtimeConfigService.GetSyncConfigAsync();
-            return string.IsNullOrWhiteSpace(syncConfig?.VesselImo)
+            return string.IsNullOrWhiteSpace(syncConfig?.NodeId)
                 ? "UNKNOWN"
-                : syncConfig!.VesselImo!;
+                : syncConfig!.NodeId;
         }
         catch (ProvisioningRequiredException ex)
         {

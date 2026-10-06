@@ -302,10 +302,11 @@ namespace ProductApi.Services.AI
                     return (new List<dynamic>(), null, null);
                 }
 
+                var origins = await ProductApi.Services.Sync.VesselSyncIdentity.HistoricalOriginsAsync(_context, request.VesselId.Value);
                 var vesselMaritimeReportIds = _context.Set<MaritimeReport>()
                     .AsNoTracking()
                     .Where(mr =>
-                        mr.OriginNode == vessel.IMO
+                        origins.Contains(mr.OriginNode)
                         || (mr.VoyageId.HasValue
                             && _context.VoyageRecords.AsNoTracking().Any(vr => vr.Id == mr.VoyageId.Value && vr.VesselIMO == vessel.IMO)))
                     .Select(mr => mr.Id);

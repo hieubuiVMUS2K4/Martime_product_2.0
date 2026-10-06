@@ -33,7 +33,8 @@ public enum NetworkType
     Satellite_Iridium = 1,
     Satellite_VSAT = 2,
     Cellular_4G = 3,
-    Shore_WiFi = 4
+    Shore_WiFi = 4,
+    Satellite_LEO = 5
 }
 
 /// <summary>
@@ -90,6 +91,7 @@ public enum SyncFileTransportEncoding
 /// </summary>
 public class SyncQueue
 {
+    public Guid EventId { get; set; } = Guid.NewGuid();
     [Key]
     public long Id { get; set; }
 

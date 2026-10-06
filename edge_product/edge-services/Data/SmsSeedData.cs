@@ -9,7 +9,7 @@ namespace MaritimeEdge.Data
 {
     public static class SmsSeedData
     {
-        public static async Task SeedAsync(EdgeDbContext context)
+        public static async Task SeedAsync(EdgeDbContext context, bool includeSampleProcedures = false)
         {
             // 1. Seed ISM Elements
             if (!await context.IsmElements.AnyAsync())
@@ -37,6 +37,9 @@ namespace MaritimeEdge.Data
                 await context.IsmElements.AddRangeAsync(elements);
                 await context.SaveChangesAsync();
             }
+
+            // Procedures and templates are owned by Shore, including deletions.
+            if (!includeSampleProcedures) return;
 
             // 2. Seed Procedures and Form Templates
             if (!await context.SmsProcedures.AnyAsync())

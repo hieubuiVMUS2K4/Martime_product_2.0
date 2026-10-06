@@ -20,7 +20,13 @@ public static class AutoMapperDependencyInjection
     /// </summary>
     public static IServiceCollection AddAutoMapperProfiles(this IServiceCollection services)
     {
-        services.AddAutoMapper(typeof(AutoMapperDependencyInjection).Assembly);
+        services.AddAutoMapper((serviceProvider, configuration) =>
+        {
+            // Set through configuration or the AutoMapper__LicenseKey environment variable.
+            configuration.LicenseKey = serviceProvider
+                .GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()
+                ["AutoMapper:LicenseKey"];
+        }, typeof(AutoMapperDependencyInjection).Assembly);
         return services;
     }
 }

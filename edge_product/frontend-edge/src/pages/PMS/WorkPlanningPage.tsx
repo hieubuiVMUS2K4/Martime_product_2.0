@@ -1,3 +1,5 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
+import { usePermissionsStore, canPerform } from '@/stores/permissions.store';
 /**
  * Danh sách công việc (Work Planning) - Avison-style
  * Gộp 6 view: Bảng | Lịch | Gantt Chart | Kanban | Counter | Cấu hình
@@ -6,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   Table2, Calendar, BarChart3, LayoutGrid,
   Search, ChevronRight, ChevronDown, ChevronLeft,
@@ -17,12 +20,14 @@ import {
 import { parseISO, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addDays, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { maritimeService } from '@/services/maritime.service';
-import { equipmentAssetService } from '@/services/equipment-asset.service';
+import { equipmentAssetService, getCachedEquipmentTree } from '@/services/equipment-asset.service';
 import { maintenanceScheduleService } from '@/services/maintenance-schedule.service';
 import { materialService, type MaterialCatalogItem } from '@/services/materialService';
 import { inventoryService } from '@/services/inventory.service';
 import { KanbanBoard } from '@/components/maintenance/KanbanBoard';
+import { isEventMaintenance, maintenanceCategoryLabel } from '@/components/pms/maintenance-categories';
 import { AddScheduleModal } from '@/components/pms/AddScheduleModal';
+import { ImportMaintenanceModal } from '@/components/pms/ImportMaintenanceModal';
 
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import { toast } from 'sonner';
@@ -211,6 +216,7 @@ export default function WorkPlanningPage() {
   const getPriorityLabel = (priority: string) => t(`pms.workPlanning.priority.${PRIORITY_KEY_MAP[priority] || 'normal'}`);
 
   // === View state ===
+  const permissionState = usePermissionsStore();
   const [activeTab, setActiveTab] = useState<ViewTab>('table');
 
   useEffect(() => {
@@ -222,7 +228,7 @@ export default function WorkPlanningPage() {
   // === Data state ===
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
   const [crewList, setCrewList] = useState<CrewMember[]>([]);
-  const [assets, setAssets] = useState<EquipmentAsset[]>([]);
+  const [assets, setAssets] = useState<EquipmentAsset[]>(() => getCachedEquipmentTree() ?? []);
   const [loading, setLoading] = useState(true);
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
   const [showHistory] = useState(false);
@@ -263,6 +269,7 @@ export default function WorkPlanningPage() {
 
   // === Modals ===
   const [isAddScheduleModalOpen, setIsAddScheduleModalOpen] = useState(false);
+  const [showImportMaintenance, setShowImportMaintenance] = useState(false);
 
   // === Schedule Config state ===
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
@@ -276,6 +283,10 @@ export default function WorkPlanningPage() {
   const [counterFilterName, setCounterFilterName] = useState('');
   const [counterSortField, setCounterSortField] = useState<string>('');
   const [counterSortDir, setCounterSortDir] = useState<'asc' | 'desc'>('asc');
+  const [counterPage, setCounterPage] = useState(1);
+  const [counterPageSize, setCounterPageSize] = useState(25);
+  const dataRequestRunning = useRef(false);
+  const schedulesLoaded = useRef(false);
 
   // === Config inline form state ===
   const [cfgEditingId, setCfgEditingId] = useState<string | null>(null);
@@ -285,8 +296,41 @@ export default function WorkPlanningPage() {
   const [cfgStockByItemCode, setCfgStockByItemCode] = useState<Record<string, { qty: number; unit?: string; minStock?: number | null }>>({});
   const [cfgSaving, setCfgSaving] = useState(false);
   const [cfgListSearch, setCfgListSearch] = useState('');
+  const [cfgListFilters, setCfgListFilters] = useState({ code: '', device: '', name: '', type: '', priority: '', cycle: '' });
+  const [cfgSelectedIds, setCfgSelectedIds] = useState<Set<string>>(new Set());
+  const [cfgBulkDeleting, setCfgBulkDeleting] = useState(false);
+  const cfgBulkDeleteRunning = useRef(false);
+  useEffect(() => {
+    const ids = new Set(schedules.map(schedule => schedule.id));
+    setCfgSelectedIds(previous => {
+      const next = new Set([...previous].filter(id => ids.has(id)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [schedules]);
   const [cfgTreeSelectedIds, setCfgTreeSelectedIds] = useState<Set<string>>(new Set());
   const [cfgShowHistory, setCfgShowHistory] = useState(false);
+  const cfgHistoryDialog = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!cfgShowHistory) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCfgShowHistory(false);
+      if (event.key !== 'Tab') return;
+      const controls = cfgHistoryDialog.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])');
+      if (!controls?.length) return;
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [cfgShowHistory]);
   // New: CBM, Risk Assessment, Inspection
   const [cfgIsCbm, setCfgIsCbm] = useState(false);
   const [cfgRequireRiskAssessment, setCfgRequireRiskAssessment] = useState(false);
@@ -317,6 +361,14 @@ export default function WorkPlanningPage() {
   }, [tasks]);
   const [cfgForm, setCfgForm] = useState<CreateMaintenanceScheduleDto>({ ...cfgDefaultForm });
 
+  useEffect(() => {
+    const module = activeTab === 'config' ? 'pms.config' : activeTab === 'counter' ? 'pms.counter' : 'pms.work';
+    if (!canPerform(module + '.view')) {
+      const next: ViewTab = canPerform('pms.work.view') ? 'table' : canPerform('pms.config.view') ? 'config' : 'counter';
+      if (next !== activeTab) setActiveTab(next);
+    }
+  }, [activeTab, permissionState.grants, permissionState.isAdmin]);
+
   // === Build equipment tree ===
   const tree = useMemo(() => buildTree(assets), [assets]);
 
@@ -335,13 +387,18 @@ export default function WorkPlanningPage() {
 
   // === Load data ===
   const loadData = useCallback(async (showSpinner = true) => {
+    if (dataRequestRunning.current) return;
+    dataRequestRunning.current = true;
     try {
       if (showSpinner) setLoading(true);
       else setIsBackgroundRefreshing(true);
 
-      const [tasksRes, crewRes, assetsRes] = await Promise.all([
-        maritimeService.maintenance.getAll({ pageSize: 1000 }),
-        maritimeService.crew.getAll({ pageSize: 100, isOnboard: true }),
+      if (showSpinner) {
+        void maritimeService.crew.getAll({ pageSize: 100, isOnboard: true })
+          .then(response => setCrewList(response.data)).catch(error => console.error('Error loading crew:', error));
+      }
+      const [tasksRes, assetsRes] = await Promise.all([
+        canPerform('pms.work.view') ? maritimeService.maintenance.getAll({ pageSize: 1000 }) : Promise.resolve({ data: [] }),
         equipmentAssetService.getTree(),
       ]);
 
@@ -350,12 +407,12 @@ export default function WorkPlanningPage() {
         if (newJson !== JSON.stringify(prev)) return tasksRes.data;
         return prev;
       });
-      setCrewList(crewRes.data);
       setAssets(assetsRes);
     } catch (err) {
       console.error('Error loading work planning data:', err);
       toast.error(t('pms.workPlanning.toast.loadFailed'));
     } finally {
+      dataRequestRunning.current = false;
       if (showSpinner) setLoading(false);
       else setIsBackgroundRefreshing(false);
     }
@@ -367,6 +424,7 @@ export default function WorkPlanningPage() {
       setScheduleLoading(true);
       const data = await maintenanceScheduleService.getAll();
       setSchedules(data);
+      schedulesLoaded.current = true;
     } catch (error) {
       console.error('Error loading schedules:', error);
       toast.error(t('pms.workPlanning.toast.scheduleLoadFailed'));
@@ -374,6 +432,10 @@ export default function WorkPlanningPage() {
       setScheduleLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (['config', 'calendar', 'gantt'].includes(activeTab) && !schedulesLoaded.current) void loadSchedules();
+  }, [activeTab, loadSchedules]);
 
   const handleScheduleDelete = (schedule: MaintenanceSchedule) => {
     toast(`${t('pms.workPlanning.toast.confirmDeleteConfig')} "${schedule.scheduleName}"?`, {
@@ -383,6 +445,7 @@ export default function WorkPlanningPage() {
           try {
             await maintenanceScheduleService.delete(schedule.id);
             await loadSchedules();
+            await loadData(false);
             if (cfgEditingId === schedule.id) cfgReset();
             toast.success(t('pms.workPlanning.toast.configDeleted'));
           } catch (error) {
@@ -392,6 +455,41 @@ export default function WorkPlanningPage() {
         }
       },
       cancel: { label: t('pms.workPlanning.config.cancel') || 'Hủy', onClick: () => {} },
+      duration: 8000,
+    });
+  };
+
+  const handleBulkScheduleDelete = () => {
+    const ids = [...cfgSelectedIds];
+    if (!ids.length || cfgBulkDeleteRunning.current) return;
+    toast(`Xóa ${ids.length} cấu hình đã chọn và các công việc liên quan?`, {
+      id: 'bulk-delete-maintenance-config',
+      action: {
+        label: 'Xóa',
+        onClick: async () => {
+          if (cfgBulkDeleteRunning.current) return;
+          cfgBulkDeleteRunning.current = true;
+          setCfgBulkDeleting(true);
+          const deleted = new Set<string>();
+          try {
+            // Bound concurrent requests and preserve failed rows for retry.
+            for (let offset = 0; offset < ids.length; offset += 4) {
+              const batch = ids.slice(offset, offset + 4);
+              const results = await Promise.allSettled(batch.map(id => maintenanceScheduleService.delete(id)));
+              results.forEach((result, index) => { if (result.status === 'fulfilled') deleted.add(batch[index]); });
+            }
+            setCfgSelectedIds(previous => new Set([...previous].filter(id => !deleted.has(id))));
+            if (cfgEditingId && deleted.has(cfgEditingId)) { cfgReset(); setCfgShowHistory(true); }
+            await Promise.all([loadSchedules(), loadData(false)]);
+            if (deleted.size) toast.success(`Đã xóa ${deleted.size} cấu hình.`);
+            if (deleted.size < ids.length) toast.error(`Không thể xóa ${ids.length - deleted.size} cấu hình. Các dòng lỗi vẫn được chọn để thử lại.`);
+          } finally {
+            cfgBulkDeleteRunning.current = false;
+            setCfgBulkDeleting(false);
+          }
+        },
+      },
+      cancel: { label: 'Hủy', onClick: () => {} },
       duration: 8000,
     });
   };
@@ -466,6 +564,9 @@ export default function WorkPlanningPage() {
       maintenanceCategory: schedule.maintenanceCategory || 'PERIODIC',
       intervalType: schedule.intervalType || 'RUNNING_HOURS',
       intervalDays: schedule.intervalDays,
+      intervalMonths: schedule.intervalMonths,
+      intervalYears: schedule.intervalYears,
+      workCode: schedule.workCode,
       intervalHours: schedule.intervalHours,
       daysBeforeDue: schedule.daysBeforeDue || (schedule.intervalType === 'RUNNING_HOURS' ? 70 : 7),
       priority: schedule.priority || 'MEDIUM',
@@ -493,22 +594,26 @@ export default function WorkPlanningPage() {
   const cfgSubmit = async () => {
     if (!cfgForm.scheduleCode || !cfgForm.scheduleName) { toast.error(t('pms.workPlanning.toast.fillCodeAndName')); return; }
     if (cfgTreeSelectedIds.size === 0) { toast.error(t('pms.workPlanning.toast.selectEquipment')); return; }
-    if (cfgForm.maintenanceCategory !== 'AD_HOC') {
+    if (cfgForm.maintenanceCategory !== 'AD_HOC' && !isEventMaintenance(cfgForm.maintenanceCategory)) {
       if (cfgForm.intervalType === 'RUNNING_HOURS' && !cfgForm.intervalHours) { toast.error(t('pms.workPlanning.toast.specifyRunningHours')); return; }
-      if (cfgForm.intervalType === 'CALENDAR' && !cfgForm.intervalDays) { toast.error(t('pms.workPlanning.toast.specifyInterval')); return; }
+      if (cfgForm.intervalType === 'CALENDAR' && !cfgForm.intervalDays && !cfgForm.intervalMonths && !cfgForm.intervalYears) { toast.error(t('pms.workPlanning.toast.specifyInterval')); return; }
     }
 
     const submitData = { ...cfgForm };
-    if (submitData.maintenanceCategory === 'AD_HOC') {
+    if (submitData.maintenanceCategory === 'AD_HOC' || isEventMaintenance(submitData.maintenanceCategory)) {
       submitData.intervalType = 'CALENDAR';
-      submitData.intervalDays = 0;
+      submitData.intervalDays = isEventMaintenance(submitData.maintenanceCategory) ? undefined : 0;
       submitData.intervalHours = undefined;
+      submitData.intervalMonths = undefined;
+      submitData.intervalYears = undefined;
     } else if (submitData.intervalType === 'CALENDAR') {
       submitData.intervalHours = undefined;
     } else {
       submitData.intervalDays = undefined;
+      submitData.intervalMonths = undefined;
+      submitData.intervalYears = undefined;
     }
-    submitData.autoGenerate = true;
+    submitData.autoGenerate = !isEventMaintenance(submitData.maintenanceCategory);
     // Map tree selection → equipmentAssetId or equipmentGroupId
     // Always per-asset: create one work item per selected equipment
     const selectedAssetIds = [...cfgTreeSelectedIds];
@@ -733,15 +838,31 @@ export default function WorkPlanningPage() {
 
   // Config: selected equipment names from tree
   const cfgSelectedEquipmentNames = useMemo(() => {
-    return assets.filter(a => cfgTreeSelectedIds.has(a.id)).map(a => ({ id: a.id, code: a.assetCode, name: a.assetName }));
+    return assets.filter(a => !isEquipmentFolder(a) && cfgTreeSelectedIds.has(a.id)).map(a => ({ id: a.id, code: a.assetCode, name: a.assetName }));
   }, [assets, cfgTreeSelectedIds]);
 
   // Config: schedules filtered for left list
   const cfgListItems = useMemo(() => {
-    if (!cfgListSearch) return schedules;
-    const s = cfgListSearch.toLowerCase();
-    return schedules.filter(sch => sch.scheduleCode.toLowerCase().includes(s) || sch.scheduleName.toLowerCase().includes(s));
-  }, [schedules, cfgListSearch]);
+    const search = cfgListSearch.trim().toLowerCase();
+    const matches = (value: string | undefined, query: string) => (value || '').toLowerCase().includes(query.trim().toLowerCase());
+    return schedules.filter(sch => {
+      const cycle = sch.intervalMonths ? `${sch.intervalMonths} tháng` : sch.intervalYears ? `${sch.intervalYears} năm` : sch.intervalHours ? `${sch.intervalHours} giờ` : sch.intervalDays ? `${sch.intervalDays} ngày` : '';
+      return (!search || [sch.scheduleCode, sch.workCode, sch.scheduleName, sch.assetName].some(value => matches(value, search)))
+        && matches(sch.workCode || sch.scheduleCode, cfgListFilters.code)
+        && matches(sch.assetName, cfgListFilters.device)
+        && matches(sch.scheduleName, cfgListFilters.name)
+        && (!cfgListFilters.type || sch.maintenanceCategory === cfgListFilters.type)
+        && (!cfgListFilters.priority || sch.priority === cfgListFilters.priority)
+        && matches(cycle, cfgListFilters.cycle);
+    });
+  }, [schedules, cfgListSearch, cfgListFilters]);
+  const cfgAllVisibleSelected = cfgListItems.length > 0 && cfgListItems.every(schedule => cfgSelectedIds.has(schedule.id));
+  const cfgSomeVisibleSelected = cfgListItems.some(schedule => cfgSelectedIds.has(schedule.id));
+  const cfgToggleSelected = (id: string) => setCfgSelectedIds(previous => {
+    const next = new Set(previous);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   // Config: crew filtered for dropdown (deduplicated by id)
   const cfgFilteredCrew = useMemo(() => {
@@ -784,7 +905,7 @@ export default function WorkPlanningPage() {
 
   // Counter helpers
   const counterAssets = useMemo(() => {
-    return assets.filter(a => a.currentRunningHours !== undefined || a.currentRunningHours === 0 || !a.children?.length);
+    return assets.filter(a => !isEquipmentFolder(a));
   }, [assets]);
 
   const filteredCounterAssets = useMemo(() => {
@@ -809,6 +930,13 @@ export default function WorkPlanningPage() {
     }
     return list;
   }, [counterAssets, selectedAssetIds, counterFilterCode, counterFilterName, counterSortField, counterSortDir]);
+
+  const counterTotalPages = Math.max(1, Math.ceil(filteredCounterAssets.length / counterPageSize));
+  const effectiveCounterPage = Math.min(counterPage, counterTotalPages);
+  const counterOffset = (effectiveCounterPage - 1) * counterPageSize;
+  const pagedCounterAssets = useMemo(() => filteredCounterAssets.slice(counterOffset, counterOffset + counterPageSize), [filteredCounterAssets, counterOffset, counterPageSize]);
+  useEffect(() => { setCounterPage(1); }, [selectedAssetIds, counterFilterCode, counterFilterName, counterSortField, counterSortDir, counterPageSize]);
+  useEffect(() => { setCounterPage(page => Math.min(page, counterTotalPages)); }, [counterTotalPages]);
 
   const handleCounterSort = (field: string) => {
     if (counterSortField === field) {
@@ -918,10 +1046,9 @@ export default function WorkPlanningPage() {
 
   useEffect(() => {
     loadData(true);
-    loadSchedules();
-    const iv = setInterval(() => loadData(false), 15000);
+    const iv = setInterval(() => { if (!document.hidden) void loadData(false); }, 15000);
     return () => clearInterval(iv);
-  }, [loadData, loadSchedules]);
+  }, [loadData]);
 
   // === Split active vs history tasks ===
   const { activeTasks, historyTasks } = useMemo(() => {
@@ -971,27 +1098,31 @@ export default function WorkPlanningPage() {
     if (colFilterStatus) f = f.filter(t => t.status === colFilterStatus);
     if (colFilterType) {
       if (colFilterType === 'adhoc') f = f.filter(t => t.taskType === 'AD_HOC' || t.taskType === 'CORRECTIVE');
-      else f = f.filter(t => t.taskType !== 'AD_HOC' && t.taskType !== 'CORRECTIVE');
+      else if (colFilterType === 'periodic') f = f.filter(t => t.taskType !== 'AD_HOC' && t.taskType !== 'CORRECTIVE' && !isEventMaintenance(t.taskType));
+      else f = f.filter(t => t.taskType === colFilterType);
     }
 
     return f;
   }, [showHistory, activeTasks, historyTasks, selectedAssetIds, searchQuery, assets, colFilterCode, colFilterEquip, colFilterName, colFilterDesc, colFilterPriority, colFilterStatus, colFilterType]);
 
   // Gantt data — derived from filteredTasks (same source as Bảng/Lịch/Kanban)
+  const scheduleById = useMemo(() => new Map(schedules.map(schedule => [schedule.id, schedule])), [schedules]);
+  const equipmentById = useMemo(() => new Map(assets.map(asset => [asset.id, asset])), [assets]);
   const getCounterAwareDueDate = useCallback((task: MaintenanceTask) => {
     const dueDate = parseISO(task.nextDueAt);
     const isRunningHours = !!task.intervalHours && !task.intervalDays;
     if (!isRunningHours) return dueDate;
 
-    const schedule = task.scheduleId ? schedules.find(s => s.id === task.scheduleId) : undefined;
-    const asset = task.equipmentAssetId ? assets.find(a => a.id === task.equipmentAssetId) : undefined;
+    const schedule = task.scheduleId ? scheduleById.get(task.scheduleId) : undefined;
+    const asset = task.equipmentAssetId ? equipmentById.get(task.equipmentAssetId) : undefined;
     if (schedule?.nextDueRunningHours === undefined || asset?.currentRunningHours === undefined) return dueDate;
 
     const hoursRemaining = Math.max(0, schedule.nextDueRunningHours - asset.currentRunningHours);
     return addDays(startOfToday(), Math.ceil(hoursRemaining / RUNNING_HOURS_PER_DAY));
-  }, [schedules, assets]);
+  }, [scheduleById, equipmentById]);
 
   const ganttTasksFromFiltered = useMemo((): GanttTask[] => {
+    if (activeTab !== 'gantt') return [];
     return filteredTasks
       .filter(t => t.nextDueAt)
       .map(t => {
@@ -1039,7 +1170,7 @@ export default function WorkPlanningPage() {
         };
       })
       .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
-  }, [filteredTasks, getCounterAwareDueDate]);
+  }, [filteredTasks, getCounterAwareDueDate, activeTab]);
 
   // === Sorting ===
   const sortedFilteredTasks = useMemo(() => {
@@ -1172,6 +1303,7 @@ export default function WorkPlanningPage() {
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, MaintenanceTask[]>();
+    if (activeTab !== 'calendar') return map;
     filteredTasks.forEach(task => {
       if (task.nextDueAt) {
         const dueDate = getCounterAwareDueDate(task);
@@ -1187,7 +1319,7 @@ export default function WorkPlanningPage() {
       }
     });
     return map;
-  }, [filteredTasks, getCounterAwareDueDate]);
+  }, [filteredTasks, getCounterAwareDueDate, activeTab]);
 
   // === Gantt helpers ===
   const ganttDays = useMemo(() => {
@@ -1245,16 +1377,16 @@ export default function WorkPlanningPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <PermissionGate permission={'pms.work.delete'}><button
               onClick={handleBulkTaskDelete}
-              disabled={selectedTaskCount === 0}
+              disabled={!canPerform('pms.work.delete') || selectedTaskCount === 0}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
               title={t('pms.workPlanning.table.bulkDelete')}
             >
               <Trash2 className="w-3.5 h-3.5" />
               {t('pms.workPlanning.table.bulkDelete')}
               {selectedTaskCount > 0 && <span className="font-semibold">({selectedTaskCount})</span>}
-            </button>
+            </button></PermissionGate>
             <button onClick={() => loadData(true)} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.workPlanning.refresh')}>
               <RefreshCw className={`w-3.5 h-3.5 ${isBackgroundRefreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -1284,7 +1416,7 @@ export default function WorkPlanningPage() {
             ...(SHOW_KANBAN_TAB ? [{ key: 'kanban' as ViewTab, label: t('pms.workPlanning.tabs.kanban'), icon: LayoutGrid }] : []),
             { key: 'counter' as ViewTab, label: t('pms.workPlanning.tabs.counter'), icon: Gauge },
             { key: 'config' as ViewTab, label: t('pms.workPlanning.tabs.config'), icon: Settings },
-          ]).map(tab => (
+          ]).filter(tab => canPerform((tab.key === 'config' ? 'pms.config' : tab.key === 'counter' ? 'pms.counter' : 'pms.work') + '.view')).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -1462,6 +1594,7 @@ export default function WorkPlanningPage() {
                           <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
                           <option value="adhoc">{t('pms.workPlanning.filters.adhoc')}</option>
                           <option value="periodic">{t('pms.workPlanning.filters.periodic')}</option>
+                          <option value="DRY_DOCK">Lên đà</option><option value="ON_DEMAND">Theo yêu cầu</option><option value="VOYAGE">Theo chuyến</option>
                         </select>
                       </th>
                       <th className="border-gray-200"></th>
@@ -1530,19 +1663,19 @@ export default function WorkPlanningPage() {
                               )}
                             </td>
                             <td className="px-3 py-2 text-center text-xs text-gray-500 border-r border-gray-100 whitespace-nowrap">
-                              {task.taskType === 'AD_HOC' || task.taskType === 'CORRECTIVE' ? t('pms.workPlanning.filters.adhoc') : t('pms.workPlanning.filters.periodic')}
+                              {maintenanceCategoryLabel(task.taskType, t)}
                             </td>
                             <td className="px-2 py-2">
                               <div className="flex items-center justify-center gap-0.5">
                                 <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title={t('pms.workPlanning.table.view')}>
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
-                                <button onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
+                                <PermissionGate permission="pms.config.update"><button disabled={!canPerform('pms.config.update')} onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
                                   <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('pms.workPlanning.table.delete')} onClick={() => handleTaskDelete(task.id)}>
+                                </button></PermissionGate>
+                                <PermissionGate permission={'pms.work.delete'}><button className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('pms.workPlanning.table.delete')} disabled={!canPerform('pms.work.delete')} onClick={() => handleTaskDelete(task.id)}>
                                   <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                </button></PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -1719,7 +1852,7 @@ export default function WorkPlanningPage() {
                         const durationStr = t('pms.workPlanning.gantt.daysUnit', { count: task.workDurationDays });
                         const equipName = task.groupName;
                         const isAdhoc = srcTask?.taskType === 'AD_HOC' || srcTask?.taskType === 'CORRECTIVE';
-                        const taskTypeLabel = isAdhoc ? t('pms.workPlanning.gantt.adhoc') : t('pms.workPlanning.gantt.periodic');
+                        const taskTypeLabel = maintenanceCategoryLabel(srcTask?.taskType, t);
                         const assignee = srcTask?.assignedTo || '';
                         return (
                           <div key={task.id} className={`flex border-b border-gray-100 hover:bg-blue-50/40 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`} style={{ height: '36px' }}>
@@ -1918,9 +2051,9 @@ export default function WorkPlanningPage() {
                     {filteredCounterAssets.length === 0 ? (
                       <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">{t('pms.workPlanning.counter.noAssets')}</td></tr>
                     ) : (
-                      filteredCounterAssets.map((asset, idx) => (
+                      pagedCounterAssets.map((asset, idx) => (
                         <tr key={asset.id} className={`hover:bg-blue-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                          <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{idx + 1}</td>
+                          <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{counterOffset + idx + 1}</td>
                           <td className="px-3 py-2 text-xs font-medium text-gray-900 border-r border-gray-100">{asset.assetCode}</td>
                           <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">
                             <span className="truncate block max-w-[200px]" title={asset.assetName}>{asset.assetName}</span>
@@ -1932,7 +2065,7 @@ export default function WorkPlanningPage() {
                             <input
                               type="number"
                               min={asset.currentRunningHours ?? 0}
-                              value={counterEditing[asset.id] ?? ''}
+                              disabled={!canPerform('pms.counter.update')} value={counterEditing[asset.id] ?? ''}
                               onChange={e => setCounterEditing(prev => {
                                 const next = { ...prev };
                                 if (e.target.value === '') {
@@ -1951,9 +2084,9 @@ export default function WorkPlanningPage() {
                           </td>
                           <td className="px-2 py-2">
                             <div className="flex items-center justify-center">
-                              <button
+                              <PermissionGate permission={'pms.counter.update'}><button
                                 onClick={() => handleCounterSave(asset.id)}
-                                disabled={counterEditing[asset.id] === undefined || counterSaving.has(asset.id)}
+                                disabled={!canPerform('pms.counter.update') || counterEditing[asset.id] === undefined || counterSaving.has(asset.id)}
                                 className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={t('pms.workPlanning.counter.saveHours')}
                               >
@@ -1962,7 +2095,7 @@ export default function WorkPlanningPage() {
                                 ) : (
                                   <Save className="w-3.5 h-3.5" />
                                 )}
-                              </button>
+                              </button></PermissionGate>
                             </div>
                           </td>
                         </tr>
@@ -1974,7 +2107,15 @@ export default function WorkPlanningPage() {
 
               {/* Counter pagination area */}
               <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-                <span>{t('pms.workPlanning.counter.totalAssets', { count: filteredCounterAssets.length })}</span>
+                <select aria-label="Số thiết bị mỗi trang" value={counterPageSize} onChange={e => setCounterPageSize(Number(e.target.value))} className="rounded border border-gray-300 bg-white px-2 py-1">
+                  {[25, 50, 100].map(size => <option key={size} value={size}>{size} / trang</option>)}
+                </select>
+                <div className="flex items-center gap-2">
+                  <button type="button" aria-label="Trang trước" disabled={effectiveCounterPage === 1} onClick={() => setCounterPage(effectiveCounterPage - 1)} className="rounded border border-gray-200 p-1 hover:bg-gray-50 disabled:opacity-40"><ChevronLeft size={14} /></button>
+                  <span>Trang {effectiveCounterPage} / {counterTotalPages}</span>
+                  <button type="button" aria-label="Trang sau" disabled={effectiveCounterPage === counterTotalPages} onClick={() => setCounterPage(effectiveCounterPage + 1)} className="rounded border border-gray-200 p-1 hover:bg-gray-50 disabled:opacity-40"><ChevronRight size={14} /></button>
+                </div>
+                <span>{filteredCounterAssets.length > 0 ? `${counterOffset + 1}–${Math.min(counterOffset + counterPageSize, filteredCounterAssets.length)} / ` : ''}{t('pms.workPlanning.counter.totalAssets', { count: filteredCounterAssets.length })}</span>
               </div>
             </div>
           )}
@@ -1993,59 +2134,84 @@ export default function WorkPlanningPage() {
                       <button onClick={() => { const sch = schedules.find(s => s.id === cfgEditingId); if (sch) viewScheduleTasks(sch.scheduleCode); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
                         <ExternalLink className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.viewTasks')}
                       </button>
-                      <button onClick={() => { if (cfgEditingId) { handleScheduleDelete(schedules.find(s => s.id === cfgEditingId)!); } }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50">
+                      <PermissionGate permission="pms.config.delete"><button onClick={() => { if (cfgEditingId) { handleScheduleDelete(schedules.find(s => s.id === cfgEditingId)!); } }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50">
                         <Trash2 className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.deleteConfig')}
-                      </button>
+                      </button></PermissionGate>
                     </>
                   )}
                   <button type="button" onClick={cfgReset} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
                     <XIcon className="w-3.5 h-3.5" /> {cfgEditingId ? t('pms.workPlanning.config.cancel') : t('pms.workPlanning.config.reset')}
                   </button>
+                  <PermissionGate permission="pms.config.import"><button type="button" disabled={!canPerform('pms.config.import')} onClick={() => setShowImportMaintenance(true)} className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Import Excel</button></PermissionGate>
                   <div className="relative">
                     <button type="button" onClick={() => setCfgShowHistory(!cfgShowHistory)} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded ${cfgShowHistory ? 'border-blue-400 text-blue-700 bg-blue-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
                       <History className="w-3.5 h-3.5" /> {t('pms.workPlanning.config.configHistory')}
                     </button>
-                    {cfgShowHistory && (
-                      <div className="absolute right-0 top-full z-40 mt-1 w-[560px] bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
-                          <span className="text-xs font-semibold text-gray-700">{t('pms.workPlanning.config.configList', { count: schedules.length })}</span>
-                          <div className="relative">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
-                            <input type="text" value={cfgListSearch} onChange={e => setCfgListSearch(e.target.value)} placeholder={t('pms.workPlanning.config.searchPlaceholder')} className="pl-7 pr-2 py-1 text-[11px] border border-gray-300 rounded w-44" />
+                    {cfgShowHistory && createPortal(
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCfgShowHistory(false)}>
+                      <section ref={cfgHistoryDialog} role="dialog" aria-modal="true" aria-labelledby="config-list-title" className="w-full max-w-[1440px] max-h-[85vh] flex flex-col bg-white shadow-2xl rounded-xl overflow-hidden" onClick={event => event.stopPropagation()}>
+                        <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-200">
+                          <h2 id="config-list-title" className="text-lg font-semibold text-gray-900">{t('pms.workPlanning.config.configList', { count: schedules.length })}</h2>
+                          <button type="button" autoFocus aria-label="Đóng danh sách cấu hình" onClick={() => setCfgShowHistory(false)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><XIcon size={20} /></button>
+                        </header>
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-white border-b border-gray-200">
+                          <div className="flex items-center gap-2 text-xs text-gray-600"><span>{cfgListItems.length} / {schedules.length} cấu hình</span>{cfgSelectedIds.size > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">Đã chọn: {cfgSelectedIds.size}</span>}</div>
+                          <div className="flex items-center gap-2">
+                          <PermissionGate permission="pms.config.delete"><button type="button" onClick={handleBulkScheduleDelete} disabled={cfgBulkDeleting || cfgSelectedIds.size === 0} className="flex items-center gap-1.5 rounded border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 size={14} />{cfgBulkDeleting ? 'Đang xóa…' : 'Xóa nhiều'}</button></PermissionGate>
+                          <div className="relative max-w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input type="text" aria-label="Tìm cấu hình" value={cfgListSearch} onChange={e => setCfgListSearch(e.target.value)} placeholder={t('pms.workPlanning.config.searchPlaceholder')} className="pl-9 pr-3 py-1.5 text-xs border border-gray-300 rounded w-64 max-w-full focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
                           </div>
                         </div>
-                        <div className="max-h-72 overflow-y-auto">
+                        <div className="min-h-0 flex-1 overflow-auto">
                           {scheduleLoading ? (
                             <div className="flex items-center justify-center py-6"><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div></div>
-                          ) : cfgListItems.length === 0 ? (
-                            <div className="text-center py-6 text-xs text-gray-400">{schedules.length === 0 ? t('pms.workPlanning.config.noConfig') : t('pms.workPlanning.config.notFound')}</div>
                           ) : (
-                            <table className="w-full text-xs">
-                              <thead className="bg-blue-50 sticky top-0">
+                            <table className="w-full min-w-[1150px] table-fixed border-collapse text-xs [&_th]:px-2 [&_th]:py-2 [&_th]:font-medium [&_th]:border-r [&_th]:border-gray-200 [&_td]:px-2 [&_td]:py-1.5 [&_td]:border-r [&_td]:border-gray-100">
+                              <colgroup><col className="w-9" /><col className="w-8" /><col className="w-28" /><col className="w-72" /><col className="w-60" /><col className="w-32" /><col className="w-28" /><col className="w-24" /><col className="w-28" /></colgroup>
+                              <thead className="bg-blue-50 sticky top-0 z-10 text-xs text-gray-700 border-b border-gray-200">
                                 <tr>
+                                  <th className="text-center">TT</th>
+                                  <th className="text-center"><input type="checkbox" aria-label="Chọn tất cả cấu hình đang hiển thị" checked={cfgAllVisibleSelected} disabled={cfgBulkDeleting || !cfgListItems.length} ref={element => { if (element) element.indeterminate = cfgSomeVisibleSelected && !cfgAllVisibleSelected; }} onChange={() => setCfgSelectedIds(previous => { const next = new Set(previous); cfgListItems.forEach(schedule => { if (cfgAllVisibleSelected) next.delete(schedule.id); else next.add(schedule.id); }); return next; })} className="h-3.5 w-3.5 rounded border-gray-300" /></th>
                                   <th className="px-2 py-1.5 text-left w-28">{t('pms.workPlanning.config.code')}</th>
+                                  <th className="text-left min-w-48">Thiết bị</th>
                                   <th className="px-2 py-1.5 text-left">{t('pms.workPlanning.config.name')}</th>
-                                  <th className="px-2 py-1.5 text-center w-16">{t('pms.workPlanning.config.type')}</th>
-                                  <th className="px-2 py-1.5 text-center w-16">{t('pms.workPlanning.config.priorityCol')}</th>
-                                  <th className="px-2 py-1.5 text-center w-14">{t('pms.workPlanning.config.hours')}</th>
-                                  <th className="px-2 py-1.5 w-14"></th>
+                                  <th className="whitespace-nowrap text-center">{t('pms.workPlanning.config.type')}</th>
+                                  <th className="whitespace-nowrap text-center">{t('pms.workPlanning.config.priorityCol')}</th>
+                                  <th className="px-2 py-1.5 text-center w-24">Chu kỳ</th>
+                                  <th className="sticky right-0 bg-blue-50 whitespace-nowrap text-center">Hành động</th>
+                                </tr>
+                                <tr className="bg-white border-t border-gray-200 [&_th]:py-1">
+                                  <th /><th />
+                                  {(['code', 'device', 'name'] as const).map((field, index) => <th key={field}><input aria-label={['Lọc mã cấu hình', 'Lọc thiết bị', 'Lọc tên công việc'][index]} placeholder="Tìm kiếm" value={cfgListFilters[field]} onChange={event => setCfgListFilters(previous => ({ ...previous, [field]: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-normal focus:border-blue-500 focus:outline-none" /></th>)}
+                                  <th><select aria-label="Lọc loại bảo trì" value={cfgListFilters.type} onChange={event => setCfgListFilters(previous => ({ ...previous, type: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.maintenanceCategory))].sort().map(category => <option key={category} value={category}>{maintenanceCategoryLabel(category, t)}</option>)}</select></th>
+                                  <th><select aria-label="Lọc độ ưu tiên" value={cfgListFilters.priority} onChange={event => setCfgListFilters(previous => ({ ...previous, priority: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.priority))].sort().map(priority => <option key={priority} value={priority}>{getPriorityLabel(priority)}</option>)}</select></th>
+                                  <th><input aria-label="Lọc chu kỳ" placeholder="Tìm kiếm" value={cfgListFilters.cycle} onChange={event => setCfgListFilters(previous => ({ ...previous, cycle: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-normal focus:border-blue-500 focus:outline-none" /></th>
+                                  <th className="sticky right-0 bg-white" />
                                 </tr>
                               </thead>
                               <tbody>
-                                {cfgListItems.map(sch => (
-                                  <tr key={sch.id} className={`border-b hover:bg-blue-50 cursor-pointer ${cfgEditingId === sch.id ? 'bg-blue-50' : ''}`} onClick={() => { cfgLoadForEdit(sch); setCfgShowHistory(false); }}>
-                                    <td className="px-2 py-1.5 font-medium text-gray-900">{sch.scheduleCode}</td>
-                                    <td className="px-2 py-1.5 text-gray-700 truncate max-w-[200px]">{sch.scheduleName}</td>
+                                {cfgListItems.length === 0 && <tr><td colSpan={9} className="h-24 text-center text-gray-400">{schedules.length === 0 ? t('pms.workPlanning.config.noConfig') : t('pms.workPlanning.config.notFound')}</td></tr>}
+                                {cfgListItems.map((sch, index) => (
+                                  <tr key={sch.id} className={`group border-b border-gray-100 hover:bg-blue-50 ${cfgSelectedIds.has(sch.id) || cfgEditingId === sch.id ? 'bg-blue-50' : 'bg-white'}`}>
+                                    <td className="text-center text-gray-500">{index + 1}</td>
+                                    <td className="text-center"><input type="checkbox" aria-label={`Chọn cấu hình ${sch.workCode || sch.scheduleCode}`} checked={cfgSelectedIds.has(sch.id)} disabled={cfgBulkDeleting || !canPerform('pms.config.delete')} onChange={() => cfgToggleSelected(sch.id)} className="h-3.5 w-3.5 rounded border-gray-300" /></td>
+                                    <td title={sch.scheduleCode}><button type="button" disabled={cfgBulkDeleting} onClick={() => { cfgLoadForEdit(sch); setCfgShowHistory(false); }} className="font-medium text-blue-600 hover:underline disabled:opacity-40">{sch.workCode || sch.scheduleCode}</button></td>
+                                    <td className="text-gray-700 truncate" title={sch.assetName}>{sch.assetName || '—'}</td>
+                                    <td className="text-gray-700 truncate" title={sch.scheduleName}>{sch.scheduleName}</td>
                                     <td className="px-2 py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${sch.maintenanceCategory === 'AD_HOC' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{sch.maintenanceCategory === 'AD_HOC' ? t('pms.workPlanning.config.adhoc') : t('pms.workPlanning.config.periodic')}</span>
+                                      <span className={`inline-flex whitespace-nowrap px-2 py-1 text-xs font-medium rounded ${sch.maintenanceCategory === 'AD_HOC' ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>{maintenanceCategoryLabel(sch.maintenanceCategory, t)}</span>
                                     </td>
                                     <td className="px-2 py-1.5 text-center">
-                                      <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${sch.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' : sch.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' : sch.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{getPriorityLabel(sch.priority)}</span>
+                                      <span className={`inline-flex whitespace-nowrap px-2 py-1 text-xs font-medium rounded ${sch.priority === 'CRITICAL' ? 'bg-red-50 text-red-700' : sch.priority === 'HIGH' ? 'bg-orange-50 text-orange-700' : sch.priority === 'MEDIUM' ? 'bg-yellow-50 text-yellow-700' : 'bg-blue-50 text-blue-700'}`}>{getPriorityLabel(sch.priority)}</span>
                                     </td>
-                                    <td className="px-2 py-1.5 text-center text-gray-500">{sch.intervalHours || '—'}</td>
-                                    <td className="px-2 py-1.5 text-center flex items-center gap-1">
-                                      <button title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="text-gray-400 hover:text-blue-600"><Copy size={12} /></button>
-                                      <button title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); handleScheduleDelete(sch); }} className="text-gray-400 hover:text-red-600"><Trash2 size={12} /></button>
+                                    <td className="whitespace-nowrap px-2 py-1.5 text-center text-gray-500">{sch.intervalMonths ? `${sch.intervalMonths} tháng` : sch.intervalYears ? `${sch.intervalYears} năm` : sch.intervalHours ? `${sch.intervalHours} giờ` : sch.intervalDays ? `${sch.intervalDays} ngày` : '—'}</td>
+                                    <td className={`sticky right-0 text-center group-hover:bg-blue-50 ${cfgSelectedIds.has(sch.id) || cfgEditingId === sch.id ? 'bg-blue-50' : 'bg-white'}`}><div className="flex items-center justify-center gap-1">
+                                      <PermissionGate permission="pms.config.update"><button type="button" disabled={cfgBulkDeleting} title="Chỉnh sửa cấu hình" onClick={e => { e.stopPropagation(); cfgLoadForEdit(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Pencil size={14} /></button></PermissionGate>
+                                      <PermissionGate permission="pms.config.create"><button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.copyAsTemplate')} onClick={e => { e.stopPropagation(); cfgCopyAsTemplate(sch); setCfgShowHistory(false); }} className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:opacity-40"><Copy size={14} /></button></PermissionGate>
+                                      <PermissionGate permission="pms.config.delete"><button type="button" disabled={cfgBulkDeleting} title={t('pms.workPlanning.config.deleteConfig')} onClick={e => { e.stopPropagation(); handleScheduleDelete(sch); }} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"><Trash2 size={14} /></button></PermissionGate>
+                                    </div>
                                     </td>
                                   </tr>
                                 ))}
@@ -2053,13 +2219,15 @@ export default function WorkPlanningPage() {
                             </table>
                           )}
                         </div>
-                      </div>
+                        <footer className="flex justify-end px-6 py-3 border-t border-gray-200 bg-gray-50"><button type="button" onClick={() => setCfgShowHistory(false)} className="rounded border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Đóng</button></footer>
+                      </section>
+                      </div>, document.body
                     )}
                   </div>
-                  <button type="button" onClick={cfgSubmit} disabled={cfgSaving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                  <PermissionGate permission={cfgEditingId ? 'pms.config.update' : 'pms.config.create'}><button type="button" onClick={cfgSubmit} disabled={cfgSaving || !canPerform(cfgEditingId ? 'pms.config.update' : 'pms.config.create')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                     {cfgSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     {cfgEditingId ? t('pms.workPlanning.config.update') : t('pms.workPlanning.config.saveConfig')}
-                  </button>
+                  </button></PermissionGate>
                 </div>
               </div>
 
@@ -2091,7 +2259,7 @@ export default function WorkPlanningPage() {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">{t('pms.workPlanning.config.maintenanceType')}</label>
-                        <div className="flex gap-4">
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="maintenanceCategory" value="PERIODIC" checked={cfgForm.maintenanceCategory === 'PERIODIC'} onChange={() => setCfgForm(f => ({ ...f, maintenanceCategory: 'PERIODIC' }))} className="w-3.5 h-3.5 text-blue-600" />
                             <span className="text-xs text-gray-700">{t('pms.workPlanning.config.periodicLabel')} <span className="text-[10px] text-gray-400">({t('pms.workPlanning.config.periodicDesc')})</span></span>
@@ -2100,6 +2268,12 @@ export default function WorkPlanningPage() {
                             <input type="radio" name="maintenanceCategory" value="AD_HOC" checked={cfgForm.maintenanceCategory === 'AD_HOC'} onChange={() => setCfgForm(f => ({ ...f, maintenanceCategory: 'AD_HOC' }))} className="w-3.5 h-3.5 text-orange-600" />
                             <span className="text-xs text-gray-700">{t('pms.workPlanning.config.adhocLabel')} <span className="text-[10px] text-gray-400">({t('pms.workPlanning.config.adhocDesc')})</span></span>
                           </label>
+                          {(['DRY_DOCK', 'ON_DEMAND', 'VOYAGE'] as const).map(category => (
+                            <label key={category} className="flex items-center gap-2 cursor-pointer">
+                              <input type="radio" name="maintenanceCategory" value={category} checked={cfgForm.maintenanceCategory === category} onChange={() => setCfgForm(f => ({ ...f, maintenanceCategory: category }))} className="w-3.5 h-3.5 text-blue-600" />
+                              <span className="text-xs text-gray-700">{maintenanceCategoryLabel(category, t)}</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
                       <div>
@@ -2156,7 +2330,7 @@ export default function WorkPlanningPage() {
 
 
                     {/* ── Cấu hình thời gian ── */}
-                    {cfgForm.maintenanceCategory !== 'AD_HOC' && (<>
+                    {cfgForm.maintenanceCategory !== 'AD_HOC' && !isEventMaintenance(cfgForm.maintenanceCategory) && (<>
                     <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
                       <span className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Clock size={14} /> {t('pms.workPlanning.config.timeConfig')}</span>
                     </div>
@@ -2171,7 +2345,7 @@ export default function WorkPlanningPage() {
                             intervalType,
                             ...(intervalType === 'CALENDAR'
                               ? { intervalHours: undefined, daysBeforeDue: 7 }
-                              : { intervalDays: undefined, daysBeforeDue: 70 })
+                              : { intervalDays: undefined, intervalMonths: undefined, intervalYears: undefined, daysBeforeDue: 70 })
                           }));
                         }} className="w-full border border-gray-300 px-2.5 py-1.5 text-sm bg-white">
                           <option value="RUNNING_HOURS">{t('pms.workPlanning.config.runningHours')}</option>
@@ -2191,8 +2365,17 @@ export default function WorkPlanningPage() {
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">{t('pms.workPlanning.config.interval')} <span className="text-red-500">*</span></label>
                           <div className="flex items-center gap-1.5">
-                            <input type="number" value={cfgForm.intervalDays ?? ''} onChange={e => setCfgForm(f => ({ ...f, intervalDays: parseInt(e.target.value) || undefined }))} min={1} placeholder="30" className="flex-1 border border-gray-300 px-2.5 py-1.5 text-sm" />
-                            <span className="text-xs text-gray-500">{t('pms.workPlanning.config.daysUnit')}</span>
+                            <input type="number" value={cfgForm.intervalMonths ?? cfgForm.intervalYears ?? cfgForm.intervalDays ?? ''} onChange={e => {
+                              const value = parseInt(e.target.value) || undefined;
+                              setCfgForm(f => f.intervalMonths != null ? { ...f, intervalMonths: value } : f.intervalYears != null ? { ...f, intervalYears: value } : { ...f, intervalDays: value });
+                            }} min={1} className="min-w-0 flex-1 border border-gray-300 px-2.5 py-1.5 text-sm" />
+                            <select aria-label="Đơn vị chu kỳ" value={cfgForm.intervalMonths != null ? 'months' : cfgForm.intervalYears != null ? 'years' : 'days'} onChange={e => {
+                              const unit = e.target.value;
+                              setCfgForm(f => {
+                                const value = f.intervalMonths ?? f.intervalYears ?? f.intervalDays ?? 1;
+                                return { ...f, intervalDays: unit === 'days' ? value : undefined, intervalMonths: unit === 'months' ? value : undefined, intervalYears: unit === 'years' ? value : undefined };
+                              });
+                            }} className="border border-gray-300 px-2 py-1.5 text-sm"><option value="days">Ngày</option><option value="months">Tháng</option><option value="years">Năm</option></select>
                           </div>
                         </div>
                       )}
@@ -2390,9 +2573,9 @@ export default function WorkPlanningPage() {
                                       isLinked ? (
                                         <span className="text-green-500" title={t('pms.workPlanning.config.assignedToEquipment')}><Link2 size={12} /></span>
                                       ) : (
-                                        <button type="button" onClick={() => cfgAssignMaterialToEquipment(part.materialItemId)} title={t('pms.workPlanning.config.assignMaterialToEquipment')} className="text-amber-500 hover:text-amber-700">
+                                        <PermissionGate permission={'pms.assets.assign'}><button type="button" onClick={() => cfgAssignMaterialToEquipment(part.materialItemId)} title={t('pms.workPlanning.config.assignMaterialToEquipment')} className="text-amber-500 hover:text-amber-700">
                                           <Save size={12} />
-                                        </button>
+                                        </button></PermissionGate>
                                       )
                                     )}
                                   </td>
@@ -2417,9 +2600,9 @@ export default function WorkPlanningPage() {
                       <span className="text-sm font-semibold text-gray-700 flex items-center gap-2"><ClipboardList size={14} /> {t('pms.workPlanning.config.checklist')}</span>
                       <div className="flex items-center gap-2">
                         <div className="relative">
-                          <button type="button" onClick={cfgSaveAsTemplate} className="flex items-center gap-1.5 px-2.5 py-1 text-xs border border-teal-300 rounded text-teal-700 hover:bg-teal-50">
+                          <PermissionGate permission="pms.config.create"><button type="button" onClick={cfgSaveAsTemplate} className="flex items-center gap-1.5 px-2.5 py-1 text-xs border border-teal-300 rounded text-teal-700 hover:bg-teal-50">
                             <Plus size={12} /> {t('pms.workPlanning.config.createTemplate')}
-                          </button>
+                          </button></PermissionGate>
                           {cfgShowCreateTemplate && (
                             <div className="absolute right-0 z-40 mt-1 w-72 bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden">
                               <div className="flex items-center justify-between px-3 py-2 bg-teal-50 border-b border-teal-200">
@@ -2436,7 +2619,7 @@ export default function WorkPlanningPage() {
                                 </div>
                                 <div className="flex items-center justify-end gap-2">
                                   <button type="button" onClick={() => setCfgShowCreateTemplate(false)} className="px-3 py-1 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50">{t('pms.workPlanning.config.cancel')}</button>
-                                  <button type="button" onClick={cfgConfirmSaveTemplate} className="px-3 py-1 text-xs bg-teal-600 text-white rounded hover:bg-teal-700">{t('pms.workPlanning.config.saveTemplate')}</button>
+                                  <PermissionGate permission="pms.config.create"><button type="button" onClick={cfgConfirmSaveTemplate} className="px-3 py-1 text-xs bg-teal-600 text-white rounded hover:bg-teal-700">{t('pms.workPlanning.config.saveTemplate')}</button></PermissionGate>
                                 </div>
                               </div>
                             </div>
@@ -2527,6 +2710,10 @@ export default function WorkPlanningPage() {
       </div>
 
       {/* Modals - keep AddScheduleModal for the + button in other tabs */}
+      {showImportMaintenance && <ImportMaintenanceModal
+        onClose={() => setShowImportMaintenance(false)}
+        onSuccess={async () => { await loadSchedules(); setActiveTab('config'); }}
+      />}
       <AddScheduleModal
         isOpen={isAddScheduleModalOpen}
         onClose={() => setIsAddScheduleModalOpen(false)}

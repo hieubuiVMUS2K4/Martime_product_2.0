@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Pencil, Trash2, X, RefreshCw, Send, CloudLightning,
@@ -543,7 +544,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
             </div>
           </div>
 
-          <button
+          <PermissionGate permission="crew.update"><button
             onClick={handleSyncNow}
             disabled={syncing}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-md bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95"
@@ -554,7 +555,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
               <CloudLightning className="w-3.5 h-3.5" />
             )}
             <span>Đồng bộ Sổ ({pendingCount})</span>
-          </button>
+          </button></PermissionGate>
         </div>
       )}
 
@@ -671,13 +672,13 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                 </div>
               </div>
               
-              <button
+              <PermissionGate permission="crew.update"><button
                 onClick={() => setIsEditingMeta(true)}
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold rounded-lg transition-all"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Chỉnh sửa sổ / Edit Seaman's Book</span>
-              </button>
+              </button></PermissionGate>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
@@ -794,13 +795,13 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
           <div className="text-center py-16 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
             <Book className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 font-medium text-xs">Chưa có quá trình đi biển nào được khai báo.</p>
-            <button
+            <PermissionGate permission="crew.update"><button
               onClick={handleOpenAddService}
               className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-all shadow-md active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Khai báo quá trình đầu tiên</span>
-            </button>
+            </button></PermissionGate>
           </div>
         ) : (
           <div className="space-y-4">
@@ -898,7 +899,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                         <div className="inline-flex gap-1.5">
                           {/* Đề nghị cho xuống tàu — chỉ khi kỳ còn mở và chưa gửi đề nghị nào */}
                           {(entry.recordStatus === 'OPEN' || entry.recordStatus === 'DRAFT') && !details.signOffDate && (
-                            <button
+                            <PermissionGate permission="crew.update"><button
                               onClick={() => {
                                 setSignOffTarget(entry);
                                 setSignOffForm({
@@ -910,12 +911,12 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                               title="Đề nghị bờ cho thuyền viên này xuống tàu"
                             >
                               Đề nghị xuống tàu
-                            </button>
+                            </button></PermissionGate>
                           )}
                           {/* Bờ đã từ chối — sửa gửi lại, hoặc bỏ hẳn ý định */}
                           {entry.recordStatus === 'REJECTED' && (
                             <>
-                              <button
+                              <PermissionGate permission="crew.update"><button
                                 onClick={() => {
                                   setSignOffTarget(entry);
                                   setSignOffForm({
@@ -932,30 +933,30 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                                 title="Sửa theo góp ý của bờ rồi gửi lại"
                               >
                                 Gửi lại
-                              </button>
-                              <button
+                              </button></PermissionGate>
+                              <PermissionGate permission="crew.update"><button
                                 onClick={() => handleCancelSignOff(entry)}
                                 className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 shadow-sm text-[10px] font-semibold text-slate-600"
                                 title="Đồng ý huỷ việc cho xuống tàu"
                               >
                                 Huỷ
-                              </button>
+                              </button></PermissionGate>
                             </>
                           )}
-                          <button
+                          <PermissionGate permission="crew.update"><button
                             onClick={() => handleOpenEditService({ entry, details })}
                             className="p-1.5 rounded-lg bg-white hover:bg-blue-50 hover:text-blue-600 border border-slate-200 shadow-sm transition-colors"
                             title="Sửa quá trình"
                           >
                             <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="crew.update"><button
                             onClick={() => handleDeleteService(entry.id)}
                             className="p-1.5 rounded-lg bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 shadow-sm transition-colors"
                             title="Xóa quá trình"
                           >
                             <Trash2 className="w-3 h-3" />
-                          </button>
+                          </button></PermissionGate>
                         </div>
                       </td>
                     </tr>
@@ -965,13 +966,13 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
             </div>
 
             <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button
+              <PermissionGate permission="crew.update"><button
                 onClick={handleOpenAddService}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition-all shadow-md active:scale-95 border border-blue-500/20"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Khai báo đi tàu / Declare Sea Service</span>
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         )}
@@ -1275,14 +1276,14 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   >
                     Hủy
                   </button>
-                  <button
+                  <PermissionGate permission={'crew.update'}><button
                     type="submit"
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 text-[11px]"
                     disabled={savingMeta}
                   >
                     {savingMeta ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                     <span>Lưu Sổ Thuyền Viên</span>
-                  </button>
+                  </button></PermissionGate>
                 </div>
               </div>
 
@@ -1469,14 +1470,14 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                 >
                   Hủy
                 </button>
-                <button
+                <PermissionGate permission={'crew.update'}><button
                   type="submit"
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow flex items-center gap-1.5"
                   disabled={submittingService}
                 >
                   {submittingService ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   <span>Lưu quá trình</span>
-                </button>
+                </button></PermissionGate>
               </div>
 
             </form>
@@ -1553,11 +1554,11 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setSignOffTarget(null)}
                   className="px-3.5 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50">Hủy</button>
-                <button type="submit" disabled={submittingSignOff || !signOffForm.reason.trim()}
+                <PermissionGate permission={'crew.update'}><button type="submit" disabled={submittingSignOff || !signOffForm.reason.trim()}
                   className="px-3.5 py-1.5 text-sm rounded bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 inline-flex items-center gap-1.5">
                   {submittingSignOff && <RefreshCw className="w-3 h-3 animate-spin" />}
                   {signOffTarget.recordStatus === 'REJECTED' ? 'Gửi lại' : 'Gửi đề nghị lên bờ'}
-                </button>
+                </button></PermissionGate>
               </div>
             </form>
           </div>

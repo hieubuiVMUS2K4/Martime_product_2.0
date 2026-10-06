@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { ShieldCheck, Users } from 'lucide-react';
 import { CertificateCatalogTab } from './CertificateCatalogTab';
 import { RankComplianceTab } from './RankComplianceTab';
+import { RankRequirementsTab } from './RankRequirementsTab';
 import '../Crew/CrewListPage.css';
 
-type SubTab = 'catalog' | 'compliance';
+type SubTab = 'catalog' | 'requirements' | 'compliance';
 
 const TABS: { id: SubTab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'catalog', label: 'Danh mục loại chứng chỉ', icon: ShieldCheck },
+  { id: 'requirements', label: 'Chứng chỉ theo chức danh', icon: ShieldCheck },
   { id: 'compliance', label: 'Tuân thủ theo chức danh', icon: Users },
 ];
 
@@ -22,7 +24,7 @@ export const CertificateTypesTab: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #e2eaf2', marginBottom: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, borderBottom: '2px solid #e2eaf2', marginBottom: 12 }}>
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -42,6 +44,7 @@ export const CertificateTypesTab: React.FC = () => {
       </div>
 
       {tab === 'catalog' && <CertificateCatalogTab />}
+      {tab === 'requirements' && <RankRequirementsTab />}
       {tab === 'compliance' && <RankComplianceTab />}
     </div>
   );

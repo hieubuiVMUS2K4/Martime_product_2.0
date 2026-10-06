@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react';
 import { 
   Plus, Activity, ArrowRight, ArrowLeft, ShieldAlert, ShieldCheck, Trash2, Eye,
@@ -530,28 +531,28 @@ export function RiskWorkPermits() {
           Hệ thống Đánh giá Rủi ro & Giấy phép làm việc (Risk & Work Permits) chưa có dữ liệu nào trong cơ sở dữ liệu.
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
-          <button
+          <PermissionGate permission="hsqe.create"><button
             onClick={handleSeedData}
             disabled={isSeeding}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition flex items-center gap-2 shadow-sm disabled:opacity-50"
           >
             {isSeeding ? <Activity className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Khởi tạo dữ liệu mẫu
-          </button>
-          <button
+          </button></PermissionGate>
+          <PermissionGate permission="hsqe.create"><button
             onClick={() => setViewMode('create_risk')}
             className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl font-semibold transition flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Tạo Đánh giá rủi ro mới
-          </button>
-          <button
+          </button></PermissionGate>
+          <PermissionGate permission="hsqe.create"><button
             onClick={() => setViewMode('create_permit')}
             className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl font-semibold transition flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Cấp Giấy phép mới
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     );
@@ -757,12 +758,12 @@ export function RiskWorkPermits() {
             >
               Hủy bỏ
             </button>
-            <button
+            <PermissionGate permission="hsqe.create"><button
               onClick={handleSaveRiskAssessment}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
             >
               Phê duyệt & Lưu Đánh giá
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -1035,7 +1036,7 @@ export function RiskWorkPermits() {
                   </button>
 
                   {!permitCreatedId ? (
-                    <button
+                    <PermissionGate permission="hsqe.create"><button
                       onClick={handleCreatePermit}
                       disabled={permitType === 'Enclosed' && !gasSafetyStatus}
                       className={`px-5 py-2 rounded-xl text-white text-xs font-semibold transition shadow flex items-center gap-1.5 ${
@@ -1045,21 +1046,21 @@ export function RiskWorkPermits() {
                       }`}
                     >
                       <Plus className="w-3.5 h-3.5" /> Tạo Giấy phép
-                    </button>
+                    </button></PermissionGate>
                   ) : permitSignStep === 'draft' ? (
-                    <button
+                    <PermissionGate permission="hsqe.approve"><button
                       onClick={handlePermitSign}
                       className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow"
                     >
                       <Sparkles className="w-3.5 h-3.5" /> Ký & Đệ trình (Chief Officer)
-                    </button>
+                    </button></PermissionGate>
                   ) : (
-                    <button
+                    <PermissionGate permission="hsqe.approve"><button
                       onClick={handlePermitCaptainApprove}
                       className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
                     >
                       <Award className="w-4 h-4" /> Captain Duyệt & Cấp phép
-                    </button>
+                    </button></PermissionGate>
                   )}
                 </div>
               </>
@@ -1138,12 +1139,12 @@ export function RiskWorkPermits() {
                 <Activity className="w-5 h-5 text-green-500 animate-pulse" /> Live Board: Giấy phép đang hoạt động dưới tàu
               </h3>
               
-              <button
+              <PermissionGate permission="hsqe.create"><button
                 onClick={() => setViewMode('create_permit')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
               >
                 <Plus className="w-4 h-4" /> Cấp giấy phép mới
-              </button>
+              </button></PermissionGate>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1172,12 +1173,12 @@ export function RiskWorkPermits() {
 
                   <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3 text-[10.5px]">
                     <span className="text-slate-400">Thời hạn: {p.durationHours} giờ</span>
-                    <button
+                    <PermissionGate permission="hsqe.update"><button
                       onClick={() => closePermit(p.id)}
                       className="px-2 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold shadow-sm"
                     >
                       Đóng Giấy phép
-                    </button>
+                    </button></PermissionGate>
                   </div>
                 </div>
               ))}
@@ -1244,12 +1245,12 @@ export function RiskWorkPermits() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
+                        <PermissionGate permission="hsqe.delete"><button
                           onClick={() => deletePermit(p.id)}
                           className="p-1 hover:bg-red-50 text-red-500 rounded"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </button></PermissionGate>
                       </td>
                     </tr>
                   ))}
@@ -1266,12 +1267,12 @@ export function RiskWorkPermits() {
           <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Báo cáo đánh giá rủi ro (TL-24-01)</h3>
-              <button
+              <PermissionGate permission="hsqe.create"><button
                 onClick={() => setViewMode('create_risk')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow"
               >
                 <Plus className="w-4 h-4" /> Đánh giá mới
-              </button>
+              </button></PermissionGate>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-2">
@@ -1313,12 +1314,12 @@ export function RiskWorkPermits() {
                     <span className="text-[10px] font-mono text-slate-400">{selectedRisk.code} • Phân tích an toàn công việc JSA (TL-32-01)</span>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">{selectedRisk.jobTitle}</h3>
                   </div>
-                  <button
+                  <PermissionGate permission="hsqe.delete"><button
                     onClick={() => deleteRisk(selectedRisk.id)}
                     className="p-1 hover:bg-red-50 text-red-500 rounded"
                   >
                     <Trash2 className="w-4.5 h-4.5" />
-                  </button>
+                  </button></PermissionGate>
                 </div>
 
                 {/* SMS Document Control Header Info */}
@@ -1631,12 +1632,12 @@ export function RiskWorkPermits() {
               >
                 Hủy bỏ
               </button>
-              <button
+              <PermissionGate permission="hsqe.create"><button
                 onClick={handleSaveRiskAssessment}
                 className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
               >
                 Phê duyệt & Lưu Đánh giá
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -1843,7 +1844,7 @@ export function RiskWorkPermits() {
               >
                 Hủy bỏ
               </button>
-              <button
+              <PermissionGate permission="hsqe.create"><button
                 onClick={handleCreatePermit}
                 disabled={permitType === 'Enclosed' && !gasSafetyStatus}
                 className={`px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition shadow ${
@@ -1853,7 +1854,7 @@ export function RiskWorkPermits() {
                 }`}
               >
                 Ký duyệt & Cấp giấy phép
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

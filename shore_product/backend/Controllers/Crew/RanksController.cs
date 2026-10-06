@@ -37,6 +37,7 @@ public class RanksController : ControllerBase
                     r.RankCode,
                     r.RankName,
                     r.Department,
+                    r.Level,
                     r.SortOrder,
                     r.IsActive
                 })
@@ -65,6 +66,7 @@ public class RanksController : ControllerBase
                 rank.RankCode,
                 rank.RankName,
                 rank.Department,
+                rank.Level,
                 rank.SortOrder,
                 rank.IsActive
             });
@@ -87,6 +89,7 @@ public class RanksController : ControllerBase
                 RankCode = request.RankCode,
                 RankName = request.RankName,
                 Department = request.Department ?? "DECK",
+                Level = request.Level,
                 SortOrder = request.SortOrder ?? 0,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -102,6 +105,7 @@ public class RanksController : ControllerBase
                 rank.RankCode,
                 rank.RankName,
                 rank.Department,
+                rank.Level,
                 rank.SortOrder,
                 rank.IsActive
             });
@@ -125,6 +129,7 @@ public class RanksController : ControllerBase
             rank.RankCode = request.RankCode;
             rank.RankName = request.RankName;
             rank.Department = request.Department ?? rank.Department;
+            rank.Level = request.Level;
             rank.SortOrder = request.SortOrder ?? rank.SortOrder;
             rank.UpdatedAt = DateTime.UtcNow;
 
@@ -135,6 +140,7 @@ public class RanksController : ControllerBase
                 rank.RankCode,
                 rank.RankName,
                 rank.Department,
+                rank.Level,
                 rank.SortOrder,
                 rank.IsActive
             });
@@ -174,5 +180,6 @@ public class RankRequest
     public string RankCode { get; set; } = "";
     public string RankName { get; set; } = "";
     public string? Department { get; set; }
+    public string? Level { get; set; }
     public int? SortOrder { get; set; }
 }

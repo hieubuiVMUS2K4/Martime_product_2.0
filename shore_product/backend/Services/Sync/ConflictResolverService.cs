@@ -1,4 +1,4 @@
-﻿using Maritime.Shared.Interfaces;
+using Maritime.Shared.Interfaces;
 using System.Reflection;
 using System.Text.Json;
 
@@ -9,7 +9,7 @@ namespace ProductApi.Services.Sync;
 /// </summary>
 public interface IConflictResolverService
 {
-    ConflictResolution Resolve(string tableName, object existing, object incoming, string originNode);
+    ConflictResolution Resolve(string tableName, object existing, object incoming, string originNode, IReadOnlySet<string>? fields = null);
 }
 
 /// <summary>
@@ -89,6 +89,7 @@ public class ConflictResolverService : IConflictResolverService
     private static readonly HashSet<string> _edgeAuthoritative = new(StringComparer.OrdinalIgnoreCase)
     {
         "service_record",
+        "nmea_raw_data", "navigation_data", "environmental_data", "task_deferral_request",
         "position_data", "engine_data", "maritime_report", "noon_report",
         // Voyage tables are NOT here — they have special handling below
         "port_call", "voyage_status_history",
@@ -156,8 +157,13 @@ public class ConflictResolverService : IConflictResolverService
         _logger = logger;
     }
 
-    public ConflictResolution Resolve(string tableName, object existing, object incoming, string originNode)
+    private IReadOnlySet<string>? _incomingFields;
+    private bool FieldPresent(string name) => _incomingFields == null ||
+        _incomingFields.Any(field => field.Replace("_", "").Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    public ConflictResolution Resolve(string tableName, object existing, object incoming, string originNode, IReadOnlySet<string>? fields = null)
     {
+        _incomingFields = fields;
         if (existing == null) throw new ArgumentNullException(nameof(existing));
         if (incoming == null) throw new ArgumentNullException(nameof(incoming));
         if (string.IsNullOrWhiteSpace(originNode))
@@ -242,7 +248,7 @@ public class ConflictResolverService : IConflictResolverService
         foreach (var prop in properties)
         {
             if (prop.GetSetMethod() == null) continue; // Skip read-only
-            if (!IsCopyableScalar(prop)) continue;     // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
 
             // Skip primary key - EF Core does not allow modifying key properties
             if (prop.Name == "Id") continue;
@@ -258,8 +264,8 @@ public class ConflictResolverService : IConflictResolverService
             
             // Skip null or empty string — empty string means the field was not set
             // (often happens when snake_case payload can't be mapped to PascalCase properties)
-            if (incomingValue == null) continue;
-            if (incomingValue is string s && s.Length == 0) continue;
+            if (incomingValue == null && _incomingFields == null) continue;
+            if (incomingValue is string s && s.Length == 0 && _incomingFields == null) continue;
 
             bool shouldApply;
 
@@ -330,7 +336,7 @@ public class ConflictResolverService : IConflictResolverService
         foreach (var prop in existingType.GetProperties())
         {
             if (prop.GetSetMethod() == null) continue;
-            if (!IsCopyableScalar(prop)) continue;     // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
 
             // Skip primary key — EF Core does not allow modifying key properties
             if (prop.Name == "Id") continue;
@@ -338,8 +344,8 @@ public class ConflictResolverService : IConflictResolverService
             var incomingValue = prop.GetValue(incoming);
             // Skip null and empty string: a delta payload that omits a field deserializes to
             // the model default, and applying that would blank out real shore data.
-            if (incomingValue == null) continue;
-            if (incomingValue is string s && s.Length == 0) continue;
+            if (incomingValue == null && _incomingFields == null) continue;
+            if (incomingValue is string s && s.Length == 0 && _incomingFields == null) continue;
 
             // Shore pushing → apply everything except the file paths the ship owns.
             // Edge pushing → apply everything.
@@ -374,12 +380,12 @@ public class ConflictResolverService : IConflictResolverService
         foreach (var prop in existingType.GetProperties())
         {
             if (prop.GetSetMethod() == null) continue;
-            if (!IsCopyableScalar(prop)) continue;     // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
             if (prop.Name == "Id") continue;
 
             var incomingValue = prop.GetValue(incoming);
-            if (incomingValue == null) continue;
-            if (incomingValue is string s && s.Length == 0) continue;
+            if (incomingValue == null && _incomingFields == null) continue;
+            if (incomingValue is string s && s.Length == 0 && _incomingFields == null) continue;
 
             // Trạng thái duyệt: mỗi bên chỉ được đặt những giá trị thuộc thẩm quyền của mình,
             // nếu không một lần đồng bộ ngược có thể tự ý "duyệt" hoặc "rút lại duyệt".
@@ -439,12 +445,12 @@ public class ConflictResolverService : IConflictResolverService
         foreach (var prop in existingType.GetProperties())
         {
             if (prop.GetSetMethod() == null) continue;
-            if (!IsCopyableScalar(prop)) continue;     // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
             if (prop.Name == "Id") continue;
 
             var incomingValue = prop.GetValue(incoming);
-            if (incomingValue == null) continue;
-            if (incomingValue is string s && s.Length == 0) continue;
+            if (incomingValue == null && _incomingFields == null) continue;
+            if (incomingValue is string s && s.Length == 0 && _incomingFields == null) continue;
 
             // Bờ gửi xuống thì không được đụng vào đường dẫn file của tàu; ngoài ra áp tất cả.
             var shouldApply = originNode != "SHORE" || !edgeOwnedFileFields.Contains(prop.Name);
@@ -490,7 +496,7 @@ public class ConflictResolverService : IConflictResolverService
 
         // All other voyage tables: Edge owns (cargo_operation, voyage_log_entry, voyage_crew_assignment, etc.)
         // Planning entities from Shore will be handled via separate Shore→Edge pull mechanism
-        if (originNode == "EDGE" || originNode == "SHIP_01" || string.IsNullOrEmpty(originNode))
+        if (!string.Equals(originNode, "SHORE", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation("[VOYAGE-CONFLICT] {Table}: ACCEPT (Edge-owned)", tableName);
             return ConflictResolution.Apply(incoming);
@@ -508,14 +514,14 @@ public class ConflictResolverService : IConflictResolverService
         foreach (var prop in properties)
         {
             if (prop.GetSetMethod() == null) continue;
-            if (!IsCopyableScalar(prop)) continue;     // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
             if (prop.Name == "Id" || prop.Name == "CreatedAt" || prop.Name == "CancelledAt") continue;
 
             var existingValue = prop.GetValue(existing);
             var incomingValue = prop.GetValue(incoming);
 
             // Skip null/empty incoming
-            if (incomingValue == null || (incomingValue is string s && s.Length == 0)) 
+            if (_incomingFields == null && (incomingValue == null || (incomingValue is string s && s.Length == 0)))
                 continue;
 
             bool shouldApply;
@@ -585,11 +591,11 @@ public class ConflictResolverService : IConflictResolverService
         foreach (var prop in properties)
         {
             if (prop.GetSetMethod() == null) continue;
-            if (!IsCopyableScalar(prop)) continue;     // Never touch navigation properties
+            if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
             if (prop.Name == "Id" || prop.Name == "VoyageId") continue;
 
             var incomingValue = prop.GetValue(incoming);
-            if (incomingValue == null || (incomingValue is string s && s.Length == 0)) 
+            if (_incomingFields == null && (incomingValue == null || (incomingValue is string s && s.Length == 0)))
                 continue;
 
             // For hybrid fields (planning dates, distances, fuel), use LWW
@@ -606,7 +612,7 @@ public class ConflictResolverService : IConflictResolverService
             }
 
             // Other fields: Edge is owner (Sequence, LegType, CargoActivity, Notes)
-            if (originNode == "EDGE" || originNode == "SHIP_01" || string.IsNullOrEmpty(originNode))
+            if (!string.Equals(originNode, "SHORE", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {

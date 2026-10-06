@@ -1,7 +1,8 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
-import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { GarbagePartIForm } from '../../components/logbooks/GarbagePartIForm';
 import { GarbagePartIIForm } from '../../components/logbooks/GarbagePartIIForm';
+import { FileText, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { logbookService } from '../../services/logbook.service';
 import type { 
@@ -14,13 +15,13 @@ import { useTranslationSafe } from '@/contexts/I18nContext';
 const PART_I_CATEGORIES = [
   { code: 'A', name: 'Plastics', seaDischarge: false, description: 'All types of plastic' },
   { code: 'B', name: 'Food Wastes', seaDischarge: true, description: 'Food preparation waste' },
-  { code: 'C', name: 'Domestic Wastes', seaDischarge: true, description: 'Paper, rags, glass, metal, bottles, crockery' },
+  { code: 'C', name: 'Domestic Wastes', seaDischarge: false, description: 'Paper, rags, glass, metal, bottles, crockery' },
   { code: 'D', name: 'Cooking Oil', seaDischarge: false, description: 'Edible oils' },
-  { code: 'E', name: 'Incinerator Ashes', seaDischarge: true, description: 'Ash from incineration' },
+  { code: 'E', name: 'Incinerator Ashes', seaDischarge: false, description: 'Ash from incineration' },
   { code: 'F', name: 'Operational Wastes', seaDischarge: false, description: 'Maintenance/cleaning materials' },
-  { code: 'G', name: 'Cargo Residues (non-HME)', seaDischarge: true, description: 'Non-harmful cargo residues - cleaned' },
-  { code: 'H', name: 'Cargo Residues (HME)', seaDischarge: false, description: 'Harmful cargo residues - cleaned' },
-  { code: 'I', name: 'Animal Carcasses', seaDischarge: true, description: 'Dead animals' },
+  { code: 'G', name: 'Animal Carcasses', seaDischarge: true, description: 'Animal carcasses carried as cargo' },
+  { code: 'H', name: 'Fishing Gear', seaDischarge: false, description: 'Fishing gear and synthetic line' },
+  { code: 'I', name: 'E-waste', seaDischarge: false, description: 'Discarded electrical and electronic equipment' },
 ];
 
 // Part II Categories (J-K - Cargo Residues)
@@ -38,6 +39,7 @@ export const GarbageManagementPage: React.FC = () => {
   const [partIEntries, setPartIEntries] = useState<GarbagePartIResponseDto[]>([]);
   const [partIIEntries, setPartIIEntries] = useState<GarbagePartIIResponseDto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [signModal, setSignModal] = useState<{
@@ -249,9 +251,9 @@ export const GarbageManagementPage: React.FC = () => {
           else if (category.code === 'D') catName = 'Dầu ăn';
           else if (category.code === 'E') catName = 'Tro lò đốt';
           else if (category.code === 'F') catName = 'Chất thải khai thác';
-          else if (category.code === 'G') catName = 'Dư lượng hàng hóa (không HME)';
-          else if (category.code === 'H') catName = 'Dư lượng hàng hóa (HME)';
-          else if (category.code === 'I') catName = 'Xác động vật';
+          else if (category.code === 'G') catName = 'Xác động vật';
+          else if (category.code === 'H') catName = 'Ngư cụ';
+          else if (category.code === 'I') catName = 'Rác thải điện tử';
         }
         toast.error(
           isVi
@@ -533,11 +535,52 @@ export const GarbageManagementPage: React.FC = () => {
     setEditingId(null);
   };
 
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const visiblePartIEntries = partIEntries.filter(entry => !normalizedSearch || [
+    entry.category,
+    entry.description,
+    entry.portName,
+    entry.officerInCharge,
+    entry.masterSignature,
+  ].some(value => String(value || '').toLocaleLowerCase().includes(normalizedSearch)));
+  const visiblePartIIEntries = partIIEntries.filter(entry => !normalizedSearch || [
+    entry.category,
+    entry.cargoDescription,
+    entry.holdNumbersWashed,
+    entry.portName,
+    entry.officerInCharge,
+    entry.masterSignature,
+  ].some(value => String(value || '').toLocaleLowerCase().includes(normalizedSearch)));
+  const activeEntryCount = activeTab === 'part-i' ? visiblePartIEntries.length : visiblePartIIEntries.length;
+
   return (
-    <LogbookGrid
-      title={t('logbooks.garbageRecord.marpolTitle')}
-      actions={
-        <button
+    <div className="h-full min-h-0 w-full flex flex-col overflow-hidden bg-white">
+      {/* Header row - same compact visual language as PMS Work Planning */}
+      <div className="flex flex-shrink-0 border-b border-gray-200">
+        <div className="w-64 flex-shrink-0 flex items-center gap-2 px-3 py-3 bg-blue-800 text-white border-r border-blue-900">
+          <Trash2 className="w-4 h-4" />
+          <span className="text-sm font-semibold truncate">MARPOL Annex V</span>
+        </div>
+        <div className="flex-1 flex items-center justify-between gap-4 px-4 py-3 bg-white">
+          <div className="min-w-0 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <h1 className="text-sm font-semibold text-gray-700 truncate">
+              {t('logbooks.garbageRecord.marpolTitle')}
+            </h1>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+              {activeEntryCount}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={fetchEntries}
+              disabled={loading}
+              className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              title={t('common.refresh') || 'Refresh'}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+        <PermissionGate permission="logbooks.garbage.create"><button
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -547,15 +590,33 @@ export const GarbageManagementPage: React.FC = () => {
               setShowForm(true);
             }
           }}
-          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
+                showForm
+                  ? 'border-gray-300 text-gray-600 bg-white hover:bg-gray-50'
+                  : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+              }`}
         >
+              {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
           {showForm ? t('common.cancel') : t('logbooks.garbageRecord.newEntry')}
-        </button>
-      }
-    >
-      {/* Tab Switcher */}
-      <div className="mb-6 border-b border-gray-200">
-        <div className="flex gap-0">
+        </button></PermissionGate>
+          </div>
+        </div>
+      </div>
+
+      {/* Search + tabs */}
+      <div className="flex flex-shrink-0 border-b border-gray-200 bg-white">
+        <div className="w-64 flex-shrink-0 border-r border-gray-200 flex items-center px-2 py-1.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              value={searchQuery}
+              onChange={event => setSearchQuery(event.target.value)}
+              placeholder={t('common.search') || 'Search'}
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
+        </div>
+        <div className="flex flex-1 items-center gap-1 px-4">
           <button
             onClick={() => {
               setActiveTab('part-i');
@@ -563,12 +624,13 @@ export const GarbageManagementPage: React.FC = () => {
               resetPartIForm();
               resetPartIIForm();
             }}
-            className={`px-6 py-3 font-sans font-semibold text-base border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
               activeTab === 'part-i'
-                ? 'text-blue-600 border-blue-600 bg-blue-50'
-                : 'text-gray-500 border-transparent hover:text-blue-600 hover:bg-gray-50'
+                ? 'text-blue-600 border-blue-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             }`}
           >
+            <FileText className="w-3.5 h-3.5" />
             {t('logbooks.garbageRecord.regularGarbage')}
           </button>
           <button
@@ -578,92 +640,96 @@ export const GarbageManagementPage: React.FC = () => {
               resetPartIForm();
               resetPartIIForm();
             }}
-            className={`px-6 py-3 font-sans font-semibold text-base border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
               activeTab === 'part-ii'
-                ? 'text-blue-600 border-blue-600 bg-blue-50'
-                : 'text-gray-500 border-transparent hover:text-blue-600 hover:bg-gray-50'
+                ? 'text-blue-600 border-blue-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             }`}
           >
+            <FileText className="w-3.5 h-3.5" />
             {t('logbooks.garbageRecord.cargoResidues')}
           </button>
         </div>
       </div>
 
+      <div className="flex-1 min-h-0 overflow-auto bg-white">
+        <div className={showForm ? 'p-4' : ''}>
+
       {/* Forms */}
       {showForm && activeTab === 'part-i' && (
-        <GarbagePartIForm
+        <PermissionGate permission={editingId ? 'logbooks.garbage.update' : 'logbooks.garbage.create'}><GarbagePartIForm
           form={partIForm}
           onChange={handlePartIChange}
           onCategorySelect={handlePartICategorySelect}
           categories={PART_I_CATEGORIES}
           onSubmit={handlePartISubmit}
           onCancel={() => setShowForm(false)}
-        />
+        /></PermissionGate>
       )}
 
       {showForm && activeTab === 'part-ii' && (
-        <GarbagePartIIForm
+        <PermissionGate permission={editingId ? 'logbooks.garbage.update' : 'logbooks.garbage.create'}><GarbagePartIIForm
           form={partIIForm}
           onChange={handlePartIIChange}
           onCategorySelect={handlePartIICategorySelect}
           categories={PART_II_CATEGORIES}
           onSubmit={handlePartIISubmit}
           onCancel={() => setShowForm(false)}
-        />
+        /></PermissionGate>
       )}
 
       {/* Entries Table */}
-      <div className="bg-white border border-gray-200 overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
-              <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.dateTime')}</th>
-              <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.category')}</th>
+      <div className="bg-white overflow-x-auto border-t border-gray-200">
+        <table className="w-full min-w-[1120px] text-left border-collapse text-sm">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-blue-50 text-gray-600 text-xs font-semibold">
+              <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.dateTime')}</th>
+              <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.category')}</th>
               {activeTab === 'part-i' ? (
                 <>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.intoSea')} (m³)</th>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.toReception')} (m³)</th>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.incinerated')} (m³)</th>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.location')}</th>
+                  <th className="px-3 py-2 text-right border-b border-r border-gray-200">{t('logbooks.garbageRecord.intoSea')} (m³)</th>
+                  <th className="px-3 py-2 text-right border-b border-r border-gray-200">{t('logbooks.garbageRecord.toReception')} (m³)</th>
+                  <th className="px-3 py-2 text-right border-b border-r border-gray-200">{t('logbooks.garbageRecord.incinerated')} (m³)</th>
+                  <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.location')}</th>
                 </>
               ) : (
                 <>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.cargoDetails')}</th>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.intoSea')} (m³)</th>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.toReception')} (m³)</th>
-                  <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.location')}</th>
+                  <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.cargoDetails')}</th>
+                  <th className="px-3 py-2 text-right border-b border-r border-gray-200">{t('logbooks.garbageRecord.intoSea')} (m³)</th>
+                  <th className="px-3 py-2 text-right border-b border-r border-gray-200">{t('logbooks.garbageRecord.toReception')} (m³)</th>
+                  <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.location')}</th>
                 </>
               )}
-              <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.officer')}</th>
-              <th className="p-4 border-b border-gray-200">{t('logbooks.garbageRecord.status')}</th>
-              <th className="p-4 border-b border-gray-200">{t('common.action') || 'Action'}</th>
+              <th className="px-3 py-2 border-b border-r border-gray-200">{t('logbooks.garbageRecord.officer')}</th>
+              <th className="px-3 py-2 text-center border-b border-r border-gray-200">{t('logbooks.garbageRecord.status')}</th>
+              <th className="px-3 py-2 text-center border-b border-gray-200">{t('common.action') || 'Action'}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={9} className="p-4 text-center text-green-600 font-sans">
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
                   {t('common.loading')}
                 </td>
               </tr>
             )}
-            {!loading && activeTab === 'part-i' && partIEntries.length === 0 && (
+            {!loading && activeTab === 'part-i' && visiblePartIEntries.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-4 text-center text-gray-500 font-sans">
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
                   {t('logbooks.garbageRecord.noEntries')}
                 </td>
               </tr>
             )}
-            {!loading && activeTab === 'part-ii' && partIIEntries.length === 0 && (
+            {!loading && activeTab === 'part-ii' && visiblePartIIEntries.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-4 text-center text-gray-500 font-sans">
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
                   {t('logbooks.garbageRecord.noEntries')}
                 </td>
               </tr>
             )}
 
             {/* Part I Entries */}
-            {activeTab === 'part-i' && partIEntries.map(entry => {
+            {activeTab === 'part-i' && visiblePartIEntries.map((entry, index) => {
               const category = PART_I_CATEGORIES.find(c => c.code === entry.category);
               let catName = category?.name || entry.description;
               if (isVi) {
@@ -673,76 +739,76 @@ export const GarbageManagementPage: React.FC = () => {
                 else if (entry.category === 'D') catName = 'Dầu ăn';
                 else if (entry.category === 'E') catName = 'Tro lò đốt';
                 else if (entry.category === 'F') catName = 'Chất thải khai thác';
-                else if (entry.category === 'G') catName = 'Dư lượng hàng hóa (không HME)';
-                else if (entry.category === 'H') catName = 'Dư lượng hàng hóa (HME)';
-                else if (entry.category === 'I') catName = 'Xác động vật';
+                else if (entry.category === 'G') catName = 'Xác động vật';
+                else if (entry.category === 'H') catName = 'Ngư cụ';
+                else if (entry.category === 'I') catName = 'Rác thải điện tử';
               }
               const isSigned = !!entry.masterSignature;
               return (
                 <tr 
                   key={entry.id} 
                   onClick={() => handleSignEntry(entry.id, 'part-i', isSigned)}
-                  className={`border-b border-gray-200 hover:bg-gray-50 ${
-                    !isSigned ? 'cursor-pointer hover:bg-blue-50' : ''
+                  className={`border-b border-gray-100 ${index % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} ${
+                    !isSigned ? 'cursor-pointer hover:bg-blue-50' : 'hover:bg-gray-50'
                   }`}
                   title={!isSigned ? t('logbooks.garbageRecord.signEntry') : t('logbooks.deckLog.signed')}
                 >
-                  <td className="p-4 font-sans text-gray-900 text-sm">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100 whitespace-nowrap">
                     {new Date(entry.operationDate).toLocaleDateString()}
                     <br />
                     <span className="text-xs text-gray-500">{entry.operationTime}</span>
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">
                     <span className="font-bold text-blue-600">{entry.category}</span> - {catName}
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 text-right border-r border-gray-100">
                     {entry.estimatedAmountDischargedToSea?.toFixed(3) || '-'}
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 text-right border-r border-gray-100">
                     {entry.estimatedAmountToReceptionFacilities?.toFixed(3) || '-'}
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 text-right border-r border-gray-100">
                     {entry.estimatedAmountIncinerated?.toFixed(3) || '-'}
                   </td>
-                  <td className="p-4 font-sans text-gray-900 text-xs">
+                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
                     {entry.portName || (entry.dischargeLatitude && entry.dischargeLongitude 
                       ? `${entry.dischargeLatitude.toFixed(2)}°, ${entry.dischargeLongitude.toFixed(2)}°`
                       : '-')}
                   </td>
-                  <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
-                  <td className="p-4">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">{entry.officerInCharge}</td>
+                  <td className="px-3 py-2 text-center border-r border-gray-100">
                     {entry.masterSignature ? (
-                      <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
+                      <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded font-medium">
                         {t('logbooks.deckLog.signed')}
                       </span>
                     ) : (
-                      <span className="bg-yellow-600 text-black text-xs px-2 py-1 font-sans font-bold">
+                      <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded font-medium">
                         {t('logbooks.abstractLog.draft')}
                       </span>
                     )}
                   </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
+                  <td className="px-2 py-2">
+                    <div className="flex items-center justify-center gap-1">
                       {!isSigned && (
                         <>
-                          <button
+                          <PermissionGate permission="logbooks.garbage.update"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartEditPartI(entry);
                             }}
-                            className="text-amber-600 hover:underline font-sans text-sm font-semibold"
+                            className="px-2 py-1 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
                           >
                             {t('common.edit') || 'EDIT'}
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="logbooks.garbage.approve"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSignEntry(entry.id, 'part-i', false);
                             }}
-                            className="text-green-600 hover:underline font-sans text-sm font-semibold"
+                            className="px-2 py-1 text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
                           >
                             {t('common.sign') || 'SIGN'}
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -752,7 +818,7 @@ export const GarbageManagementPage: React.FC = () => {
             })}
 
             {/* Part II Entries */}
-            {activeTab === 'part-ii' && partIIEntries.map(entry => {
+            {activeTab === 'part-ii' && visiblePartIIEntries.map((entry, index) => {
               const category = PART_II_CATEGORIES.find(c => c.code === entry.category);
               let catName = category?.name;
               if (isVi) {
@@ -764,71 +830,71 @@ export const GarbageManagementPage: React.FC = () => {
                 <tr 
                   key={entry.id} 
                   onClick={() => handleSignEntry(entry.id, 'part-ii', isSigned)}
-                  className={`border-b border-gray-200 hover:bg-gray-50 ${
-                    !isSigned ? 'cursor-pointer hover:bg-blue-50' : ''
+                  className={`border-b border-gray-100 ${index % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} ${
+                    !isSigned ? 'cursor-pointer hover:bg-blue-50' : 'hover:bg-gray-50'
                   }`}
                   title={!isSigned ? t('logbooks.garbageRecord.signEntry') : t('logbooks.deckLog.signed')}
                 >
-                  <td className="p-4 font-sans text-gray-900 text-sm">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100 whitespace-nowrap">
                     {new Date(entry.operationDate).toLocaleDateString()}
                     <br />
                     <span className="text-xs text-gray-500">{entry.operationTime}</span>
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">
                     <span className={`font-bold ${entry.category === 'K' ? 'text-red-600' : 'text-blue-600'}`}>
                       {entry.category}
                     </span> - {catName}
                   </td>
-                  <td className="p-4 font-sans text-gray-900 text-sm">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">
                     {entry.cargoDescription}
                     <br />
                     <span className="text-xs text-gray-500">{entry.holdNumbersWashed}</span>
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 text-right border-r border-gray-100">
                     {entry.estimatedAmountDischargedToSea?.toFixed(3) || '-'}
                   </td>
-                  <td className="p-4 font-sans text-gray-900">
+                  <td className="px-3 py-2 text-xs text-gray-700 text-right border-r border-gray-100">
                     {entry.estimatedAmountToReceptionFacilities?.toFixed(3) || '-'}
                   </td>
-                  <td className="p-4 font-sans text-gray-900 text-xs">
+                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
                     {t('logbooks.garbageRecord.start')}: {entry.startLatitude.toFixed(2)}°, {entry.startLongitude.toFixed(2)}°
                     <br />
                     {t('logbooks.garbageRecord.end')}: {entry.endLatitude.toFixed(2)}°, {entry.endLongitude.toFixed(2)}°
                   </td>
-                  <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
-                  <td className="p-4">
+                  <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">{entry.officerInCharge}</td>
+                  <td className="px-3 py-2 text-center border-r border-gray-100">
                     {entry.masterSignature ? (
-                      <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
+                      <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded font-medium">
                         {t('logbooks.deckLog.signed')}
                       </span>
                     ) : (
-                      <span className="bg-yellow-600 text-black text-xs px-2 py-1 font-sans font-bold">
+                      <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded font-medium">
                         {t('logbooks.abstractLog.draft')}
                       </span>
                     )}
                   </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
+                  <td className="px-2 py-2">
+                    <div className="flex items-center justify-center gap-1">
                       {!isSigned && (
                         <>
-                          <button
+                          <PermissionGate permission="logbooks.garbage.update"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartEditPartII(entry);
                             }}
-                            className="text-amber-600 hover:underline font-sans text-sm font-semibold"
+                            className="px-2 py-1 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
                           >
                             {t('common.edit') || 'EDIT'}
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="logbooks.garbage.approve"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSignEntry(entry.id, 'part-ii', false);
                             }}
-                            className="text-green-600 hover:underline font-sans text-sm font-semibold"
+                            className="px-2 py-1 text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
                           >
                             {t('common.sign') || 'SIGN'}
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -840,25 +906,31 @@ export const GarbageManagementPage: React.FC = () => {
         </table>
       </div>
 
+        </div>
+      </div>
+
       {/* Sign Confirmation Modal */}
       {signModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold text-blue-600 font-sans mb-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden border border-gray-200">
+            <div className="px-5 py-3 bg-blue-50 border-b border-blue-100">
+            <h3 className="text-sm font-semibold text-blue-800">
               🖊 {t('logbooks.garbageRecord.signEntry')} {signModal.type === 'part-i' ? 'Part I' : 'Part II'}
             </h3>
-            <p className="text-gray-700 font-sans mb-4">
+            </div>
+            <div className="p-5">
+            <p className="text-sm text-gray-600 mb-4">
               {t('logbooks.voyageLog.signInstructions')}
             </p>
             <div className="mb-6">
-              <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
+              <label className="text-xs text-gray-600 font-medium block mb-1.5">
                 {t('logbooks.garbageRecord.masterSignature')}
               </label>
               <input
                 type="text"
                 value={masterSignature}
                 onChange={e => setMasterSignature(e.target.value)}
-                className="w-full bg-white border-2 border-gray-200 text-gray-900 font-sans p-3 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-white border border-gray-300 rounded text-sm text-gray-900 px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 placeholder={t('logbooks.garbageRecord.enterMasterName')}
                 autoFocus
               />
@@ -869,20 +941,21 @@ export const GarbageManagementPage: React.FC = () => {
                   setSignModal({ show: false, entryId: null, type: 'part-i' });
                   setMasterSignature('Captain');
                 }}
-                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
+                className="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-medium rounded hover:bg-gray-50"
               >
                 {t('common.cancel')}
               </button>
-              <button
+              <PermissionGate permission="logbooks.garbage.approve"><button
                 onClick={confirmSign}
-                className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
+                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
               >
                 ✓ {t('logbooks.garbageRecord.signEntry')}
-              </button>
+              </button></PermissionGate>
+            </div>
             </div>
           </div>
         </div>
       )}
-    </LogbookGrid>
+    </div>
   );
 };

@@ -1,4 +1,12 @@
 {
+  "map": {
+    "shipPosition": "Ship position",
+    "lat": "Latitude",
+    "lon": "Longitude",
+    "sog": "Speed over ground",
+    "cog": "Course over ground",
+    "time": "Time"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -656,6 +664,7 @@
       "compliant": "Compliant",
       "partial": "Partial",
       "missing": "Missing",
+      "rankRequirementsManagedOnShore": "Rank certificate requirements are managed on shore and synced to this vessel. To add, edit or remove a requirement, open Master Data → Certificate Types → Certificates for Ranks on the shore system.",
       "requiredCertificatesTitle": "Required Certificates",
       "removeBtn": "Remove",
       "noCertsRequired": "No certificates required",
@@ -1856,6 +1865,8 @@
       "voyageNumberHint": "Format: VN-YYYY-NNN (auto-generated or custom)",
       "auto": "Auto",
       "lastPortHint": "Last port of call before this voyage (required for FAL/Customs)",
+      "cargoWeightMT": "Cargo Weight (MT)",
+      "routeDetails": "Voyage Details",
       "planningBaselineDesc": "Capture the commercial and operational plan before execution starts.",
       "createVoyageBtn": "Create Voyage",
       "creating": "Creating...",
@@ -2728,7 +2739,7 @@
       "approvalDashboardDesc": "Review HIGH/CRITICAL tasks (C/E only)",
       "masterSchedule": "Master Schedule",
       "masterScheduleDesc": "View all maintenance schedules",
-      "myTaskList": "My Task List",
+      "myTaskList": "Task List",
       "taskHistory": "Task History",
       "archived": "archived",
       "syncing": "Syncing...",

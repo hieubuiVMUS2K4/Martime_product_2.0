@@ -151,6 +151,66 @@ public class MaterialController : ControllerBase
         return item == null ? NotFound() : Ok(item);
     }
 
+    public sealed class CatalogImportRow
+    {
+        public string ItemCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string CategoryCode { get; set; } = string.Empty;
+        public decimal? UnitPrice { get; set; }
+    }
+
+    [HttpPost("catalog/import")]
+    public async Task<IActionResult> ImportCatalog([FromBody] List<CatalogImportRow> rows)
+    {
+        if (rows.Count == 0 || rows.Count > 1000)
+            return BadRequest(new { message = "Mỗi lần import cần từ 1 đến 1000 vật tư." });
+        var categories = await _context.MaterialCategories.Where(c => c.IsActive).ToListAsync();
+        var errors = new List<string>();
+        var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            row.ItemCode = (row.ItemCode ?? "").Trim();
+            row.Name = (row.Name ?? "").Trim();
+            row.CategoryCode = (row.CategoryCode ?? "").Trim();
+            if (row.ItemCode.Length is 0 or > 50 || row.Name.Length is 0 or > 200)
+                errors.Add($"Dòng {index + 2}: mã (tối đa 50 ký tự) và tên (tối đa 200 ký tự) là bắt buộc.");
+            if (!codes.Add(row.ItemCode)) errors.Add($"Dòng {index + 2}: trùng mã vật tư {row.ItemCode}.");
+            if (!categories.Any(c => c.CategoryCode == row.CategoryCode))
+                errors.Add($"Dòng {index + 2}: mã loại vật tư {row.CategoryCode} chưa có trong danh mục.");
+            if (row.UnitPrice < 0) errors.Add($"Dòng {index + 2}: đơn giá không được âm.");
+        }
+        if (errors.Count > 0) return BadRequest(new { message = string.Join("\n", errors) });
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var existing = await _context.MaterialItems.Where(i => codes.Contains(i.ItemCode)).ToListAsync();
+        var created = 0;
+        var updated = 0;
+        var changes = new List<(string TableName, string RecordKey, SyncActionType Action, object Payload)>();
+        foreach (var row in rows)
+        {
+            var entity = existing.FirstOrDefault(i => i.ItemCode == row.ItemCode);
+            var action = entity == null ? SyncActionType.CREATE : SyncActionType.UPDATE;
+            if (entity == null)
+            {
+                entity = new MaterialItem { ItemCode = row.ItemCode };
+                _context.MaterialItems.Add(entity);
+                created++;
+            }
+            else updated++;
+            entity.Name = row.Name;
+            entity.CategoryId = categories.Single(c => c.CategoryCode == row.CategoryCode).Id;
+            entity.UnitPrice = row.UnitPrice;
+            entity.IsActive = true;
+            entity.UpdatedAt = DateTime.UtcNow;
+            changes.Add(("material_item_catalog", entity.Id.ToString(), action, entity));
+        }
+        await _context.SaveChangesAsync();
+        if (_syncOutbox != null) await _syncOutbox.EnqueueBatchAsync("*", changes);
+        await transaction.CommitAsync();
+        return Ok(new { created, updated });
+    }
+
     [HttpPost("catalog")]
     public async Task<IActionResult> CreateCatalog([FromBody] MaterialItem dto)
     {
@@ -374,6 +434,13 @@ public class MaterialController : ControllerBase
     [HttpPost("items/{itemId:guid}/equipment")]
     public async Task<IActionResult> LinkEquipment(Guid itemId, [FromBody] List<Guid> equipmentIds)
     {
+        if (!await _context.MaterialItems.AnyAsync(i => i.Id == itemId && i.IsActive)) return NotFound();
+        var vesselIds = await (from ship in _context.MaterialItemShips
+                               join catalog in _context.MaterialItems on ship.MaterialItemCode equals catalog.ItemCode
+                               where catalog.Id == itemId && ship.IsActive select ship.VesselId).ToListAsync();
+        var distinctIds = equipmentIds.Distinct().ToList();
+        if (await _context.EquipmentAssets.CountAsync(e => distinctIds.Contains(e.Id) && e.IsActive && e.Category != "SYSTEM" && vesselIds.Contains(e.VesselId)) != distinctIds.Count)
+            return BadRequest(new { message = "Chỉ gán thiết bị đang hoạt động của tàu có vật tư này; không gán nhóm thiết bị." });
         int created = 0; int skipped = 0;
         foreach (var eId in equipmentIds)
         {

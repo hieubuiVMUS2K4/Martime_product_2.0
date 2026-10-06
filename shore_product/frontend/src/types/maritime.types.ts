@@ -897,6 +897,10 @@ export interface MaterialCategory {
 }
 
 export interface MaterialItem {
+  updatedAt?: string;
+  syncStatus?: 'NotSynced' | 'Pending' | 'Synced';
+  syncedAt?: string;
+  catalogId?: string;
   id: string; // Guid
   itemCode: string;
   name: string;

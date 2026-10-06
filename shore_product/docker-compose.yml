@@ -24,7 +24,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-productdb}
     volumes:
       - postgres-local-data:/var/lib/postgresql/data
-      - ../dumps/shore_dump_20260618_1912.local.sql:/docker-entrypoint-initdb.d/00-shore-dump.sql:ro
     ports:
       - "5434:5432"
     healthcheck:
@@ -43,6 +42,9 @@ services:
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      Database__AutoMigrate: "true"
+      Shore__PublicBaseUrl: "${SHORE_PUBLIC_BASE_URL:-http://host.docker.internal:5000}"
+      DocumentConversion__GotenbergUrl: "http://gotenberg:3000"
       ASPNETCORE_URLS: "http://+:5000"
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-productdb};Username=${POSTGRES_USER:-product};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in shore_product/.env}"
       JWT__Key: "${JWT__Key:?JWT__Key must be set in shore_product/.env}"
@@ -95,6 +97,12 @@ services:
       - pgadmin-data:/var/lib/pgadmin
     depends_on:
       - postgres
+    networks:
+      - shore-local-net
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
     networks:
       - shore-local-net
 

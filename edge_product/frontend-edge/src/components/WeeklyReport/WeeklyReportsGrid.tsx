@@ -26,13 +26,13 @@ export const WeeklyReportsGrid: React.FC<WeeklyReportsGridProps> = ({
   onReportClick,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+    <div className="bg-white rounded border border-gray-200">
+      <div className="bg-blue-50 border-b border-gray-200 px-4 py-2.5 flex flex-wrap gap-3 justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-sm font-semibold text-gray-700">
             Weekly Reports {year}
           </h3>
-          <p className="text-sm text-gray-600 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             {loading ? 'Loading...' : `${reports.length} reports found`}
           </p>
         </div>
@@ -41,7 +41,7 @@ export const WeeklyReportsGrid: React.FC<WeeklyReportsGridProps> = ({
             onClick={() => onViewModeChange('grid')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               viewMode === 'grid' 
-                ? 'bg-green-100 text-green-700' 
+                ? 'bg-blue-100 text-blue-700'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
             aria-label="Switch to grid view"
@@ -53,7 +53,7 @@ export const WeeklyReportsGrid: React.FC<WeeklyReportsGridProps> = ({
             onClick={() => onViewModeChange('list')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               viewMode === 'list' 
-                ? 'bg-green-100 text-green-700' 
+                ? 'bg-blue-100 text-blue-700'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
             aria-label="Switch to list view"
@@ -64,10 +64,10 @@ export const WeeklyReportsGrid: React.FC<WeeklyReportsGridProps> = ({
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : reports.length === 0 ? (
           <EmptyState year={year} />

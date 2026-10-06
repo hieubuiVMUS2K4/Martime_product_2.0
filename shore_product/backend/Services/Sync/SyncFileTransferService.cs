@@ -37,12 +37,12 @@ public class SyncFileTransferService : ISyncFileTransferService
         ILogger<SyncFileTransferService> logger)
     {
         _context = context;
+        _context.SuppressAutoOutbox = true;
         _syncFileStorageService = syncFileStorageService;
         _configuration = configuration;
         _logger = logger;
         _receiverNodeId = configuration["SyncSecurity:NodeId"]
             ?? configuration["Sync:NodeId"]
-            ?? configuration["Vessel:IMO"]
             ?? "SHORE";
     }
 
@@ -88,6 +88,19 @@ public class SyncFileTransferService : ISyncFileTransferService
             .AsTracking()
             .FirstOrDefaultAsync(m => m.Id == request.ManifestId, cancellationToken);
 
+        if (request.RequesterNodeId != _receiverNodeId && request.SupplierNodeId != _receiverNodeId)
+            throw new InvalidOperationException("Only files supplied by this Shore node can be requested remotely");
+        string? verifiedSource = null;
+        if (manifest == null && request.SupplierNodeId == _receiverNodeId)
+        {
+            // Backward compatibility for metadata issued before manifests were persisted on pull.
+            var authorized = await _context.SyncOutbox.AnyAsync(item => item.TableName == request.TableName && item.RecordKey == request.RecordKey &&
+                (item.TargetNode == request.RequesterNodeId || item.TargetNode == "*"), cancellationToken);
+            verifiedSource = authorized ? await FindEntityFilePathAsync(request.TableName, request.RecordKey, cancellationToken) : null;
+            if (string.IsNullOrWhiteSpace(verifiedSource) || !_syncFileStorageService.Exists(verifiedSource) ||
+                !string.Equals(await _syncFileStorageService.ComputeSha256HexAsync(verifiedSource, cancellationToken), request.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Unknown or unauthorized Shore file manifest; request refreshed metadata");
+        }
         if (manifest == null)
         {
             manifest = new SyncFileManifest
@@ -98,11 +111,17 @@ public class SyncFileTransferService : ISyncFileTransferService
                 TableName = request.TableName,
                 RecordKey = request.RecordKey,
                 FileRole = request.FileRole,
+                SourcePath = verifiedSource,
                 CreatedAt = DateTime.UtcNow
             };
             await _context.SyncFileManifests.AddAsync(manifest, cancellationToken);
         }
 
+        AssertManifestParticipants(manifest, request.RequesterNodeId, request.SupplierNodeId);
+        AssertManifestRecord(manifest, request.TableName, request.RecordKey, request.FileRole);
+        if (request.SupplierNodeId == _receiverNodeId) AssertManifestContent(manifest, request.Sha256, request.SizeBytes);
+        var sameContent = string.Equals(manifest.Sha256, request.Sha256, StringComparison.OrdinalIgnoreCase) && manifest.SizeBytes == request.SizeBytes;
+        var alreadyReceived = sameContent && manifest.TransferStatus == SyncFileTransferStatus.Verified;
         manifest.OwnerNodeId = request.SupplierNodeId;
         manifest.ReceiverNodeId = request.RequesterNodeId;
         manifest.TableName = request.TableName;
@@ -112,9 +131,9 @@ public class SyncFileTransferService : ISyncFileTransferService
         manifest.ContentType = request.ContentType;
         manifest.SizeBytes = request.SizeBytes;
         manifest.Sha256 = request.Sha256;
-        manifest.SourcePath = request.SourcePath;
+        if (request.SupplierNodeId != _receiverNodeId) manifest.SourcePath = request.SourcePath;
         manifest.TransferPriority = request.TransferPriority;
-        manifest.TransferStatus = SyncFileTransferStatus.Requested;
+        manifest.TransferStatus = alreadyReceived ? SyncFileTransferStatus.Verified : SyncFileTransferStatus.Requested;
         manifest.LastRequestedAtUtc = DateTime.UtcNow;
         manifest.LastError = null;
         manifest.UpdatedAt = DateTime.UtcNow;
@@ -149,11 +168,13 @@ public class SyncFileTransferService : ISyncFileTransferService
         }
         else
         {
+            AssertRequestParticipants(transferRequest, request.ManifestId, request.RequesterNodeId, request.SupplierNodeId);
             transferRequest.ManifestId = request.ManifestId;
             transferRequest.RequesterNodeId = request.RequesterNodeId;
             transferRequest.SupplierNodeId = request.SupplierNodeId;
             transferRequest.RequestedAtUtc = request.RequestedAtUtc == default ? transferRequest.RequestedAtUtc : request.RequestedAtUtc;
-            transferRequest.Status = SyncFileRequestStatus.Pending;
+            if (!sameContent || transferRequest.Status != SyncFileRequestStatus.Completed)
+                transferRequest.Status = alreadyReceived ? SyncFileRequestStatus.Completed : SyncFileRequestStatus.Pending;
         }
 
         transferRequest.NextRetryAt = null;
@@ -240,7 +261,10 @@ public class SyncFileTransferService : ISyncFileTransferService
         if (!string.Equals(actualSha256, request.Manifest.Sha256, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        var chunkSizeBytes = GetFileTransferChunkSizeBytes();
+        var requester = await _context.SyncNodeTrackers.AsNoTracking().SingleOrDefaultAsync(n => n.NodeId == requesterNodeId, cancellationToken);
+        var link = Enum.TryParse<NetworkType>(requester?.CurrentNetworkType, out var parsedLink) ? parsedLink : NetworkType.Satellite_VSAT;
+        var chunkSizeBytes = Math.Min(GetFileTransferChunkSizeBytes(), SyncLinkPolicy.For(link).ChunkBytes);
+        if (chunkSizeBytes <= 0) throw new InvalidOperationException("File transfer is paused on the offline link");
         var sizeBytes = _syncFileStorageService.GetFileSize(relativePath);
         var totalFileChunks = Math.Max(1, (int)((sizeBytes + chunkSizeBytes - 1) / chunkSizeBytes));
         var requestedChunkIndexes = await BuildRequestedChunkIndexesAsync(request, relativePath, chunkSizeBytes, totalFileChunks, cancellationToken);
@@ -252,6 +276,9 @@ public class SyncFileTransferService : ISyncFileTransferService
             .AsTracking()
             .FirstOrDefaultAsync(s => s.RequestId == request.Id && s.Direction == "download", cancellationToken);
 
+        var resetDownload = session == null || session.ExpiresAtUtc <= now || session.CompletedAtUtc != null ||
+            session.ChunkSizeBytes != chunkSizeBytes || session.Sha256 != request.Manifest.Sha256 ||
+            session.IsDeltaSession != isDeltaSession || session.RequestedChunkIndexesJson != (isDeltaSession ? System.Text.Json.JsonSerializer.Serialize(requestedChunkIndexes) : null);
         if (session == null)
         {
             session = new SyncFileChunkSession
@@ -310,7 +337,7 @@ public class SyncFileTransferService : ISyncFileTransferService
             session.ExpiresAtUtc = now.AddHours(12);
             session.LastError = null;
 
-            if (session.CompletedAtUtc != null || session.ExpiresAtUtc <= now)
+            if (resetDownload)
             {
                 session.NextChunkIndex = 0;
                 session.CommittedBytes = 0;
@@ -358,7 +385,7 @@ public class SyncFileTransferService : ISyncFileTransferService
             return null;
 
         session.NextChunkIndex = Math.Max(session.NextChunkIndex, chunkIndex + 1);
-        session.CommittedBytes += bytes.LongLength;
+        session.CommittedBytes = Math.Min(session.SizeBytes, Math.Max(session.CommittedBytes, ((long)chunkIndex + 1) * session.ChunkSizeBytes));
         session.LastActivityAtUtc = DateTime.UtcNow;
         session.LastError = null;
         if (chunkIndex == session.TotalChunks - 1)
@@ -396,6 +423,8 @@ public class SyncFileTransferService : ISyncFileTransferService
 
         var request = await EnsureIncomingRequestAsync(content.RequestId, content.ManifestId, content.RequesterNodeId, content.SupplierNodeId, cancellationToken);
         var manifest = request.Manifest!;
+        AssertManifestRecord(manifest, content.TableName, content.RecordKey, content.FileRole);
+        AssertManifestContent(manifest, content.Sha256, content.SizeBytes);
 
         _logger.LogInformation("[AcceptUploadedFile] After EnsureIncoming: requestStatus={Status}, manifestSha={ManifestSha}, contentSha={ContentSha}, storagePath={StoragePath}",
             request.Status, manifest.Sha256, content.Sha256, manifest.StoragePath);
@@ -444,7 +473,7 @@ public class SyncFileTransferService : ISyncFileTransferService
             cancellationToken);
 
         _logger.LogInformation("[AcceptUploadedFile] File stored at: {RelativePath}. Calling UpdateEntityFilePathAsync...", relativePath);
-        await UpdateEntityFilePathAsync(content.TableName, content.RecordKey, content.FileRole, relativePath, cancellationToken);
+        await UpdateEntityFilePathAsync(content.TableName, content.RecordKey, content.FileRole, relativePath, cancellationToken, content.SupplierNodeId);
 
         MarkRequestCompleted(request, manifest, relativePath);
 
@@ -469,6 +498,31 @@ public class SyncFileTransferService : ISyncFileTransferService
         var request = await EnsureIncomingRequestAsync(session.RequestId, session.ManifestId, session.RequesterNodeId, session.SupplierNodeId, cancellationToken);
         var manifest = request.Manifest!;
         var now = DateTime.UtcNow;
+        AssertManifestRecord(manifest, session.TableName, session.RecordKey, session.FileRole);
+        AssertManifestContent(manifest, session.Sha256, session.SizeBytes);
+        if (session.SizeBytes < 0 || session.ChunkSizeBytes <= 0 || session.TotalChunks <= 0)
+            throw new InvalidOperationException("Invalid upload session dimensions");
+        var fileChunkCount = Math.Max(1, checked((int)((session.SizeBytes + session.ChunkSizeBytes - 1) / session.ChunkSizeBytes)));
+        if (session.IsDeltaSession)
+        {
+            if (session.RequestedChunkIndexes.Count != session.TotalChunks ||
+                session.RequestedChunkIndexes.Distinct().Count() != session.TotalChunks ||
+                session.RequestedChunkIndexes.Any(index => index < 0 || index >= fileChunkCount))
+                throw new InvalidOperationException("Invalid delta chunk indexes");
+            var basePath = await FindEntityFilePathAsync(session.TableName, session.RecordKey, cancellationToken);
+            if (string.IsNullOrWhiteSpace(basePath) || !_syncFileStorageService.Exists(basePath) ||
+                string.IsNullOrWhiteSpace(session.ReceiverBaseSha256) ||
+                !string.Equals(await _syncFileStorageService.ComputeSha256HexAsync(basePath, cancellationToken), session.ReceiverBaseSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                // Negotiate a full transfer when the saved receiver base is unavailable.
+                session.IsDeltaSession = false;
+                session.RequestedChunkIndexes = new();
+                session.ReceiverBaseSha256 = null;
+                session.TotalChunks = fileChunkCount;
+            }
+        }
+        else if (session.TotalChunks != fileChunkCount)
+            throw new InvalidOperationException("Invalid full upload chunk count");
 
         if (session.IsDeltaSession)
         {
@@ -496,6 +550,18 @@ public class SyncFileTransferService : ISyncFileTransferService
                 (s.RequestId == request.Id && s.Direction == "upload" && s.Status != SyncFileChunkSessionStatus.Completed),
                 cancellationToken);
 
+        if (uploadSession != null)
+        {
+            if (uploadSession.Direction != "upload") throw new InvalidOperationException("Session direction mismatch");
+            AssertSessionParticipants(uploadSession, request.Id, manifest.Id, request.RequesterNodeId, request.SupplierNodeId);
+        }
+        var resetStaging = uploadSession == null || uploadSession.ExpiresAtUtc <= now ||
+            uploadSession.Status == SyncFileChunkSessionStatus.Failed || uploadSession.CompletedAtUtc != null ||
+            !string.Equals(uploadSession.Sha256, session.Sha256, StringComparison.OrdinalIgnoreCase) ||
+            uploadSession.ChunkSizeBytes != session.ChunkSizeBytes || uploadSession.SizeBytes != session.SizeBytes ||
+            uploadSession.TotalChunks != session.TotalChunks ||
+            uploadSession.IsDeltaSession != session.IsDeltaSession ||
+            uploadSession.RequestedChunkIndexesJson != (session.RequestedChunkIndexes.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(session.RequestedChunkIndexes));
         if (uploadSession == null)
         {
             uploadSession = new SyncFileChunkSession
@@ -557,28 +623,17 @@ public class SyncFileTransferService : ISyncFileTransferService
             uploadSession.ExpiresAtUtc = now.AddHours(12);
             uploadSession.LastError = null;
 
-            if (uploadSession.CompletedAtUtc != null || uploadSession.ExpiresAtUtc <= now)
+            if (resetStaging || !_syncFileStorageService.Exists(uploadSession.StagingPath))
             {
-                await _syncFileStorageService.DeleteIfExistsAsync(uploadSession.StagingPath, cancellationToken);
+                resetStaging = true;
                 uploadSession.NextChunkIndex = 0;
                 uploadSession.CommittedBytes = 0;
                 uploadSession.CompletedAtUtc = null;
                 uploadSession.ResumeToken = GenerateResumeToken();
             }
-            else if (!_syncFileStorageService.Exists(uploadSession.StagingPath))
-            {
-                uploadSession.NextChunkIndex = 0;
-                uploadSession.CommittedBytes = 0;
-            }
-            else
-            {
-                var stagedBytes = _syncFileStorageService.GetFileSize(uploadSession.StagingPath);
-                uploadSession.CommittedBytes = stagedBytes;
-                uploadSession.NextChunkIndex = (int)Math.Min(uploadSession.TotalChunks, (stagedBytes + uploadSession.ChunkSizeBytes - 1) / uploadSession.ChunkSizeBytes);
-            }
         }
 
-        await PrepareUploadSessionStagingAsync(uploadSession, cancellationToken);
+        if (resetStaging) await PrepareUploadSessionStagingAsync(uploadSession, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
         return MapSession(uploadSession);
     }
@@ -593,6 +648,12 @@ public class SyncFileTransferService : ISyncFileTransferService
             return BuildChunkResult(false, chunk, 0, 0, chunk.ResumeToken, false, "Upload session not found", null);
         }
 
+        AssertSessionParticipants(session, chunk.RequestId, chunk.ManifestId, chunk.RequesterNodeId, chunk.SupplierNodeId);
+        if (chunk.TotalChunks != session.TotalChunks || chunk.ChunkSizeBytes != session.ChunkSizeBytes ||
+            (chunk.FileId != Guid.Empty && chunk.FileId != session.FileId))
+            throw new InvalidOperationException("Chunk session dimensions mismatch");
+        if (session.Status == SyncFileChunkSessionStatus.Failed)
+            return BuildChunkResult(false, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken, false, "Upload session must be renegotiated", null);
         if (session.ExpiresAtUtc <= DateTime.UtcNow)
         {
             session.Status = SyncFileChunkSessionStatus.Expired;
@@ -606,6 +667,9 @@ public class SyncFileTransferService : ISyncFileTransferService
             return BuildChunkResult(false, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken, false, "Resume token mismatch", null);
         }
 
+        if (chunk.ChunkIndex < session.NextChunkIndex)
+            return BuildChunkResult(true, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken,
+                session.Status == SyncFileChunkSessionStatus.Completed, "Chunk already committed", null);
         if (chunk.ChunkIndex != session.NextChunkIndex)
         {
             return BuildChunkResult(false, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken, false, "Unexpected chunk index", null);
@@ -615,12 +679,18 @@ public class SyncFileTransferService : ISyncFileTransferService
         var expectedFileChunkIndex = session.IsDeltaSession && requestedChunkIndexes.Count > session.NextChunkIndex
             ? requestedChunkIndexes[session.NextChunkIndex]
             : session.NextChunkIndex;
-        if (chunk.FileChunkIndex != 0 && chunk.FileChunkIndex != expectedFileChunkIndex)
+        if (chunk.FileChunkIndex != expectedFileChunkIndex)
         {
             return BuildChunkResult(false, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken, false, "Unexpected file chunk index", null);
         }
 
         var bytes = Convert.FromBase64String(chunk.Base64Content);
+        var expectedOffset = (long)expectedFileChunkIndex * session.ChunkSizeBytes;
+        if (chunk.OffsetBytes != expectedOffset || chunk.IsLastChunk != (chunk.ChunkIndex == session.TotalChunks - 1))
+            throw new InvalidOperationException("Chunk position mismatch");
+        var expectedLength = (int)Math.Min(session.ChunkSizeBytes, session.SizeBytes - expectedOffset);
+        if (expectedLength < 0 || bytes.Length != expectedLength)
+            return BuildChunkResult(false, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken, false, "Invalid chunk length", null);
         if (!string.Equals(ComputeSha256Hex(bytes), chunk.ChunkSha256, StringComparison.OrdinalIgnoreCase))
         {
             session.LastError = $"Chunk checksum mismatch at index {chunk.ChunkIndex}";
@@ -631,8 +701,8 @@ public class SyncFileTransferService : ISyncFileTransferService
         if (string.IsNullOrWhiteSpace(session.StagingPath))
             session.StagingPath = _syncFileStorageService.CreateRelativeStagingPath(session.Id, session.FileName);
 
-        if (chunk.ChunkIndex == 0 && session.CommittedBytes == 0)
-            await PrepareUploadSessionStagingAsync(session, cancellationToken);
+        if (session.IsDeltaSession && !_syncFileStorageService.Exists(session.StagingPath))
+            throw new InvalidOperationException("Delta staging is missing; renegotiate the upload session");
 
         var offsetBytes = (long)expectedFileChunkIndex * session.ChunkSizeBytes;
         await _syncFileStorageService.WriteChunkAsync(session.StagingPath, offsetBytes, bytes, cancellationToken);
@@ -644,7 +714,7 @@ public class SyncFileTransferService : ISyncFileTransferService
         session.LastError = null;
 
         string? storagePath = null;
-        var isComplete = chunk.IsLastChunk || session.NextChunkIndex >= session.TotalChunks;
+        var isComplete = session.NextChunkIndex >= session.TotalChunks;
         if (isComplete)
         {
             try
@@ -662,6 +732,11 @@ public class SyncFileTransferService : ISyncFileTransferService
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        if (isComplete)
+        {
+            try { await _syncFileStorageService.DeleteIfExistsAsync(session.StagingPath!, cancellationToken); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Completed staging cleanup deferred for session {SessionId}", session.Id); }
+        }
         return BuildChunkResult(true, chunk, session.NextChunkIndex, session.CommittedBytes, session.ResumeToken, isComplete, isComplete ? "Chunk upload completed" : "Chunk accepted", storagePath);
     }
 
@@ -694,6 +769,9 @@ public class SyncFileTransferService : ISyncFileTransferService
             };
         }
 
+        AssertRequestParticipants(request, ack.ManifestId, ack.RequesterNodeId, ack.SupplierNodeId);
+        if (!string.Equals(request.Manifest.Sha256, ack.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("File acknowledgement content mismatch");
         request.Status = SyncFileRequestStatus.Completed;
         request.CompletedAtUtc = ack.VerifiedAtUtc == default ? DateTime.UtcNow : ack.VerifiedAtUtc;
         request.NextRetryAt = null;
@@ -702,7 +780,7 @@ public class SyncFileTransferService : ISyncFileTransferService
         request.Manifest.TransferStatus = SyncFileTransferStatus.Verified;
         request.Manifest.VerifiedAtUtc = request.CompletedAtUtc;
         request.Manifest.LastError = null;
-        request.Manifest.StoragePath = string.IsNullOrWhiteSpace(ack.StoragePath) ? request.Manifest.StoragePath : ack.StoragePath;
+        // The receiver path belongs to its own filesystem; retain the local source path.
         request.Manifest.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -744,6 +822,8 @@ public class SyncFileTransferService : ISyncFileTransferService
             await entryStream.CopyToAsync(output, cancellationToken);
 
             var request = await EnsureIncomingRequestAsync(item.RequestId, item.ManifestId, bundle.RequesterNodeId, bundle.SupplierNodeId, cancellationToken);
+            AssertManifestRecord(request.Manifest!, item.TableName, item.RecordKey, item.FileRole);
+            AssertManifestContent(request.Manifest!, item.Sha256, item.SizeBytes);
             var relativePath = await StoreIncomingFileAsync(
                 item.TableName,
                 item.FileRole,
@@ -754,7 +834,7 @@ public class SyncFileTransferService : ISyncFileTransferService
                 output.ToArray(),
                 cancellationToken);
 
-            await UpdateEntityFilePathAsync(item.TableName, item.RecordKey, item.FileRole, relativePath, cancellationToken);
+            await UpdateEntityFilePathAsync(item.TableName, item.RecordKey, item.FileRole, relativePath, cancellationToken, bundle.SupplierNodeId);
             MarkRequestCompleted(request, request.Manifest!, relativePath);
             acceptedCount++;
         }
@@ -794,52 +874,59 @@ public class SyncFileTransferService : ISyncFileTransferService
             .FirstOrDefaultAsync(r => r.ManifestId == manifestId && r.RequesterNodeId == requesterNodeId && r.SupplierNodeId == supplierNodeId, cancellationToken);
 
         if (request == null)
-        {
-            var manifest = await _context.SyncFileManifests
-                .AsTracking()
-                .FirstOrDefaultAsync(m => m.Id == manifestId, cancellationToken);
+            throw new InvalidOperationException("File metadata and request must be synchronized before uploading content");
 
-            if (manifest == null)
-            {
-                manifest = new SyncFileManifest
-                {
-                    Id = manifestId,
-                    OwnerNodeId = supplierNodeId,
-                    ReceiverNodeId = requesterNodeId,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _context.SyncFileManifests.AddAsync(manifest, cancellationToken);
-            }
-
-            request = new SyncFileTransferRequest
-            {
-                Id = requestId == Guid.Empty ? Guid.NewGuid() : requestId,
-                ManifestId = manifestId,
-                Manifest = manifest,
-                RequesterNodeId = requesterNodeId,
-                SupplierNodeId = supplierNodeId,
-                Status = SyncFileRequestStatus.Pending,
-                RequestedAtUtc = DateTime.UtcNow
-            };
-            await _context.SyncFileTransferRequests.AddAsync(request, cancellationToken);
-        }
         else
         {
+            AssertRequestParticipants(request, manifestId, requesterNodeId, supplierNodeId);
+            AssertManifestParticipants(request.Manifest!, requesterNodeId, supplierNodeId);
             request.RequesterNodeId = requesterNodeId;
             request.SupplierNodeId = supplierNodeId;
-            request.Status = SyncFileRequestStatus.Pending;
+            // Preserve completed receipts when the supplier retries after a lost response.
             request.NextRetryAt = null;
             request.LastError = null;
             if (request.Manifest != null)
             {
-                request.Manifest.OwnerNodeId = supplierNodeId;
-                request.Manifest.ReceiverNodeId = requesterNodeId;
                 request.Manifest.UpdatedAt = DateTime.UtcNow;
             }
         }
 
+        AssertManifestParticipants(request.Manifest!, requesterNodeId, supplierNodeId);
         return request;
+    }
+
+    private static void AssertManifestParticipants(SyncFileManifest manifest, string requester, string supplier)
+    {
+        if (manifest.OwnerNodeId != supplier ||
+            (manifest.ReceiverNodeId != requester && manifest.ReceiverNodeId != "*"))
+            throw new InvalidOperationException("File manifest belongs to another node");
+    }
+
+    private static void AssertManifestRecord(SyncFileManifest manifest, string table, string key, string role)
+    {
+        if ((!string.IsNullOrEmpty(manifest.TableName) && manifest.TableName != table) ||
+            (!string.IsNullOrEmpty(manifest.RecordKey) && manifest.RecordKey != key) ||
+            (!string.IsNullOrEmpty(manifest.FileRole) && manifest.FileRole != role))
+            throw new InvalidOperationException("File manifest record mismatch");
+    }
+
+    private static void AssertManifestContent(SyncFileManifest manifest, string hash, long size)
+    {
+        if (!string.IsNullOrEmpty(manifest.Sha256) &&
+            (!string.Equals(manifest.Sha256, hash, StringComparison.OrdinalIgnoreCase) || manifest.SizeBytes != size))
+            throw new InvalidOperationException("File content changed; synchronize new metadata before transferring it");
+    }
+
+    private static void AssertRequestParticipants(SyncFileTransferRequest request, Guid manifest, string requester, string supplier)
+    {
+        if (request.ManifestId != manifest || request.RequesterNodeId != requester || request.SupplierNodeId != supplier)
+            throw new InvalidOperationException("File request belongs to another transfer");
+    }
+
+    private static void AssertSessionParticipants(SyncFileChunkSession session, Guid request, Guid manifest, string requester, string supplier)
+    {
+        if (session.RequestId != request || session.ManifestId != manifest || session.RequesterNodeId != requester || session.SupplierNodeId != supplier)
+            throw new InvalidOperationException("File session belongs to another transfer");
     }
 
     private async Task<string?> ResolveOutgoingTransferPathAsync(SyncFileManifest manifest, CancellationToken cancellationToken)
@@ -897,10 +984,26 @@ public class SyncFileTransferService : ISyncFileTransferService
         return null;
     }
 
-    private async Task UpdateEntityFilePathAsync(string tableName, string recordKey, string fileRole, string relativePath, CancellationToken cancellationToken)
+    private async Task UpdateEntityFilePathAsync(string tableName, string recordKey, string fileRole, string relativePath, CancellationToken cancellationToken, string? supplierNodeId = null)
     {
         _logger.LogInformation("[UpdateEntityFilePath] START: table={Table}, recordKey={RecordKey}, fileRole={FileRole}, relativePath={RelativePath}",
             tableName, recordKey, fileRole, relativePath);
+
+        if (tableName == "task_deferral_request")
+        {
+            if (supplierNodeId == null) throw new InvalidOperationException("Deferral file supplier identity is required.");
+            var identity = await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(m =>
+                m.OriginNode == supplierNodeId && m.TableName == tableName && m.LocalKey == recordKey, cancellationToken);
+            if (identity == null) throw new InvalidOperationException("Deferral file record has no verified local key mapping.");
+            var key = Guid.Parse(identity.ShoreKey);
+            var request = await _context.TaskDeferralRequests.AsTracking().SingleOrDefaultAsync(r => r.Id == key, cancellationToken)
+                ?? throw new InvalidOperationException("Deferral file record is missing.");
+            if (request.VesselId != await VesselSyncIdentity.ResolveVesselIdAsync(_context, supplierNodeId))
+                throw new InvalidOperationException("Deferral file belongs to another vessel.");
+            request.Attachments = DeferralSyncFiles.RewriteAttachments(request.Attachments, fileRole, relativePath);
+            request.ClassPermissionLetter = DeferralSyncFiles.RewriteLetter(request.ClassPermissionLetter, fileRole, relativePath);
+            return;
+        }
 
         object? entity = null;
 
@@ -1032,13 +1135,12 @@ public class SyncFileTransferService : ISyncFileTransferService
         if (_syncFileStorageService.Exists(relativePath))
         {
             await ValidateStoredFileAsync(relativePath, session.Sha256, session.SizeBytes, cancellationToken);
-            await _syncFileStorageService.DeleteIfExistsAsync(session.StagingPath, cancellationToken);
         }
         else
         {
-            await _syncFileStorageService.MoveAsync(session.StagingPath, relativePath, cancellationToken);
+            await _syncFileStorageService.CopyAsync(session.StagingPath, relativePath, cancellationToken);
         }
-        await UpdateEntityFilePathAsync(session.TableName, session.RecordKey, session.FileRole, relativePath, cancellationToken);
+        await UpdateEntityFilePathAsync(session.TableName, session.RecordKey, session.FileRole, relativePath, cancellationToken, session.SupplierNodeId);
 
         var request = await _context.SyncFileTransferRequests
             .AsTracking()
@@ -1140,11 +1242,11 @@ public class SyncFileTransferService : ISyncFileTransferService
 
         var basePath = await FindEntityFilePathAsync(session.TableName, session.RecordKey, cancellationToken);
         if (string.IsNullOrWhiteSpace(basePath) || !_syncFileStorageService.Exists(basePath) || string.IsNullOrWhiteSpace(session.ReceiverBaseSha256))
-            return;
+            throw new InvalidOperationException("Delta base is unavailable; renegotiate a full transfer");
 
         var baseSha256 = await _syncFileStorageService.ComputeSha256HexAsync(basePath, cancellationToken);
         if (!string.Equals(baseSha256, session.ReceiverBaseSha256, StringComparison.OrdinalIgnoreCase))
-            return;
+            throw new InvalidOperationException("Delta base changed; renegotiate a full transfer");
 
         await _syncFileStorageService.CopyAsync(basePath, session.StagingPath, cancellationToken);
     }
@@ -1229,7 +1331,7 @@ public class SyncFileTransferService : ISyncFileTransferService
 
     private int GetFileTransferChunkSizeBytes()
     {
-        return Math.Max(64 * 1024, _configuration.GetValue("Sync:FileTransferChunkSizeBytes", 256 * 1024));
+        return Math.Max(1024, _configuration.GetValue("Sync:FileTransferChunkSizeBytes", 256 * 1024));
     }
 
     private static string[] GetFilePathPropertyCandidates(string? manifestFileRole)

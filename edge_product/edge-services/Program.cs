@@ -169,7 +169,7 @@ namespace MaritimeEdge
             builder.Services.AddHttpClient("ShoreAPI", client =>
             {
                 var timeout = builder.Configuration.GetValue("ShoreAPI:Timeout", 30);
-                client.Timeout = TimeSpan.FromSeconds(timeout);
+                client.Timeout = Timeout.InfiniteTimeSpan; // Sync transport applies per-link timeouts.
                 client.DefaultRequestHeaders.Add("User-Agent", "MaritimeEdge/1.0");
                 var apiKey = builder.Configuration["ShoreAPI:ApiKey"];
                 if (!string.IsNullOrEmpty(apiKey) && apiKey != "your-api-key-here")
@@ -305,6 +305,7 @@ namespace MaritimeEdge
             if (builder.Configuration.GetValue("Sync:Enabled", true))
             {
                 builder.Services.AddHostedService<MaritimeEdge.Services.Core.SyncBackgroundWorker>();
+                builder.Services.AddHostedService<MaritimeEdge.Services.Core.SyncFileBackgroundWorker>();
             }
 
             // Production Health Checks
@@ -320,7 +321,9 @@ namespace MaritimeEdge
             }
 
             // Add Controllers
-            builder.Services.AddControllers()
+            builder.Services.AddScoped<RankPermissionService>();
+            builder.Services.AddScoped<RankPermissionFilter>();
+            builder.Services.AddControllers(options => options.Filters.AddService<RankPermissionFilter>())
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -395,7 +398,8 @@ namespace MaritimeEdge
                             QueueLimit = 5
                         }));
                 
-                // Strict limiter for auth endpoints: 10 requests per minute per IP
+                // Strict limiter for login attempts only: 10 per minute per IP.
+                // Session validation/refresh and account management use the fixed policy.
                 options.AddPolicy("auth", httpContext =>
                     RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -493,8 +497,11 @@ namespace MaritimeEdge
                     ");
 
                     // Danh mục cảng KHÔNG nạp ở tàu: bờ làm chủ và phát xuống qua đồng bộ.
-                    logger.LogInformation("Seeding SMS Document Management system data...");
-                    await SmsSeedData.SeedAsync(dbContext);
+                    if (await AdminAccountSeed.SeedAsync(dbContext))
+                        logger.LogInformation("Created initial admin account; password change required on first login");
+
+                    var crewAccountsCreated = await CrewAccountProvisioning.BackfillApprovedCrewAsync(dbContext);
+                    logger.LogInformation("Provisioned {Count} missing crew accounts with CREW role", crewAccountsCreated);
                 }
                 catch (Exception ex)
                 {

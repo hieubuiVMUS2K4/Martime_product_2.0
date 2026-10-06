@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
@@ -123,7 +124,7 @@ export const OilRecordPage: React.FC = () => {
     <LogbookGrid 
       title={t('logbooks.oilRecord.partITitle')}
       actions={
-        <button
+        <PermissionGate permission="logbooks.oil.create"><button
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -143,7 +144,7 @@ export const OilRecordPage: React.FC = () => {
           className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.oilRecord.newEntry')}
-        </button>
+        </button></PermissionGate>
       }
     >
       {showForm && (
@@ -254,12 +255,12 @@ export const OilRecordPage: React.FC = () => {
             
             <div className="flex justify-between mt-4">
               <button onClick={handleBack} className="text-gray-900 font-sans underline">{t('common.back')}</button>
-              <button 
+              <PermissionGate permission={editingId ? 'logbooks.oil.update' : 'logbooks.oil.create'}><button
                 onClick={handleSave}
                 className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-green-700"
               >
                 {t('common.confirm')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         )}
@@ -319,18 +320,18 @@ export const OilRecordPage: React.FC = () => {
                   <div className="flex gap-2">
                     {!entry.masterSignature && (
                       <>
-                        <button
+                        <PermissionGate permission="logbooks.oil.update"><button
                           onClick={() => handleStartEdit(entry)}
                           className="text-amber-600 hover:underline font-sans text-sm font-semibold"
                         >
                           {t('common.edit') || 'EDIT'}
-                        </button>
-                        <button
+                        </button></PermissionGate>
+                        <PermissionGate permission="logbooks.oil.approve"><button
                           onClick={() => handleSign(entry.id)}
                           className="text-green-600 hover:underline font-sans text-sm font-semibold"
                         >
                           {t('common.sign') || 'SIGN'}
-                        </button>
+                        </button></PermissionGate>
                       </>
                     )}
                   </div>

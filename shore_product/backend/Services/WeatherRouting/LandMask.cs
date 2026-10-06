@@ -168,8 +168,8 @@ public static class LandMask
         return true;
     }
 
-    
-    
+
+
     // Half-width (deg) mặc định quanh tim hành lang (kênh/eo) được coi là nước lưu thông được.
     // Từng feature có thể ghi đè bằng thuộc tính "widthDeg" trong geojson.
     private const double DefaultCorridorHalfWidthDeg = 0.12;
@@ -463,4 +463,3 @@ public static class LandMask
         return inside;
     }
 }
-

@@ -29,16 +29,24 @@ public class AstStarRouterTests
     [Fact]
     public void Path_avoids_blocked_cells()
     {
-        var hazard = new MockCamRanhHazardProvider(radiusNm: 45);
+        // Keep this test offshore: a coarse world grid can disconnect coastal ports,
+        // which tests endpoint snapping rather than avoidance of the blocked region.
+        var start = new LatLon(15, 130);
+        var goal = new LatLon(15, 134);
+        var center = new LatLon(15, 132);
+        var hazard = new MockCamRanhHazardProvider(center: center, radiusNm: 45);
+        Assert.True(hazard.IsBlocked(center));
+        Assert.False(hazard.IsBlocked(start));
+        Assert.False(hazard.IsBlocked(goal));
         var grid = _grid.Build(
-            WeatherRoutingDemoDefaults.Start,
-            WeatherRoutingDemoDefaults.Goal,
+            start,
+            goal,
             hazard,
             90);
         var result = _astar.FindPath(grid, _cost);
 
         Assert.True(result.Found, result.FailureReason);
-        for (var i = 1; i < result.Waypoints.Count - 1; i++)
+        for (var i = 0; i < result.Waypoints.Count; i++)
         {
             Assert.False(
                 hazard.IsBlocked(result.Waypoints[i]),

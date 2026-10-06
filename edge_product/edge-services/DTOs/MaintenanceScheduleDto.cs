@@ -7,6 +7,9 @@ namespace MaritimeEdge.DTOs;
 /// </summary>
 public class MaintenanceScheduleDto
 {
+    public string? WorkCode { get; set; }
+    public int? IntervalMonths { get; set; }
+    public int? IntervalYears { get; set; }
     public Guid? Id { get; set; }
     
     [Required]
@@ -69,6 +72,14 @@ public class MaintenanceScheduleDto
 /// </summary>
 public class CreateMaintenanceScheduleDto
 {
+    [MaxLength(50)]
+    public string? WorkCode { get; set; }
+    [Range(1, 1200)]
+    public int? IntervalMonths { get; set; }
+    [Range(1, 100)]
+    public int? IntervalYears { get; set; }
+    public DateTime? LastExecutedAt { get; set; }
+    public double? LastExecutedRunningHours { get; set; }
     [Required]
     [MaxLength(50)]
     public string ScheduleCode { get; set; } = string.Empty;

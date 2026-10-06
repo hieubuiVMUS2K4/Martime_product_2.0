@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Departure Report Form
  * SOLAS Compliant - Port Departure Notification
@@ -745,7 +746,7 @@ export function DepartureReportForm() {
             Cancel
           </button>
 
-          <button
+          <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
             type="button"
             onClick={() => handleSubmit(true)}
             className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
@@ -753,9 +754,9 @@ export function DepartureReportForm() {
           >
             <Save className="h-4 w-4" />
             {isEditMode ? 'Update Draft' : 'Save as Draft'}
-          </button>
+          </button></PermissionGate>
 
-          <button
+          <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
             type="button"
             onClick={() => handleSubmit(false)}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -767,7 +768,7 @@ export function DepartureReportForm() {
               <Send className="h-4 w-4" />
             )}
             {isEditMode ? 'Update & Submit' : 'Submit Report'}
-          </button>
+          </button></PermissionGate>
         </div>
 
         {lastSaved && (

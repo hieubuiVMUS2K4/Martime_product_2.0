@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState, useRef, useMemo } from 'react'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -1561,6 +1562,9 @@ export function CrewCertificatePage() {
         {/* ============ TAB: RANK CERTIFICATES ============ */}
         {activeTab === 'ranks' && (
           <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-shrink-0 px-4 py-2 text-xs text-blue-800 bg-blue-50 border-b border-blue-100">
+              {t('crew.monitor.rankRequirementsManagedOnShore')}
+            </div>
             <div className="flex-1 overflow-auto">
               <table className="min-w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
@@ -1780,9 +1784,9 @@ export function CrewCertificatePage() {
             <div className="text-sm font-medium text-gray-900">{crewContextMenu.crew.fullName}</div>
             <div className="text-xs text-gray-500">{crewContextMenu.crew.crewId} • {crewContextMenu.crew.rank?.rankName || '-'}</div>
           </div>
-          <button onClick={() => { setAddCertCrewId(crewContextMenu.crew.id); setShowAddCrewCertModal(true); closeContextMenu() }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2">
+          <PermissionGate permission="certificates.create"><button onClick={() => { setAddCertCrewId(crewContextMenu.crew.id); setShowAddCrewCertModal(true); closeContextMenu() }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2">
             <Award className="w-4 h-4 text-blue-500" /> {t('crew.monitor.addCertificate')}
-          </button>
+          </button></PermissionGate>
           <button onClick={() => { navigate(`/crew/${crewContextMenu.crew.id}`); closeContextMenu() }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2">
             <User className="w-4 h-4 text-gray-500" /> {t('crew.monitor.viewCrewDetails')}
           </button>
@@ -1800,20 +1804,20 @@ export function CrewCertificatePage() {
             <div className="text-xs text-gray-500">{certIconMenu.certCode} • {certIconMenu.crewName}</div>
           </div>
           {!certIconMenu.has ? (
-            <button onClick={() => { setAddCertCrewId(certIconMenu.crewId); setAddCertCertificateId(certIconMenu.certificateId.toString()); setShowAddCrewCertModal(true); setCertIconMenu(null) }}
+            <PermissionGate permission="certificates.create"><button onClick={() => { setAddCertCrewId(certIconMenu.crewId); setAddCertCertificateId(certIconMenu.certificateId.toString()); setShowAddCrewCertModal(true); setCertIconMenu(null) }}
               className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 flex items-center gap-2">
               <Award className="w-4 h-4 text-green-600" /> {t('crew.monitor.addThisCert')}
-            </button>
+            </button></PermissionGate>
           ) : (
             <>
               <button onClick={() => { navigate(`/crew/${certIconMenu.crewId}`); setCertIconMenu(null) }}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-blue-500" /> {t('crew.monitor.viewCertDetails')}
               </button>
-              <button onClick={() => { setAddCertCrewId(certIconMenu.crewId); setAddCertCertificateId(certIconMenu.certificateId.toString()); setShowAddCrewCertModal(true); setCertIconMenu(null) }}
+              <PermissionGate permission="certificates.create"><button onClick={() => { setAddCertCrewId(certIconMenu.crewId); setAddCertCertificateId(certIconMenu.certificateId.toString()); setShowAddCrewCertModal(true); setCertIconMenu(null) }}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 flex items-center gap-2">
                 <Award className="w-4 h-4 text-green-600" /> {t('crew.monitor.renewAddCert')}
-              </button>
+              </button></PermissionGate>
             </>
           )}
           <button onClick={() => { navigate(`/crew/${certIconMenu.crewId}`); setCertIconMenu(null) }}

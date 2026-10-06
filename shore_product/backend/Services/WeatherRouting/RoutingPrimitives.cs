@@ -183,4 +183,3 @@ public static class WeatherRoutingDemoDefaults
     public const int MinGridSize = 50;
     public const int MaxGridSize = 200;
 }
-

@@ -463,108 +463,10 @@ public class CrewController : ControllerBase
     /// </summary>
     private async Task CreateUserForCrewMemberAsync(CrewMember crew)
     {
-        try
-        {
-            // Check if user already exists
-            var existingUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == crew.CrewId || u.CrewId == crew.CrewId);
-            
-            if (existingUser != null)
-            {
-                _logger.LogInformation("User already exists for crew: {CrewId}", crew.CrewId);
-                return;
-            }
-
-            // Determine role based on rank
-            string? rankName = null;
-            if (crew.RankId.HasValue)
-            {
-                var rank = await _context.Ranks.FindAsync(crew.RankId.Value);
-                rankName = rank?.RankName;
-            }
-            var roleId = await DetermineRoleIdAsync(rankName ?? "Crew", null);
-
-            // Generate default password from date of birth or use random
-            string defaultPassword;
-            if (crew.DateOfBirth.HasValue)
-            {
-                defaultPassword = crew.DateOfBirth.Value.ToString("ddMMyyyy");
-            }
-            else
-            {
-                defaultPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(6)).Substring(0, 8);
-            }
-
-            var newUser = new User
-            {
-                Username = crew.CrewId,
-                PasswordHash = HashPassword(defaultPassword),
-                RoleId = roleId,
-                CrewId = crew.CrewId,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Auto-created user for crew: {CrewId} with role ID: {RoleId}", crew.CrewId, roleId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to auto-create user for crew: {CrewId}", crew.CrewId);
-            // Don't throw - crew creation should still succeed even if user creation fails
-        }
-    }
-
-    /// <summary>
-    /// Determine appropriate role ID based on crew position
-    /// </summary>
-    private async Task<int> DetermineRoleIdAsync(string position, string? rank = null)
-    {
-        // Default role ID (CREW)
-        var defaultRoleId = 5;
-
-        try
-        {
-            var positionLower = position.ToLower();
-            var rankLower = rank?.ToLower() ?? "";
-
-            string roleCode;
-
-            // Captain / Master
-            if (positionLower.Contains("captain") || positionLower.Contains("master"))
-            {
-                roleCode = "CAPTAIN";
-            }
-            // Chief Engineer
-            else if (positionLower.Contains("chief engineer") || positionLower.Contains("chief eng"))
-            {
-                roleCode = "CHIEF_ENGINEER";
-            }
-            // Officers (Deck/Engine)
-            else if (positionLower.Contains("officer") || rankLower.Contains("officer"))
-            {
-                roleCode = "OFFICER";
-            }
-            // Engineer
-            else if (positionLower.Contains("engineer") || positionLower.Contains("eng"))
-            {
-                roleCode = "ENGINEER";
-            }
-            // Default: Crew
-            else
-            {
-                roleCode = "CREW";
-            }
-
-            var role = await _context.Roles.FirstOrDefaultAsync(r => r.RoleCode == roleCode && r.IsActive);
-            return role?.Id ?? defaultRoleId;
-        }
-        catch
-        {
-            return defaultRoleId;
-        }
+        // Let failures reach the caller instead of reporting successful provisioning.
+        var created = await MaritimeEdge.Services.Core.CrewAccountProvisioning.EnsureAccountAsync(_context, crew);
+        if (created)
+            _logger.LogInformation("Auto-created CREW account for {CrewId}", crew.CrewId);
     }
 
     /// <summary>
@@ -1830,6 +1732,9 @@ public class CrewController : ControllerBase
             if (crew.OnboardStatus != "PendingReview" && crew.OnboardStatus != "OnHold")
                 return BadRequest(new { error = $"Crew member is not in PendingReview or OnHold status (current: {crew.OnboardStatus})" });
 
+            // Approval and account creation must succeed together.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             // Extract approver from auth header
             string approver = "Captain";
             if (Request.Headers.ContainsKey("Authorization"))
@@ -1858,6 +1763,7 @@ public class CrewController : ControllerBase
 
             // Auto-create User account if not exists
             await CreateUserForCrewMemberAsync(crew);
+            await transaction.CommitAsync();
 
             _logger.LogInformation("Approved crew member: {CrewId} - {FullName} by {Approver}", 
                 crew.CrewId, crew.FullName, approver);

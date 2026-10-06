@@ -306,11 +306,11 @@ export const certificateApi = {
     request(`${BASE}/certificates/${id}`),
 
   /** Create certificate type */
-  createType: (data: { certificateCode: string; certificateName: string; category?: string; validityPeriodMonths?: number; description?: string; isMandatory?: boolean; countryIds?: number[]; rankIds?: number[] }): Promise<CertificateType> =>
+  createType: (data: { certificateCode: string; certificateName: string; category?: string; validityPeriodMonths?: number; issuingAuthority?: string; description?: string; isMandatory?: boolean; countryIds?: number[]; rankIds?: number[] }): Promise<CertificateType> =>
     request(`${BASE}/certificates`, { method: 'POST', body: JSON.stringify(data) }),
 
   /** Update certificate type */
-  updateType: (id: number, data: { certificateCode: string; certificateName: string; category?: string; validityPeriodMonths?: number; description?: string; isMandatory?: boolean; countryIds?: number[]; rankIds?: number[] }): Promise<CertificateType> =>
+  updateType: (id: number, data: { certificateCode: string; certificateName: string; category?: string; validityPeriodMonths?: number; issuingAuthority?: string; description?: string; isMandatory?: boolean; countryIds?: number[]; rankIds?: number[] }): Promise<CertificateType> =>
     request(`${BASE}/certificates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   /** Delete (deactivate) certificate type */
@@ -412,10 +412,15 @@ export interface RankPayload {
   rankCode: string;
   rankName: string;
   department?: string;
+  level?: string | null;
   sortOrder?: number;
 }
 
 export const rankApi = {
+  getCertificateMappings: (): Promise<{ id: number; rankId: number; certificateId: number }[]> =>
+    request(`${BASE}/rank-certificates`),
+  updateCertificateRequirements: (rankId: number, certificateIds: number[]): Promise<{ added: number; removed: number }> =>
+    request(`${BASE}/rank-certificates/rank/${rankId}`, { method: 'PUT', body: JSON.stringify({ certificateIds }) }),
   getAll: (): Promise<Rank[]> => request(`${BASE}/ranks`),
   create: (data: RankPayload): Promise<Rank> =>
     request(`${BASE}/ranks`, { method: 'POST', body: JSON.stringify(data) }),
@@ -524,4 +529,3 @@ export const logbookApi = {
   deleteEntry: (crewMemberId: string, entryId: string): Promise<void> =>
     request(`${BASE}/crew/${crewMemberId}/logbook/${entryId}`, { method: 'DELETE' }),
 };
-

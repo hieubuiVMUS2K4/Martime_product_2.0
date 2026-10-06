@@ -22,7 +22,7 @@ public class EngineSyncEnqueuerService : BackgroundService
 
     private readonly int _intervalSeconds;
     private readonly int _batchSize;
-    private string _vesselImo = "UNKNOWN";
+    private string _nodeId = "UNKNOWN";
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -60,8 +60,8 @@ public class EngineSyncEnqueuerService : BackgroundService
         // Warmup delay
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
-        _vesselImo = await ResolveVesselImoAsync();
-        _logger.LogInformation("Engine Sync Enqueuer using VesselIMO: {VesselImo}", _vesselImo);
+        _nodeId = await ResolveNodeIdAsync();
+        _logger.LogInformation("Engine Sync Enqueuer using NodeId: {NodeId}", _nodeId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -91,12 +91,13 @@ public class EngineSyncEnqueuerService : BackgroundService
     /// </summary>
     private async Task EnqueueEngineDataAsync(CancellationToken ct)
     {
+        _nodeId = await ResolveNodeIdAsync();
         using var scope = _serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
 
         // Lấy các engine data chưa sync
         var unsynced = await dbContext.EngineData
-            .Where(e => !e.IsSynced)
+            .Where(e => !e.IsSynced && !dbContext.SyncQueue.Any(q => q.TableName == "engine_data" && q.RecordKey == e.Id.ToString() && q.SyncedAt == null))
             .OrderBy(e => e.Timestamp)
             .Take(_batchSize)
             .ToListAsync(ct);
@@ -134,11 +135,11 @@ public class EngineSyncEnqueuerService : BackgroundService
                 isRunning = engine.IsRunning,
                 createdAt = engine.CreatedAt,
                 updatedAt = engine.UpdatedAt,
-                originNode = _vesselImo
+                originNode = _nodeId
             }, _jsonOptions);
 
             // Cập nhật luôn OriginNode trong DB để đồng bộ về sau
-            engine.OriginNode = _vesselImo;
+            engine.OriginNode = _nodeId;
 
             syncQueueItems.Add(new SyncQueue
             {
@@ -154,7 +155,7 @@ public class EngineSyncEnqueuerService : BackgroundService
             });
 
             // Đánh dấu đã enqueue
-            engine.IsSynced = true;
+
             engine.UpdatedAt = now;
         }
 
@@ -174,16 +175,16 @@ public class EngineSyncEnqueuerService : BackgroundService
     /// Managed profile, which is acceptable since profile activation is an admin action, not a
     /// per-request concern. Falls back to "UNKNOWN" (does not throw) on Fail-Closed conditions.
     /// </summary>
-    private async Task<string> ResolveVesselImoAsync()
+    private async Task<string> ResolveNodeIdAsync()
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IEdgeRuntimeConfigService>();
             var syncConfig = await runtimeConfigService.GetSyncConfigAsync();
-            return string.IsNullOrWhiteSpace(syncConfig?.VesselImo)
+            return string.IsNullOrWhiteSpace(syncConfig?.NodeId)
                 ? "UNKNOWN"
-                : syncConfig!.VesselImo!;
+                : syncConfig!.NodeId;
         }
         catch (ProvisioningRequiredException ex)
         {

@@ -30,7 +30,7 @@ public interface ISyncInboxService
     Task<SyncBatchProcessResult> ProcessBatchAsync(List<SyncQueueItemDto> items);
 
     /// <summary>Check if an item has already been processed (idempotency).</summary>
-    Task<bool> IsAlreadyProcessedAsync(string tableName, string recordKey, long syncVersion);
+    Task<bool> IsAlreadyProcessedAsync(string tableName, string recordKey, long syncVersion, string originNode = "", Guid eventId = default, Guid streamId = default);
 }
 
 /// <summary>
@@ -41,6 +41,7 @@ public interface ISyncInboxService
 /// </summary>
 public sealed class SyncBatchItemFailure
 {
+    public Guid EventId { get; init; }
     public string TableName { get; init; } = string.Empty;
     public string RecordKey { get; init; } = string.Empty;
     public string? ActionType { get; init; }
@@ -52,10 +53,12 @@ public sealed class SyncBatchProcessResult
     public int Succeeded { get; set; }
     public int Failed { get; set; }
     public List<SyncBatchItemFailure> FailedItems { get; } = new();
+    public List<Guid> AcknowledgedEventIds { get; } = new();
 }
 
 public class SyncInboxService : ISyncInboxService
 {
+    private string? _incomingOriginNode;
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IConflictResolverService _conflictResolver;
@@ -154,8 +157,15 @@ public class SyncInboxService : ISyncInboxService
     }
 
     // Maps edge table names (snake_case) to entity types
+    internal static Type? EntityTypeFor(string table) => _tableEntityMap.GetValueOrDefault(table);
+    internal static string? TableForEntity(Type type) => _tableEntityMap.FirstOrDefault(entry => entry.Value == type).Key;
+
     private static readonly Dictionary<string, Type> _tableEntityMap = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["nmea_raw_data"] = typeof(ProductApi.Models.NmeaRawData),
+        ["navigation_data"] = typeof(ProductApi.Models.NavigationData),
+        ["environmental_data"] = typeof(ProductApi.Models.EnvironmentalData),
+        ["task_deferral_request"] = typeof(ProductApi.Models.TaskDeferralRequest),
         // Telemetry / Reports
         ["position_data"]    = typeof(ProductApi.Models.PositionData),
         ["engine_data"]      = typeof(ProductApi.Models.EngineData),
@@ -320,8 +330,6 @@ public class SyncInboxService : ISyncInboxService
     // These are silently skipped (not logged as failures) to avoid noise.
     private static readonly HashSet<string> _ignoredTables = new(StringComparer.OrdinalIgnoreCase)
     {
-        "nmea_raw_data",             // Raw NMEA — only needed for edge debugging
-        "task_deferral_request",     // PMS workflow — edge-only
         "watchkeeping_log",          // Logbook — no shore model
         "oil_record_book",           // Logbook — no shore model
         "deck_log_book",             // Logbook — no shore model
@@ -350,6 +358,10 @@ public class SyncInboxService : ISyncInboxService
         "hsqe_document_read_log",
         "hsqe_document_read_logs",
     };
+
+    private static bool IsShoreManagedMaterial(string table) => table.ToLowerInvariant() is
+        "material_item" or "material_item_ship" or "material_category" or "material_catalog_item" or
+        "material_item_catalog" or "material_items" or "vessel_material_definition";
 
     private static string CanonicalizeTableName(string? tableName)
     {
@@ -382,12 +394,14 @@ public class SyncInboxService : ISyncInboxService
             "sms_procedures" or "voyage_record" or "port" or "port_call"
                 or "crew_logbook_entry" or "equipment_asset" => 20,
 
+            "maintenance_schedule" => 25,
+
             // Tier 3: Grandchildren (depend on tier 2)
             "sms_form_templates" or "sms_procedure_acknowledgements"
                 or "voyage_plan_leg" or "crew_certificate" or "maintenance_task" => 30,
 
             // Tier 4: Deep children (depend on tier 3)
-            "sms_filled_records" or "maintenance_history" or "maintenance_schedule" => 40,
+            "sms_filled_records" or "maintenance_history" => 40,
 
             // Default tier for everything else
             _ => 50,
@@ -440,6 +454,7 @@ public class SyncInboxService : ISyncInboxService
     // a new copy is created rather than conflicting.
     private static readonly HashSet<string> _vesselScopedTables = new(StringComparer.OrdinalIgnoreCase)
     {
+        "nmea_raw_data", "navigation_data", "environmental_data", "task_deferral_request",
         "material_item",
         "equipment_asset",
         "maintenance_task",
@@ -451,7 +466,7 @@ public class SyncInboxService : ISyncInboxService
         "stock_receipt",
         "store_location",
         "equipment_group",
-        "maintenance_schedule",
+        "maintenance_schedule", "material_request_item", "stock_receipt_item", "equipment_group_member", "schedule_spare_part", "schedule_checklist_template",
     };
 
     // Reference tables managed by Shore — applying natural-key dedup to avoid 23505/23503 errors
@@ -489,27 +504,17 @@ public class SyncInboxService : ISyncInboxService
 
     public async Task<SyncBatchProcessResult> ProcessBatchAsync(List<SyncQueueItemDto> items)
     {
+        _context.SuppressAutoOutbox = true;
+        await using var ownedTransaction = _context.Database.IsRelational() && _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync() : null;
         var result = new SyncBatchProcessResult();
         
         // Track all NoonReport IDs processed successfully for auto-enqueue
         var noonReportIdsForEvaluation = new HashSet<Guid>();
 
-        // Auto-register any vessel whose IMO is not yet in the Vessels table.
-        // In Managed Mode, OriginNode is a node id (for example edge-1234567-main),
-        // so resolve it through SyncNodeTracker before deciding whether to create a vessel.
-        var distinctOrigins = items
-            .Where(i => !string.IsNullOrWhiteSpace(i.OriginNode))
-            .Select(i => i.OriginNode)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var originToImo = await ResolveOriginNodesToImosAsync(distinctOrigins);
-
-        foreach (var origin in distinctOrigins)
-        {
-            var imo = originToImo.GetValueOrDefault(origin, origin);
-            await AutoRegisterVesselAsync(imo);
-        }
+        foreach (var origin in items.Select(i => i.OriginNode).Distinct(StringComparer.Ordinal))
+            if (!(await VesselSyncIdentity.ResolveVesselIdAsync(_context, origin)).HasValue)
+                throw new InvalidOperationException($"Sync node '{origin}' is not bound to a vessel; provisioning is required.");
 
         // Group by table for more efficient processing.
         // Order groups by dependency level so parent tables are processed before children.
@@ -524,6 +529,12 @@ public class SyncInboxService : ISyncInboxService
         foreach (var group in grouped)
         {
             var canonicalTable = CanonicalizeTableName(group.Key);
+            if (IsShoreManagedMaterial(canonicalTable))
+            {
+                _logger.LogInformation("Ignored {Count} obsolete Edge material-definition uploads", group.Count());
+                result.Succeeded += group.Count(); // Acknowledge old queues without mutating Shore definitions.
+                continue;
+            }
 
             // ── Chặn ghi ngược vào danh mục SMS do Bờ làm chủ ── xem _shoreMasterOnlyTables
             if (_shoreMasterOnlyTables.Contains(canonicalTable))
@@ -540,11 +551,12 @@ public class SyncInboxService : ISyncInboxService
             {
                 foreach (var item in group)
                 {
+                    if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.CreateSavepointAsync("sync_item");
                     try
                     {
                         item.TableName = canonicalTable;
 
-                        if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion))
+                        if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion, item.OriginNode, item.EventId, item.StreamId))
                         { result.Succeeded++; continue; }
 
                         await ProcessShipDataAsync(item);
@@ -554,6 +566,7 @@ public class SyncInboxService : ISyncInboxService
                     }
                     catch (Exception ex)
                     {
+                        if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.RollbackToSavepointAsync("sync_item");
                         _logger.LogError(ex, "ship_data sync failed for key {Key}", item.RecordKey);
                         await PersistFailureLogAsync(item, ex.Message);
                         _context.ChangeTracker.Clear();
@@ -571,11 +584,12 @@ public class SyncInboxService : ISyncInboxService
             {
                 foreach (var item in group)
                 {
+                    if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.CreateSavepointAsync("sync_item");
                     try
                     {
                         item.TableName = canonicalTable;
 
-                        if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion))
+                        if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion, item.OriginNode, item.EventId, item.StreamId))
                         { result.Succeeded++; continue; }
 
                         await ProcessOnboardEventFromEdgeAsync(item);
@@ -585,6 +599,7 @@ public class SyncInboxService : ISyncInboxService
                     }
                     catch (Exception ex)
                     {
+                        if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.RollbackToSavepointAsync("sync_item");
                         _logger.LogError(ex, "Onboard event sync failed: {Table}/{Key}", item.TableName, item.RecordKey);
                         await PersistFailureLogAsync(item, ex.Message);
                         _context.ChangeTracker.Clear();
@@ -617,12 +632,13 @@ public class SyncInboxService : ISyncInboxService
 
             foreach (var item in group)
             {
+                if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.CreateSavepointAsync("sync_item");
                 try
                 {
                     item.TableName = canonicalTable;
 
                     // Idempotency check — skip already processed
-                    if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion))
+                    if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion, item.OriginNode, item.EventId, item.StreamId))
                     {
                         _logger.LogDebug("Skipping duplicate: {Table}/{Key} v{Version}",
                             item.TableName, item.RecordKey, item.SyncVersion);
@@ -690,6 +706,7 @@ public class SyncInboxService : ISyncInboxService
                 }
                 catch (Exception ex)
                 {
+                    if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.RollbackToSavepointAsync("sync_item");
                     _logger.LogError(ex, "Batch item failed: {Table}/{Key}", item.TableName, item.RecordKey);
                     await PersistFailureLogAsync(item, ex.Message);
                     // Clear any partially-tracked state so the next item starts clean.
@@ -741,6 +758,9 @@ public class SyncInboxService : ISyncInboxService
             }
         }
 
+        var failedIds = result.FailedItems.Select(f => f.EventId).ToHashSet();
+        result.AcknowledgedEventIds.AddRange(items.Where(i => i.EventId != Guid.Empty && !failedIds.Contains(i.EventId)).Select(i => i.EventId));
+        if (ownedTransaction != null) await ownedTransaction.CommitAsync();
         return result;
     }
 
@@ -760,6 +780,7 @@ public class SyncInboxService : ISyncInboxService
             : messages.FirstOrDefault() ?? ex.Message;
         return new SyncBatchItemFailure
         {
+            EventId = item.EventId,
             TableName = item.TableName,
             RecordKey = item.RecordKey,
             ActionType = item.ActionType,
@@ -771,6 +792,7 @@ public class SyncInboxService : ISyncInboxService
     {
         return new SyncBatchItemFailure
         {
+            EventId = item.EventId,
             TableName = item.TableName,
             RecordKey = item.RecordKey,
             ActionType = item.ActionType,
@@ -799,8 +821,9 @@ public class SyncInboxService : ISyncInboxService
         foreach (var vesselGroup in byVessel)
         {
             var imo = vesselGroup.Key;
+            var vesselId = await VesselSyncIdentity.ResolveVesselIdAsync(_context, vesselGroup.Key);
             var vessel = await _context.Vessels
-                .Where(v => v.IMO == imo)
+                .Where(v => v.Id == vesselId)
                 .Select(v => new { v.Id, v.Name })
                 .FirstOrDefaultAsync();
 
@@ -825,27 +848,47 @@ public class SyncInboxService : ISyncInboxService
         }
     }
 
-    public async Task<bool> IsAlreadyProcessedAsync(string tableName, string recordKey, long syncVersion)    {
-        if (syncVersion <= 0) return false; // No version = no idempotency check
+    public async Task<bool> IsAlreadyProcessedAsync(string tableName, string recordKey, long syncVersion, string originNode = "", Guid eventId = default, Guid streamId = default)    {
+        if (syncVersion <= 0 && eventId == Guid.Empty) return false;
 
-        var key = $"{tableName}:{recordKey}:{syncVersion}";
-        return await _context.SyncIdempotencyRecords
-            .AnyAsync(r => r.IdempotencyKey == key);
+        if (streamId != Guid.Empty && syncVersion > 0)
+        {
+            var cursorKey = BuildCursorKey(originNode, streamId, tableName, recordKey);
+            if (await _context.SyncRecordCursors.AnyAsync(c => c.Key == cursorKey && c.Sequence >= syncVersion)) return true;
+        }
+        var key = BuildIdempotencyKey(tableName, recordKey, syncVersion, originNode, eventId);
+        var oldKey = $"{tableName}:{recordKey}:{syncVersion}";
+        return await _context.SyncIdempotencyRecords.AnyAsync(r => r.IdempotencyKey == key ||
+            (eventId == Guid.Empty && streamId == Guid.Empty && r.OriginNode == originNode && r.IdempotencyKey == oldKey));
     }
+
+    public static string BuildCursorKey(string origin, Guid stream, string table, string key)
+        => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{origin}:{stream:N}:{table}:{key}")));
+
+    public static string BuildIdempotencyKey(string table, string key, long version, string origin, Guid eventId)
+        => eventId != Guid.Empty ? $"event:{origin}:{eventId:N}" :
+           "legacy:" + Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{origin}:{table}:{key}:{version}")));
 
     private async Task RecordProcessedAsync(SyncQueueItemDto item)
     {
-        if (item.SyncVersion <= 0) return;
+        if (item.SyncVersion <= 0 && item.EventId == Guid.Empty) return;
 
         var record = new SyncIdempotencyRecord
         {
-            IdempotencyKey = $"{item.TableName}:{item.RecordKey}:{item.SyncVersion}",
+            IdempotencyKey = BuildIdempotencyKey(item.TableName, item.RecordKey, item.SyncVersion, item.OriginNode, item.EventId),
             OriginNode = item.OriginNode,
             Status = "PROCESSED",
             ProcessedAt = DateTime.UtcNow
         };
 
         await _context.SyncIdempotencyRecords.AddAsync(record);
+        if (item.StreamId != Guid.Empty && item.SyncVersion > 0)
+        {
+            var key = BuildCursorKey(item.OriginNode, item.StreamId, item.TableName, item.RecordKey);
+            var cursor = await _context.SyncRecordCursors.AsTracking().SingleOrDefaultAsync(c => c.Key == key);
+            if (cursor == null) _context.SyncRecordCursors.Add(new SyncRecordCursor { Key = key, Sequence = item.SyncVersion });
+            else cursor.Sequence = Math.Max(cursor.Sequence, item.SyncVersion);
+        }
     }
 
     private async Task UpsertIncomingFileReferencesAsync(SyncQueueItemDto item)
@@ -855,7 +898,7 @@ public class SyncInboxService : ISyncInboxService
 
         foreach (var fileRef in item.FileRefs)
         {
-            var manifest = await _context.SyncFileManifests.FirstOrDefaultAsync(m => m.Id == fileRef.FileId);
+            var manifest = await _context.SyncFileManifests.AsTracking().FirstOrDefaultAsync(m => m.Id == fileRef.FileId);
             if (manifest == null)
             {
                 manifest = new SyncFileManifest
@@ -871,6 +914,10 @@ public class SyncInboxService : ISyncInboxService
                 await _context.SyncFileManifests.AddAsync(manifest);
             }
 
+            if (manifest.OwnerNodeId != item.OriginNode || manifest.ReceiverNodeId != _receiverNodeId ||
+                manifest.TableName != item.TableName || manifest.RecordKey != item.RecordKey || manifest.FileRole != fileRef.FileRole ||
+                (!string.IsNullOrEmpty(manifest.Sha256) && (!string.Equals(manifest.Sha256, fileRef.Sha256, StringComparison.OrdinalIgnoreCase) || manifest.SizeBytes != fileRef.SizeBytes)))
+                throw new InvalidOperationException("File manifest identity belongs to another event or node");
             manifest.OwnerNodeId = item.OriginNode;
             manifest.ReceiverNodeId = _receiverNodeId;
             manifest.TableName = item.TableName;
@@ -888,6 +935,23 @@ public class SyncInboxService : ISyncInboxService
             manifest.TransferPriority = fileRef.TransferPriority;
             manifest.CapturedAtUtc = fileRef.CapturedAtUtc;
             manifest.UpdatedAt = DateTime.UtcNow;
+
+            if (item.TableName == "task_deferral_request" && manifest.StoragePath is string storedPath
+                && _syncFileStorageService.Exists(storedPath)
+                && _syncFileStorageService.GetFileSize(storedPath) == fileRef.SizeBytes
+                && string.Equals(await _syncFileStorageService.ComputeSha256HexAsync(storedPath, CancellationToken.None),
+                    fileRef.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                var request = await FindEntityByKeyAsync(typeof(ProductApi.Models.TaskDeferralRequest), item.RecordKey)
+                    as ProductApi.Models.TaskDeferralRequest;
+                if (request == null) throw new InvalidOperationException("Deferral record missing for file metadata.");
+                request.Attachments = DeferralSyncFiles.RewriteAttachments(request.Attachments, fileRef.FileRole, storedPath);
+                request.ClassPermissionLetter = DeferralSyncFiles.RewriteLetter(request.ClassPermissionLetter, fileRef.FileRole, storedPath);
+                manifest.TransferStatus = SyncFileTransferStatus.Duplicate;
+                manifest.VerifiedAtUtc = DateTime.UtcNow;
+                manifest.LastError = null;
+                continue;
+            }
 
             var localPath = await GetExistingLocalFilePathAsync(item, fileRef);
             if (!string.IsNullOrWhiteSpace(localPath))
@@ -1106,7 +1170,13 @@ public class SyncInboxService : ISyncInboxService
 
     public async Task ProcessIncomingAsync(SyncQueueItemDto item)
     {
+        _incomingOriginNode = item.OriginNode;
         item.TableName = CanonicalizeTableName(item.TableName);
+        if (IsShoreManagedMaterial(item.TableName))
+        {
+            await LogSyncOperation(item, "IGNORED", "Material definitions only synchronize from Shore to Edge.");
+            return;
+        }
 
         if (!_tableEntityMap.TryGetValue(item.TableName, out var entityType))
         {
@@ -1119,6 +1189,12 @@ public class SyncInboxService : ISyncInboxService
         }
 
         var action = item.ActionType?.ToUpperInvariant() ?? "CREATE";
+        var owner = await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode);
+        var stored = await FindEntityByKeyAsync(entityType, item.RecordKey, item.Payload);
+        if (owner.HasValue && stored != null && await StoredVesselOwnerAsync(stored) is Guid storedOwner && storedOwner != owner.Value && action is not ("CREATE" or "SNAPSHOT"))
+            throw new InvalidOperationException("ownership_violation: record belongs to another vessel");
+        if (_shoreAuthoritative.Contains(item.TableName) && action == "DELETE")
+            throw new InvalidOperationException("ownership_violation: Shore owns this reference table");
 
         try
         {
@@ -1133,8 +1209,7 @@ public class SyncInboxService : ISyncInboxService
                     await ProcessDeleteAsync(entityType, item);
                     break;
                 default:
-                    _logger.LogWarning("Unknown action type: {Action}", action);
-                    break;
+                    throw new InvalidOperationException($"Unsupported sync action: {action}");
             }
 
             if (item.TableName == "position_data" && (action == "CREATE" || action == "UPDATE" || action == "SNAPSHOT"))
@@ -1170,49 +1245,62 @@ public class SyncInboxService : ISyncInboxService
         // CRITICAL: Force the entity's PK to match RecordKey.
         // Without this, if the payload is missing "id" or has a different value,
         // the deserialised entity gets Guid.NewGuid() default → phantom duplicate.
+        if (item.TableName == "nmea_raw_data" && (!long.TryParse(item.RecordKey, out var rawId) || rawId <= 0))
+            throw new InvalidOperationException("Raw NMEA requires a positive vessel-local integer key.");
+        if (item.TableName is "navigation_data" or "environmental_data" or "task_deferral_request"
+            && (!Guid.TryParse(item.RecordKey, out var mirrorId) || mirrorId == Guid.Empty))
+            throw new InvalidOperationException("Sensor/deferral record requires a non-empty GUID key.");
         ForceEntityPrimaryKey(entityType, entity, item.RecordKey);
+        if (_vesselScopedTables.Contains(item.TableName))
+        {
+            var mapping = await _context.SyncRecordIdentities.AsTracking().SingleOrDefaultAsync(m => m.OriginNode == item.OriginNode && m.TableName == item.TableName && m.LocalKey == item.RecordKey);
+            if (mapping == null)
+            {
+                var pk = _context.Model.FindEntityType(entityType)!.FindPrimaryKey()!.Properties.Single();
+                var originalKey = pk.PropertyInfo!.GetValue(entity)!;
+                var collision = await _context.FindAsync(entityType, originalKey);
+                var shoreKey = item.RecordKey;
+                if (entityType == typeof(ProductApi.Models.NmeaRawData))
+                {
+                    // Raw IDs are vessel-local counters. Always allocate a Shore counter and
+                    // retain the source key in SyncRecordIdentity, including after retries.
+                    do
+                    {
+                        shoreKey = (await _context.Database.SqlQueryRaw<long>(
+                            "SELECT nextval(pg_get_serial_sequence('nmea_raw_data', 'Id')) AS \"Value\"").SingleAsync()).ToString();
+                    } while (await _context.FindAsync(entityType, long.Parse(shoreKey)) != null);
+                }
+                else if (collision != null && await StoredVesselOwnerAsync(collision) != await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode))
+                {
+                    if (pk.ClrType == typeof(Guid)) shoreKey = Guid.NewGuid().ToString();
+                    else if (pk.ClrType == typeof(int) || pk.ClrType == typeof(long))
+                    {
+                        var dbTable = _context.Model.FindEntityType(entityType)!.GetTableName()!;
+                        var column = pk.GetColumnName();
+                        shoreKey = (await _context.Database.SqlQueryRaw<long>("SELECT nextval(pg_get_serial_sequence({0}, {1})) AS \"Value\"", dbTable, column).SingleAsync()).ToString();
+                    }
+                    else throw new InvalidOperationException("Duplicate vessel-local key needs a supported generated key type");
+                }
+                mapping = new SyncRecordIdentity { OriginNode = item.OriginNode, TableName = item.TableName, LocalKey = item.RecordKey, ShoreKey = shoreKey };
+                _context.SyncRecordIdentities.Add(mapping);
+            }
+            ForceEntityPrimaryKey(entityType, entity, mapping.ShoreKey);
+            await RemapScopedForeignKeysAsync(entityType, entity, item.OriginNode);
+        }
+
+        if (entity is ProductApi.Models.TaskDeferralRequest request)
+            await ValidateDeferralTaskAsync(request.TaskId, item.OriginNode);
 
         // Check if already exists (idempotency — edge may retry)
         var existing = await FindEntityByKeyAsync(entityType, item.RecordKey);
         if (existing != null)
         {
-            // For vessel-scoped entities (MaterialItem, EquipmentAsset, MaintenanceTask):
-            // if the existing record already belongs to a DIFFERENT vessel, treat the incoming
-            // data as a NEW record for that vessel (create a copy with a new ID).
-            // This handles the case where multiple vessels use seed data with identical IDs.
-            if (_vesselScopedTables.Contains(item.TableName))
+            if (existing is ProductApi.Models.MaterialItemShip material)
             {
-                var existingVesselId = existing.GetType().GetProperty("VesselId")?.GetValue(existing) as Guid?;
-                var incomingVessel = await _context.Vessels.AsNoTracking()
-                    .FirstOrDefaultAsync(v => v.IMO == item.OriginNode);
-                var incomingVesselId = incomingVessel?.Id;
-
-                if (incomingVesselId.HasValue && existingVesselId.HasValue
-                    && existingVesselId.Value != incomingVesselId.Value)
-                {
-                    // Different vessel — create a new record with a new GUID
-                    _logger.LogInformation(
-                        "Entity {Table}/{Key} belongs to vessel {Existing}, incoming from {Incoming} — creating new copy",
-                        item.TableName, item.RecordKey, existingVesselId, incomingVesselId);
-                    ForceEntityPrimaryKey(entityType, entity, Guid.NewGuid().ToString());
-                    UpdateSyncMetadata(entity, item);
-                    await ResolveOrphanedForeignKeysAsync(entityType, entity, item.Payload);
-                    await _context.AddAsync(entity);
-                    await ResolveCrewVesselIdAsync(entity, item.OriginNode);
-                    return;
-                }
+                await ApplyMaterialStockFromEdgeAsync(material, item);
+                return;
             }
-
-            _logger.LogDebug("Entity {Table}/{Key} already exists — treating as UPDATE", 
-                item.TableName, item.RecordKey);
-            // Apply conflict resolution — copy only meaningful non-default values
-            var resolution = _conflictResolver.Resolve(item.TableName, existing, entity, item.OriginNode);
-            if (resolution.ShouldApply)
-            {
-                CopyNonDefaultProperties(existing, resolution.ResolvedEntity!, entityType);
-                UpdateSyncMetadata(existing, item);
-                await ResolveCrewVesselIdAsync(existing, item.OriginNode);
-            }
+            await ProcessUpdateAsync(entityType, item);
             return;
         }
 
@@ -1252,14 +1340,18 @@ public class SyncInboxService : ISyncInboxService
         // NOT do this — there, a key miss really is a new record.
         var existing = await FindEntityByKeyAsync(entityType, item.RecordKey, item.Payload);
 
+        if (existing is ProductApi.Models.MaterialItemShip material)
+        {
+            await ApplyMaterialStockFromEdgeAsync(material, item);
+            return;
+        }
+
         // For vessel-scoped tables: if the existing record belongs to a DIFFERENT vessel,
         // treat this as a new record creation (same seed ID, different vessel).
         if (existing != null && _vesselScopedTables.Contains(item.TableName))
         {
             var existingVesselId = existing.GetType().GetProperty("VesselId")?.GetValue(existing) as Guid?;
-            var incomingVessel = await _context.Vessels.AsNoTracking()
-                .FirstOrDefaultAsync(v => v.IMO == item.OriginNode);
-            var incomingVesselId = incomingVessel?.Id;
+            var incomingVesselId = await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode);
 
             if (incomingVesselId.HasValue && existingVesselId.HasValue
                 && existingVesselId.Value != incomingVesselId.Value)
@@ -1284,7 +1376,7 @@ public class SyncInboxService : ISyncInboxService
                 _logger.LogWarning(
                     "UPDATE for non-existent entity {Table}/{Key} — skipping (partial payload cannot create entity)",
                     item.TableName, item.RecordKey);
-                return;
+                throw new InvalidOperationException("dependency_missing: full snapshot required before UPDATE");
             }
 
             _logger.LogInformation("{Action} for non-existent entity {Table}/{Key} — creating from snapshot payload",
@@ -1292,6 +1384,14 @@ public class SyncInboxService : ISyncInboxService
                 item.TableName, item.RecordKey);
             await ProcessCreateAsync(entityType, item);
             return;
+        }
+
+        // Restore missing ownership even when conflict resolution keeps the existing data.
+        // Older imports were acknowledged without a VesselId and disappear from vessel views.
+        if (_vesselScopedTables.Contains(item.TableName)
+            && existing.GetType().GetProperty("VesselId")?.GetValue(existing) == null)
+        {
+            await ResolveCrewVesselIdAsync(existing, item.OriginNode);
         }
 
         // Deserialize as full entity for conflict resolution
@@ -1362,7 +1462,21 @@ public class SyncInboxService : ISyncInboxService
             // Snapshot as local variable (thread-safe — instance field would cause race conditions)
             var crewSnapshot = item.TableName == "crew_member" ? SnapshotCrewFields(existing) : null;
 
-            var resolution = _conflictResolver.Resolve(item.TableName, existing, incomingEntity, item.OriginNode);
+            await RemapScopedForeignKeysAsync(entityType, incomingEntity, item.OriginNode);
+            if (incomingEntity is ProductApi.Models.TaskDeferralRequest request
+                && existing is ProductApi.Models.TaskDeferralRequest stored)
+            {
+                if (payloadKeys.Any(k => k.Replace("_", "").Equals("TaskId", StringComparison.OrdinalIgnoreCase)))
+                {
+                    await ValidateDeferralTaskAsync(request.TaskId, item.OriginNode);
+                    if (request.TaskId != stored.TaskId)
+                        throw new InvalidOperationException("A deferral request cannot be moved to another maintenance task.");
+                }
+                else request.TaskId = stored.TaskId;
+            }
+            var timestampProperty = incomingEntity.GetType().GetProperty("UpdatedAt");
+            if (timestampProperty?.CanWrite == true) timestampProperty.SetValue(incomingEntity, item.Timestamp.ToUniversalTime());
+            var resolution = _conflictResolver.Resolve(item.TableName, existing, incomingEntity, item.OriginNode, payloadKeys);
 
             // DEBUG: Log OnboardStatus after conflict resolution
             if (item.TableName == "crew_member")
@@ -1413,8 +1527,7 @@ public class SyncInboxService : ISyncInboxService
 
                         var resolved = resolution.ResolvedEntity!;
                         var inVal = prop.PropertyInfo?.GetValue(resolved);
-                        if (inVal != null)
-                            prop.PropertyInfo?.SetValue(existing, inVal);
+                        prop.PropertyInfo?.SetValue(existing, inVal);
                     }
                 }
                 // For crew_member: compute fresh EdgeChanges from ACTUAL field changes in this payload.
@@ -1776,6 +1889,14 @@ public class SyncInboxService : ISyncInboxService
 
     private async Task<object?> FindEntityByKeyAsync(Type entityType, string recordKey, string? rawPayload = null)
     {
+        var table = _tableEntityMap.FirstOrDefault(x => x.Value == entityType).Key;
+        if (!string.IsNullOrEmpty(_incomingOriginNode) && table != null && _vesselScopedTables.Contains(table))
+        {
+            var mapping = _context.SyncRecordIdentities.Local.SingleOrDefault(m => m.OriginNode == _incomingOriginNode && m.TableName == table && m.LocalKey == recordKey)
+                ?? await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(m =>
+                m.OriginNode == _incomingOriginNode && m.TableName == table && m.LocalKey == recordKey);
+            if (mapping != null) recordKey = mapping.ShoreKey;
+        }
         // Cảng: khớp bằng MÃ UN/LOCODE, không dùng Id — hai cơ sở dữ liệu đánh số độc lập nên
         // Id của tàu trùng Id một cảng khác trên bờ là chuyện thường. Xem thêm phần Port trong
         // SyncConflictHandler.FindByKeyAsync phía Edge (sự cố ghi đè cảng VNSGN 29/07/2026).
@@ -1841,6 +1962,12 @@ public class SyncInboxService : ISyncInboxService
         }
 
         var entity = await _context.FindAsync(entityType, typedKey);
+        if (entity != null && table != null && _vesselScopedTables.Contains(table) && !string.IsNullOrEmpty(_incomingOriginNode))
+        {
+            var owner = await VesselSyncIdentity.ResolveVesselIdAsync(_context, _incomingOriginNode);
+            if (owner.HasValue && await StoredVesselOwnerAsync(entity) is Guid storedOwner && storedOwner != owner.Value)
+                return null;
+        }
 
         // EF default is NoTracking — attach entity so modifications are persisted by SaveChangesAsync
         if (entity != null)
@@ -1986,6 +2113,51 @@ public class SyncInboxService : ISyncInboxService
     /// Prevents phantom duplicates when the payload is missing/mismatched Id
     /// (e.g. partial payloads produce Guid.NewGuid() default).
     /// </summary>
+    private async Task<Guid?> StoredVesselOwnerAsync(object entity, int depth = 0)
+    {
+        if (entity.GetType().GetProperty("VesselId")?.GetValue(entity) is Guid owner) return owner;
+        if (depth > 4) return null;
+        foreach (var fk in _context.Model.FindEntityType(entity.GetType())!.GetForeignKeys())
+        {
+            var principal = _tableEntityMap.FirstOrDefault(x => x.Value == fk.PrincipalEntityType.ClrType).Key;
+            if (principal == null || !_vesselScopedTables.Contains(principal) || fk.Properties.Count != 1) continue;
+            var key = fk.Properties[0].PropertyInfo?.GetValue(entity);
+            if (key == null) continue;
+            var parent = await _context.FindAsync(fk.PrincipalEntityType.ClrType, key);
+            if (parent != null && await StoredVesselOwnerAsync(parent, depth + 1) is Guid parentOwner) return parentOwner;
+        }
+        return null;
+    }
+
+    private async Task ValidateDeferralTaskAsync(Guid taskId, string origin)
+    {
+        var task = _context.MaintenanceTasks.Local.SingleOrDefault(t => t.Id == taskId)
+            ?? await _context.MaintenanceTasks.AsNoTracking().SingleOrDefaultAsync(t => t.Id == taskId);
+        if (task == null)
+            throw new InvalidOperationException("dependency_missing: maintenance_task must be persisted before task_deferral_request");
+        var owner = await VesselSyncIdentity.ResolveVesselIdAsync(_context, origin);
+        if (!owner.HasValue || task.VesselId != owner)
+            throw new InvalidOperationException("Deferral maintenance task belongs to another vessel or has no verified vessel owner.");
+    }
+
+    private async Task RemapScopedForeignKeysAsync(Type entityType, object entity, string origin)
+    {
+        foreach (var fk in _context.Model.FindEntityType(entityType)!.GetForeignKeys())
+        {
+            if (fk.Properties.Count != 1) continue;
+            var principal = _tableEntityMap.FirstOrDefault(x => x.Value == fk.PrincipalEntityType.ClrType).Key;
+            if (principal == null || !_vesselScopedTables.Contains(principal)) continue;
+            var property = fk.Properties[0].PropertyInfo;
+            var localKey = property?.GetValue(entity)?.ToString();
+            if (localKey == null) continue;
+            var mapped = _context.SyncRecordIdentities.Local.SingleOrDefault(m => m.OriginNode == origin && m.TableName == principal && m.LocalKey == localKey)
+                ?? await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(m => m.OriginNode == origin && m.TableName == principal && m.LocalKey == localKey);
+            if (mapped == null) continue;
+            var type = Nullable.GetUnderlyingType(property!.PropertyType) ?? property.PropertyType;
+            property.SetValue(entity, type == typeof(Guid) ? Guid.Parse(mapped.ShoreKey) : Convert.ChangeType(mapped.ShoreKey, type));
+        }
+    }
+
     private void ForceEntityPrimaryKey(Type entityType, object entity, string recordKey)
     {
         // crew_certificate: PK is auto-increment int — do NOT force it from recordKey (which is
@@ -2007,21 +2179,7 @@ public class SyncInboxService : ISyncInboxService
             return;
         }
 
-        // Nghiệp vụ vật tư của tàu là BẢN SAO CHỈ ĐỌC: bờ không tạo, không sửa, chỉ nhận
-        // nguyên những gì tàu đẩy lên. Vì vậy Id của tàu chính là Id trên bờ — giữ nguyên,
-        // KHÔNG xoá về 0 để bờ tự cấp số. Xoá đi thì bờ đánh số khác tàu, và mọi khoá ngoại
-        // trong cùng bộ dữ liệu (phiếu nhập → phiếu yêu cầu, dòng chi tiết → phiếu cha) đều
-        // trỏ sai, sinh 23503. Cột Id là GENERATED BY DEFAULT AS IDENTITY nên Postgres nhận
-        // đúng số tàu gửi.
-        if (entity is ProductApi.Models.MaterialRequest
-            or ProductApi.Models.MaterialRequestItem
-            or ProductApi.Models.StockReceipt
-            or ProductApi.Models.StockReceiptItem
-            or ProductApi.Models.InventoryStock)
-        {
-            return;
-        }
-
+        // Vessel-local numeric keys are assigned through SyncRecordIdentity, like GUID keys.
         var entry = _context.Entry(entity);
         var keyProp = entry.Metadata.FindPrimaryKey()?.Properties.FirstOrDefault();
         if (keyProp?.PropertyInfo == null) return;
@@ -2047,6 +2205,25 @@ public class SyncInboxService : ISyncInboxService
     /// This prevents overwriting existing good data with deserialization defaults
     /// (e.g. ReportNumber="", ReportTypeId=0, IsTransmitted=false).
     /// </summary>
+    private async Task ApplyMaterialStockFromEdgeAsync(ProductApi.Models.MaterialItemShip material, SyncQueueItemDto item)
+    {
+        var vesselId = await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode);
+        if (!vesselId.HasValue || (material.VesselId.HasValue && material.VesselId != vesselId))
+            throw new InvalidOperationException("Material stock upload belongs to another vessel or an unknown node.");
+        if (_context.Entry(material).State == EntityState.Detached) _context.Attach(material);
+        material.VesselId ??= vesselId;
+        using var payload = JsonDocument.Parse(NormalizePayloadToCamelCase(item.Payload, typeof(ProductApi.Models.MaterialItemShip)));
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "OnHandQuantity", "MinStock", "MaxStock", "ReorderLevel", "ReorderQuantity" };
+        foreach (var value in payload.RootElement.EnumerateObject())
+        {
+            var property = typeof(ProductApi.Models.MaterialItemShip).GetProperties()
+                .FirstOrDefault(p => allowed.Contains(p.Name) && p.Name.Equals(value.Name, StringComparison.OrdinalIgnoreCase));
+            if (property != null) property.SetValue(material, JsonSerializer.Deserialize(value.Value.GetRawText(), property.PropertyType, _jsonOptions));
+        }
+        // Definitions and deletion are authored on Shore. Old offline snapshots must not undo them.
+    }
+
     private void CopyNonDefaultProperties(object target, object source, Type entityType)
     {
         var entry = _context.Entry(target);
@@ -2080,7 +2257,7 @@ public class SyncInboxService : ISyncInboxService
             syncable.IsSynced = true;
             syncable.OriginNode = item.OriginNode;
             syncable.SyncVersion = item.SyncVersion;
-            syncable.UpdatedAt = DateTime.UtcNow;
+            syncable.UpdatedAt = item.Timestamp.ToUniversalTime();
         }
 
         // For entities that have OriginNode but don't implement ISyncableEntity
@@ -2107,11 +2284,11 @@ public class SyncInboxService : ISyncInboxService
 
         Vessel? vessel = null;
 
-        // Always remap VesselId to shore's vessel GUID based on IMO.
+        // Resolve registered node ownership first; legacy senders may still use IMO as NodeId.
         // Do NOT skip when VesselId is already set — ConflictResolver may have copied
         // the edge vessel GUID (different from shore's GUID) into the entity, causing an
         // FK violation. Overwriting with shore's lookup ensures correct FK every time.
-        // If the vessel is not found on shore yet, null out VesselId to prevent the FK violation.
+        // Unknown senders must fail instead of creating invisible rows with no vessel owner.
         switch (entity)
         {
             case CrewMember:
@@ -2126,43 +2303,55 @@ public class SyncInboxService : ISyncInboxService
                 // VesselId của thuyền viên CHỈ được đặt bởi thao tác gán tường minh
                 // (CrewService.AssignToVesselAsync), không bao giờ bởi đồng bộ.
                 break;
+            case ProductApi.Models.NmeaRawData raw:
+                raw.VesselId = (await ResolveOriginVesselAsync(originNode)).Id;
+                break;
+            case ProductApi.Models.NavigationData navigation:
+                navigation.VesselId = (await ResolveOriginVesselAsync(originNode)).Id;
+                break;
+            case ProductApi.Models.EnvironmentalData environment:
+                environment.VesselId = (await ResolveOriginVesselAsync(originNode)).Id;
+                break;
+            case ProductApi.Models.TaskDeferralRequest deferral:
+                deferral.VesselId = (await ResolveOriginVesselAsync(originNode)).Id;
+                break;
             case ProductApi.Models.EquipmentAsset asset:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 asset.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.MaterialItemShip mat:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 mat.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.MaintenanceTask task:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 task.VesselId = vessel?.Id;
                 break;
 
             // Nghiệp vụ vật tư/PMS dưới tàu — bờ chỉ xem, nhưng phải biết của tàu nào
             // thì mới tách được theo từng tàu trong màn chi tiết tàu.
             case ProductApi.Models.MaterialRequest req:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 req.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.StockReceipt receipt:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 receipt.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.InventoryStock stock:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 stock.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.StoreLocation loc:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 loc.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.EquipmentGroup grp:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 grp.VesselId = vessel?.Id;
                 break;
             case ProductApi.Models.MaintenanceSchedule sched:
-                vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.IMO == originNode);
+                vessel = await ResolveOriginVesselAsync(originNode);
                 sched.VesselId = vessel?.Id;
                 break;
         }
@@ -2173,6 +2362,13 @@ public class SyncInboxService : ISyncInboxService
     /// The edge DB may still have "SHIP_01" defaults, but the sync item
     /// correctly carries the vessel IMO. Always trust the item-level value.
     /// </summary>
+    private async Task<Vessel> ResolveOriginVesselAsync(string originNode)
+    {
+        var id = await VesselSyncIdentity.ResolveVesselIdAsync(_context, originNode);
+        if (!id.HasValue) throw new InvalidOperationException($"Unknown vessel for sync node '{originNode}'");
+        return (await _context.Vessels.AsNoTracking().SingleAsync(v => v.Id == id.Value));
+    }
+
     private static void SetOriginNodeFromItem(object entity, string originNode)
     {
         if (string.IsNullOrWhiteSpace(originNode)) return;
@@ -3087,32 +3283,6 @@ public class SyncInboxService : ISyncInboxService
     /// immediately. A full vessel record will be created/updated later when the
     /// edge sends a ship_data sync item.
     /// </summary>
-    private async Task AutoRegisterVesselAsync(string imo)
-    {
-        if (string.IsNullOrWhiteSpace(imo)) return;
-
-        var exists = await _context.Vessels.AnyAsync(v => v.IMO == imo);
-        if (exists) return;
-
-        var vessel = new ProductApi.Models.Vessel
-        {
-            Id        = Guid.NewGuid(),
-            IMO       = imo,
-            Name      = $"Vessel {imo}",   // placeholder — overwritten by ship_data sync
-            CallSign  = string.Empty,
-            VesselType = "Unknown",
-            Flag      = string.Empty,
-            IsActive  = true,
-            BuildDate = DateTime.UtcNow,
-        };
-
-        await _context.Vessels.AddAsync(vessel);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "Auto-registered new vessel IMO={IMO} (placeholder — will be updated by ship_data sync)", imo);
-    }
-
     private async Task<Dictionary<string, string>> ResolveOriginNodesToImosAsync(IEnumerable<string> originNodes)
     {
         var nodes = originNodes
@@ -3142,7 +3312,7 @@ public class SyncInboxService : ISyncInboxService
         {
             _logger.LogWarning("ship_data payload empty for key {Key}", item.RecordKey);
             await LogSyncOperation(item, "FAILED", "Empty payload");
-            return;
+            throw new InvalidOperationException("ship_data requires a payload");
         }
 
         using var doc = System.Text.Json.JsonDocument.Parse(item.Payload);
@@ -3196,7 +3366,7 @@ public class SyncInboxService : ISyncInboxService
         {
             _logger.LogWarning("ship_data missing IMO for key {Key}", item.RecordKey);
             await LogSyncOperation(item, "FAILED", "Missing IMO");
-            return;
+            throw new InvalidOperationException("ship_data requires the vessel IMO");
         }
 
         var originBindings = await ResolveOriginNodesToImosAsync(new[] { item.OriginNode });
@@ -3213,205 +3383,196 @@ public class SyncInboxService : ISyncInboxService
         // Upsert: find by IMO or create new
         // AsTracking() needed because DbContext default is NoTracking — without it,
         // changes to the loaded entity are invisible to SaveChangesAsync.
-        var vessel = await _context.Vessels.AsTracking().FirstOrDefaultAsync(v => v.IMO == imo);
-        bool isNew = vessel == null;
-        
-        if (isNew)
-        {
-            vessel = new ProductApi.Models.Vessel { Id = Guid.NewGuid(), IMO = imo, CreatedAt = DateTime.UtcNow };
-            await _context.Vessels.AddAsync(vessel);
-            _logger.LogInformation("Creating Vessel from Edge ship_data: IMO={IMO}", imo);
-        }
-        else
-        {
-            _logger.LogDebug("Updating Vessel from Edge ship_data: IMO={IMO}", imo);
-        }
+        var boundVessel = await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode)
+            ?? throw new InvalidOperationException("ship_data requires a provisioned vessel binding");
+        var vessel = await _context.Vessels.AsTracking().SingleAsync(v => v.Id == boundVessel);
+        bool isNew = false;
 
         // ══════════════════════════════════════════════════════════════════
         // BASIC DATA - Always update from Edge (Edge is master)
         // ══════════════════════════════════════════════════════════════════
         
-        vessel.Name = GetStr("shipName", "ShipName", "ship_name") ?? vessel.Name;
-        vessel.CallSign = GetStr("callSign", "CallSign", "call_sign") ?? vessel.CallSign;
-        vessel.VesselType = GetStr("typeOfVessel", "TypeOfVessel", "type_of_vessel") ?? vessel.VesselType;
-        vessel.Flag = GetStr("flag", "Flag") ?? vessel.Flag;
-        vessel.OfficialNumber = GetStr("officialNumber", "OfficialNumber", "official_number");
-        vessel.PortOfRegistry = GetStr("portOfRegistry", "PortOfRegistry", "port_of_registry");
-        vessel.PreviousName = GetStr("previousName", "PreviousName", "previous_name");
-        vessel.PreviousFlag = GetStr("previousFlag", "PreviousFlag", "previous_flag");
-        vessel.MmsiNumber = GetStr("mmsiNumber", "MmsiNumber", "mmsi_number");
-        vessel.ClassNotation = GetStr("classNotation", "ClassNotation", "class_notation");
-        vessel.ClassRegisterNumber = GetStr("classRegisterNumber", "ClassRegisterNumber", "class_register_number");
-        vessel.ShipyardCountry = GetStr("shipyardCountry", "ShipyardCountry", "shipyard_country");
-        vessel.ShipyardName = GetStr("shipyardName", "ShipyardName", "shipyard_name");
-        vessel.YardNo = GetStr("yardNo", "YardNo", "yard_no");
-        vessel.SuezCanalIdNumber = GetStr("suezCanalIdNumber", "SuezCanalIdNumber", "suez_canal_id_number");
-        vessel.PanamaCanalIdNumber = GetStr("panamaCanalIdNumber", "PanamaCanalIdNumber", "panama_canal_id_number");
-        vessel.VrpNumber = GetStr("vrpNumber", "VrpNumber", "vrp_number");
-        vessel.VrpType = GetStr("vrpType", "VrpType", "vrp_type");
+        if (new[] { "shipName", "ShipName", "ship_name" }.Any(k => root.TryGetProperty(k, out _))) vessel.Name = GetStr("shipName", "ShipName", "ship_name") ?? vessel.Name;
+        if (new[] { "callSign", "CallSign", "call_sign" }.Any(k => root.TryGetProperty(k, out _))) vessel.CallSign = GetStr("callSign", "CallSign", "call_sign") ?? vessel.CallSign;
+        if (new[] { "typeOfVessel", "TypeOfVessel", "type_of_vessel" }.Any(k => root.TryGetProperty(k, out _))) vessel.VesselType = GetStr("typeOfVessel", "TypeOfVessel", "type_of_vessel") ?? vessel.VesselType;
+        if (new[] { "flag", "Flag" }.Any(k => root.TryGetProperty(k, out _))) vessel.Flag = GetStr("flag", "Flag") ?? vessel.Flag;
+        if (new[] { "officialNumber", "OfficialNumber", "official_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.OfficialNumber = GetStr("officialNumber", "OfficialNumber", "official_number");
+        if (new[] { "portOfRegistry", "PortOfRegistry", "port_of_registry" }.Any(k => root.TryGetProperty(k, out _))) vessel.PortOfRegistry = GetStr("portOfRegistry", "PortOfRegistry", "port_of_registry");
+        if (new[] { "previousName", "PreviousName", "previous_name" }.Any(k => root.TryGetProperty(k, out _))) vessel.PreviousName = GetStr("previousName", "PreviousName", "previous_name");
+        if (new[] { "previousFlag", "PreviousFlag", "previous_flag" }.Any(k => root.TryGetProperty(k, out _))) vessel.PreviousFlag = GetStr("previousFlag", "PreviousFlag", "previous_flag");
+        if (new[] { "mmsiNumber", "MmsiNumber", "mmsi_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.MmsiNumber = GetStr("mmsiNumber", "MmsiNumber", "mmsi_number");
+        if (new[] { "classNotation", "ClassNotation", "class_notation" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassNotation = GetStr("classNotation", "ClassNotation", "class_notation");
+        if (new[] { "classRegisterNumber", "ClassRegisterNumber", "class_register_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassRegisterNumber = GetStr("classRegisterNumber", "ClassRegisterNumber", "class_register_number");
+        if (new[] { "shipyardCountry", "ShipyardCountry", "shipyard_country" }.Any(k => root.TryGetProperty(k, out _))) vessel.ShipyardCountry = GetStr("shipyardCountry", "ShipyardCountry", "shipyard_country");
+        if (new[] { "shipyardName", "ShipyardName", "shipyard_name" }.Any(k => root.TryGetProperty(k, out _))) vessel.ShipyardName = GetStr("shipyardName", "ShipyardName", "shipyard_name");
+        if (new[] { "yardNo", "YardNo", "yard_no" }.Any(k => root.TryGetProperty(k, out _))) vessel.YardNo = GetStr("yardNo", "YardNo", "yard_no");
+        if (new[] { "suezCanalIdNumber", "SuezCanalIdNumber", "suez_canal_id_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.SuezCanalIdNumber = GetStr("suezCanalIdNumber", "SuezCanalIdNumber", "suez_canal_id_number");
+        if (new[] { "panamaCanalIdNumber", "PanamaCanalIdNumber", "panama_canal_id_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.PanamaCanalIdNumber = GetStr("panamaCanalIdNumber", "PanamaCanalIdNumber", "panama_canal_id_number");
+        if (new[] { "vrpNumber", "VrpNumber", "vrp_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.VrpNumber = GetStr("vrpNumber", "VrpNumber", "vrp_number");
+        if (new[] { "vrpType", "VrpType", "vrp_type" }.Any(k => root.TryGetProperty(k, out _))) vessel.VrpType = GetStr("vrpType", "VrpType", "vrp_type");
         
-        vessel.KeelLaidDate = GetDate("keelLaidDate", "KeelLaidDate", "keel_laid_date");
-        vessel.YearBuilt = GetInt("yearBuilt", "YearBuilt", "year_built");
-        vessel.DateOfRegistry = GetDate("dateOfRegistry", "DateOfRegistry", "date_of_registry");
-        vessel.MaxPersonsAllowedOB = GetInt("maxPersonsAllowedOB", "MaxPersonsAllowedOB", "max_persons_allowed_ob");
-        vessel.MaxPassengersAllowedOB = GetInt("maxPassengersAllowedOB", "MaxPassengersAllowedOB", "max_passengers_allowed_ob");
-        vessel.NoOfCrewSafeManning = GetInt("noOfCrewSafeManning", "NoOfCrewSafeManning", "no_of_crew_safe_manning");
-        vessel.ServiceSpeedKts = GetDbl("serviceSpeedKts", "ServiceSpeedKts", "service_speed_kts");
+        if (new[] { "keelLaidDate", "KeelLaidDate", "keel_laid_date" }.Any(k => root.TryGetProperty(k, out _))) vessel.KeelLaidDate = GetDate("keelLaidDate", "KeelLaidDate", "keel_laid_date");
+        if (new[] { "yearBuilt", "YearBuilt", "year_built" }.Any(k => root.TryGetProperty(k, out _))) vessel.YearBuilt = GetInt("yearBuilt", "YearBuilt", "year_built");
+        if (new[] { "dateOfRegistry", "DateOfRegistry", "date_of_registry" }.Any(k => root.TryGetProperty(k, out _))) vessel.DateOfRegistry = GetDate("dateOfRegistry", "DateOfRegistry", "date_of_registry");
+        if (new[] { "maxPersonsAllowedOB", "MaxPersonsAllowedOB", "max_persons_allowed_ob" }.Any(k => root.TryGetProperty(k, out _))) vessel.MaxPersonsAllowedOB = GetInt("maxPersonsAllowedOB", "MaxPersonsAllowedOB", "max_persons_allowed_ob");
+        if (new[] { "maxPassengersAllowedOB", "MaxPassengersAllowedOB", "max_passengers_allowed_ob" }.Any(k => root.TryGetProperty(k, out _))) vessel.MaxPassengersAllowedOB = GetInt("maxPassengersAllowedOB", "MaxPassengersAllowedOB", "max_passengers_allowed_ob");
+        if (new[] { "noOfCrewSafeManning", "NoOfCrewSafeManning", "no_of_crew_safe_manning" }.Any(k => root.TryGetProperty(k, out _))) vessel.NoOfCrewSafeManning = GetInt("noOfCrewSafeManning", "NoOfCrewSafeManning", "no_of_crew_safe_manning");
+        if (new[] { "serviceSpeedKts", "ServiceSpeedKts", "service_speed_kts" }.Any(k => root.TryGetProperty(k, out _))) vessel.ServiceSpeedKts = GetDbl("serviceSpeedKts", "ServiceSpeedKts", "service_speed_kts");
 
         // Build date from year
         if (vessel.YearBuilt.HasValue && vessel.YearBuilt > 1900)
             vessel.BuildDate = new DateTime(vessel.YearBuilt.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // Tonnage fields
-        vessel.GrossTonnage = GetDbl("grossTonnage", "GrossTonnage", "gross_tonnage") ?? vessel.GrossTonnage;
-        vessel.DeadWeight = GetDbl("deadWeight", "DeadWeight", "dead_weight", "deadweightMt", "DeadweightMt") ?? vessel.DeadWeight;
-        vessel.GrossTonnageInternational = GetDbl("grossTonnageInternational", "GrossTonnageInternational", "gross_tonnage_international");
-        vessel.GrossTonnageSuezCanal = GetDbl("grossTonnageSuezCanal", "GrossTonnageSuezCanal", "gross_tonnage_suez_canal");
-        vessel.GrossTonnagePanamaCanal = GetDbl("grossTonnagePanamaCanal", "GrossTonnagePanamaCanal", "gross_tonnage_panama_canal");
-        vessel.NettTonnageInternational = GetDbl("nettTonnageInternational", "NettTonnageInternational", "nett_tonnage_international");
-        vessel.NettTonnageSuezCanal = GetDbl("nettTonnageSuezCanal", "NettTonnageSuezCanal", "nett_tonnage_suez_canal");
-        vessel.NettTonnagePanamaCanal = GetDbl("nettTonnagePanamaCanal", "NettTonnagePanamaCanal", "nett_tonnage_panama_canal");
+        if (new[] { "grossTonnage", "GrossTonnage", "gross_tonnage" }.Any(k => root.TryGetProperty(k, out _))) vessel.GrossTonnage = GetDbl("grossTonnage", "GrossTonnage", "gross_tonnage") ?? vessel.GrossTonnage;
+        if (new[] { "deadWeight", "DeadWeight", "dead_weight", "deadweightMt", "DeadweightMt" }.Any(k => root.TryGetProperty(k, out _))) vessel.DeadWeight = GetDbl("deadWeight", "DeadWeight", "dead_weight", "deadweightMt", "DeadweightMt") ?? vessel.DeadWeight;
+        if (new[] { "grossTonnageInternational", "GrossTonnageInternational", "gross_tonnage_international" }.Any(k => root.TryGetProperty(k, out _))) vessel.GrossTonnageInternational = GetDbl("grossTonnageInternational", "GrossTonnageInternational", "gross_tonnage_international");
+        if (new[] { "grossTonnageSuezCanal", "GrossTonnageSuezCanal", "gross_tonnage_suez_canal" }.Any(k => root.TryGetProperty(k, out _))) vessel.GrossTonnageSuezCanal = GetDbl("grossTonnageSuezCanal", "GrossTonnageSuezCanal", "gross_tonnage_suez_canal");
+        if (new[] { "grossTonnagePanamaCanal", "GrossTonnagePanamaCanal", "gross_tonnage_panama_canal" }.Any(k => root.TryGetProperty(k, out _))) vessel.GrossTonnagePanamaCanal = GetDbl("grossTonnagePanamaCanal", "GrossTonnagePanamaCanal", "gross_tonnage_panama_canal");
+        if (new[] { "nettTonnageInternational", "NettTonnageInternational", "nett_tonnage_international" }.Any(k => root.TryGetProperty(k, out _))) vessel.NettTonnageInternational = GetDbl("nettTonnageInternational", "NettTonnageInternational", "nett_tonnage_international");
+        if (new[] { "nettTonnageSuezCanal", "NettTonnageSuezCanal", "nett_tonnage_suez_canal" }.Any(k => root.TryGetProperty(k, out _))) vessel.NettTonnageSuezCanal = GetDbl("nettTonnageSuezCanal", "NettTonnageSuezCanal", "nett_tonnage_suez_canal");
+        if (new[] { "nettTonnagePanamaCanal", "NettTonnagePanamaCanal", "nett_tonnage_panama_canal" }.Any(k => root.TryGetProperty(k, out _))) vessel.NettTonnagePanamaCanal = GetDbl("nettTonnagePanamaCanal", "NettTonnagePanamaCanal", "nett_tonnage_panama_canal");
 
         // ══════════════════════════════════════════════════════════════════
         // DIMENSIONS - Technical data (Edge Master) - Always update
         // ══════════════════════════════════════════════════════════════════
         
-        vessel.Loa = GetDbl("loa", "Loa", "LOA");
-        vessel.Lbp = GetDbl("lbp", "Lbp", "LBP");
-        vessel.BreadthMoulded = GetDbl("breadthMoulded", "BreadthMoulded", "breadth_moulded");
-        vessel.DepthMoulded = GetDbl("depthMoulded", "DepthMoulded", "depth_moulded");
-        vessel.DraftMoulded = GetDbl("draftMoulded", "DraftMoulded", "draft_moulded");
-        vessel.DraftScantling = GetDbl("draftScantling", "DraftScantling", "draft_scantling");
-        vessel.DraftFullBallast = GetDbl("draftFullBallast", "DraftFullBallast", "draft_full_ballast");
-        vessel.HMaxAirdraft = GetDbl("hMaxAirdraft", "HMaxAirdraft", "h_max_airdraft");
-        vessel.AirdraftReductionMastFouled = GetDbl("airdraftReductionMastFouled", "AirdraftReductionMastFouled");
-        vessel.DDistance = GetDbl("dDistance", "DDistance", "d_distance");
-        vessel.BridgeToAft = GetDbl("bridgeToAft", "BridgeToAft", "bridge_to_aft");
-        vessel.BridgeToBow = GetDbl("bridgeToBow", "BridgeToBow", "bridge_to_bow");
-        vessel.BowToBulbousBow = GetDbl("bowToBulbousBow", "BowToBulbousBow", "bow_to_bulbous_bow");
-        vessel.ParallelBodyBallast = GetDbl("parallelBodyBallast", "ParallelBodyBallast", "parallel_body_ballast");
-        vessel.ParallelBodyLoaded = GetDbl("parallelBodyLoaded", "ParallelBodyLoaded", "parallel_body_loaded");
-        vessel.LightShip = GetDbl("lightShip", "LightShip", "light_ship");
-        vessel.BlockCoefficientNA = GetBool("blockCoefficientNA", "BlockCoefficientNA", "block_coefficient_na");
-        vessel.BlockCoefficient = GetDbl("blockCoefficient", "BlockCoefficient", "block_coefficient");
-        vessel.TpcAtSummerDraft = GetDbl("tpcAtSummerDraft", "TpcAtSummerDraft", "tpc_at_summer_draft");
-        vessel.FreshWaterAllowanceFwa = GetDbl("freshWaterAllowanceFwa", "FreshWaterAllowanceFwa", "fresh_water_allowance_fwa");
+        if (new[] { "loa", "Loa", "LOA" }.Any(k => root.TryGetProperty(k, out _))) vessel.Loa = GetDbl("loa", "Loa", "LOA");
+        if (new[] { "lbp", "Lbp", "LBP" }.Any(k => root.TryGetProperty(k, out _))) vessel.Lbp = GetDbl("lbp", "Lbp", "LBP");
+        if (new[] { "breadthMoulded", "BreadthMoulded", "breadth_moulded" }.Any(k => root.TryGetProperty(k, out _))) vessel.BreadthMoulded = GetDbl("breadthMoulded", "BreadthMoulded", "breadth_moulded");
+        if (new[] { "depthMoulded", "DepthMoulded", "depth_moulded" }.Any(k => root.TryGetProperty(k, out _))) vessel.DepthMoulded = GetDbl("depthMoulded", "DepthMoulded", "depth_moulded");
+        if (new[] { "draftMoulded", "DraftMoulded", "draft_moulded" }.Any(k => root.TryGetProperty(k, out _))) vessel.DraftMoulded = GetDbl("draftMoulded", "DraftMoulded", "draft_moulded");
+        if (new[] { "draftScantling", "DraftScantling", "draft_scantling" }.Any(k => root.TryGetProperty(k, out _))) vessel.DraftScantling = GetDbl("draftScantling", "DraftScantling", "draft_scantling");
+        if (new[] { "draftFullBallast", "DraftFullBallast", "draft_full_ballast" }.Any(k => root.TryGetProperty(k, out _))) vessel.DraftFullBallast = GetDbl("draftFullBallast", "DraftFullBallast", "draft_full_ballast");
+        if (new[] { "hMaxAirdraft", "HMaxAirdraft", "h_max_airdraft" }.Any(k => root.TryGetProperty(k, out _))) vessel.HMaxAirdraft = GetDbl("hMaxAirdraft", "HMaxAirdraft", "h_max_airdraft");
+        if (new[] { "airdraftReductionMastFouled", "AirdraftReductionMastFouled" }.Any(k => root.TryGetProperty(k, out _))) vessel.AirdraftReductionMastFouled = GetDbl("airdraftReductionMastFouled", "AirdraftReductionMastFouled");
+        if (new[] { "dDistance", "DDistance", "d_distance" }.Any(k => root.TryGetProperty(k, out _))) vessel.DDistance = GetDbl("dDistance", "DDistance", "d_distance");
+        if (new[] { "bridgeToAft", "BridgeToAft", "bridge_to_aft" }.Any(k => root.TryGetProperty(k, out _))) vessel.BridgeToAft = GetDbl("bridgeToAft", "BridgeToAft", "bridge_to_aft");
+        if (new[] { "bridgeToBow", "BridgeToBow", "bridge_to_bow" }.Any(k => root.TryGetProperty(k, out _))) vessel.BridgeToBow = GetDbl("bridgeToBow", "BridgeToBow", "bridge_to_bow");
+        if (new[] { "bowToBulbousBow", "BowToBulbousBow", "bow_to_bulbous_bow" }.Any(k => root.TryGetProperty(k, out _))) vessel.BowToBulbousBow = GetDbl("bowToBulbousBow", "BowToBulbousBow", "bow_to_bulbous_bow");
+        if (new[] { "parallelBodyBallast", "ParallelBodyBallast", "parallel_body_ballast" }.Any(k => root.TryGetProperty(k, out _))) vessel.ParallelBodyBallast = GetDbl("parallelBodyBallast", "ParallelBodyBallast", "parallel_body_ballast");
+        if (new[] { "parallelBodyLoaded", "ParallelBodyLoaded", "parallel_body_loaded" }.Any(k => root.TryGetProperty(k, out _))) vessel.ParallelBodyLoaded = GetDbl("parallelBodyLoaded", "ParallelBodyLoaded", "parallel_body_loaded");
+        if (new[] { "lightShip", "LightShip", "light_ship" }.Any(k => root.TryGetProperty(k, out _))) vessel.LightShip = GetDbl("lightShip", "LightShip", "light_ship");
+        if (new[] { "blockCoefficientNA", "BlockCoefficientNA", "block_coefficient_na" }.Any(k => root.TryGetProperty(k, out _))) vessel.BlockCoefficientNA = GetBool("blockCoefficientNA", "BlockCoefficientNA", "block_coefficient_na");
+        if (new[] { "blockCoefficient", "BlockCoefficient", "block_coefficient" }.Any(k => root.TryGetProperty(k, out _))) vessel.BlockCoefficient = GetDbl("blockCoefficient", "BlockCoefficient", "block_coefficient");
+        if (new[] { "tpcAtSummerDraft", "TpcAtSummerDraft", "tpc_at_summer_draft" }.Any(k => root.TryGetProperty(k, out _))) vessel.TpcAtSummerDraft = GetDbl("tpcAtSummerDraft", "TpcAtSummerDraft", "tpc_at_summer_draft");
+        if (new[] { "freshWaterAllowanceFwa", "FreshWaterAllowanceFwa", "fresh_water_allowance_fwa" }.Any(k => root.TryGetProperty(k, out _))) vessel.FreshWaterAllowanceFwa = GetDbl("freshWaterAllowanceFwa", "FreshWaterAllowanceFwa", "fresh_water_allowance_fwa");
 
         // Tanker-specific dimensions
-        vessel.ManifoldToWaterlineBallast = GetDbl("manifoldToWaterlineBallast", "ManifoldToWaterlineBallast");
-        vessel.ManifoldToWaterlineLoaded = GetDbl("manifoldToWaterlineLoaded", "ManifoldToWaterlineLoaded");
-        vessel.DeckToManifold = GetDbl("deckToManifold", "DeckToManifold", "deck_to_manifold");
-        vessel.SternToManifold = GetDbl("sternToManifold", "SternToManifold", "stern_to_manifold");
-        vessel.ShipsideToManifold = GetDbl("shipsideToManifold", "ShipsideToManifold", "shipside_to_manifold");
-        vessel.BowToManifold = GetDbl("bowToManifold", "BowToManifold", "bow_to_manifold");
-        vessel.ManifoldToKeel = GetDbl("manifoldToKeel", "ManifoldToKeel", "manifold_to_keel");
-        vessel.ManifoldToBridge = GetDbl("manifoldToBridge", "ManifoldToBridge", "manifold_to_bridge");
-        vessel.MaxLoadingRateShip = GetDbl("maxLoadingRateShip", "MaxLoadingRateShip", "max_loading_rate_ship");
-        vessel.NumberOfLines = GetInt("numberOfLines", "NumberOfLines", "number_of_lines");
-        vessel.MaxAllowablePressurePsi = GetDbl("maxAllowablePressurePsi", "MaxAllowablePressurePsi", "max_allowable_pressure_psi");
-        vessel.VentingSystemShip = GetStr("ventingSystemShip", "VentingSystemShip", "venting_system_ship");
+        if (new[] { "manifoldToWaterlineBallast", "ManifoldToWaterlineBallast" }.Any(k => root.TryGetProperty(k, out _))) vessel.ManifoldToWaterlineBallast = GetDbl("manifoldToWaterlineBallast", "ManifoldToWaterlineBallast");
+        if (new[] { "manifoldToWaterlineLoaded", "ManifoldToWaterlineLoaded" }.Any(k => root.TryGetProperty(k, out _))) vessel.ManifoldToWaterlineLoaded = GetDbl("manifoldToWaterlineLoaded", "ManifoldToWaterlineLoaded");
+        if (new[] { "deckToManifold", "DeckToManifold", "deck_to_manifold" }.Any(k => root.TryGetProperty(k, out _))) vessel.DeckToManifold = GetDbl("deckToManifold", "DeckToManifold", "deck_to_manifold");
+        if (new[] { "sternToManifold", "SternToManifold", "stern_to_manifold" }.Any(k => root.TryGetProperty(k, out _))) vessel.SternToManifold = GetDbl("sternToManifold", "SternToManifold", "stern_to_manifold");
+        if (new[] { "shipsideToManifold", "ShipsideToManifold", "shipside_to_manifold" }.Any(k => root.TryGetProperty(k, out _))) vessel.ShipsideToManifold = GetDbl("shipsideToManifold", "ShipsideToManifold", "shipside_to_manifold");
+        if (new[] { "bowToManifold", "BowToManifold", "bow_to_manifold" }.Any(k => root.TryGetProperty(k, out _))) vessel.BowToManifold = GetDbl("bowToManifold", "BowToManifold", "bow_to_manifold");
+        if (new[] { "manifoldToKeel", "ManifoldToKeel", "manifold_to_keel" }.Any(k => root.TryGetProperty(k, out _))) vessel.ManifoldToKeel = GetDbl("manifoldToKeel", "ManifoldToKeel", "manifold_to_keel");
+        if (new[] { "manifoldToBridge", "ManifoldToBridge", "manifold_to_bridge" }.Any(k => root.TryGetProperty(k, out _))) vessel.ManifoldToBridge = GetDbl("manifoldToBridge", "ManifoldToBridge", "manifold_to_bridge");
+        if (new[] { "maxLoadingRateShip", "MaxLoadingRateShip", "max_loading_rate_ship" }.Any(k => root.TryGetProperty(k, out _))) vessel.MaxLoadingRateShip = GetDbl("maxLoadingRateShip", "MaxLoadingRateShip", "max_loading_rate_ship");
+        if (new[] { "numberOfLines", "NumberOfLines", "number_of_lines" }.Any(k => root.TryGetProperty(k, out _))) vessel.NumberOfLines = GetInt("numberOfLines", "NumberOfLines", "number_of_lines");
+        if (new[] { "maxAllowablePressurePsi", "MaxAllowablePressurePsi", "max_allowable_pressure_psi" }.Any(k => root.TryGetProperty(k, out _))) vessel.MaxAllowablePressurePsi = GetDbl("maxAllowablePressurePsi", "MaxAllowablePressurePsi", "max_allowable_pressure_psi");
+        if (new[] { "ventingSystemShip", "VentingSystemShip", "venting_system_ship" }.Any(k => root.TryGetProperty(k, out _))) vessel.VentingSystemShip = GetStr("ventingSystemShip", "VentingSystemShip", "venting_system_ship");
 
         // ══════════════════════════════════════════════════════════════════
         // MACHINERY - Technical data (Edge Master) - Always update
         // ══════════════════════════════════════════════════════════════════
         
-        vessel.AnchorChainPort = GetInt("anchorChainPort", "AnchorChainPort", "anchor_chain_port");
-        vessel.AnchorChainStarboard = GetInt("anchorChainStarboard", "AnchorChainStarboard", "anchor_chain_starboard");
-        vessel.AnchorChainStern = GetInt("anchorChainStern", "AnchorChainStern", "anchor_chain_stern");
-        vessel.AnchorChainSternNA = GetBool("anchorChainSternNA", "AnchorChainSternNA", "anchor_chain_stern_na");
-        vessel.BowthrusterNA = GetBool("bowthrusterNA", "BowthrusterNA", "bowthruster_na");
-        vessel.SternthrusterNA = GetBool("sternthrusterNA", "SternthrusterNA", "sternthruster_na");
-        vessel.ShaftGeneratorNA = GetBool("shaftGeneratorNA", "ShaftGeneratorNA", "shaft_generator_na");
-        vessel.HarbourGeneratorMaker = GetStr("harbourGeneratorMaker", "HarbourGeneratorMaker", "harbour_generator_maker");
-        vessel.HarbourGeneratorMaxPowerKW = GetDbl("harbourGeneratorMaxPowerKW", "HarbourGeneratorMaxPowerKW");
-        vessel.AzimuthEngFwdCount = GetInt("azimuthEngFwdCount", "AzimuthEngFwdCount", "azimuth_eng_fwd_count");
-        vessel.AzimuthEngFwdMaxPowerKW = GetDbl("azimuthEngFwdMaxPowerKW", "AzimuthEngFwdMaxPowerKW");
-        vessel.AzimuthEngAftCount = GetInt("azimuthEngAftCount", "AzimuthEngAftCount", "azimuth_eng_aft_count");
-        vessel.AzimuthEngAftMaxPowerKW = GetDbl("azimuthEngAftMaxPowerKW", "AzimuthEngAftMaxPowerKW");
+        if (new[] { "anchorChainPort", "AnchorChainPort", "anchor_chain_port" }.Any(k => root.TryGetProperty(k, out _))) vessel.AnchorChainPort = GetInt("anchorChainPort", "AnchorChainPort", "anchor_chain_port");
+        if (new[] { "anchorChainStarboard", "AnchorChainStarboard", "anchor_chain_starboard" }.Any(k => root.TryGetProperty(k, out _))) vessel.AnchorChainStarboard = GetInt("anchorChainStarboard", "AnchorChainStarboard", "anchor_chain_starboard");
+        if (new[] { "anchorChainStern", "AnchorChainStern", "anchor_chain_stern" }.Any(k => root.TryGetProperty(k, out _))) vessel.AnchorChainStern = GetInt("anchorChainStern", "AnchorChainStern", "anchor_chain_stern");
+        if (new[] { "anchorChainSternNA", "AnchorChainSternNA", "anchor_chain_stern_na" }.Any(k => root.TryGetProperty(k, out _))) vessel.AnchorChainSternNA = GetBool("anchorChainSternNA", "AnchorChainSternNA", "anchor_chain_stern_na");
+        if (new[] { "bowthrusterNA", "BowthrusterNA", "bowthruster_na" }.Any(k => root.TryGetProperty(k, out _))) vessel.BowthrusterNA = GetBool("bowthrusterNA", "BowthrusterNA", "bowthruster_na");
+        if (new[] { "sternthrusterNA", "SternthrusterNA", "sternthruster_na" }.Any(k => root.TryGetProperty(k, out _))) vessel.SternthrusterNA = GetBool("sternthrusterNA", "SternthrusterNA", "sternthruster_na");
+        if (new[] { "shaftGeneratorNA", "ShaftGeneratorNA", "shaft_generator_na" }.Any(k => root.TryGetProperty(k, out _))) vessel.ShaftGeneratorNA = GetBool("shaftGeneratorNA", "ShaftGeneratorNA", "shaft_generator_na");
+        if (new[] { "harbourGeneratorMaker", "HarbourGeneratorMaker", "harbour_generator_maker" }.Any(k => root.TryGetProperty(k, out _))) vessel.HarbourGeneratorMaker = GetStr("harbourGeneratorMaker", "HarbourGeneratorMaker", "harbour_generator_maker");
+        if (new[] { "harbourGeneratorMaxPowerKW", "HarbourGeneratorMaxPowerKW" }.Any(k => root.TryGetProperty(k, out _))) vessel.HarbourGeneratorMaxPowerKW = GetDbl("harbourGeneratorMaxPowerKW", "HarbourGeneratorMaxPowerKW");
+        if (new[] { "azimuthEngFwdCount", "AzimuthEngFwdCount", "azimuth_eng_fwd_count" }.Any(k => root.TryGetProperty(k, out _))) vessel.AzimuthEngFwdCount = GetInt("azimuthEngFwdCount", "AzimuthEngFwdCount", "azimuth_eng_fwd_count");
+        if (new[] { "azimuthEngFwdMaxPowerKW", "AzimuthEngFwdMaxPowerKW" }.Any(k => root.TryGetProperty(k, out _))) vessel.AzimuthEngFwdMaxPowerKW = GetDbl("azimuthEngFwdMaxPowerKW", "AzimuthEngFwdMaxPowerKW");
+        if (new[] { "azimuthEngAftCount", "AzimuthEngAftCount", "azimuth_eng_aft_count" }.Any(k => root.TryGetProperty(k, out _))) vessel.AzimuthEngAftCount = GetInt("azimuthEngAftCount", "AzimuthEngAftCount", "azimuth_eng_aft_count");
+        if (new[] { "azimuthEngAftMaxPowerKW", "AzimuthEngAftMaxPowerKW" }.Any(k => root.TryGetProperty(k, out _))) vessel.AzimuthEngAftMaxPowerKW = GetDbl("azimuthEngAftMaxPowerKW", "AzimuthEngAftMaxPowerKW");
 
         // ══════════════════════════════════════════════════════════════════
         // RADIO COMMUNICATION - Technical data (Edge Master) - Always update
         // ══════════════════════════════════════════════════════════════════
         
-        vessel.InmarsatTelex1 = GetStr("inmarsatTelex1", "InmarsatTelex1", "inmarsat_telex1");
-        vessel.InmarsatTelex2 = GetStr("inmarsatTelex2", "InmarsatTelex2", "inmarsat_telex2");
-        vessel.InmarsatPhone1 = GetStr("inmarsatPhone1", "InmarsatPhone1", "inmarsat_phone1");
-        vessel.InmarsatPhone2 = GetStr("inmarsatPhone2", "InmarsatPhone2", "inmarsat_phone2");
-        vessel.InmarsatFax1 = GetStr("inmarsatFax1", "InmarsatFax1", "inmarsat_fax1");
-        vessel.InmarsatFax2 = GetStr("inmarsatFax2", "InmarsatFax2", "inmarsat_fax2");
-        vessel.EmailAddress1 = GetStr("emailAddress1", "EmailAddress1", "email_address1");
-        vessel.EmailAddress2 = GetStr("emailAddress2", "EmailAddress2", "email_address2");
-        vessel.GsmPhone = GetStr("gsmPhone", "GsmPhone", "gsm_phone");
-        vessel.SeaAreaA1 = GetBool("seaAreaA1", "SeaAreaA1", "sea_area_a1");
-        vessel.SeaAreaA2 = GetBool("seaAreaA2", "SeaAreaA2", "sea_area_a2");
-        vessel.SeaAreaA3 = GetBool("seaAreaA3", "SeaAreaA3", "sea_area_a3");
-        vessel.SeaAreaA4 = GetBool("seaAreaA4", "SeaAreaA4", "sea_area_a4");
-        vessel.DscHF = GetBool("dscHF", "DscHF", "dsc_hf");
-        vessel.DscMF = GetBool("dscMF", "DscMF", "dsc_mf");
-        vessel.DscVHF = GetBool("dscVHF", "DscVHF", "dsc_vhf");
-        vessel.RadiotelephoneHF = GetBool("radiotelephoneHF", "RadiotelephoneHF", "radiotelephone_hf");
-        vessel.RadiotelephoneMF = GetBool("radiotelephoneMF", "RadiotelephoneMF", "radiotelephone_mf");
-        vessel.RadiotelephoneVHF = GetBool("radiotelephoneVHF", "RadiotelephoneVHF", "radiotelephone_vhf");
-        vessel.RadiotelegraphHF = GetBool("radiotelegraphHF", "RadiotelegraphHF", "radiotelegraph_hf");
-        vessel.RadiotelegraphMF = GetBool("radiotelegraphMF", "RadiotelegraphMF", "radiotelegraph_mf");
-        vessel.RadiotelegraphVHF = GetBool("radiotelegraphVHF", "RadiotelegraphVHF", "radiotelegraph_vhf");
-        vessel.Navtex = GetBool("navtex", "Navtex");
-        vessel.Ais = GetBool("ais", "Ais", "AIS");
-        vessel.SartTransponder = GetBool("sartTransponder", "SartTransponder", "sart_transponder");
-        vessel.Radiotelex = GetBool("radiotelex", "Radiotelex");
-        vessel.OtherRadioEquipment = GetStr("otherRadioEquipment", "OtherRadioEquipment", "other_radio_equipment");
-        vessel.EpirbNumber = GetStr("epirbNumber", "EpirbNumber", "epirb_number");
-        vessel.EpirbOperatingSystem = GetStr("epirbOperatingSystem", "EpirbOperatingSystem", "epirb_operating_system");
-        vessel.EpirbMaker = GetStr("epirbMaker", "EpirbMaker", "epirb_maker");
-        vessel.EpirbModel = GetStr("epirbModel", "EpirbModel", "epirb_model");
-        vessel.EpirbFrequency = GetStr("epirbFrequency", "EpirbFrequency", "epirb_frequency");
+        if (new[] { "inmarsatTelex1", "InmarsatTelex1", "inmarsat_telex1" }.Any(k => root.TryGetProperty(k, out _))) vessel.InmarsatTelex1 = GetStr("inmarsatTelex1", "InmarsatTelex1", "inmarsat_telex1");
+        if (new[] { "inmarsatTelex2", "InmarsatTelex2", "inmarsat_telex2" }.Any(k => root.TryGetProperty(k, out _))) vessel.InmarsatTelex2 = GetStr("inmarsatTelex2", "InmarsatTelex2", "inmarsat_telex2");
+        if (new[] { "inmarsatPhone1", "InmarsatPhone1", "inmarsat_phone1" }.Any(k => root.TryGetProperty(k, out _))) vessel.InmarsatPhone1 = GetStr("inmarsatPhone1", "InmarsatPhone1", "inmarsat_phone1");
+        if (new[] { "inmarsatPhone2", "InmarsatPhone2", "inmarsat_phone2" }.Any(k => root.TryGetProperty(k, out _))) vessel.InmarsatPhone2 = GetStr("inmarsatPhone2", "InmarsatPhone2", "inmarsat_phone2");
+        if (new[] { "inmarsatFax1", "InmarsatFax1", "inmarsat_fax1" }.Any(k => root.TryGetProperty(k, out _))) vessel.InmarsatFax1 = GetStr("inmarsatFax1", "InmarsatFax1", "inmarsat_fax1");
+        if (new[] { "inmarsatFax2", "InmarsatFax2", "inmarsat_fax2" }.Any(k => root.TryGetProperty(k, out _))) vessel.InmarsatFax2 = GetStr("inmarsatFax2", "InmarsatFax2", "inmarsat_fax2");
+        if (new[] { "emailAddress1", "EmailAddress1", "email_address1" }.Any(k => root.TryGetProperty(k, out _))) vessel.EmailAddress1 = GetStr("emailAddress1", "EmailAddress1", "email_address1");
+        if (new[] { "emailAddress2", "EmailAddress2", "email_address2" }.Any(k => root.TryGetProperty(k, out _))) vessel.EmailAddress2 = GetStr("emailAddress2", "EmailAddress2", "email_address2");
+        if (new[] { "gsmPhone", "GsmPhone", "gsm_phone" }.Any(k => root.TryGetProperty(k, out _))) vessel.GsmPhone = GetStr("gsmPhone", "GsmPhone", "gsm_phone");
+        if (new[] { "seaAreaA1", "SeaAreaA1", "sea_area_a1" }.Any(k => root.TryGetProperty(k, out _))) vessel.SeaAreaA1 = GetBool("seaAreaA1", "SeaAreaA1", "sea_area_a1");
+        if (new[] { "seaAreaA2", "SeaAreaA2", "sea_area_a2" }.Any(k => root.TryGetProperty(k, out _))) vessel.SeaAreaA2 = GetBool("seaAreaA2", "SeaAreaA2", "sea_area_a2");
+        if (new[] { "seaAreaA3", "SeaAreaA3", "sea_area_a3" }.Any(k => root.TryGetProperty(k, out _))) vessel.SeaAreaA3 = GetBool("seaAreaA3", "SeaAreaA3", "sea_area_a3");
+        if (new[] { "seaAreaA4", "SeaAreaA4", "sea_area_a4" }.Any(k => root.TryGetProperty(k, out _))) vessel.SeaAreaA4 = GetBool("seaAreaA4", "SeaAreaA4", "sea_area_a4");
+        if (new[] { "dscHF", "DscHF", "dsc_hf" }.Any(k => root.TryGetProperty(k, out _))) vessel.DscHF = GetBool("dscHF", "DscHF", "dsc_hf");
+        if (new[] { "dscMF", "DscMF", "dsc_mf" }.Any(k => root.TryGetProperty(k, out _))) vessel.DscMF = GetBool("dscMF", "DscMF", "dsc_mf");
+        if (new[] { "dscVHF", "DscVHF", "dsc_vhf" }.Any(k => root.TryGetProperty(k, out _))) vessel.DscVHF = GetBool("dscVHF", "DscVHF", "dsc_vhf");
+        if (new[] { "radiotelephoneHF", "RadiotelephoneHF", "radiotelephone_hf" }.Any(k => root.TryGetProperty(k, out _))) vessel.RadiotelephoneHF = GetBool("radiotelephoneHF", "RadiotelephoneHF", "radiotelephone_hf");
+        if (new[] { "radiotelephoneMF", "RadiotelephoneMF", "radiotelephone_mf" }.Any(k => root.TryGetProperty(k, out _))) vessel.RadiotelephoneMF = GetBool("radiotelephoneMF", "RadiotelephoneMF", "radiotelephone_mf");
+        if (new[] { "radiotelephoneVHF", "RadiotelephoneVHF", "radiotelephone_vhf" }.Any(k => root.TryGetProperty(k, out _))) vessel.RadiotelephoneVHF = GetBool("radiotelephoneVHF", "RadiotelephoneVHF", "radiotelephone_vhf");
+        if (new[] { "radiotelegraphHF", "RadiotelegraphHF", "radiotelegraph_hf" }.Any(k => root.TryGetProperty(k, out _))) vessel.RadiotelegraphHF = GetBool("radiotelegraphHF", "RadiotelegraphHF", "radiotelegraph_hf");
+        if (new[] { "radiotelegraphMF", "RadiotelegraphMF", "radiotelegraph_mf" }.Any(k => root.TryGetProperty(k, out _))) vessel.RadiotelegraphMF = GetBool("radiotelegraphMF", "RadiotelegraphMF", "radiotelegraph_mf");
+        if (new[] { "radiotelegraphVHF", "RadiotelegraphVHF", "radiotelegraph_vhf" }.Any(k => root.TryGetProperty(k, out _))) vessel.RadiotelegraphVHF = GetBool("radiotelegraphVHF", "RadiotelegraphVHF", "radiotelegraph_vhf");
+        if (new[] { "navtex", "Navtex" }.Any(k => root.TryGetProperty(k, out _))) vessel.Navtex = GetBool("navtex", "Navtex");
+        if (new[] { "ais", "Ais", "AIS" }.Any(k => root.TryGetProperty(k, out _))) vessel.Ais = GetBool("ais", "Ais", "AIS");
+        if (new[] { "sartTransponder", "SartTransponder", "sart_transponder" }.Any(k => root.TryGetProperty(k, out _))) vessel.SartTransponder = GetBool("sartTransponder", "SartTransponder", "sart_transponder");
+        if (new[] { "radiotelex", "Radiotelex" }.Any(k => root.TryGetProperty(k, out _))) vessel.Radiotelex = GetBool("radiotelex", "Radiotelex");
+        if (new[] { "otherRadioEquipment", "OtherRadioEquipment", "other_radio_equipment" }.Any(k => root.TryGetProperty(k, out _))) vessel.OtherRadioEquipment = GetStr("otherRadioEquipment", "OtherRadioEquipment", "other_radio_equipment");
+        if (new[] { "epirbNumber", "EpirbNumber", "epirb_number" }.Any(k => root.TryGetProperty(k, out _))) vessel.EpirbNumber = GetStr("epirbNumber", "EpirbNumber", "epirb_number");
+        if (new[] { "epirbOperatingSystem", "EpirbOperatingSystem", "epirb_operating_system" }.Any(k => root.TryGetProperty(k, out _))) vessel.EpirbOperatingSystem = GetStr("epirbOperatingSystem", "EpirbOperatingSystem", "epirb_operating_system");
+        if (new[] { "epirbMaker", "EpirbMaker", "epirb_maker" }.Any(k => root.TryGetProperty(k, out _))) vessel.EpirbMaker = GetStr("epirbMaker", "EpirbMaker", "epirb_maker");
+        if (new[] { "epirbModel", "EpirbModel", "epirb_model" }.Any(k => root.TryGetProperty(k, out _))) vessel.EpirbModel = GetStr("epirbModel", "EpirbModel", "epirb_model");
+        if (new[] { "epirbFrequency", "EpirbFrequency", "epirb_frequency" }.Any(k => root.TryGetProperty(k, out _))) vessel.EpirbFrequency = GetStr("epirbFrequency", "EpirbFrequency", "epirb_frequency");
 
         // ══════════════════════════════════════════════════════════════════
         // TANKS & CARGO - Technical data (Edge Master) - Always update
         // ══════════════════════════════════════════════════════════════════
         
-        vessel.HfoCbm = GetDbl("hfoCbm", "HfoCbm", "hfo_cbm");
-        vessel.MdoCbm = GetDbl("mdoCbm", "MdoCbm", "mdo_cbm");
-        vessel.LubOilCbm = GetDbl("lubOilCbm", "LubOilCbm", "lub_oil_cbm");
-        vessel.SludgeCbm = GetDbl("sludgeCbm", "SludgeCbm", "sludge_cbm");
-        vessel.BilgeWaterCbm = GetDbl("bilgeWaterCbm", "BilgeWaterCbm", "bilge_water_cbm");
-        vessel.SewageCbm = GetDbl("sewageCbm", "SewageCbm", "sewage_cbm");
-        vessel.FreshWaterCbm = GetDbl("freshWaterCbm", "FreshWaterCbm", "fresh_water_cbm");
-        vessel.BallastWaterCbm = GetDbl("ballastWaterCbm", "BallastWaterCbm", "ballast_water_cbm");
-        vessel.NoOfBallastTanks = GetInt("noOfBallastTanks", "NoOfBallastTanks", "no_of_ballast_tanks");
-        vessel.TeuTotal = GetInt("teuTotal", "TeuTotal", "teu_total");
-        vessel.TeuOnDeck = GetInt("teuOnDeck", "TeuOnDeck", "teu_on_deck");
-        vessel.TeuUnderDeck = GetInt("teuUnderDeck", "TeuUnderDeck", "teu_under_deck");
-        vessel.GrainCbm = GetDbl("grainCbm", "GrainCbm", "grain_cbm");
-        vessel.BalesCbm = GetDbl("balesCbm", "BalesCbm", "bales_cbm");
-        vessel.NoOfCargoHolds = GetInt("noOfCargoHolds", "NoOfCargoHolds", "no_of_cargo_holds");
-        vessel.NoOfHatches = GetInt("noOfHatches", "NoOfHatches", "no_of_hatches");
+        if (new[] { "hfoCbm", "HfoCbm", "hfo_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.HfoCbm = GetDbl("hfoCbm", "HfoCbm", "hfo_cbm");
+        if (new[] { "mdoCbm", "MdoCbm", "mdo_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.MdoCbm = GetDbl("mdoCbm", "MdoCbm", "mdo_cbm");
+        if (new[] { "lubOilCbm", "LubOilCbm", "lub_oil_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.LubOilCbm = GetDbl("lubOilCbm", "LubOilCbm", "lub_oil_cbm");
+        if (new[] { "sludgeCbm", "SludgeCbm", "sludge_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.SludgeCbm = GetDbl("sludgeCbm", "SludgeCbm", "sludge_cbm");
+        if (new[] { "bilgeWaterCbm", "BilgeWaterCbm", "bilge_water_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.BilgeWaterCbm = GetDbl("bilgeWaterCbm", "BilgeWaterCbm", "bilge_water_cbm");
+        if (new[] { "sewageCbm", "SewageCbm", "sewage_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.SewageCbm = GetDbl("sewageCbm", "SewageCbm", "sewage_cbm");
+        if (new[] { "freshWaterCbm", "FreshWaterCbm", "fresh_water_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.FreshWaterCbm = GetDbl("freshWaterCbm", "FreshWaterCbm", "fresh_water_cbm");
+        if (new[] { "ballastWaterCbm", "BallastWaterCbm", "ballast_water_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.BallastWaterCbm = GetDbl("ballastWaterCbm", "BallastWaterCbm", "ballast_water_cbm");
+        if (new[] { "noOfBallastTanks", "NoOfBallastTanks", "no_of_ballast_tanks" }.Any(k => root.TryGetProperty(k, out _))) vessel.NoOfBallastTanks = GetInt("noOfBallastTanks", "NoOfBallastTanks", "no_of_ballast_tanks");
+        if (new[] { "teuTotal", "TeuTotal", "teu_total" }.Any(k => root.TryGetProperty(k, out _))) vessel.TeuTotal = GetInt("teuTotal", "TeuTotal", "teu_total");
+        if (new[] { "teuOnDeck", "TeuOnDeck", "teu_on_deck" }.Any(k => root.TryGetProperty(k, out _))) vessel.TeuOnDeck = GetInt("teuOnDeck", "TeuOnDeck", "teu_on_deck");
+        if (new[] { "teuUnderDeck", "TeuUnderDeck", "teu_under_deck" }.Any(k => root.TryGetProperty(k, out _))) vessel.TeuUnderDeck = GetInt("teuUnderDeck", "TeuUnderDeck", "teu_under_deck");
+        if (new[] { "grainCbm", "GrainCbm", "grain_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.GrainCbm = GetDbl("grainCbm", "GrainCbm", "grain_cbm");
+        if (new[] { "balesCbm", "BalesCbm", "bales_cbm" }.Any(k => root.TryGetProperty(k, out _))) vessel.BalesCbm = GetDbl("balesCbm", "BalesCbm", "bales_cbm");
+        if (new[] { "noOfCargoHolds", "NoOfCargoHolds", "no_of_cargo_holds" }.Any(k => root.TryGetProperty(k, out _))) vessel.NoOfCargoHolds = GetInt("noOfCargoHolds", "NoOfCargoHolds", "no_of_cargo_holds");
+        if (new[] { "noOfHatches", "NoOfHatches", "no_of_hatches" }.Any(k => root.TryGetProperty(k, out _))) vessel.NoOfHatches = GetInt("noOfHatches", "NoOfHatches", "no_of_hatches");
 
         // ══════════════════════════════════════════════════════════════════
         // CLASS / FLAG STATE - Technical data (Edge Master) - Always update
         // ══════════════════════════════════════════════════════════════════
         
-        vessel.ClassSocietyName = GetStr("classSocietyName", "ClassSocietyName", "class_society_name");
-        vessel.ClassSocietyStreet = GetStr("classSocietyStreet", "ClassSocietyStreet", "class_society_street");
-        vessel.ClassSocietyCountry = GetStr("classSocietyCountry", "ClassSocietyCountry", "class_society_country");
-        vessel.ClassSocietyZip = GetStr("classSocietyZip", "ClassSocietyZip", "class_society_zip");
-        vessel.ClassSocietyCity = GetStr("classSocietyCity", "ClassSocietyCity", "class_society_city");
-        vessel.ClassSocietyPhone = GetStr("classSocietyPhone", "ClassSocietyPhone", "class_society_phone");
-        vessel.ClassSocietyFax = GetStr("classSocietyFax", "ClassSocietyFax", "class_society_fax");
-        vessel.ClassSocietyTlx = GetStr("classSocietyTlx", "ClassSocietyTlx", "class_society_tlx");
-        vessel.ClassSocietyEmail = GetStr("classSocietyEmail", "ClassSocietyEmail", "class_society_email");
-        vessel.ClassSocietyContactPerson = GetStr("classSocietyContactPerson", "ClassSocietyContactPerson");
+        if (new[] { "classSocietyName", "ClassSocietyName", "class_society_name" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyName = GetStr("classSocietyName", "ClassSocietyName", "class_society_name");
+        if (new[] { "classSocietyStreet", "ClassSocietyStreet", "class_society_street" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyStreet = GetStr("classSocietyStreet", "ClassSocietyStreet", "class_society_street");
+        if (new[] { "classSocietyCountry", "ClassSocietyCountry", "class_society_country" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyCountry = GetStr("classSocietyCountry", "ClassSocietyCountry", "class_society_country");
+        if (new[] { "classSocietyZip", "ClassSocietyZip", "class_society_zip" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyZip = GetStr("classSocietyZip", "ClassSocietyZip", "class_society_zip");
+        if (new[] { "classSocietyCity", "ClassSocietyCity", "class_society_city" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyCity = GetStr("classSocietyCity", "ClassSocietyCity", "class_society_city");
+        if (new[] { "classSocietyPhone", "ClassSocietyPhone", "class_society_phone" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyPhone = GetStr("classSocietyPhone", "ClassSocietyPhone", "class_society_phone");
+        if (new[] { "classSocietyFax", "ClassSocietyFax", "class_society_fax" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyFax = GetStr("classSocietyFax", "ClassSocietyFax", "class_society_fax");
+        if (new[] { "classSocietyTlx", "ClassSocietyTlx", "class_society_tlx" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyTlx = GetStr("classSocietyTlx", "ClassSocietyTlx", "class_society_tlx");
+        if (new[] { "classSocietyEmail", "ClassSocietyEmail", "class_society_email" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyEmail = GetStr("classSocietyEmail", "ClassSocietyEmail", "class_society_email");
+        if (new[] { "classSocietyContactPerson", "ClassSocietyContactPerson" }.Any(k => root.TryGetProperty(k, out _))) vessel.ClassSocietyContactPerson = GetStr("classSocietyContactPerson", "ClassSocietyContactPerson");
         
-        vessel.FlagStateName = GetStr("flagStateName", "FlagStateName", "flag_state_name");
-        vessel.FlagStateStreet = GetStr("flagStateStreet", "FlagStateStreet", "flag_state_street");
-        vessel.FlagStateCountry = GetStr("flagStateCountry", "FlagStateCountry", "flag_state_country");
-        vessel.FlagStateZip = GetStr("flagStateZip", "FlagStateZip", "flag_state_zip");
-        vessel.FlagStateCity = GetStr("flagStateCity", "FlagStateCity", "flag_state_city");
-        vessel.FlagStatePhone = GetStr("flagStatePhone", "FlagStatePhone", "flag_state_phone");
-        vessel.FlagStateFax = GetStr("flagStateFax", "FlagStateFax", "flag_state_fax");
-        vessel.FlagStateTlx = GetStr("flagStateTlx", "FlagStateTlx", "flag_state_tlx");
-        vessel.FlagStateEmail = GetStr("flagStateEmail", "FlagStateEmail", "flag_state_email");
-        vessel.FlagStateContactPerson = GetStr("flagStateContactPerson", "FlagStateContactPerson", "flag_state_contact_person");
+        if (new[] { "flagStateName", "FlagStateName", "flag_state_name" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateName = GetStr("flagStateName", "FlagStateName", "flag_state_name");
+        if (new[] { "flagStateStreet", "FlagStateStreet", "flag_state_street" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateStreet = GetStr("flagStateStreet", "FlagStateStreet", "flag_state_street");
+        if (new[] { "flagStateCountry", "FlagStateCountry", "flag_state_country" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateCountry = GetStr("flagStateCountry", "FlagStateCountry", "flag_state_country");
+        if (new[] { "flagStateZip", "FlagStateZip", "flag_state_zip" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateZip = GetStr("flagStateZip", "FlagStateZip", "flag_state_zip");
+        if (new[] { "flagStateCity", "FlagStateCity", "flag_state_city" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateCity = GetStr("flagStateCity", "FlagStateCity", "flag_state_city");
+        if (new[] { "flagStatePhone", "FlagStatePhone", "flag_state_phone" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStatePhone = GetStr("flagStatePhone", "FlagStatePhone", "flag_state_phone");
+        if (new[] { "flagStateFax", "FlagStateFax", "flag_state_fax" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateFax = GetStr("flagStateFax", "FlagStateFax", "flag_state_fax");
+        if (new[] { "flagStateTlx", "FlagStateTlx", "flag_state_tlx" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateTlx = GetStr("flagStateTlx", "FlagStateTlx", "flag_state_tlx");
+        if (new[] { "flagStateEmail", "FlagStateEmail", "flag_state_email" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateEmail = GetStr("flagStateEmail", "FlagStateEmail", "flag_state_email");
+        if (new[] { "flagStateContactPerson", "FlagStateContactPerson", "flag_state_contact_person" }.Any(k => root.TryGetProperty(k, out _))) vessel.FlagStateContactPerson = GetStr("flagStateContactPerson", "FlagStateContactPerson", "flag_state_contact_person");
 
         // ══════════════════════════════════════════════════════════════════
         // COMMERCIAL DATA (Shipowner, Charterer, Insurance)
@@ -3837,7 +3998,8 @@ public class SyncInboxService : ISyncInboxService
             
             if (positionData != null && !string.IsNullOrWhiteSpace(positionData.OriginNode))
             {
-                var vessel = await _context.Vessels.FirstOrDefaultAsync(v => v.IMO == positionData.OriginNode);
+                var vesselId = await VesselSyncIdentity.ResolveVesselIdAsync(_context, positionData.OriginNode);
+                var vessel = await _context.Vessels.FirstOrDefaultAsync(v => v.Id == vesselId);
                 if (vessel != null)
                 {
                     var vesselPos = new ProductApi.Models.VesselPosition

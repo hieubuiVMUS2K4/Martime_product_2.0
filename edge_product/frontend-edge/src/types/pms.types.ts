@@ -1,6 +1,12 @@
 // PMS Types for Equipment Asset Management
 
 export interface EquipmentAsset {
+  picCrewName?: string;
+  isSynced: boolean;
+  createdAt: string;
+  updatedAt: string;
+  originNode: string;
+  picCrewId?: string;
   id: string;
   assetCode: string;
   assetName: string;
@@ -27,6 +33,7 @@ export interface EquipmentAsset {
 }
 
 export interface CreateEquipmentAssetDto {
+  picCrewId?: string;
   assetCode: string;
   assetName: string;
   category: string;
@@ -46,6 +53,9 @@ export interface CreateEquipmentAssetDto {
 }
 
 export interface MaintenanceSchedule {
+  workCode?: string;
+  intervalMonths?: number;
+  intervalYears?: number;
   id: string;
   scheduleCode: string;
   equipmentGroupId?: string;
@@ -58,7 +68,7 @@ export interface MaintenanceSchedule {
   taskTypeId: number;
   taskTypeName?: string;
   scheduleName: string;
-  maintenanceCategory?: 'PERIODIC' | 'AD_HOC';
+  maintenanceCategory?: 'PERIODIC' | 'AD_HOC' | 'DRY_DOCK' | 'ON_DEMAND' | 'VOYAGE' | 'CORRECTIVE';
   intervalType: 'CALENDAR' | 'RUNNING_HOURS' | 'HYBRID';
   intervalHours?: number;
   intervalDays?: number;
@@ -88,12 +98,17 @@ export interface ScheduleSparePart {
 }
 
 export interface CreateMaintenanceScheduleDto {
+  workCode?: string;
+  intervalMonths?: number;
+  intervalYears?: number;
+  lastExecutedAt?: string;
+  lastExecutedRunningHours?: number;
   scheduleCode: string;
   equipmentGroupId?: string;
   equipmentAssetId?: string;
   taskTypeId: number;
   scheduleName: string;
-  maintenanceCategory?: 'PERIODIC' | 'AD_HOC';
+  maintenanceCategory?: 'PERIODIC' | 'AD_HOC' | 'DRY_DOCK' | 'ON_DEMAND' | 'VOYAGE' | 'CORRECTIVE';
   intervalType: 'CALENDAR' | 'RUNNING_HOURS' | 'HYBRID';
   intervalHours?: number;
   intervalDays?: number;

@@ -42,6 +42,7 @@ public class EquipmentAssetController : ControllerBase
                 ? await _assetRepository.GetAllAsync()
                 : await _assetRepository.GetByCategoryAsync(category);
 
+            await LoadGroups(assets);
             var dtos = assets.Select(MapToDto).ToList();
             return Ok(dtos);
         }
@@ -64,6 +65,7 @@ public class EquipmentAssetController : ControllerBase
             if (asset == null)
                 return NotFound(new { error = "Equipment asset not found" });
 
+            await LoadGroups(new[] { asset });
             return Ok(MapToDto(asset));
         }
         catch (Exception ex)
@@ -82,6 +84,7 @@ public class EquipmentAssetController : ControllerBase
         try
         {
             var assets = await _assetRepository.GetByGroupIdAsync(groupId);
+            await LoadGroups(assets);
             var dtos = assets.Select(MapToDto).ToList();
             return Ok(dtos);
         }
@@ -103,6 +106,23 @@ public class EquipmentAssetController : ControllerBase
             // Check if asset code already exists
             if (await _assetRepository.AssetCodeExistsAsync(dto.AssetCode))
                 return BadRequest(new { error = $"Asset code '{dto.AssetCode}' already exists" });
+            if (dto.ParentId.HasValue && !await _context.EquipmentAssets.AnyAsync(a => a.Id == dto.ParentId && a.IsActive))
+                return BadRequest(new { error = "Nhóm / thiết bị cha không tồn tại hoặc đã ngừng hoạt động." });
+
+            if (dto.Category == "SYSTEM")
+            {
+                var error = await ValidateGroupPic(dto.PicCrewId);
+                if (error != null) return BadRequest(new { error });
+                if (await _context.EquipmentGroups.AnyAsync(g => g.GroupCode == dto.AssetCode))
+                    return BadRequest(new { error = "Mã nhóm thiết bị đã tồn tại." });
+                var group = new EquipmentGroup { GroupCode = dto.AssetCode, GroupName = dto.AssetName, PicCrewId = dto.PicCrewId };
+                _context.EquipmentGroups.Add(group);
+                dto.EquipmentGroupId = group.Id;
+            }
+            else if (dto.ParentId.HasValue && !dto.EquipmentGroupId.HasValue)
+            {
+                dto.EquipmentGroupId = await FindParentGroup(dto.ParentId);
+            }
 
             var asset = new EquipmentAsset
             {
@@ -124,6 +144,7 @@ public class EquipmentAssetController : ControllerBase
             };
 
             var created = await _assetRepository.CreateAsync(asset);
+            await LoadGroups(new[] { created });
             _logger.LogInformation("Created equipment asset {AssetCode}", created.AssetCode);
 
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, MapToDto(created));
@@ -148,6 +169,40 @@ public class EquipmentAssetController : ControllerBase
                 return NotFound(new { error = "Equipment asset not found" });
 
             // Update required fields
+            if (asset.Category == "SYSTEM")
+            {
+                var error = await ValidateGroupPic(dto.PicCrewId);
+                if (error != null) return BadRequest(new { error });
+                var group = asset.EquipmentGroupId.HasValue
+                    ? await _context.EquipmentGroups.FindAsync(asset.EquipmentGroupId.Value)
+                    : await _context.EquipmentGroups.FirstOrDefaultAsync(g => g.GroupCode == asset.AssetCode);
+                if (group == null)
+                {
+                    group = new EquipmentGroup { GroupCode = asset.AssetCode, GroupName = dto.AssetName };
+                    _context.EquipmentGroups.Add(group);
+                }
+                group.GroupName = dto.AssetName;
+                group.PicCrewId = dto.PicCrewId;
+                group.IsSynced = false;
+                group.UpdatedAt = DateTime.UtcNow;
+                asset.EquipmentGroupId = group.Id;
+                // Existing descendants inherit the group unless they already belong to another group.
+                var descendants = await _context.EquipmentAssets.Where(a => a.IsActive).ToListAsync();
+                var pending = new Queue<Guid>();
+                var visited = new HashSet<Guid>();
+                pending.Enqueue(asset.Id);
+                while (pending.TryDequeue(out var parent))
+                {
+                    if (!visited.Add(parent)) continue;
+                    foreach (var child in descendants.Where(a => a.ParentId == parent))
+                    {
+                        if (child.Category == "SYSTEM" && child.EquipmentGroupId.HasValue) continue;
+                        if (child.Category != "SYSTEM" && !child.EquipmentGroupId.HasValue)
+                            child.EquipmentGroupId = group.Id;
+                        pending.Enqueue(child.Id);
+                    }
+                }
+            }
             asset.AssetName = dto.AssetName;
             asset.Criticality = dto.Criticality;
             asset.Status = dto.Status;
@@ -157,7 +212,7 @@ public class EquipmentAssetController : ControllerBase
             if (dto.Manufacturer != null) asset.Manufacturer = dto.Manufacturer;
             if (dto.Model != null) asset.Model = dto.Model;
             if (dto.SerialNumber != null) asset.SerialNumber = dto.SerialNumber;
-            if (dto.EquipmentGroupId.HasValue) asset.EquipmentGroupId = dto.EquipmentGroupId;
+            if (asset.Category != "SYSTEM" && dto.EquipmentGroupId.HasValue) asset.EquipmentGroupId = dto.EquipmentGroupId;
             if (dto.Location != null) asset.Location = dto.Location;
             if (dto.TechnicalSpecs != null) asset.TechnicalSpecs = dto.TechnicalSpecs;
             if (dto.Notes != null) asset.Notes = dto.Notes;
@@ -170,6 +225,7 @@ public class EquipmentAssetController : ControllerBase
             }
 
             var updated = await _assetRepository.UpdateAsync(asset);
+            await LoadGroups(new[] { updated });
             _logger.LogInformation("Updated equipment asset {AssetCode}", updated.AssetCode);
 
             return Ok(MapToDto(updated));
@@ -189,6 +245,9 @@ public class EquipmentAssetController : ControllerBase
     {
         try
         {
+            if (await _context.EquipmentAssets.AnyAsync(a => a.ParentId == id && a.IsActive))
+                return Conflict(new { error = "Không thể xóa khi còn thiết bị hoặc nhóm con. Hãy chuyển các mục con sang nhóm khác hoặc xóa chúng trước." });
+
             var result = await _assetRepository.DeleteAsync(id);
             if (!result)
                 return NotFound(new { error = "Equipment asset not found" });
@@ -528,11 +587,46 @@ public class EquipmentAssetController : ControllerBase
             schedules.Count, assetId, avgHoursPerDay, previousRH, currentRH);
     }
 
-    private static EquipmentAssetDto MapToDto(EquipmentAsset asset)
+    private async Task<string?> ValidateGroupPic(string? crewId)
+    {
+        if (string.IsNullOrWhiteSpace(crewId)) return "Vui lòng chọn người phụ trách nhóm thiết bị.";
+        return await _context.CrewMembers.AnyAsync(c => c.CrewId == crewId && c.IsOnboard)
+            ? null : "Người phụ trách phải là thuyền viên đang trên tàu.";
+    }
+
+    private async Task<Guid?> FindParentGroup(Guid? parentId)
+    {
+        var visited = new HashSet<Guid>();
+        while (parentId.HasValue && visited.Add(parentId.Value))
+        {
+            var parent = await _context.EquipmentAssets.FindAsync(parentId.Value);
+            if (parent == null) break;
+            if (parent.EquipmentGroupId.HasValue) return parent.EquipmentGroupId;
+            parentId = parent.ParentId;
+        }
+        return null;
+    }
+
+    private async Task LoadGroups(IEnumerable<EquipmentAsset> assets)
+    {
+        var ids = assets.Where(a => a.EquipmentGroupId.HasValue).Select(a => a.EquipmentGroupId!.Value).Distinct().ToList();
+        await _context.EquipmentGroups.Where(g => ids.Contains(g.Id)).LoadAsync();
+        var crewIds = _context.EquipmentGroups.Local.Where(g => ids.Contains(g.Id) && g.PicCrewId != null)
+            .Select(g => g.PicCrewId!).Distinct().ToList();
+        await _context.CrewMembers.Where(c => crewIds.Contains(c.CrewId)).LoadAsync();
+    }
+
+    private EquipmentAssetDto MapToDto(EquipmentAsset asset)
     {
         return new EquipmentAssetDto
         {
             Id = asset.Id,
+            DefaultExecutorRole = asset.DefaultExecutorRole,
+            ApproverRole = asset.ApproverRole,
+            IsSynced = asset.IsSynced,
+            CreatedAt = asset.CreatedAt,
+            UpdatedAt = asset.UpdatedAt,
+            OriginNode = asset.OriginNode,
             AssetCode = asset.AssetCode,
             AssetName = asset.AssetName,
             Category = asset.Category,
@@ -543,6 +637,9 @@ public class EquipmentAssetController : ControllerBase
             CurrentRunningHours = asset.CurrentRunningHours,
             LastRunningHoursUpdate = asset.LastRunningHoursUpdate,
             EquipmentGroupId = asset.EquipmentGroupId,
+            PicCrewId = _context.EquipmentGroups.Local.FirstOrDefault(g => g.Id == asset.EquipmentGroupId)?.PicCrewId,
+            PicCrewName = _context.CrewMembers.Local.FirstOrDefault(c => c.CrewId ==
+                _context.EquipmentGroups.Local.FirstOrDefault(g => g.Id == asset.EquipmentGroupId)?.PicCrewId)?.FullName,
             ParentId = asset.ParentId,
             Location = asset.Location,
             Criticality = asset.Criticality,
@@ -561,12 +658,47 @@ public class EquipmentAssetController : ControllerBase
     {
         try
         {
-            var assets = await _context.EquipmentAssets
-                .Where(a => a.IsActive)
-                .OrderBy(a => a.AssetCode)
-                .ToListAsync();
+            var assets = await (
+                from asset in _context.EquipmentAssets.AsNoTracking()
+                where asset.IsActive
+                join equipmentGroup in _context.EquipmentGroups.AsNoTracking()
+                    on asset.EquipmentGroupId equals (Guid?)equipmentGroup.Id into groups
+                from equipmentGroup in groups.DefaultIfEmpty()
+                join crew in _context.CrewMembers.AsNoTracking()
+                    on equipmentGroup.PicCrewId equals crew.CrewId into crews
+                from crew in crews.DefaultIfEmpty()
+                orderby asset.AssetCode
+                select new EquipmentAssetDto
+                {
+                    Id = asset.Id,
+                    AssetCode = asset.AssetCode,
+                    AssetName = asset.AssetName,
+                    Category = asset.Category,
+                    Manufacturer = asset.Manufacturer,
+                    Model = asset.Model,
+                    SerialNumber = asset.SerialNumber,
+                    InstallationDate = asset.InstallationDate,
+                    CurrentRunningHours = asset.CurrentRunningHours,
+                    LastRunningHoursUpdate = asset.LastRunningHoursUpdate,
+                    EquipmentGroupId = asset.EquipmentGroupId,
+                    PicCrewId = equipmentGroup == null ? null : equipmentGroup.PicCrewId,
+                    PicCrewName = crew == null ? null : crew.FullName,
+                    ParentId = asset.ParentId,
+                    Location = asset.Location,
+                    Criticality = asset.Criticality,
+                    Status = asset.Status,
+                    TechnicalSpecs = asset.TechnicalSpecs,
+                    Notes = asset.Notes,
+                    IsActive = asset.IsActive,
+                    DefaultExecutorRole = asset.DefaultExecutorRole,
+                    ApproverRole = asset.ApproverRole,
+                    IsSynced = asset.IsSynced,
+                    CreatedAt = asset.CreatedAt,
+                    UpdatedAt = asset.UpdatedAt,
+                    OriginNode = asset.OriginNode
+                }).ToListAsync();
 
-            return Ok(assets.Select(MapToDto).ToList());
+            return Ok(assets);
         }
         catch (Exception ex)
         {

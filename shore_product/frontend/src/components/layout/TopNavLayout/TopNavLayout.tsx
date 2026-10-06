@@ -34,7 +34,6 @@ const navItems: NavItemDef[] = [
         items: [
           { path: '/categories?tab=crew', label: 'Thuyền viên' },
           { path: '/categories?tab=certificate-types', label: 'Loại chứng chỉ' },
-          { path: '/categories?tab=materials', label: 'Vật tư' },
           { path: '/categories?tab=ranks', label: 'Chức danh' },
           { path: '/categories?tab=countries', label: 'Quốc gia' },
           { path: '/categories?tab=ports', label: 'Cảng' },
@@ -59,7 +58,7 @@ const navItems: NavItemDef[] = [
   //     },
   //     {
   //       title: 'ĐIỀU PHỐI',
-  //       items: [   
+  //       items: [
   //         { path: '/assignments', label: 'Phân công' },
   //         { path: '/external-requests', label: 'Tuyển ngoài' },
   //         { path: '/travel', label: 'Di chuyển' },
@@ -462,4 +461,3 @@ export const TopNavLayout: React.FC = () => {
     </div>
   );
 };
-

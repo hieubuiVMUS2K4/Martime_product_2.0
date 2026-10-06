@@ -56,6 +56,10 @@ namespace productapi.Migrations
                     b.Property<bool>("IsMandatory")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("IssuingAuthority")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -735,6 +739,10 @@ namespace productapi.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Level")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("RankCode")
                         .IsRequired()
@@ -3849,6 +3857,63 @@ namespace productapi.Migrations
                     b.ToTable("EngineEvents");
                 });
 
+            modelBuilder.Entity("ProductApi.Models.EnvironmentalData", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("AirTemperature")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("BarometricPressure")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("Humidity")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<double?>("SeaTemperature")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("Visibility")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WaveHeight")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WindDirection")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WindSpeed")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VesselId", "Timestamp");
+
+                    b.ToTable("environmental_data", (string)null);
+                });
+
             modelBuilder.Entity("ProductApi.Models.EquipmentAsset", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4194,10 +4259,17 @@ namespace productapi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("StoreLocationId");
+
                     b.HasIndex("MaterialItemId", "StoreLocationId")
                         .IsUnique();
 
-                    b.ToTable("inventory_stocks", (string)null);
+                    b.ToTable("inventory_stocks", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_inventory_quantity_nonnegative", "\"Quantity\" >= 0");
+
+                            t.HasCheckConstraint("ck_inventory_unit_cost_nonnegative", "\"UnitCost\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("ProductApi.Models.IsmElement", b =>
@@ -4320,10 +4392,16 @@ namespace productapi.Migrations
                     b.Property<int?>("IntervalHours")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("IntervalMonths")
+                        .HasColumnType("integer");
+
                     b.Property<string>("IntervalType")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("IntervalYears")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -4368,6 +4446,10 @@ namespace productapi.Migrations
 
                     b.Property<Guid?>("VesselId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("WorkCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
 
@@ -4778,6 +4860,8 @@ namespace productapi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EquipmentAssetId");
+
                     b.HasIndex("MaterialItemId", "EquipmentAssetId")
                         .IsUnique();
 
@@ -4999,6 +5083,124 @@ namespace productapi.Migrations
                     b.HasIndex("RequestId");
 
                     b.ToTable("material_request_items", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.NavigationData", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<double?>("Depth")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("HeadingMagnetic")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("HeadingTrue")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<double?>("Pitch")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("RateOfTurn")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Roll")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("SpeedThroughWater")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("WindDirectionRelative")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WindDirectionTrue")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WindSpeedRelative")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("WindSpeedTrue")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VesselId", "Timestamp");
+
+                    b.ToTable("navigation_data", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.NmeaRawData", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<bool>("ChecksumValid")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceSource")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RawSentence")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("SentenceType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VesselId", "Timestamp");
+
+                    b.ToTable("nmea_raw_data", (string)null);
                 });
 
             modelBuilder.Entity("ProductApi.Models.NoonReport", b =>
@@ -5561,81 +5763,6 @@ namespace productapi.Migrations
                         .IsUnique();
 
                     b.ToTable("report_types", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Category = "VOYAGE",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Frequency = "DAILY",
-                            IsActive = true,
-                            IsMandatory = true,
-                            RegulationReference = "SOLAS V/28",
-                            RequiresMasterSignature = true,
-                            TypeCode = "NOON",
-                            TypeName = "Noon Report"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Category = "VOYAGE",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Frequency = "EVENT_BASED",
-                            IsActive = true,
-                            IsMandatory = true,
-                            RequiresMasterSignature = true,
-                            TypeCode = "DEPARTURE",
-                            TypeName = "Departure Report"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Category = "VOYAGE",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Frequency = "EVENT_BASED",
-                            IsActive = true,
-                            IsMandatory = true,
-                            RequiresMasterSignature = true,
-                            TypeCode = "ARRIVAL",
-                            TypeName = "Arrival Report"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Category = "VOYAGE",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Frequency = "DAILY",
-                            IsActive = true,
-                            IsMandatory = false,
-                            RequiresMasterSignature = false,
-                            TypeCode = "DAILY",
-                            TypeName = "Daily Report"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Category = "VOYAGE",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Frequency = "EVENT_BASED",
-                            IsActive = true,
-                            IsMandatory = false,
-                            RequiresMasterSignature = false,
-                            TypeCode = "BUNKER",
-                            TypeName = "Bunker Report"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Category = "VOYAGE",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Frequency = "EVENT_BASED",
-                            IsActive = true,
-                            IsMandatory = false,
-                            RequiresMasterSignature = false,
-                            TypeCode = "POSITION",
-                            TypeName = "Position Report"
-                        });
                 });
 
             modelBuilder.Entity("ProductApi.Models.SafetyAlarm", b =>
@@ -6219,6 +6346,8 @@ namespace productapi.Migrations
 
                     b.HasIndex("ReceiptId");
 
+                    b.HasIndex("StoreLocationId");
+
                     b.ToTable("stock_receipt_items", (string)null);
                 });
 
@@ -6624,6 +6753,75 @@ namespace productapi.Migrations
                     b.ToTable("sync_nonce_registry", (string)null);
                 });
 
+            modelBuilder.Entity("ProductApi.Models.SyncOutboxDelivery", b =>
+                {
+                    b.Property<long>("OutboxId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("NodeId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("OutboxId", "NodeId");
+
+                    b.ToTable("sync_outbox_deliveries", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.SyncRecordCursor", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("sync_record_cursors", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.SyncRecordIdentity", b =>
+                {
+                    b.Property<string>("OriginNode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TableName")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("LocalKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ShoreKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("OriginNode", "TableName", "LocalKey");
+
+                    b.ToTable("sync_record_identities", (string)null);
+                });
+
+            modelBuilder.Entity("ProductApi.Models.SyncStreamState", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("Epoch")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("sync_stream_state", (string)null);
+                });
+
             modelBuilder.Entity("ProductApi.Models.SyncTableStats", b =>
                 {
                     b.Property<int>("Id")
@@ -6706,6 +6904,105 @@ namespace productapi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("TankLevels");
+                });
+
+            modelBuilder.Entity("ProductApi.Models.TaskDeferralRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Attachments")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ClassPermissionLetter")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CurrentDueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DeferralDays")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsCmsItem")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOverdueDeferral")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PreventiveMeasures")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("ProposedDueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReviewedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RootCause")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TaskStatusAtRequest")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("VesselId", "Status", "RequestedAt");
+
+                    b.ToTable("task_deferral_request", (string)null);
                 });
 
             modelBuilder.Entity("ProductApi.Models.User", b =>
@@ -10220,6 +10517,15 @@ namespace productapi.Migrations
                     b.Navigation("Voyage");
                 });
 
+            modelBuilder.Entity("ProductApi.Models.EnvironmentalData", b =>
+                {
+                    b.HasOne("ProductApi.Models.Vessel", null)
+                        .WithMany()
+                        .HasForeignKey("VesselId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ProductApi.Models.EquipmentAsset", b =>
                 {
                     b.HasOne("ProductApi.Models.EquipmentAsset", "Parent")
@@ -10260,8 +10566,29 @@ namespace productapi.Migrations
                     b.Navigation("Vessel");
                 });
 
+            modelBuilder.Entity("ProductApi.Models.InventoryStock", b =>
+                {
+                    b.HasOne("ProductApi.Models.MaterialItemShip", null)
+                        .WithMany()
+                        .HasForeignKey("MaterialItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProductApi.Models.StoreLocation", null)
+                        .WithMany()
+                        .HasForeignKey("StoreLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ProductApi.Models.MaterialItemEquipment", b =>
                 {
+                    b.HasOne("ProductApi.Models.EquipmentAsset", null)
+                        .WithMany()
+                        .HasForeignKey("EquipmentAssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("ProductApi.Models.MaterialItem", null)
                         .WithMany()
                         .HasForeignKey("MaterialItemId")
@@ -10295,6 +10622,24 @@ namespace productapi.Migrations
                         .IsRequired();
 
                     b.Navigation("Request");
+                });
+
+            modelBuilder.Entity("ProductApi.Models.NavigationData", b =>
+                {
+                    b.HasOne("ProductApi.Models.Vessel", null)
+                        .WithMany()
+                        .HasForeignKey("VesselId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ProductApi.Models.NmeaRawData", b =>
+                {
+                    b.HasOne("ProductApi.Models.Vessel", null)
+                        .WithMany()
+                        .HasForeignKey("VesselId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ProductApi.Models.PortCall", b =>
@@ -10429,6 +10774,11 @@ namespace productapi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ProductApi.Models.StoreLocation", null)
+                        .WithMany()
+                        .HasForeignKey("StoreLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Receipt");
                 });
 
@@ -10440,6 +10790,23 @@ namespace productapi.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("ProductApi.Models.TaskDeferralRequest", b =>
+                {
+                    b.HasOne("ProductApi.Models.MaintenanceTask", "Task")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProductApi.Models.Vessel", null)
+                        .WithMany()
+                        .HasForeignKey("VesselId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("ProductApi.Models.VesselAlert", b =>

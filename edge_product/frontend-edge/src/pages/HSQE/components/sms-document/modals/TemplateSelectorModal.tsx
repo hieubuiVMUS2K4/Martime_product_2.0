@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import type React from 'react';
 import { X, Database, Search, RefreshCw } from 'lucide-react';
 
@@ -127,14 +128,14 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
             >
               Hủy
             </button>
-            <button
+            <PermissionGate permission="hsqe.update"><button
               onClick={handleAssignTemplates}
               disabled={assigningTemplates}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
             >
               {assigningTemplates && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
               Gán {selectedAssignIds.length} biểu mẫu
-            </button>
+            </button></PermissionGate>
           </div>
 
         </div>

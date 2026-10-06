@@ -6,10 +6,12 @@ import { useConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { CertificateFormModal } from './CertificateFormModal';
 import type { CertificateType } from '../../../types/crew.types';
 import '../Crew/CrewListPage.css';
+import './CertificateCatalogTab.css';
 
 /* ───────── constants ───────── */
 const CATEGORY_OPTIONS = [
   { value: '', label: 'Tất cả' },
+  { value: 'DOCUMENT', label: 'Giấy tờ' },
   { value: 'COMPETENCY', label: 'Năng lực' },
   { value: 'MEDICAL', label: 'Y tế' },
   { value: 'PROFICIENCY', label: 'Thành thạo' },
@@ -17,9 +19,11 @@ const CATEGORY_OPTIONS = [
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
+  DOCUMENT: 'Giấy tờ',
   COMPETENCY: 'Năng lực', MEDICAL: 'Y tế', PROFICIENCY: 'Thành thạo', SAFETY: 'An toàn',
 };
 const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
+  DOCUMENT: { bg: '#e0e7ff', color: '#3730a3' },
   COMPETENCY: { bg: '#dce9f8', color: '#1b4c7e' },
   MEDICAL:    { bg: '#d1fae5', color: '#065f46' },
   PROFICIENCY:{ bg: '#fef3c7', color: '#92400e' },
@@ -122,6 +126,7 @@ export const CertificateCatalogTab: React.FC = () => {
     category?: string;
     validityPeriodMonths?: number;
     description?: string;
+    issuingAuthority?: string;
     isMandatory: boolean;
     countryIds: number[];
     rankIds: number[];
@@ -184,26 +189,33 @@ export const CertificateCatalogTab: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="cl-table-card">
-        <table className="cl-table">
+      <div className="cl-table-card certificate-catalog-card">
+        <table className="cl-table certificate-catalog-table">
+          <colgroup>
+            <col style={{ width: '12%' }} /><col style={{ width: '29%' }} />
+            <col style={{ width: '18%' }} /><col style={{ width: '11%' }} />
+            <col style={{ width: '9%' }} /><col style={{ width: '10%' }} />
+            <col style={{ width: '11%' }} />
+          </colgroup>
           <thead>
             <tr className="cl-tr-labels">
-              <th style={{ width: '16%' }}>Mã chứng chỉ</th>
-              <th style={{ width: '34%' }}>Tên chứng chỉ</th>
-              <th style={{ width: '13%' }}>Phân loại</th>
-              <th style={{ width: '11%', textAlign: 'center' }}>Thời hạn</th>
-              <th style={{ width: '13%', textAlign: 'center' }}>Bắt buộc</th>
-              <th style={{ width: '13%', textAlign: 'center', borderRight: 'none' }}>Trạng thái</th>
+              <th>Mã chứng chỉ</th>
+              <th>Tên chứng chỉ</th>
+              <th>Cấp bởi</th>
+              <th>Phân loại</th>
+              <th style={{ textAlign: 'center' }}>Thời hạn (tháng)</th>
+              <th style={{ textAlign: 'center' }}>Bắt buộc</th>
+              <th style={{ textAlign: 'center', borderRight: 'none' }}>Trạng thái</th>
             </tr>
             <tr className="cl-tr-filters">
               <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm mã" value={searchCode} onChange={e => { setSearchCode(e.target.value); setPage(1); }} /></div></th>
               <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm tên" value={searchName} onChange={e => { setSearchName(e.target.value); setPage(1); }} /></div></th>
-              <th></th><th></th><th></th><th style={{ borderRight: 'none' }}></th>
+              <th></th><th></th><th></th><th></th><th style={{ borderRight: 'none' }}></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="cl-empty">
+              <tr><td colSpan={7} className="cl-empty">
                 <ShieldCheck size={24} />
                 <p>{certs.length === 0 ? 'Chưa có loại chứng chỉ nào' : 'Không tìm thấy loại chứng chỉ phù hợp'}</p>
               </td></tr>
@@ -216,6 +228,7 @@ export const CertificateCatalogTab: React.FC = () => {
                 >
                   <td ><span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 12 }}>{c.certificateCode}</span></td>
                   <td >{c.certificateName}</td>
+                  <td>{c.issuingAuthority || '—'}</td>
                   <td >
                     {c.category && catStyle ? (
                       <span style={{
@@ -291,4 +304,3 @@ export const CertificateCatalogTab: React.FC = () => {
     </div>
   );
 };
-

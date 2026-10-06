@@ -24,6 +24,9 @@ public class Rank
     [MaxLength(20)]
     public string Department { get; set; } = "DECK";
 
+    [MaxLength(100)]
+    public string? Level { get; set; }
+
     /// <summary>Display sort order (lower = higher rank)</summary>
     public int SortOrder { get; set; } = 0;
 

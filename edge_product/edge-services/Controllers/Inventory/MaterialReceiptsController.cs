@@ -31,6 +31,7 @@ public class MaterialReceiptsController : ControllerBase
     /// <returns>Kết quả preview với thông tin items sẽ được tạo mới/cập nhật</returns>
     /// <response code="200">Preview successful</response>
     /// <response code="400">Invalid data</response>
+    [ShoreManagedCatalog]
     [HttpPost("preview")]
     [ProducesResponseType(typeof(ReceiptPreviewResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -72,6 +73,7 @@ public class MaterialReceiptsController : ControllerBase
     /// <response code="201">Import successful</response>
     /// <response code="400">Invalid data</response>
     /// <response code="500">Server error</response>
+    [ShoreManagedCatalog]
     [HttpPost("import")]
     [ProducesResponseType(typeof(MaterialReceiptResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

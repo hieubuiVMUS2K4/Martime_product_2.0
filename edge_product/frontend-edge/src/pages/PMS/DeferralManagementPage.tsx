@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Deferral Management Page
  * For reviewing and managing deferral requests
@@ -298,20 +299,20 @@ export default function DeferralManagementPage() {
                 {/* Actions */}
                 {deferral.status === 'PENDING' && (
                   <div className="flex items-center gap-2 ml-4">
-                    <button
+                    <PermissionGate permission="pms.work.approve"><button
                       onClick={() => handleReviewClick(deferral, 'APPROVE')}
                       className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                     >
                       <CheckCircle className="w-4 h-4" />
                       {t('pms.deferral.approve')}
-                    </button>
-                    <button
+                    </button></PermissionGate>
+                    <PermissionGate permission="pms.work.reject"><button
                       onClick={() => handleReviewClick(deferral, 'REJECT')}
                       className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-red-600 text-sm font-medium rounded-md border border-red-300 hover:bg-red-50 transition-colors"
                     >
                       <XCircle className="w-4 h-4" />
                       {t('pms.deferral.reject')}
-                    </button>
+                    </button></PermissionGate>
                   </div>
                 )}
               </div>

@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -131,13 +132,13 @@ export const VoyageLogDetailPage: React.FC = () => {
             Back
           </Link>
           {!entry.masterSignature && (
-            <button
+            <PermissionGate permission="logbooks.voyage.approve"><button
               onClick={() => setShowSignature(true)}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
               <FileSignature className="w-4 h-4" />
               Sign Entry
-            </button>
+            </button></PermissionGate>
           )}
         </div>
       }
@@ -459,7 +460,7 @@ export const VoyageLogDetailPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
+              <PermissionGate permission="logbooks.voyage.approve"><button
                 onClick={() => {
                   if (!masterSignature.trim()) {
                     toast.error("Master signature is required");
@@ -471,7 +472,7 @@ export const VoyageLogDetailPage: React.FC = () => {
                 disabled={signing}
               >
                 ✓ Sign Entry
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

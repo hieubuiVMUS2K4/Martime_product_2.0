@@ -83,7 +83,7 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
 
         await maritimeService.crew.createIdentityDocument(crewMemberId, formData)
       }
-      
+
       // Reset form
       setDocumentType('')
       setDocumentNumber('')
@@ -91,7 +91,7 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
       setExpiryDate('')
       setNotes('')
       setFile(null)
-      
+
       onSuccess()
       onClose()
       toast.success(isEditing ? 'Health document updated successfully!' : 'Health document added successfully!')
@@ -117,7 +117,7 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -226,4 +226,3 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
     </div>
   )
 }
-

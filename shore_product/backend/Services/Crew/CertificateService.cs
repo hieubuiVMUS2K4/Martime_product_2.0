@@ -85,6 +85,7 @@ public class CertificateService : ICertificateService
             Category = request.Category?.ToUpper(),
             ValidityPeriodMonths = request.ValidityPeriodMonths,
             Description = request.Description,
+            IssuingAuthority = request.IssuingAuthority,
             IsMandatory = request.IsMandatory,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
@@ -133,6 +134,7 @@ public class CertificateService : ICertificateService
         cert.Category = request.Category?.ToUpper();
         cert.ValidityPeriodMonths = request.ValidityPeriodMonths;
         cert.Description = request.Description;
+        cert.IssuingAuthority = request.IssuingAuthority;
         cert.IsMandatory = request.IsMandatory;
         cert.UpdatedAt = DateTime.UtcNow;
 
@@ -775,6 +777,7 @@ public class CertificateService : ICertificateService
         Category = cert.Category,
         ValidityPeriodMonths = cert.ValidityPeriodMonths,
         Description = cert.Description,
+        IssuingAuthority = cert.IssuingAuthority,
         IsMandatory = cert.IsMandatory,
         IsActive = cert.IsActive
     };

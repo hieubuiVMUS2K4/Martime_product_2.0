@@ -42,10 +42,12 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
   const isHME = form.category === 'K';
 
   return (
-    <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm mb-6">
-      <h2 className="text-blue-600 font-sans text-xl font-bold mb-6">
+    <div className="bg-white border border-gray-200 rounded overflow-hidden mb-4">
+      <h2 className="px-4 py-3 bg-blue-50 border-b border-blue-100 text-sm text-blue-800 font-semibold">
         {t('logbooks.garbageRecord.newPartII')}
       </h2>
+
+      <div className="p-4">
 
       {/* Date & Time */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -86,10 +88,10 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
                 console.log('Selected category:', cat.code);
                 onCategorySelect(cat.code);
               }}
-              className={`p-4 border-4 transition-all text-left cursor-pointer relative ${
+              className={`p-3 border rounded transition-colors text-left cursor-pointer relative ${
                 form.category === cat.code
-                  ? 'border-blue-600 bg-blue-100 shadow-lg scale-105'
-                  : 'border-gray-200 hover:border-blue-400 hover:shadow-md'
+                  ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                  : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
               }`}
             >
               {form.category === cat.code && (
@@ -123,7 +125,7 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
           ))}
         </div>
         {selectedCategory && (
-          <div className="mt-4 p-3 bg-green-50 border-2 border-green-500 rounded">
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
             <div className="flex items-center gap-2">
               <span className="text-green-600 text-2xl">✓</span>
               <div>
@@ -143,7 +145,7 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
           </p>
         )}
         {isHME && (
-          <div className="mt-3 p-3 bg-red-50 border-2 border-red-500 rounded">
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
             <p className="text-red-700 font-sans font-bold text-sm">
               ⚠ {t('logbooks.garbageRecord.marpolAnnexVWarning')}
             </p>
@@ -152,14 +154,14 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
       </div>
 
       {/* Start & End Positions - MANDATORY */}
-      <div className="mb-6 p-4 border-2 border-purple-500 bg-purple-50 rounded">
-        <h3 className="text-purple-700 font-sans font-bold mb-4">
+      <div className="mb-6 p-4 border border-gray-200 bg-gray-50/50 rounded">
+        <h3 className="text-sm text-gray-700 font-semibold mb-4">
           {t('logbooks.garbageRecord.positionAtStartEnd')}
         </h3>
         <div className="grid grid-cols-1 gap-6">
           {/* Start Position */}
           <div>
-            <h4 className="text-purple-600 font-sans font-semibold mb-3">{t('logbooks.garbageRecord.startPosition')}</h4>
+            <h4 className="text-xs text-gray-600 font-semibold mb-3">{t('logbooks.garbageRecord.startPosition')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <CoordinatePicker
                 label={`${t('voyageLog.form.latitude')} (${t('logbooks.garbageRecord.start')})`}
@@ -178,7 +180,7 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
 
           {/* End Position */}
           <div>
-            <h4 className="text-purple-600 font-sans font-semibold mb-3">{t('logbooks.garbageRecord.endPosition')}</h4>
+            <h4 className="text-xs text-gray-600 font-semibold mb-3">{t('logbooks.garbageRecord.endPosition')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <CoordinatePicker
                 label={`${t('voyageLog.form.latitude')} (${t('logbooks.garbageRecord.end')})`}
@@ -198,8 +200,8 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
       </div>
 
       {/* 2-Column Amounts (Sea / Reception) */}
-      <div className="mb-6 p-4 border-2 border-blue-200 bg-blue-50/30 rounded">
-        <h3 className="text-blue-600 font-sans font-bold mb-4">{t('logbooks.garbageRecord.estimatedAmount')}</h3>
+      <div className="mb-6 p-4 border border-gray-200 bg-gray-50/50 rounded">
+        <h3 className="text-sm text-gray-700 font-semibold mb-4">{t('logbooks.garbageRecord.estimatedAmount')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <MaritimeInput
@@ -237,7 +239,7 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
 
       {/* Conditional: Reception Facility Details */}
       {parseFloat(form.amountToReception) > 0 && (
-        <div className="mb-6 p-4 border-2 border-green-500 bg-green-50 rounded">
+        <div className="mb-6 p-4 border border-green-200 bg-green-50 rounded">
           <h3 className="text-green-700 font-sans font-bold mb-3">{t('logbooks.garbageRecord.receptionDetails')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MaritimeInput
@@ -263,8 +265,8 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
       )}
 
       {/* Cargo Details - MANDATORY for Part II */}
-      <div className="mb-6 p-4 border-2 border-indigo-500 bg-indigo-50 rounded">
-        <h3 className="text-indigo-700 font-sans font-bold mb-4">{t('logbooks.garbageRecord.cargoDetails')}</h3>
+      <div className="mb-6 p-4 border border-gray-200 bg-gray-50/50 rounded">
+        <h3 className="text-sm text-gray-700 font-semibold mb-4">{t('logbooks.garbageRecord.cargoDetails')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <MaritimeInput
             label={t('logbooks.garbageRecord.cargoDescription')}
@@ -291,13 +293,13 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
       </div>
 
       <div className="mb-6">
-        <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
+        <label className="text-xs text-gray-600 font-medium block mb-1.5">
           {t('logbooks.garbageRecord.remarks')}
         </label>
         <textarea
           value={form.remarks}
           onChange={e => onChange('remarks', e.target.value)}
-          className="w-full bg-white border-2 border-gray-200 text-gray-900 font-sans p-4 focus:border-blue-500 focus:outline-none h-20 resize-none"
+          className="w-full bg-white border border-gray-300 rounded text-sm text-gray-900 px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none h-20 resize-none"
           placeholder="Additional notes..."
         />
       </div>
@@ -307,17 +309,18 @@ export const GarbagePartIIForm: React.FC<PartIIFormProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
+          className="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-medium rounded hover:bg-gray-50"
         >
           {t('common.cancel')}
         </button>
         <button
           type="button"
           onClick={onSubmit}
-          className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
+          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
         >
           {t('logbooks.garbageRecord.saveEntry')}
         </button>
+      </div>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ using Maritime.Shared.Models.Sync;
 
 namespace ProductApi.Data
 {
-    public class AppDbContext : DbContext
+    public partial class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
@@ -41,8 +41,11 @@ namespace ProductApi.Data
         public DbSet<VoyageSettlement> VoyageSettlements { get; set; } = null!;
         public DbSet<VoyageReview> VoyageReviews { get; set; } = null!;
 
-        // Edge Sync Models (Optimized for Shore - Essential Data Only)
-        // REMOVED: NmeaRawData (debug only), NavigationData (realtime only), EnvironmentalData (in NoonReport)
+        // Edge-owned telemetry and workflow mirrors.
+        public DbSet<NmeaRawData> NmeaRawData { get; set; } = null!;
+        public DbSet<NavigationData> NavigationData { get; set; } = null!;
+        public DbSet<EnvironmentalData> EnvironmentalData { get; set; } = null!;
+        public DbSet<TaskDeferralRequest> TaskDeferralRequests { get; set; } = null!;
         public DbSet<PositionData> PositionData { get; set; } = null!;
         public DbSet<AisData> AisData { get; set; } = null!;
         public DbSet<EngineData> EngineData { get; set; } = null!;
@@ -82,6 +85,9 @@ namespace ProductApi.Data
         // SYNC INFRASTRUCTURE
         // ============================================================
         public DbSet<SyncOutbox> SyncOutbox { get; set; } = null!;
+        public DbSet<ProductApi.Models.SyncOutboxDelivery> SyncOutboxDeliveries { get; set; } = null!;
+        public DbSet<SyncRecordIdentity> SyncRecordIdentities { get; set; } = null!;
+        public DbSet<SyncRecordCursor> SyncRecordCursors { get; set; } = null!;
         public DbSet<SyncLog> SyncLogs { get; set; } = null!;
         public DbSet<SyncNodeTracker> SyncNodeTrackers { get; set; } = null!;
         public DbSet<SyncIdempotencyRecord> SyncIdempotencyRecords { get; set; } = null!;
@@ -197,6 +203,7 @@ namespace ProductApi.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            ConfigureSensorAndDeferralMirrors(modelBuilder);
 
             // Configure Vessel
             modelBuilder.Entity<Vessel>(entity =>
@@ -1113,16 +1120,24 @@ namespace ProductApi.Data
                 entity.HasIndex(e => e.MaritimeReportId).IsUnique();
             });
 
-            // Seed ReportTypes
-            var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            modelBuilder.Entity<ReportType>().HasData(
-                new ReportType { Id = 1, TypeCode = "NOON",      TypeName = "Noon Report",      Category = "VOYAGE", Frequency = "DAILY",       IsMandatory = true,  RequiresMasterSignature = true,  IsActive = true, RegulationReference = "SOLAS V/28", CreatedAt = seedDate },
-                new ReportType { Id = 2, TypeCode = "DEPARTURE", TypeName = "Departure Report", Category = "VOYAGE", Frequency = "EVENT_BASED", IsMandatory = true,  RequiresMasterSignature = true,  IsActive = true, CreatedAt = seedDate },
-                new ReportType { Id = 3, TypeCode = "ARRIVAL",   TypeName = "Arrival Report",   Category = "VOYAGE", Frequency = "EVENT_BASED", IsMandatory = true,  RequiresMasterSignature = true,  IsActive = true, CreatedAt = seedDate },
-                new ReportType { Id = 4, TypeCode = "DAILY",     TypeName = "Daily Report",     Category = "VOYAGE", Frequency = "DAILY",       IsMandatory = false, RequiresMasterSignature = false, IsActive = true, CreatedAt = seedDate },
-                new ReportType { Id = 5, TypeCode = "BUNKER",    TypeName = "Bunker Report",    Category = "VOYAGE", Frequency = "EVENT_BASED", IsMandatory = false, RequiresMasterSignature = false, IsActive = true, CreatedAt = seedDate },
-                new ReportType { Id = 6, TypeCode = "POSITION",  TypeName = "Position Report",  Category = "VOYAGE", Frequency = "EVENT_BASED", IsMandatory = false, RequiresMasterSignature = false, IsActive = true, CreatedAt = seedDate }
-            );
+
+            modelBuilder.Entity<SyncRecordIdentity>(e =>
+            {
+                e.ToTable("sync_record_identities");
+                e.HasKey(x => new { x.OriginNode, x.TableName, x.LocalKey });
+                e.Property(x => x.OriginNode).HasMaxLength(50);
+                e.Property(x => x.TableName).HasMaxLength(50);
+                e.Property(x => x.LocalKey).HasMaxLength(100);
+                e.Property(x => x.ShoreKey).HasMaxLength(100);
+            });
+            modelBuilder.Entity<SyncRecordCursor>(e => { e.ToTable("sync_record_cursors"); e.HasKey(x => x.Key); e.Property(x => x.Key).HasMaxLength(64); });
+            modelBuilder.Entity<SyncStreamState>(e => { e.ToTable("sync_stream_state"); e.HasKey(x => x.Key); e.Property(x => x.Key).HasMaxLength(50); });
+            modelBuilder.Entity<ProductApi.Models.SyncOutboxDelivery>(entity =>
+            {
+                entity.ToTable("sync_outbox_deliveries");
+                entity.HasKey(e => new { e.OutboxId, e.NodeId });
+                entity.Property(e => e.NodeId).HasMaxLength(50);
+            });
 
             // Configure SyncOutbox (shore → ship)
             modelBuilder.Entity<SyncOutbox>(entity =>
@@ -1806,6 +1821,8 @@ namespace ProductApi.Data
             modelBuilder.Entity<MaterialItemEquipment>(entity =>
             {
                 entity.ToTable("material_item_equipments");
+                entity.HasOne<EquipmentAsset>().WithMany()
+                    .HasForeignKey(e => e.EquipmentAssetId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasIndex(e => new { e.MaterialItemId, e.EquipmentAssetId }).IsUnique();
                 // Liên kết vật tư–thiết bị tham chiếu DANH MỤC vật tư (material_items).
                 entity.HasOne<MaterialItem>().WithMany()
@@ -1857,6 +1874,8 @@ namespace ProductApi.Data
             modelBuilder.Entity<StockReceiptItem>(entity =>
             {
                 entity.ToTable("stock_receipt_items");
+                entity.HasOne<StoreLocation>().WithMany()
+                    .HasForeignKey(e => e.StoreLocationId).OnDelete(DeleteBehavior.Restrict);
                 entity.Property(e => e.QuantityRequested).HasPrecision(18, 4);
                 entity.Property(e => e.QuantityReceived).HasPrecision(18, 4);
                 entity.Property(e => e.UnitCost).HasPrecision(18, 4);
@@ -1868,7 +1887,15 @@ namespace ProductApi.Data
 
             modelBuilder.Entity<InventoryStock>(entity =>
             {
-                entity.ToTable("inventory_stocks");
+                entity.ToTable("inventory_stocks", t =>
+                {
+                    t.HasCheckConstraint("ck_inventory_quantity_nonnegative", "\"Quantity\" >= 0");
+                    t.HasCheckConstraint("ck_inventory_unit_cost_nonnegative", "\"UnitCost\" >= 0");
+                });
+                entity.HasOne<MaterialItemShip>().WithMany()
+                    .HasForeignKey(e => e.MaterialItemId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne<StoreLocation>().WithMany()
+                    .HasForeignKey(e => e.StoreLocationId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasIndex(e => new { e.MaterialItemId, e.StoreLocationId }).IsUnique();
                 entity.Property(e => e.Quantity).HasPrecision(18, 4);
                 entity.Property(e => e.UnitCost).HasPrecision(18, 4);

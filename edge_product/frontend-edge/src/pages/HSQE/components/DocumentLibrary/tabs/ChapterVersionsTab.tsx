@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Chapter Versions Tab - Version history and comparison
  * Shows all versions of a document with diff capability
@@ -164,13 +165,13 @@ export function ChapterVersionsTab({
               <span className="text-xs text-slate-500">{documentTitle}</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <PermissionGate permission={'hsqe.update'}><button
                 onClick={() => onRestoreVersion && onRestoreVersion(selectedVersion)}
                 className="flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 rounded-lg transition"
                 title="Khôi phục phiên bản này"
               >
                 <RotateCcw className="w-3 h-3" /> Khôi phục
-              </button>
+              </button></PermissionGate>
               <button
                 onClick={() => setSelectedVersion(null)}
                 className="px-2.5 py-1 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 rounded-lg transition"

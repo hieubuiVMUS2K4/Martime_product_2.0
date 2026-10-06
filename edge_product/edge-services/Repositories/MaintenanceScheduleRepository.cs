@@ -63,9 +63,10 @@ public class MaintenanceScheduleRepository : IMaintenanceScheduleRepository
 
     public async Task<List<MaintenanceSchedule>> GetAutoGenerateSchedulesAsync()
     {
-        // Note: AutoGenerate property is not in database, so we just return all active schedules
+        // Event-driven work waits for an explicit request/voyage/docking, not the periodic scheduler.
         return await _context.MaintenanceSchedules
-            .Where(s => s.IsActive)
+            .Where(s => s.IsActive && s.AutoGenerate && s.MaintenanceCategory != "DRY_DOCK"
+                && s.MaintenanceCategory != "ON_DEMAND" && s.MaintenanceCategory != "VOYAGE")
             .ToListAsync();
     }
 

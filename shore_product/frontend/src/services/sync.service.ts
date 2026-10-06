@@ -1,4 +1,5 @@
 import { ENV } from '../config/env';
+import { buildAuthHeaders } from './api.client';
 
 const BASE = ENV.API_BASE_URL;
 
@@ -12,6 +13,8 @@ export interface SyncOutboxStat {
 }
 
 export interface SyncLogEntry {
+  id?: number;
+  conflictDetail?: string;
   direction: string;
   originNode: string;
   tableName: string;
@@ -19,6 +22,38 @@ export interface SyncLogEntry {
   actionType: string;
   status: string;
   processedAt: string;
+}
+
+export interface SyncLogFilters {
+  nodeId?: string; status?: string; tableName?: string; direction?: string;
+  search?: string; from?: string; to?: string; page?: number; pageSize?: number;
+}
+export interface SyncLogPage {
+  items: SyncLogEntry[]; total: number; page: number; pageSize: number; totalPages: number;
+  summary: { status: string; count: number }[];
+}
+export interface SyncOutboxPage {
+  total: number; page: number; pageSize: number; totalPages: number;
+  groups: { node: string; tableName: string; pending: number; oldestAt: string }[];
+  items: { id: number; targetNode: string; tableName: string; recordKey: string; actionType: string; createdAt: string }[];
+}
+export interface SyncNodeDetail {
+  nodeId: string; shipName?: string; imoNumber?: string; isOnline: boolean; currentNetworkType?: string;
+  push: { lastAt?: string; totalReceived: number; lastBatchSize: number; lastVersion: number };
+  pull: { lastAt?: string; totalDelivered: number; pending: number; lastAckedId: number };
+  health: { lastHeartbeat?: string; consecutiveFailures: number; lastError?: string; lastErrorAt?: string };
+  security: { isRegistered: boolean; isRevoked: boolean; keyVersion: number };
+}
+export interface SyncIntegrity {
+  timestamp: string; healthy: boolean;
+  counts: Record<string, number>;
+  syncGaps: { unsyncedCrew: number; unsyncedCerts: number; orphanCertificates: number; staleOutboxItems: number };
+}
+
+function queryString(params: object): string {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== '') query.set(key, String(value)); });
+  return query.toString();
 }
 
 export interface NodeInfo {
@@ -76,8 +111,8 @@ export interface NodeTracker {
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,
+    headers: buildAuthHeaders({ 'Content-Type': 'application/json', ...options?.headers }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -88,9 +123,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const syncApi = {
+  getLogs: (filters: SyncLogFilters, signal?: AbortSignal): Promise<SyncLogPage> =>
+    request(`${BASE}/sync/dashboard/logs?${queryString(filters)}`, { signal }),
+  getOutbox: (nodeId = '', page = 1, pageSize = 25, signal?: AbortSignal): Promise<SyncOutboxPage> =>
+    request(`${BASE}/sync/dashboard/outbox?${queryString({ nodeId, page, pageSize })}`, { signal }),
+  getNodes: (signal?: AbortSignal): Promise<SyncNodeDetail[]> => request(`${BASE}/sync/dashboard/nodes`, { signal }),
+  getIntegrity: (): Promise<SyncIntegrity> => request(`${BASE}/sync/dashboard/integrity`),
   /** Get sync status (outbox stats + recent logs) */
-  getStatus: (): Promise<SyncStatusResponse> =>
-    request(`${BASE}/sync/status`),
+  getStatus: (signal?: AbortSignal): Promise<SyncStatusResponse> =>
+    request(`${BASE}/sync/status`, { signal }),
 
   /** Get health (if available) */
   getHealth: async (): Promise<SyncHealthCheck | null> => {
@@ -103,7 +144,7 @@ export const syncApi = {
 
   /** Force push to specific ship node */
   forcePush: (nodeId: string): Promise<ForcePushResponse> =>
-    request(`${BASE}/sync/force-push/${nodeId}`, { method: 'POST' }),
+    request(`${BASE}/sync/force-push/${encodeURIComponent(nodeId)}`, { method: 'POST' }),
 
   /** Force push to all connected ships */
   forcePushAll: (): Promise<ForcePushResponse> =>

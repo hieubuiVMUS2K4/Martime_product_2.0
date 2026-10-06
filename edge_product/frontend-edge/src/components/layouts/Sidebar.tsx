@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { useAuthStore } from '@/stores/auth.store'
+import { usePermissionsStore, canOpen } from '@/stores/permissions.store'
 import {
   LayoutDashboard,
   Navigation,
@@ -115,16 +115,23 @@ export function Sidebar() {
     }
     return initial
   })
-  const userRoleCode = useAuthStore(s => s.user?.roleCode?.toUpperCase())
+  const permissionState = usePermissionsStore()
 
   // Get translated navigation items, filtered by user role
   const navigation = useMemo(() => {
-    return getNavigation(t).filter(item => {
-      if (!('roles' in item) || !item.roles) return true
-      return userRoleCode && (item.roles as string[]).includes(userRoleCode)
-    })
-  }, [t, userRoleCode])
-  const logbooksMenu = getLogbooksMenu(t)
+    const items = getNavigation(t)
+    return items.map(item => {
+      if ('subItems' in item && item.subItems) {
+        const subItems = item.subItems.map(sub => {
+          if ('children' in sub && sub.children) return { ...sub, children: sub.children.filter(child => canOpen(child.to)) }
+          return sub
+        }).filter(sub => ('to' in sub && sub.to ? canOpen(sub.to) : 'children' in sub && !!sub.children?.length))
+        return { ...item, subItems }
+      }
+      return item
+    }).filter(item => 'to' in item && item.to ? canOpen(item.to) : 'subItems' in item && !!item.subItems?.length)
+  }, [t, permissionState.grants, permissionState.isAdmin, permissionState.modules, permissionState.loaded])
+  const logbooksMenu = getLogbooksMenu(t).filter(item => canOpen(item.to))
 
   const toggleMenu = (menuName: string) => {
     if (isCollapsed) {
@@ -285,7 +292,7 @@ export function Sidebar() {
         ))}
 
         {/* Logbooks Section */}
-        <div>
+        {logbooksMenu.length > 0 && <div>
           <button
             onClick={() => {
               if (isCollapsed) {
@@ -338,7 +345,7 @@ export function Sidebar() {
               ))}
             </div>
           )}
-        </div>
+        </div>}
       </nav>
 
       {/* Toggle Button */}

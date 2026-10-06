@@ -2,15 +2,14 @@ import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CrewListPage } from './Crew/CrewListPage';
 import { CertificateTypesTab } from './CertificateTypes/CertificateTypesTab';
-import { MaterialCatalogPage } from './Materials/MaterialCatalogPage';
 import { RankPage } from './Ranks/RankPage';
 import { CountryPage } from './Countries/CountryPage';
 import { PortPage } from './Ports/PortPage';
 import './CategoryManagementPage.css';
 
-type TabId = 'crew' | 'certificate-types' | 'materials' | 'ranks' | 'countries' | 'ports';
+type TabId = 'crew' | 'certificate-types' | 'ranks' | 'countries' | 'ports';
 
-const VALID_TABS: TabId[] = ['crew', 'certificate-types', 'materials', 'ranks', 'countries', 'ports'];
+const VALID_TABS: TabId[] = ['crew', 'certificate-types', 'ranks', 'countries', 'ports'];
 
 export const CategoryManagementPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -23,7 +22,6 @@ export const CategoryManagementPage: React.FC = () => {
       <div className="cat-content">
         {activeTab === 'crew' && <CrewListPage />}
         {activeTab === 'certificate-types' && <CertificateTypesTab />}
-        {activeTab === 'materials' && <MaterialCatalogPage />}
         {activeTab === 'ranks' && <RankPage />}
         {activeTab === 'countries' && <CountryPage />}
         {activeTab === 'ports' && <PortPage />}

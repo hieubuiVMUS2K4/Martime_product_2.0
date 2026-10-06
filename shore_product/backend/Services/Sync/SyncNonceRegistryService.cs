@@ -99,9 +99,9 @@ public class SyncNonceRegistryService : ISyncNonceRegistryService
 
             return true;  // New nonce, not a replay
         }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("duplicate") == true ||
-                                          ex.InnerException?.Message.Contains("unique") == true)
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
         {
+            _db.Entry(registryEntry).State = EntityState.Detached;
             // Duplicate nonce - replay attempt detected
             _logger.LogWarning("[REPLAY-DETECTED] Duplicate nonce {Nonce} from node {Node} at {Time}",
                 nonce.Substring(0, Math.Min(8, nonce.Length)), originNode, DateTime.UtcNow);

@@ -117,6 +117,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Create a new material category
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpPost("categories")]
     public async Task<IActionResult> CreateCategory([FromBody] CreateMaterialCategoryDto dto)
     {
@@ -163,6 +164,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Update an existing material category
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpPut("categories/{id:long}")]
     public async Task<IActionResult> UpdateCategory(long id, [FromBody] UpdateMaterialCategoryDto dto)
     {
@@ -223,6 +225,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Delete a material category (only if no items are associated)
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpDelete("categories/{id:long}")]
     public async Task<IActionResult> DeleteCategory(long id)
     {
@@ -325,20 +328,20 @@ public class MaterialController : ControllerBase
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var w = q.Trim();
-                query = query.Where(c => c.ItemCode.Contains(w) || c.Name.Contains(w));
+                query = query.Where(c => c.ItemCode.Contains(w) || c.Name.Contains(w)
+                    || _context.MaterialItems.Any(s => s.MaterialItemCode == c.ItemCode && s.IsActive && s.ItemCode.Contains(w)));
             }
             var items = await query.OrderBy(c => c.ItemCode).ToListAsync();
-            var catIds = items.Select(i => i.CategoryId).Distinct().ToList();
-            var cats = await _context.MaterialCategories.AsNoTracking()
-                .Where(c => catIds.Contains(c.Id))
-                .ToDictionaryAsync(c => c.Id, c => c.Name);
+            var shipItems = await _context.MaterialItems.AsNoTracking().Where(s => s.IsActive && s.MaterialItemCode != null)
+                .OrderBy(s => s.ItemCode).Select(s => new { s.MaterialItemCode, s.ItemCode }).ToListAsync();
+            var shipCodes = shipItems.GroupBy(s => s.MaterialItemCode!).ToDictionary(g => g.Key, g => g.First().ItemCode);
             var result = items.Select(i => new
             {
                 i.Id,
-                i.ItemCode,
+                ItemCode = shipCodes.GetValueOrDefault(i.ItemCode, i.ItemCode),
                 i.Name,
                 i.CategoryId,
-                categoryName = cats.TryGetValue(i.CategoryId, out var n) ? n : "",
+                categoryName = "",
                 i.UnitPrice,
                 i.IsActive,
                 i.CreatedAt,
@@ -475,6 +478,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Create a new material item
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpPost("items")]
     public async Task<IActionResult> CreateItem([FromBody] CreateMaterialItemDto dto)
     {
@@ -497,6 +501,8 @@ public class MaterialController : ControllerBase
             {
                 ItemCode = dto.ItemCode,
                 Name = dto.Name,
+                MaterialItemCode = await _context.MaterialCatalogItems
+                    .Where(c => c.ItemCode == dto.ItemCode).Select(c => c.ItemCode).FirstOrDefaultAsync(),
                 CategoryId = dto.CategoryId,
                 Specification = dto.Specification,
                 Unit = dto.Unit,
@@ -541,6 +547,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Update an existing material item
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpPut("items/{id}")]
     public async Task<IActionResult> UpdateItem(Guid id, [FromBody] UpdateMaterialItemDto dto)
     {
@@ -614,6 +621,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Delete a material item
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpDelete("items/{id:guid}")]
     public async Task<IActionResult> DeleteItem(Guid id)
     {
@@ -721,6 +729,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Upload image for a material item
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpPut("items/{id}/image")]
     public async Task<IActionResult> UploadItemImage(Guid id, [FromForm] IFormFile file)
     {
@@ -772,6 +781,7 @@ public class MaterialController : ControllerBase
     /// <summary>
     /// Delete image for a material item
     /// </summary>
+    [ShoreManagedCatalog]
     [HttpDelete("items/{id}/image")]
     public async Task<IActionResult> DeleteItemImage(Guid id)
     {
@@ -967,8 +977,9 @@ public class MaterialController : ControllerBase
                     return new
                     {
                         linkId = l.Id,
+                        equipmentAssetId = l.EquipmentAssetId,
                         materialItemId = cat.Id,
-                        itemCode = cat.ItemCode,
+                        itemCode = ship?.ItemCode ?? (Guid.TryParse(cat.ItemCode, out _) ? "" : cat.ItemCode),
                         name = cat.Name,
                         unit = ship?.Unit ?? "PCS",
                         onHandQuantity = onHand,
@@ -998,6 +1009,21 @@ public class MaterialController : ControllerBase
     /// qua ItemCode mới ra được vật tư của tàu (material_item_ship) — đó là khóa mà
     /// trang "Vật tư của tàu" dùng để tra.
     /// </summary>
+    [HttpGet("items/assigned-equipment")]
+    public async Task<IActionResult> GetAssignedEquipment()
+    {
+        var links = await (
+            from ship in _context.MaterialItems.AsNoTracking()
+            join catalog in _context.MaterialCatalogItems.AsNoTracking() on ship.MaterialItemCode equals catalog.ItemCode
+            join link in _context.MaterialItemEquipments.AsNoTracking() on catalog.Id equals link.MaterialItemId
+            join equipment in _context.EquipmentAssets.AsNoTracking() on link.EquipmentAssetId equals equipment.Id
+            where ship.IsActive && catalog.IsActive && equipment.IsActive
+            orderby equipment.AssetCode
+            select new { materialItemId = ship.Id, equipmentAssetId = equipment.Id, equipmentCode = equipment.AssetCode, equipmentName = equipment.AssetName }
+        ).ToListAsync();
+        return Ok(links);
+    }
+
     [HttpGet("items/equipment-counts")]
     public async Task<IActionResult> GetEquipmentCounts()
     {
@@ -1023,8 +1049,8 @@ public class MaterialController : ControllerBase
 
             var shipItems = await _context.MaterialItems
                 .AsNoTracking()
-                .Where(m => codes.Contains(m.ItemCode))
-                .Select(m => new { m.Id, m.ItemCode })
+                .Where(m => m.MaterialItemCode != null && codes.Contains(m.MaterialItemCode))
+                .Select(m => new { m.Id, ItemCode = m.MaterialItemCode! })
                 .ToListAsync();
 
             // Một mã có thể ứng với nhiều dòng kho tàu — cộng dồn theo từng dòng kho.
@@ -1060,7 +1086,7 @@ public class MaterialController : ControllerBase
             // id có thể là vật tư của tàu (material_item_ship) → quy về DANH MỤC vì
             // liên kết thiết bị gắn trên material_items.
             var catId = await ResolveCatalogItemIdAsync(id);
-            if (catId == null) return NotFound(new { error = "Item not found" });
+            if (catId == null) return await MissingCatalogResultAsync(id);
 
             var links = await _context.MaterialItemEquipments
                 .AsNoTracking()
@@ -1107,22 +1133,35 @@ public class MaterialController : ControllerBase
             var created = 0;
             var skipped = 0;
 
-            foreach (var rawMatId in dto.MaterialItemIds)
-            {
-                // FE gửi id của vật tư (có thể là material_item_ship) → quy về DANH MỤC (material_items).
-                var catId = await ResolveCatalogItemIdAsync(rawMatId);
-                if (catId == null) { skipped++; continue; }
+            var equipmentIds = dto.EquipmentAssetIds.Distinct().ToArray();
+            if (await _context.EquipmentAssets.CountAsync(a => equipmentIds.Contains(a.Id) && a.IsActive)
+                != equipmentIds.Length)
+                return BadRequest(new { error = "Thiết bị không tồn tại hoặc đã ngừng sử dụng." });
+            var pendingLinks = new HashSet<(Guid Material, Guid Equipment)>();
 
-                foreach (var eqId in dto.EquipmentAssetIds)
+            if (dto.MaterialItemIds.Count == 0 || equipmentIds.Length == 0)
+                return BadRequest(new { error = "Vui lòng chọn vật tư và thiết bị cần gán." });
+            var catalogIds = new List<Guid>();
+            foreach (var materialId in dto.MaterialItemIds.Distinct())
+            {
+                var resolved = await ResolveCatalogItemIdAsync(materialId);
+                if (resolved == null) return await MissingCatalogResultAsync(materialId);
+                catalogIds.Add(resolved.Value);
+            }
+
+            foreach (var catalogId in catalogIds)
+            {
+                foreach (var eqId in equipmentIds)
                 {
+                    if (!pendingLinks.Add((catalogId, eqId))) { skipped++; continue; }
                     var exists = await _context.MaterialItemEquipments
-                        .AnyAsync(x => x.MaterialItemId == catId.Value && x.EquipmentAssetId == eqId);
+                        .AnyAsync(x => x.MaterialItemId == catalogId && x.EquipmentAssetId == eqId);
 
                     if (exists) { skipped++; continue; }
 
                     _context.MaterialItemEquipments.Add(new MaterialItemEquipment
                     {
-                        MaterialItemId = catId.Value,
+                        MaterialItemId = catalogId,
                         EquipmentAssetId = eqId,
                         QuantityRequired = dto.QuantityRequired,
                         Notes = dto.Notes
@@ -1140,6 +1179,10 @@ public class MaterialController : ControllerBase
                 skipped
             });
         }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        {
+            return Conflict(new { error = "Liên kết vật tư–thiết bị đã được tạo bởi yêu cầu khác." });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error assigning equipment to materials");
@@ -1156,10 +1199,24 @@ public class MaterialController : ControllerBase
         if (await _context.MaterialCatalogItems.AsNoTracking().AnyAsync(c => c.Id == id))
             return id;
         var ship = await _context.MaterialItems.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
-        if (ship == null || string.IsNullOrEmpty(ship.MaterialItemCode)) return null;
+        if (ship == null) return null;
+        // Legacy ship records may predate the catalog link. Only match an existing
+        // shore-owned catalog by exact code; never manufacture a catalog on Edge.
+        var catalogCode = string.IsNullOrWhiteSpace(ship.MaterialItemCode) ? ship.ItemCode : ship.MaterialItemCode;
         var cat = await _context.MaterialCatalogItems.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ItemCode == ship.MaterialItemCode);
+            .FirstOrDefaultAsync(c => c.ItemCode == catalogCode);
         return cat?.Id;
+    }
+
+    private async Task<IActionResult> MissingCatalogResultAsync(Guid id)
+    {
+        var ship = await _context.MaterialItems.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id);
+        if (ship == null) return NotFound(new { error = "Không tìm thấy vật tư." });
+        return Conflict(new
+        {
+            code = "MATERIAL_CATALOG_REQUIRED",
+            error = $"Vật tư {ship.ItemCode} chưa có danh mục tương ứng từ bờ. Hãy bổ sung danh mục trên bờ và đồng bộ xuống tàu trước khi gán thiết bị."
+        });
     }
 
     /// <summary>
