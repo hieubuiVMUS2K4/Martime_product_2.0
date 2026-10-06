@@ -21,7 +21,7 @@ namespace MaritimeEdge.Controllers.Core;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-[Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
+[Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("fixed")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -50,6 +50,7 @@ public class AuthController : ControllerBase
     /// POST /api/auth/login
     /// </summary>
     [HttpPost("login")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var ipAddress = GetClientIpAddress();
@@ -423,6 +424,7 @@ public class AuthController : ControllerBase
     /// POST /api/auth/login-legacy
     /// </summary>
     [HttpPost("login-legacy")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
     public async Task<IActionResult> LoginLegacy([FromBody] LegacyLoginRequest request)
     {
         try

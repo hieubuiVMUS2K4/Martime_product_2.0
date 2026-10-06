@@ -398,7 +398,8 @@ namespace MaritimeEdge
                             QueueLimit = 5
                         }));
                 
-                // Strict limiter for auth endpoints: 10 requests per minute per IP
+                // Strict limiter for login attempts only: 10 per minute per IP.
+                // Session validation/refresh and account management use the fixed policy.
                 options.AddPolicy("auth", httpContext =>
                     RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
