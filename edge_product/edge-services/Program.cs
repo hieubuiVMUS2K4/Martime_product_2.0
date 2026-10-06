@@ -240,6 +240,8 @@ namespace MaritimeEdge
 
             // Add PMS Services
             builder.Services.AddScoped<MaintenanceCompletionService>();
+            builder.Services.AddScoped<MaintenanceCycleUpdater>();
+            builder.Services.AddHostedService<MaintenanceCycleWorker>();
             builder.Services.AddScoped<PmsPdfService>();
 
             // Add Ship Data Services

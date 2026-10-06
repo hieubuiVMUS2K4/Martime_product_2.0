@@ -9,7 +9,7 @@ Module lớn và phức tạp nhất về nghiệp vụ thuần Việt Nam hoá 
 | File | Route | Vai trò |
 |---|---|---|
 | `MaintenanceController.cs` (1685 dòng) | `api/maintenance` | CRUD `MaintenanceTask` (list/pending/overdue/my-tasks/detail), state machine trạng thái riêng (`ValidateStatusTransition`), quick-assign, và **bộ hành động Start/Complete/Approve của RIÊNG file này** (`tasks/{id}/start`, `tasks/{id}/complete` — gọi đúng `MaintenanceCompletionService`, `tasks/{id}/approve`). `POST tasks` (tạo task kiểu cũ) đã bị vô hiệu hoá, trả thẳng lỗi "TaskType feature removed. Please use PMS Planning v2.0". |
-| `WorkItemConfigController.cs` (1545 dòng — lớn nhất Maintenance) | `api/maintenance-schedules` | CRUD `MaintenanceSchedule` (lịch bảo trì định kỳ) + thuật toán tính lead-time theo ISM Code (trùng với `MaintenanceSchedulerService`, xem `Services/Maintenance/README.md`) + sinh task ban đầu ngay khi tạo lịch. |
+| `WorkItemConfigController.cs` | `api/maintenance-schedules` | Quản lý cấu hình bảo trì và sinh task ban đầu. Worker chỉ cập nhật trạng thái các task đã có, không tạo task hoặc ghi đè cấu hình. |
 | `TaskWorkflowController.cs` | `api/tasks` | **Chu trình thực thi/phê duyệt "hiện đại"**: `start` → `submit` → `verify` (approve/reject/rectify), `dashboard/summary`, `morning-briefing` (họp giao ban sáng), `bulk-verify`, `pending-approval`, `rectify`. |
 | `EquipmentAssetController.cs` | `api/equipment-assets` | CRUD thiết bị (cây cha-con qua `ParentId`), theo nhóm — dùng qua `IEquipmentAssetRepository` (1 trong 3 nơi hiếm hoi dùng Repository pattern). |
 | `EquipmentGroupController.cs` | `api/equipment-groups` | CRUD nhóm thiết bị + thành viên nhóm + gán/gỡ asset khỏi nhóm. |
@@ -47,7 +47,7 @@ Cả 2 route (`api/maintenance/tasks/{id}/...` và `api/tasks/{id}/...`) đều 
 
 ```
 WorkItemConfigController.Create (schedule mới, AutoGenerate=true, NextDueDate có giá trị)
-  → gọi ngay GenerateInitialTask() — task xuất hiện NGAY, không cần chờ MaintenanceSchedulerService
+  → gọi ngay GenerateInitialTask() — task xuất hiện ngay sau cấu hình, không cần chờ worker
     (vốn đang KHÔNG được đăng ký chạy nền — xem Services/Maintenance/README.md)
   → Task được set MISSING_PIC/MISSING_CHECKLIST/MISSING_BOTH/SCHEDULED tuỳ đã đủ người phụ trách +
     checklist hay chưa
@@ -69,7 +69,7 @@ GET     .../risk-assessment/pdf | inspection-report/pdf       -- xuất PDF (Pms
 
 ## Liên kết với phần khác
 
-- **`Services/Maintenance/README.md`** — `MaintenanceCompletionService` (trừ kho tự động), thuật toán lead-time (trùng lặp giữa `MaintenanceSchedulerService` chưa chạy và `WorkItemConfigController` đang chạy thật), `PmsPdfService`.
+- **`Services/Maintenance/README.md`** — `MaintenanceCompletionService`, `MaintenanceCycleUpdater` dùng chung cho Counter/worker, `MaintenanceCycleWorker` và `PmsPdfService`. Scheduler tự sinh task cũ đã được xóa.
 - **`Repositories/EquipmentAssetRepository.cs`, `MaintenanceScheduleRepository.cs`** — 2 trong 3 nơi duy nhất của cả dự án dùng Repository pattern, tiêm vào `EquipmentAssetController`/`WorkItemConfigController`.
 - **`Constants/TaskStatus.cs`** — định nghĩa toàn bộ hằng số trạng thái (`TaskStatus`, `TaskPriority`, `TaskCategory`, `MaintenanceConstants`) dùng xuyên suốt nhóm controller này.
 - **`Controllers/Safety/DeferralRequestController`** — xử lý yêu cầu hoãn task (bảng riêng `TaskDeferralRequest`), tương tác trực tiếp với `MaintenanceTask.HasPendingDeferral`/`NextDueAt` mà các controller ở đây đọc/hiển thị.

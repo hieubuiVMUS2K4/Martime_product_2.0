@@ -68,14 +68,38 @@ public static class PeriodicTaskCycle
         return schedule.NextDueDate.HasValue && schedule.NextDueDate.Value.Date <= now.Date;
     }
 
+    public static string NextCycleStatus(MaintenanceSchedule schedule, double? hours, DateTime now, DateTime? taskDueDate = null)
+    {
+        var hourly = schedule.IntervalType is "RUNNING_HOURS" or "HYBRID";
+        var remaining = hours.HasValue && schedule.NextDueRunningHours.HasValue
+            ? schedule.NextDueRunningHours.Value - hours.Value : (double?)null;
+        DateTime? calendarDue = schedule.IntervalType == "HYBRID"
+            ? (schedule.LastExecutedAt.HasValue && MaintenanceCalendar.HasInterval(schedule)
+                ? MaintenanceCalendar.AddInterval(schedule, schedule.LastExecutedAt.Value) : null)
+            : schedule.IntervalType == "RUNNING_HOURS" ? null : taskDueDate ?? schedule.NextDueDate;
+        if ((hourly && remaining < -(schedule.IntervalHours ?? 500) * 0.1) || calendarDue?.Date < now.Date)
+            return "OVERDUE";
+        if ((hourly && remaining <= 0) || calendarDue?.Date == now.Date) return "DUE";
+        // The RH configuration stores the warning window in hours; calendar/hybrid stores days.
+        var windowHours = schedule.IntervalType == "RUNNING_HOURS"
+            ? (schedule.DaysBeforeDue > 0 ? schedule.DaysBeforeDue : MaintenanceConstants.MINIMUM_UPCOMING_WINDOW_HOURS)
+            : (schedule.DaysBeforeDue > 0 ? schedule.DaysBeforeDue : 7) * MaintenanceConstants.AVERAGE_HOURS_PER_DAY;
+        if (hourly && remaining <= windowHours) return "UPCOMING";
+        if (calendarDue.HasValue && (calendarDue.Value.Date - now.Date).TotalDays <= (schedule.DaysBeforeDue > 0 ? schedule.DaysBeforeDue : 7))
+            return "UPCOMING";
+        return "SCHEDULED";
+    }
+
     public static async Task<bool> ReopenIfDueAsync(EdgeDbContext db, MaintenanceTask task,
         MaintenanceSchedule schedule, double? hours, DateTime now, bool prepareNextCycle = false)
     {
-        if (task.Status is "SCHEDULED" or "UPCOMING" && schedule.MaintenanceCategory == "PERIODIC" &&
-            schedule.IsActive && schedule.AutoGenerate && IsDue(schedule, hours, now))
+        if (schedule.MaintenanceCategory != "PERIODIC" || !schedule.IsActive || !schedule.AutoGenerate) return false;
+        if (task.Status is "SCHEDULED" or "UPCOMING" or "DUE" or "OVERDUE")
         {
+            var status = NextCycleStatus(schedule, hours, now, task.NextDueAt);
+            if (status == task.Status) return false;
             var previous = task.Status;
-            task.Status = schedule.IntervalType == "CALENDAR" && task.NextDueAt.Date < now.Date ? "OVERDUE" : "DUE";
+            task.Status = status;
             task.UpdatedAt = now; task.IsSynced = false;
             db.TaskStatusHistories.Add(new() { TaskId = task.Id, FromStatus = previous, ToStatus = task.Status,
                 ChangedAt = now, ChangedBy = "SYSTEM", Reason = "Đến hạn bảo trì định kỳ tiếp theo", DeviceType = "SYSTEM" });
@@ -111,7 +135,7 @@ public static class PeriodicTaskCycle
         task.ActualRunningHours = null; task.ActualDuration = null; task.ChecklistCompleted = false;
         task.RejectionReason = task.RejectionHistory = task.LastRejectedBy = null;
         task.LastRejectedAt = null; task.RejectionCount = 0;
-        task.Status = !isDue ? "SCHEDULED" : schedule.IntervalType == "CALENDAR" && task.NextDueAt.Date < now.Date ? "OVERDUE" : "DUE";
+        task.Status = NextCycleStatus(schedule, hours, now);
         task.UpdatedAt = now; task.IsSynced = false;
         foreach (var item in await db.TaskChecklistItems.Where(c => c.TaskId == task.TaskId).ToListAsync())
         {

@@ -64,28 +64,30 @@ export function MaintenanceHistoryModal({ task, onClose }: {
     const parsed = JSON.parse(String(report?.task.completionPhotos || '[]'));
     if (Array.isArray(parsed)) photos = parsed.filter((url): url is string => typeof url === 'string' && /^(https?:\/\/|\/|data:image\/)/i.test(url));
   } catch { /* Old reports may contain no photo list. */ }
-  return createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-6" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div role="dialog" aria-modal="true" aria-label="Lịch sử bảo trì" className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4">
-        <div><h2 className="text-base font-semibold text-gray-900">Lịch sử bảo trì</h2>
+  return createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div role="dialog" aria-modal="true" aria-label="Lịch sử bảo trì" className="flex max-h-[85vh] w-full max-w-[1440px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-200 px-6 py-4">
+        <div className="min-w-0"><h2 className="text-lg font-semibold text-gray-900">Lịch sử bảo trì</h2>
           <p className="mt-1 text-xs text-gray-500">{task.taskId} · {task.taskDescription.split('\n')[0]}</p></div>
-        <button onClick={onClose} title="Đóng" className="rounded p-1 text-gray-400 hover:bg-gray-100"><X size={18} /></button>
+        <button onClick={onClose} aria-label="Đóng lịch sử bảo trì" title="Đóng" className="shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X size={20} /></button>
       </div>
+      <div className="shrink-0 border-b border-gray-200 bg-white px-4 py-2 text-xs text-gray-600">{loading ? 'Đang tải…' : `${entries.length} / ${total} lần bảo trì`}</div>
       <div className="min-h-0 flex-1 overflow-auto">
         {error && <div className="m-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error} <button onClick={() => setRetry(n => n + 1)} className="ml-3 underline">Thử lại</button></div>}
-        <table className="w-full border-collapse text-xs">
-          <thead className="sticky top-0 bg-blue-50 text-gray-600"><tr>
-            {['Lần', 'Ngày thực hiện', 'Người thực hiện', 'Giờ chạy', 'Thời lượng (giờ)', 'Hành động'].map(name => <th key={name} className="border-b border-r border-gray-200 px-3 py-3 text-left font-semibold">{name}</th>)}
+        <table className="w-full min-w-[800px] table-fixed border-collapse text-xs [&_th]:border-r [&_th]:border-gray-200 [&_th]:px-2 [&_th]:py-2 [&_th]:font-medium [&_td]:border-r [&_td]:border-gray-100 [&_td]:px-2 [&_td]:py-1.5">
+          <colgroup><col className="w-14" /><col className="w-56" /><col /><col className="w-32" /><col className="w-40" /><col className="w-28" /></colgroup>
+          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-blue-50 text-gray-700"><tr>
+            {['Lần', 'Ngày thực hiện', 'Người thực hiện', 'Giờ chạy', 'Thời lượng (giờ)', 'Hành động'].map((name, index) => <th key={name} className={index === 5 ? 'sticky right-0 bg-blue-50 text-center' : index === 0 || index >= 3 ? 'text-center' : 'text-left'}>{name}</th>)}
           </tr></thead>
           <tbody>{loading ? <tr><td colSpan={6} className="py-8 text-center text-gray-400">Đang tải…</td></tr>
             : entries.length === 0 ? <tr><td colSpan={6} className="py-8 text-center text-gray-400">Chưa có lần bảo trì hoàn thành</td></tr>
-            : entries.map((entry, index) => <tr key={entry.id} className="border-b border-gray-100 hover:bg-blue-50">
-              <td className="border-r border-gray-100 px-3 py-3">{total - ((page - 1) * 10 + index)}</td>
-              <td className="border-r border-gray-100 px-3 py-3">{date(entry.executedAt)}</td>
-              <td className="border-r border-gray-100 px-3 py-3">{entry.completedByName || entry.completedBy || '—'}</td>
-              <td className="border-r border-gray-100 px-3 py-3">{entry.executedRunningHours ?? '—'}</td>
-              <td className="border-r border-gray-100 px-3 py-3">{entry.actualDurationHours?.toFixed(2) ?? '—'}</td>
-              <td className="px-3 py-3"><button disabled={detailLoading} onClick={() => void viewReport(entry.id)} title="Xem báo cáo lần bảo trì" className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"><Eye size={15} /></button></td>
+            : entries.map((entry, index) => <tr key={entry.id} className="group border-b border-gray-100 bg-white text-gray-700 hover:bg-blue-50">
+              <td className="text-center text-gray-500">{total - ((page - 1) * 10 + index)}</td>
+              <td className="whitespace-nowrap">{date(entry.executedAt)}</td>
+              <td className="truncate" title={entry.completedByName || entry.completedBy}>{entry.completedByName || entry.completedBy || '—'}</td>
+              <td className="text-center tabular-nums">{entry.executedRunningHours ?? '—'}</td>
+              <td className="text-center tabular-nums">{entry.actualDurationHours?.toFixed(2) ?? '—'}</td>
+              <td className="sticky right-0 bg-white text-center group-hover:bg-blue-50"><button disabled={detailLoading} onClick={() => void viewReport(entry.id)} aria-label="Xem báo cáo lần bảo trì" title="Xem báo cáo lần bảo trì" className="inline-flex rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"><Eye size={15} /></button></td>
             </tr>)}</tbody>
         </table>
         {detailLoading && <p className="p-4 text-sm text-gray-500">Đang tải báo cáo…</p>}
@@ -115,12 +117,12 @@ export function MaintenanceHistoryModal({ task, onClose }: {
           <details className="rounded border border-gray-200 p-3"><summary className="cursor-pointer text-sm font-medium">Biên bản kiểm tra</summary><div className="mt-3"><FormValues values={report?.inspectionReport} /></div></details>
         </div>}
       </div>
-      <div className="flex shrink-0 items-center justify-between border-t border-gray-200 bg-gray-50 px-5 py-3 text-xs text-gray-600">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-6 py-3 text-xs text-gray-600">
         <span>{total} lần bảo trì</span><div className="flex items-center gap-2">
           <button disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)} className="rounded border border-gray-300 px-3 py-1.5 disabled:opacity-40">Trước</button>
           <span>{page} / {Math.max(1, Math.ceil(total / 10))}</span>
           <button disabled={page * 10 >= total || loading} onClick={() => setPage(p => p + 1)} className="rounded border border-gray-300 px-3 py-1.5 disabled:opacity-40">Sau</button>
-          <button onClick={onClose} className="ml-2 rounded border border-gray-300 bg-white px-3 py-1.5">Đóng</button>
+          <button onClick={onClose} className="ml-2 rounded border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-100">Đóng</button>
         </div></div>
     </div>
   </div>, document.body);

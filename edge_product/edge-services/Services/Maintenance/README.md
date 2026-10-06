@@ -2,7 +2,7 @@
 
 ## Mục đích
 
-4 dịch vụ hỗ trợ hệ thống **PMS (Planned Maintenance System)** và validate dữ liệu báo cáo hàng hải — nhưng KHÔNG đồng nhất về vòng đời: 2 trong 4 file thực sự chạy trong ứng dụng (`MaintenanceCompletionService`, `PmsPdfService`), 1 file là static helper không qua DI (`MaritimeValidationService`), và 1 file — dù mang tên miền quan trọng nhất ("Scheduler") — **hiện không được đăng ký chạy** (`MaintenanceSchedulerService`).
+Các dịch vụ hiện tại hỗ trợ validate báo cáo, hoàn thành công việc, lưu lịch sử từng kỳ và cập nhật trạng thái các task định kỳ đã có. Scheduler tự sinh task cũ đã được xóa.
 
 ## Cấu trúc & vai trò
 
@@ -10,7 +10,8 @@
 |---|---|---|
 | `MaritimeValidationService.cs` | **Không đăng ký** (class `static`, gọi trực tiếp `MaritimeValidationService.ValidateXxx(...)`) | Validate nghiệp vụ cho 4 loại report (Noon/Departure/Bunker/Position) — được `ReportingService` (`Services/Reporting/`) gọi 7 lần. Xem chi tiết rule bên dưới. |
 | `MaintenanceCompletionService.cs` | Scoped | **"Chức năng sống còn" của PMS** (nguyên văn comment trong code): hoàn thành task bảo trì — trừ kho phụ tùng tự động, ghi lịch sử, và tự sinh task chu kỳ kế tiếp ("gối đầu"). |
-| `MaintenanceSchedulerService.cs` | **KHÔNG được `AddHostedService` ở bất kỳ đâu trong `Program.cs`** | `BackgroundService` (thiết kế để chạy mỗi 15 phút) chứa thuật toán tính lead-time và tự sinh task từ `MaintenanceSchedule` — nhưng hiện chưa được kích hoạt trong ứng dụng đang chạy. Xem "Ghi chú" để hiểu tại sao vẫn cần đọc. |
+| `MaintenanceCycleWorker.cs` | `AddHostedService` trong `Program.cs` | Kiểm tra trạng thái chu kỳ mỗi phút và khi dịch vụ khởi động. |
+| `MaintenanceCycleUpdater.cs` | Scoped | Dùng chung cho worker và Counter; chỉ cập nhật task hiện có, không tự tạo task hoặc sửa cấu hình. |
 | `PmsPdfService.cs` | Scoped | Xuất PDF (QuestPDF) cho 2 biểu mẫu: Đánh giá Rủi ro (ĐGRR) và Biên bản Kiểm tra (BBKT), song ngữ VN/EN. |
 
 ## Luồng hoạt động chính
@@ -47,21 +48,13 @@
 
 Có thêm `RecoverMissingCycleTaskAsync` — cơ chế tự phục hồi nếu một schedule RUNNING_HOURS bị "quên" sinh task kế tiếp (do lỗi ở phiên bản code cũ): tìm task COMPLETED gần nhất làm mẫu, tính lại ngưỡng, tạo lại task — và set ngay `DUE` nếu ngưỡng giờ chạy đã vượt.
 
-### C. Thuật toán tính lead-time PMS — `MaintenanceSchedulerService` (chưa được kích hoạt, nhưng đáng học)
+### C. MaintenanceCycleWorker / MaintenanceCycleUpdater
 
-```
-Interval NGẮN (≤ 7 ngày)  → lead time = max(1, intervalDays / 2)   (ép cứng 50% chu kỳ)
-Interval DÀI (> 7 ngày)   → workDays = Ceiling(estimatedHours / 8)
-                             workBasedMinimum = workDays × 3
-                             ISM-code minimum theo priority: CRITICAL=30, HIGH=14, MEDIUM=10, LOW=7 (ngày)
-                             effectiveMinimum = max(ISM minimum, workBasedMinimum)
-                             CEILING RULE: maxAllowedLeadTime = Floor(intervalDays × 0.7)
-                             → nếu effectiveMinimum vượt trần này thì CẮT XUỐNG còn đúng trần
-```
+Worker tạo scope mới mỗi lần kiểm tra và gọi `MaintenanceCycleUpdater.RefreshAsync`. Dịch vụ chỉ chọn công việc định kỳ có cấu hình hoạt động, bật tự động lên lịch và có chu kỳ hợp lệ. Không xử lý task đang thực hiện, chờ duyệt, trả hoàn hoặc đã hủy.
 
-Mục đích của "CEILING RULE": đảm bảo task kế tiếp không bao giờ được cảnh báo sớm đến mức chồng lấn lên chu kỳ hiện tại (ví dụ chu kỳ 14 ngày → lead time tối đa 9 ngày dù ISM Code có thể gợi ý nhiều hơn). Nếu lead time tính lại khác với `schedule.DaysBeforeDue` hiện có, service **tự động ghi đè luôn** giá trị này vào DB — một side-effect ngầm khi đang trong quá trình generate task.
+`PeriodicTaskCycle.NextCycleStatus` dùng chung cách tính Đã lên lịch → Sắp đến hạn → Đến hạn/Quá hạn. Công việc theo giờ chạy dùng giờ thực tế, không dùng ngày dự kiến để xác định quá hạn; thời gian cảnh báo trong cấu hình được hiểu là giờ cho RUNNING_HOURS và ngày cho CALENDAR/HYBRID. Nếu một lần cập nhật vượt ngưỡng đến hạn, trạng thái chuyển thẳng đến hạn.
 
-Ngoài ra, `GenerateTaskFromSchedule` hỗ trợ **per-asset** lẫn **group-based** (áp dụng cho cả nhóm thiết bị), và có kỹ thuật khá lạ: nhúng metadata dạng HTML comment `<!--META:{"reqRisk":true,...}-->` ngay trong field text tự do `Instructions` để truyền cờ `RequireRiskAssessment`/`RequireInspectionReport` — rồi tự bóc tách ra khi hiển thị.
+Task hoàn thành cũ được lưu báo cáo vào lịch sử trước khi đặt lại kỳ tiếp theo. Worker không tự sinh task, xóa task, đổi người được giao, đẩy hạn sang tương lai hoặc ghi đè thời gian cảnh báo. Cấu hình tạo task ban đầu; phê duyệt tính hạn của kỳ tiếp theo.
 
 ### D. Xuất PDF — `PmsPdfService` (dùng QuestPDF, Community License)
 
@@ -72,11 +65,8 @@ Ngoài ra, `GenerateTaskFromSchedule` hỗ trợ **per-asset** lẫn **group-bas
 - **`Services/Reporting/ReportingService.cs`** — gọi `MaritimeValidationService.ValidateXxx()` trước khi tạo/cập nhật report.
 - **`Repositories/` (`IMaintenanceScheduleRepository`, `IEquipmentAssetRepository`)** — được tiêm vào `MaintenanceCompletionService` để đọc schedule/asset.
 - **`Constants/TaskStatus.cs`** — `MaintenanceConstants.AVERAGE_HOURS_PER_DAY`, `MaintenanceConstants.MINIMUM_UPCOMING_WINDOW_HOURS` dùng trong tính lead-time.
-- **`Controllers/Maintenance/`** — `TaskWorkflowController.VerifyTask` (duyệt task) gọi `MaintenanceCompletionService.CompleteTaskAsync`/`PostApprovalScheduleUpdateAsync`; `WorkItemConfigController` chứa logic lead-time gần như TRÙNG với `MaintenanceSchedulerService` (xem Ghi chú).
 
 ## Ghi chú khi đọc/dạy
 
-- **Phát hiện quan trọng nhất: `MaintenanceSchedulerService` là `BackgroundService` nhưng KHÔNG có dòng `AddHostedService<MaintenanceSchedulerService>()` nào trong `Program.cs`** (đã xác minh bằng tìm kiếm toàn repo) — khác hẳn với `SyncBackgroundWorker`, `DataCleanupService`, hay 3 sync-enqueuer trong `Services/Voyage/` đều được đăng ký tường minh. Đừng dạy nhầm rằng lịch PMS "tự động chạy nền mỗi 15 phút" trong hệ thống hiện tại.
-- **Tuy vậy, thuật toán lead-time trong `MaintenanceSchedulerService` gần như trùng lặp với logic trong `Controllers/Maintenance/WorkItemConfigController.cs`** (`ValidateAndCorrectLeadTime`, `GetMinimumLeadTime`, `CalculateNextDueDate` cũng xuất hiện ở đó) — nhiều khả năng `WorkItemConfigController` là nơi thực thi thật (được gọi khi tạo/sửa schedule qua API), còn `MaintenanceSchedulerService` là phiên bản "chạy nền tự động" song song nhưng chưa được bật. Đây là bài tập đối chiếu code tốt: so sánh 2 cài đặt của cùng một thuật toán.
 - **`MaritimeValidationService` không tự log `Warnings`** — chỉ trả về kèm response; nếu warnings quan trọng (ví dụ sulphur content vượt ngưỡng ECA nhưng chưa vượt MARPOL 2020 toàn cầu) cần được giám sát, hiện không có cơ chế nào chủ động cảnh báo ngoài việc client tự hiển thị.
 - **Chiến lược trừ kho "vị trí tồn kho lớn nhất trước"** trong `MaintenanceCompletionService` là một quyết định thiết kế cụ thể (không phải FIFO theo ngày nhập hay theo hạn dùng) — đáng nêu ra khi thảo luận về các chiến lược quản lý tồn kho khác nhau (FIFO/LIFO/theo vị trí) và khi nào mỗi chiến lược phù hợp.

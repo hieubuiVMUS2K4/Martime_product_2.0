@@ -16,6 +16,68 @@ namespace MaritimeEdge.Tests.Inventory;
 
 public class PeriodicTaskCycleTests
 {
+    [Theory]
+    [InlineData(100, "SCHEDULED")]
+    [InlineData(150, "UPCOMING")]
+    [InlineData(199, "UPCOMING")]
+    [InlineData(200, "DUE")]
+    [InlineData(211, "OVERDUE")]
+    public void HourlyCycle_UsesWarningWindowBeforeActualDeadline(double hours, string expected)
+    {
+        var schedule = new MaintenanceSchedule { IntervalType = "RUNNING_HOURS", IntervalHours = 100,
+            NextDueRunningHours = 200, DaysBeforeDue = 50, NextDueDate = DateTime.UtcNow.AddDays(-90) };
+        Assert.Equal(expected, PeriodicTaskCycle.NextCycleStatus(schedule, hours, DateTime.UtcNow));
+    }
+
+    [Fact]
+    public async Task CycleUpdate_RespectsCalendarTaskDeadlineExtendedByApproval()
+    {
+        await using var db = Database();
+        var now = DateTime.UtcNow;
+        var schedule = new MaintenanceSchedule { MaintenanceCategory = "PERIODIC", IntervalType = "CALENDAR",
+            IntervalDays = 30, NextDueDate = now.AddDays(-1), AutoGenerate = true, DaysBeforeDue = 7 };
+        var task = new MaintenanceTask { Status = "SCHEDULED", NextDueAt = now.AddDays(20) };
+        Assert.False(await PeriodicTaskCycle.ReopenIfDueAsync(db, task, schedule, null, now));
+        Assert.Equal("SCHEDULED", task.Status);
+        Assert.Equal(now.AddDays(20), task.NextDueAt);
+        Assert.Equal(now.AddDays(-1), schedule.NextDueDate);
+    }
+
+    [Fact]
+    public async Task NewUpdater_OnlyChangesExistingCyclesAndPreservesConfigurationAndReports()
+    {
+        await using var db = Database();
+        var now = DateTime.UtcNow;
+        var asset = new EquipmentAsset { AssetCode = "ENGINE", AssetName = "Engine", CurrentRunningHours = 100 };
+        var schedule = new MaintenanceSchedule { ScheduleCode = "CYCLE", ScheduleName = "Cycle", EquipmentAssetId = asset.Id,
+            MaintenanceCategory = "PERIODIC", IntervalType = "RUNNING_HOURS", IntervalHours = 100,
+            NextDueRunningHours = 200, NextDueDate = now.AddDays(-20), DaysBeforeDue = 50, AutoGenerate = true };
+        var empty = new MaintenanceSchedule { ScheduleCode = "NO-TASK", ScheduleName = "No task", MaintenanceCategory = "PERIODIC",
+            IntervalType = "CALENDAR", IntervalDays = 30, NextDueDate = now.AddDays(-30), AutoGenerate = true };
+        var task = new MaintenanceTask { TaskId = "KEEP-ID", ScheduleId = schedule.Id, EquipmentAssetId = asset.Id,
+            Status = "COMPLETED", CompletedAt = now, Notes = "Retained report" };
+        var executing = new MaintenanceTask { TaskId = "EXECUTING", ScheduleId = schedule.Id, EquipmentAssetId = asset.Id,
+            Status = "IN_PROGRESS", Notes = "Do not clear" };
+        db.EquipmentAssets.Add(asset); db.MaintenanceSchedules.AddRange(schedule, empty); db.MaintenanceTasks.AddRange(task, executing);
+        await db.SaveChangesAsync();
+        var updater = new MaintenanceCycleUpdater(db);
+        Assert.Equal(1, await updater.RefreshAsync(now));
+        Assert.Equal("SCHEDULED", task.Status);
+        Assert.Equal(2, await db.MaintenanceTasks.CountAsync());
+        var report = (await db.MaintenanceHistories.SingleAsync()).ReportSnapshot;
+        Assert.Contains("Retained report", report!);
+        Assert.Equal("Do not clear", executing.Notes); Assert.Equal("IN_PROGRESS", executing.Status);
+        Assert.Equal(0, await updater.RefreshAsync(now));
+        asset.CurrentRunningHours = 150; await db.SaveChangesAsync();
+        Assert.Equal(1, await updater.RefreshAsync(now, asset.Id)); Assert.Equal("UPCOMING", task.Status);
+        asset.CurrentRunningHours = 200; await db.SaveChangesAsync();
+        Assert.Equal(1, await updater.RefreshAsync(now, asset.Id)); Assert.Equal("DUE", task.Status);
+        Assert.Single(await db.MaintenanceHistories.ToListAsync());
+        Assert.Equal(report, (await db.MaintenanceHistories.SingleAsync()).ReportSnapshot);
+        Assert.Equal(now.AddDays(-20), schedule.NextDueDate); Assert.Equal(50, schedule.DaysBeforeDue);
+        Assert.Equal(now.AddDays(-30), empty.NextDueDate);
+    }
+
     [Fact]
     public void ReportMigration_GeneratesPostgresColumnWithoutDatabaseConnection()
     {
@@ -72,7 +134,8 @@ public class PeriodicTaskCycleTests
         Assert.Single(await db.MaintenanceTasks.ToListAsync());
         Assert.Equal("SCHEDULED", task.Status);
         Assert.Equal(now.AddDays(30), task.NextDueAt);
-        Assert.False(await PeriodicTaskCycle.ReopenIfDueAsync(db, task, schedule, 100, now.AddDays(29)));
+        Assert.True(await PeriodicTaskCycle.ReopenIfDueAsync(db, task, schedule, 100, now.AddDays(29)));
+        Assert.Equal("UPCOMING", task.Status);
         Assert.Null(task.Notes);
         Assert.True(await PeriodicTaskCycle.ReopenIfDueAsync(db, task, schedule, 100, now.AddDays(30)));
         await db.SaveChangesAsync();
