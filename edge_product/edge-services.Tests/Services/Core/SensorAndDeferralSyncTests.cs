@@ -121,6 +121,7 @@ public partial class SyncReliabilityTests
         {
             var sent = new List<SyncQueueItemDto>(); var storage = new Mock<ISyncFileStorageService>();
             storage.Setup(s => s.Exists(It.IsAny<string>())).Returns(true);
+            storage.Setup(s => s.ResolveLocalPath(It.IsAny<string>())).Returns((string path) => Path.Combine(Path.GetTempPath(), "codex-deferral-evidence.pdf"));
             var preparation = new Mock<ISyncFilePreparationService>();
             preparation.Setup(p => p.PrepareForSyncAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((string source, string table, string key, string role, CancellationToken _) =>

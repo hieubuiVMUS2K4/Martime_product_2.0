@@ -28,4 +28,4 @@
 - Kiểm thử hai lần thực hiện liên tiếp: chỉ một task, hai báo cáo riêng và báo cáo đầu không bị ghi đè.
 - Kiểm tra ngưỡng giờ chạy, hạn tháng/năm, lịch không định kỳ hoặc bị tắt, lưu báo cáo cũ, quyền truy cập API lịch sử và dữ liệu lịch sử sau khi task mở lại.
 - Kiểm tra SQL migration PostgreSQL mà không kết nối cơ sở dữ liệu; build frontend Edge và backend Shore.
-- Chưa xác nhận luồng chạy trên dữ liệu thật và đồng bộ giữa hai dịch vụ đang hoạt động.
+- Đã bổ sung kiểm thử hàng đợi Edge và bộ nhận Shore trên PostgreSQL thử nghiệm; xem [kết quả kiểm tra đồng bộ](PERIODIC_MAINTENANCE_SYNC_AUDIT_2026-10-06.md). Chưa xác nhận luồng qua giao diện với hai dịch vụ đang hoạt động trên dữ liệu thật.

@@ -4457,7 +4457,7 @@ namespace productapi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ScheduleCode")
+                    b.HasIndex("VesselId", "ScheduleCode")
                         .IsUnique();
 
                     b.ToTable("maintenance_schedules", (string)null);

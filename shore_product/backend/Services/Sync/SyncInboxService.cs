@@ -458,6 +458,7 @@ public class SyncInboxService : ISyncInboxService
         "material_item",
         "equipment_asset",
         "maintenance_task",
+        "maintenance_history",
         "inventory_stock",
         "material_item_equipment",
         // Nghiệp vụ vật tư/PMS dưới tàu — mỗi tàu một bộ, id nguyên có thể trùng nhau
@@ -936,12 +937,22 @@ public class SyncInboxService : ISyncInboxService
             manifest.CapturedAtUtc = fileRef.CapturedAtUtc;
             manifest.UpdatedAt = DateTime.UtcNow;
 
-            if (item.TableName == "task_deferral_request" && manifest.StoragePath is string storedPath
+            if (item.TableName is "task_deferral_request" or "maintenance_history" && manifest.StoragePath is string storedPath
                 && _syncFileStorageService.Exists(storedPath)
                 && _syncFileStorageService.GetFileSize(storedPath) == fileRef.SizeBytes
                 && string.Equals(await _syncFileStorageService.ComputeSha256HexAsync(storedPath, CancellationToken.None),
                     fileRef.Sha256, StringComparison.OrdinalIgnoreCase))
             {
+                if (item.TableName == "maintenance_history")
+                {
+                    var history = await FindEntityByKeyAsync(typeof(ProductApi.Models.MaintenanceHistory), item.RecordKey)
+                        as ProductApi.Models.MaintenanceHistory ?? throw new InvalidOperationException("Maintenance history missing for file metadata.");
+                    history.ReportSnapshot = MaintenanceHistorySyncFiles.Rewrite(history.ReportSnapshot, fileRef.FileRole, storedPath);
+                    manifest.TransferStatus = SyncFileTransferStatus.Duplicate;
+                    manifest.VerifiedAtUtc = DateTime.UtcNow;
+                    manifest.LastError = null;
+                    continue;
+                }
                 var request = await FindEntityByKeyAsync(typeof(ProductApi.Models.TaskDeferralRequest), item.RecordKey)
                     as ProductApi.Models.TaskDeferralRequest;
                 if (request == null) throw new InvalidOperationException("Deferral record missing for file metadata.");
@@ -1241,6 +1252,8 @@ public class SyncInboxService : ISyncInboxService
         var cleanPayload = NormalizePayloadToCamelCase(StripNavigationProperties(item.Payload), entityType);
         var entity = JsonSerializer.Deserialize(cleanPayload, entityType, _jsonOptions);
         if (entity == null) throw new InvalidOperationException("Failed to deserialize CREATE payload");
+        if (entity is ProductApi.Models.MaintenanceHistory history && history.ScheduleId == Guid.Empty)
+            throw new InvalidOperationException("dependency_missing: maintenance_history requires a maintenance_schedule");
 
         // CRITICAL: Force the entity's PK to match RecordKey.
         // Without this, if the payload is missing "id" or has a different value,
@@ -1350,7 +1363,7 @@ public class SyncInboxService : ISyncInboxService
         // treat this as a new record creation (same seed ID, different vessel).
         if (existing != null && _vesselScopedTables.Contains(item.TableName))
         {
-            var existingVesselId = existing.GetType().GetProperty("VesselId")?.GetValue(existing) as Guid?;
+            var existingVesselId = await StoredVesselOwnerAsync(existing);
             var incomingVesselId = await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode);
 
             if (incomingVesselId.HasValue && existingVesselId.HasValue
@@ -1463,6 +1476,16 @@ public class SyncInboxService : ISyncInboxService
             var crewSnapshot = item.TableName == "crew_member" ? SnapshotCrewFields(existing) : null;
 
             await RemapScopedForeignKeysAsync(entityType, incomingEntity, item.OriginNode);
+            if (incomingEntity is ProductApi.Models.MaintenanceHistory incomingHistory
+                && existing is ProductApi.Models.MaintenanceHistory storedHistory)
+            {
+                bool Supplied(string field) => payloadKeys.Any(k => k.Replace("_", "").Equals(field, StringComparison.OrdinalIgnoreCase));
+                if (Supplied("ScheduleId") && incomingHistory.ScheduleId != storedHistory.ScheduleId
+                    || Supplied("TaskId") && incomingHistory.TaskId != storedHistory.TaskId)
+                    throw new InvalidOperationException("A maintenance execution cannot be moved to another task or schedule.");
+                if (!Supplied("TaskId")) incomingHistory.TaskId = storedHistory.TaskId;
+                if (!Supplied("ScheduleId")) incomingHistory.ScheduleId = storedHistory.ScheduleId;
+            }
             if (incomingEntity is ProductApi.Models.TaskDeferralRequest request
                 && existing is ProductApi.Models.TaskDeferralRequest stored)
             {
@@ -2115,6 +2138,8 @@ public class SyncInboxService : ISyncInboxService
     /// </summary>
     private async Task<Guid?> StoredVesselOwnerAsync(object entity, int depth = 0)
     {
+        if (entity is ProductApi.Models.MaintenanceHistory history)
+            return await VesselSyncIdentity.ResolveVesselIdAsync(_context, history.OriginNode);
         if (entity.GetType().GetProperty("VesselId")?.GetValue(entity) is Guid owner) return owner;
         if (depth > 4) return null;
         foreach (var fk in _context.Model.FindEntityType(entity.GetType())!.GetForeignKeys())
@@ -2142,6 +2167,18 @@ public class SyncInboxService : ISyncInboxService
 
     private async Task RemapScopedForeignKeysAsync(Type entityType, object entity, string origin)
     {
+        if (entity is ProductApi.Models.MaintenanceTask task && task.ScheduleId.HasValue)
+            task.ScheduleId = await ResolveHistoryParentAsync("maintenance_schedule", task.ScheduleId.Value, origin);
+        // Histories intentionally have no EF navigation/FK metadata in the Shore mirror.
+        // Resolve their parents explicitly; accepting an unresolved UUID can link another ship.
+        if (entity is ProductApi.Models.MaintenanceHistory history)
+        {
+            if (history.ScheduleId != Guid.Empty)
+                history.ScheduleId = await ResolveHistoryParentAsync("maintenance_schedule", history.ScheduleId, origin);
+            if (history.TaskId.HasValue)
+                history.TaskId = await ResolveHistoryParentAsync("maintenance_task", history.TaskId.Value, origin);
+            history.OriginNode = origin;
+        }
         foreach (var fk in _context.Model.FindEntityType(entityType)!.GetForeignKeys())
         {
             if (fk.Properties.Count != 1) continue;
@@ -2156,6 +2193,20 @@ public class SyncInboxService : ISyncInboxService
             var type = Nullable.GetUnderlyingType(property!.PropertyType) ?? property.PropertyType;
             property.SetValue(entity, type == typeof(Guid) ? Guid.Parse(mapped.ShoreKey) : Convert.ChangeType(mapped.ShoreKey, type));
         }
+    }
+
+    private async Task<Guid> ResolveHistoryParentAsync(string table, Guid key, string origin)
+    {
+        var mapping = _context.SyncRecordIdentities.Local.SingleOrDefault(m => m.OriginNode == origin && m.TableName == table && m.LocalKey == key.ToString())
+            ?? await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(m => m.OriginNode == origin && m.TableName == table && m.LocalKey == key.ToString());
+        var shoreKey = mapping == null ? key : Guid.Parse(mapping.ShoreKey);
+        var parent = await _context.FindAsync(_tableEntityMap[table], shoreKey);
+        if (parent == null)
+            throw new InvalidOperationException($"dependency_missing: {table} must be persisted before maintenance_history");
+        var owner = await VesselSyncIdentity.ResolveVesselIdAsync(_context, origin);
+        if (!owner.HasValue || await StoredVesselOwnerAsync(parent) != owner)
+            throw new InvalidOperationException("ownership_violation: maintenance history parent belongs to another vessel");
+        return shoreKey;
     }
 
     private void ForceEntityPrimaryKey(Type entityType, object entity, string recordKey)

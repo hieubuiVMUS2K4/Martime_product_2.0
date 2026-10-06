@@ -3391,6 +3391,7 @@ public class EdgeDbContext : DbContext
             type == typeof(PositionReport) ||
             type == typeof(TaskDeferralRequest) ||
             type == typeof(MaintenanceTask) ||
+            type == typeof(MaintenanceHistory) ||
             type == typeof(MaintenanceSchedule) ||
             type == typeof(EquipmentAsset) ||
             type == typeof(EquipmentGroup) ||

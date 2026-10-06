@@ -1763,7 +1763,7 @@ namespace ProductApi.Data
             modelBuilder.Entity<MaintenanceSchedule>(entity =>
             {
                 entity.ToTable("maintenance_schedules");
-                entity.HasIndex(e => e.ScheduleCode).IsUnique();
+                entity.HasIndex(e => new { e.VesselId, e.ScheduleCode }).IsUnique();
             });
 
             modelBuilder.Entity<ScheduleSparePart>(entity =>

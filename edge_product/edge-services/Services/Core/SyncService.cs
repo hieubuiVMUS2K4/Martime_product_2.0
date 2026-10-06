@@ -55,7 +55,7 @@ public class SyncService : ISyncService
     private readonly ISyncFilePreparationService _syncFilePreparationService;
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "task_deferral_request", "crew_member", "crew_certificate", "travel_document", "seafarer_document",
+        "maintenance_history", "task_deferral_request", "crew_member", "crew_certificate", "travel_document", "seafarer_document",
         "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
     };
     
@@ -316,6 +316,11 @@ public class SyncService : ISyncService
                 context.ScheduleChecklistTemplates.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "maintenance_task",
                 context.MaintenanceTasks.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
+            var pendingHistories = await context.SyncQueue.Where(q => q.TableName == "maintenance_history"
+                && q.SyncedAt == null && q.Priority == SyncPriority.Low).ToListAsync(cancellationToken);
+            foreach (var pending in pendingHistories) pending.Priority = SyncPriority.Operational;
+            added += await ReconcileTableAsync(context, "maintenance_history",
+                context.MaintenanceHistories.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
 
             added += await ReconcileTableAsync(context, "material_request",
                 context.MaterialRequests.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
@@ -328,7 +333,7 @@ public class SyncService : ISyncService
             added += await ReconcileTableAsync(context, "inventory_stock",
                 context.InventoryStocks.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
 
-            if (added > 0)
+            if (added > 0 || pendingHistories.Count > 0)
             {
                 await context.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("Đối soát: xếp thêm {Count} bản ghi chưa từng được đồng bộ", added);
@@ -855,6 +860,9 @@ public class SyncService : ISyncService
                         if (item.TableName == "task_deferral_request"
                             && failure?.Error.Contains("dependency_missing: maintenance_task", StringComparison.OrdinalIgnoreCase) == true)
                             await SensorDeferralSyncBackfill.EnqueueTaskAsync(context, item.Payload, cancellationToken);
+                        if (item.TableName == "maintenance_history"
+                            && failure?.Error.Contains("dependency_missing", StringComparison.OrdinalIgnoreCase) == true)
+                            await SensorDeferralSyncBackfill.EnqueueTaskAsync(context, item.Payload, cancellationToken);
                         ScheduleRetry(item, !mirrorSupported ? "Shore upgrade required: sensor/deferral persistence receipt missing"
                             : failure?.Error ?? (valid ? BuildFailureSummary(batchResponse!) : "Invalid or missing per-event receipt"), retryPolicy, nodeId);
                     }
@@ -1250,8 +1258,9 @@ public class SyncService : ISyncService
         if (!_fileTableNames.Contains(dto.TableName))
             return refs;
 
-        foreach (var (role, rawPath) in dto.TableName == "task_deferral_request"
-            ? DeferralSyncFiles.References(dto.Payload) : ExtractSyncFilePaths(dto.Payload))
+        foreach (var (role, rawPath) in dto.TableName == "maintenance_history"
+            ? MaintenanceHistorySyncFiles.References(dto.Payload)
+            : dto.TableName == "task_deferral_request" ? DeferralSyncFiles.References(dto.Payload) : ExtractSyncFilePaths(dto.Payload))
         {
             var filePath = StripQueryString(rawPath) ?? rawPath;
             if (!_syncFileStorageService.Exists(filePath))
