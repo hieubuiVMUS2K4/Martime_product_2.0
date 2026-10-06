@@ -71,7 +71,7 @@ Tất cả route "sau đăng nhập" đều lồng trong `<Route element={<TopNa
 ## Liên kết với phần khác
 
 - **contexts/AuthContext**: nguồn của `isAuthenticated`/`isLoading` dùng trong `RequireAuth`.
-- **components/layout/TopNavLayout**: layout bao toàn bộ route đã đăng nhập; menu điều hướng khai báo *độc lập* trong chính `TopNavLayout.tsx`, không đọc từ file route này — nếu thêm route mới, phải tự tay thêm cả `<Route>` ở đây **và** mục menu trong `TopNavLayout` (hai nơi tách biệt, dễ quên một bên).
+- **components/layout/navigation.ts**: nguồn duy nhất của menu điều hướng (TopNavLayout đọc từ đây). Thêm route mới thì thêm cả `<Route>` ở đây **và** một mục trong `navigation.ts`.
 - **pages/**: mọi page module export qua `index.ts` của từng thư mục rồi được import vào đây.
 
 ## Ghi chú khi đọc/dạy

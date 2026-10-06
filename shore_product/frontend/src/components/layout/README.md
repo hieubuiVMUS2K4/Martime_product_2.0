@@ -8,7 +8,9 @@ Chứa khung bao ngoài (nav + `<Outlet/>`) cho toàn bộ trang sau đăng nh�
 
 | File / thư mục | Export | Đang được `routes/AppRoutes.tsx` dùng? | Vai trò |
 |---|---|---|---|
-| `TopNavLayout/TopNavLayout.tsx` | `TopNavLayout` | ✅ **Có** — bọc toàn bộ route sau `RequireAuth` | Thanh điều hướng **ngang**, cố định trên cùng: logo "Maritime", các link/dropdown (Danh mục, Danh sách tàu, Tracking, Thông tin [Onboarding/Xác minh/Tuân thủ/Phân công/Tuyển ngoài/Di chuyển/Onboard], Báo cáo, Đồng bộ), chuông thông báo (gộp 2 nguồn: `crewApi.holdNotifications()` — thuyền viên bị tạm giữ, và `notificationApi.getRecent()` — thông báo sync), `UserMenu`, menu mobile responsive. Tự poll thông báo mỗi 30 giây. |
+| `TopNavLayout/TopNavLayout.tsx` | `TopNavLayout` | ✅ **Có** — bọc toàn bộ route sau `RequireAuth` | Thanh điều hướng ngang cố định trên cùng (Tailwind): thương hiệu, menu đọc từ `navigation.ts`, `NotificationBell`, `UserMenu`, menu dọc cho màn hẹp. Menu thả xuống tự đóng khi bấm ra ngoài, chọn mục, đổi trang hoặc Esc. |
+| `navigation.ts` | `NAVIGATION`, `isLeafActive` | ✅ | **Nguồn duy nhất** của menu: nhãn, biểu tượng, nhóm. Thêm trang mới: khai `<Route>` trong `routes/AppRoutes.tsx` rồi thêm một mục ở đây. |
+| `NotificationBell.tsx` | `NotificationBell` | ✅ | Chuông thông báo: thuyền viên bị tạm giữ (`crewApi.holdNotifications()`) + thông báo đồng bộ (`notificationApi.getRecent()`), tải lại mỗi 30 giây. |
 | `UserMenu.tsx` | `UserMenu` | ✅ Có (bên trong `TopNavLayout`) | Avatar chữ cái đầu tên user + dropdown (portal ra `document.body`) hiển thị tên/role, nút Hồ sơ (chưa nối chức năng), nút Đăng xuất (`useAuth().logout()` rồi `navigate('/login')`). |
 
 
