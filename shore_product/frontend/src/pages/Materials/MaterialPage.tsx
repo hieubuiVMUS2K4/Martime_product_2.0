@@ -33,16 +33,13 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
   const [syncing, setSyncing] = useState(false);
   const [loadError, setLoadError] = useState('');
 
-  // Row selection
-  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
-
   // Modals
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [catalogImportOpen, setCatalogImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MaterialItem | null>(null);
   const [viewingItem, setViewingItem] = useState<MaterialItem | null>(null);
 
-  useEffect(() => { setSelectedRows(new Set()); setItemModalOpen(false); setCatalogImportOpen(false); loadData(); return () => { materialRequest.current++; }; }, [vesselId]);
+  useEffect(() => { setItemModalOpen(false); setCatalogImportOpen(false); loadData(); return () => { materialRequest.current++; }; }, [vesselId]);
 
   const loadData = useCallback(async (quiet = false) => {
     const request = ++materialRequest.current;
@@ -92,20 +89,6 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (readOnly) return;
-    if (selectedRows.size === 0) return;
-    if (!await ask(`Bạn có chắc muốn xóa ${selectedRows.size} vật tư đã chọn?`)) return;
-    try {
-      const ids = Array.from(selectedRows).map(String);
-      if (!vesselId) return;
-      await vesselMaterialService.remove(vesselId, ids);
-      setSelectedRows(new Set());
-      await loadData();
-    } catch (error: any) {
-      toast.error(error.message || 'Xóa thất bại');
-    }
-  };
 
 
   // ---------- Columns ----------
@@ -178,10 +161,6 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
         onImport={readOnly ? undefined : () => setCatalogImportOpen(true)}
         onAdd={readOnly ? undefined : () => { setEditingItem(null); setItemModalOpen(true); }}
         addLabel="Thêm vật tư"
-        selection={readOnly ? undefined : { selected: selectedRows, onChange: setSelectedRows }}
-        bulkActions={
-          <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={handleBulkDelete}>Xóa đã chọn</Button>
-        }
         toolbarActions={
           <Button icon={<RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />} disabled={syncing || !vesselId}
             onClick={handleSync} title="Gửi danh sách vật tư xuống tàu">
