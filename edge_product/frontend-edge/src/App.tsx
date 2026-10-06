@@ -152,7 +152,7 @@ function App() {
         {/* System Routes */}
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="admin/accounts" element={<AdminManagementPage />} />
-        <Route path="admin/permissions" element={<Navigate to="/admin/accounts" replace />} />
+        <Route path="admin/permissions" element={<Navigate to="/admin/accounts?tab=permissions" replace />} />
 
         <Route path="reporting" element={<ReportingDashboard />} />
         <Route path="reporting/reports" element={<ReportsPage />} />

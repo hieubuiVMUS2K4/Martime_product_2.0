@@ -723,7 +723,6 @@ public class AuthService : IAuthService
                 CrewId = x.User.CrewId,
                 FullName = x.Crew != null ? x.Crew.FullName : null,
                 RankName = x.Crew != null && x.Crew.Rank != null ? x.Crew.Rank.RankName : null,
-                RankId = x.Crew != null ? x.Crew.RankId : null,
                 IsActive = x.User.IsActive,
                 LastLoginAt = x.User.LastLoginAt
             })

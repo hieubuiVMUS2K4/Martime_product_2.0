@@ -13,7 +13,6 @@ export interface UserInfo {
   fullName?: string | null
   position?: string | null
   rankName?: string | null
-  rankId?: number | null
   isActive: boolean
   lastLoginAt?: string | null
 }

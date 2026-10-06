@@ -46,7 +46,6 @@ public class UserInfo
     public string? FullName { get; set; }
     public string? Position { get; set; }
     public string? RankName { get; set; }
-    public int? RankId { get; set; }
     public bool IsActive { get; set; }
     public DateTime? LastLoginAt { get; set; }
 }

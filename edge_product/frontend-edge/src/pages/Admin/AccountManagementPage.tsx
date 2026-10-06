@@ -3,9 +3,9 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  RefreshCw,
   Search,
   ShieldCheck,
-  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { authService } from '@/services/auth.service'
@@ -50,7 +50,7 @@ async function fetchAccounts(force = false): Promise<{ users: UserInfo[] }> {
   return accountLoadPromise
 }
 
-export function AccountManagementPage({ selectedRankId, onSelectUser }: { selectedRankId?: number | null; onSelectUser: (user: UserInfo) => void }) {
+export function AccountManagementPage() {
   const { user: currentUser } = useAuthStore()
   const { t } = useTranslationSafe()
   const [users, setUsers] = useState<UserInfo[]>([])
@@ -78,10 +78,6 @@ export function AccountManagementPage({ selectedRankId, onSelectUser }: { select
 
   useEffect(() => {
     void loadData()
-    const timer = window.setInterval(() => void loadData(true), 30000)
-    const refresh = () => { void loadData(true) }
-    window.addEventListener('focus', refresh)
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
   }, [loadData])
 
   useEffect(() => {
@@ -155,52 +151,180 @@ export function AccountManagementPage({ selectedRankId, onSelectUser }: { select
   }
 
   if (!canManage) {
-    return <div className="flex items-center gap-2 p-4 text-sm text-gray-500"><Lock className="h-4 w-4" />{t('accountManagement.accessDenied')}</div>
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-red-700">
+          <div className="flex items-center gap-2 font-semibold">
+            <Lock className="h-5 w-5" />
+            {t('accountManagement.accessDenied')}
+          </div>
+          <p className="mt-2 text-sm">{t('accountManagement.accessDeniedDescription')}</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <div className="shrink-0 border-b border-gray-200 px-4 py-3">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
-          <Users className="h-4 w-4 text-blue-600" />Tài khoản
-          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{users.length}</span>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white">
+      <div className="flex min-h-0 flex-1 flex-col bg-white">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700">{t('accountManagement.listTitle')}</span>
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+              {filteredUsers.length} / {users.length}
+            </span>
+          </div>
+        <button
+          type="button"
+          onClick={() => void loadData(true)}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          {t('accountManagement.refresh')}
+        </button>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <input aria-label="Tìm tài khoản" value={search} onChange={event => setSearch(event.target.value)} placeholder="Tìm tài khoản, thuyền viên…" className="h-9 w-full rounded border border-gray-300 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-blue-50">
+                <th className="w-12 border-b border-r border-gray-200 px-2 py-2 text-center text-xs font-semibold uppercase text-gray-600">#</th>
+                <th className="min-w-[180px] border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.account')}</th>
+                <th className="min-w-[220px] border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.crew')}</th>
+                <th className="w-56 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">Chức danh</th>
+                <th className="w-44 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.lastLogin')}</th>
+                <th className="w-32 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.status')}</th>
+                <th className="w-52 border-b border-gray-200 px-3 py-2 text-center text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.actions')}</th>
+              </tr>
+              <tr className="border-b border-gray-200 bg-white">
+                <th className="border-r border-gray-200"></th>
+                <th className="border-r border-gray-200 px-2 py-1" colSpan={2}>
+                  <div className="flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1">
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder={t('accountManagement.searchPlaceholder')}
+                      className="min-w-0 flex-1 bg-transparent text-xs outline-none"
+                    />
+                    <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                  </div>
+                </th>
+                <th className="border-r border-gray-200"></th>
+                <th className="border-r border-gray-200"></th>
+                <th className="border-r border-gray-200"></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                    <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
+                    {t('accountManagement.loading')}
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                    {t('accountManagement.noAccounts')}
+                  </td>
+                </tr>
+              ) : (
+                paginatedUsers.map((item, index) => {
+                  const isBusy = busyUserId === item.id
+                  const rowNumber = (safePage - 1) * PAGE_SIZE + index + 1
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`transition-colors hover:bg-blue-50 ${index % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
+                    >
+                      <td className="border-r border-gray-200 px-2 py-2 text-center text-xs text-gray-500">
+                        {rowNumber}
+                      </td>
+                      <td className="border-r border-gray-200 px-3 py-2">
+                        <div className="font-semibold text-gray-900">{item.username}</div>
+                        <div className="text-xs text-gray-500">ID {item.id}</div>
+                      </td>
+                      <td className="border-r border-gray-200 px-3 py-2">
+                        <div className="text-gray-900">{item.fullName || '-'}</div>
+                        <div className="text-xs text-gray-500">{item.crewId || item.position || '-'}</div>
+                      </td>
+                      <td className="border-r border-gray-200 px-3 py-2">
+                        <span className="text-gray-900" title={item.crewId ? 'Chức danh được quản lý trên bờ và đồng bộ xuống tàu' : undefined}>
+                          {item.rankName || (item.crewId ? 'Chưa có chức danh' : '—')}
+                        </span>
+                      </td>
+                      <td className="border-r border-gray-200 px-3 py-2 text-gray-600">{formatDateTime(item.lastLoginAt)}</td>
+                      <td className="border-r border-gray-200 px-3 py-2">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
+                            item.isActive
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${item.isActive ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                          {item.isActive ? t('accountManagement.status.active') : t('accountManagement.status.locked')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleResetPassword(item)}
+                            disabled={isBusy}
+                            className="inline-flex h-8 items-center gap-1.5 rounded border border-gray-300 px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            {t('accountManagement.actions.reset')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleToggleActive(item)}
+                            disabled={isBusy || item.id === currentUser?.id}
+                            className="inline-flex h-8 items-center gap-1.5 rounded border border-gray-300 px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            {item.isActive ? t('accountManagement.actions.lock') : t('accountManagement.actions.unlock')}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50/60 p-3">
-        {loading && !users.length ? <div className="py-8 text-center text-sm text-gray-500"><Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />{t('accountManagement.loading')}</div>
-          : !filteredUsers.length ? <p className="p-3 text-sm text-gray-500">{t('accountManagement.noAccounts')}</p>
-          : paginatedUsers.map(item => {
-            const isBusy = busyUserId === item.id
-            const sameRank = item.rankId != null && item.rankId === selectedRankId
-            return <article key={item.id} className={`mb-3 rounded-lg border bg-white last:mb-0 ${sameRank ? 'border-blue-300' : 'border-gray-200'}`}>
-              <button type="button" disabled={isBusy} onClick={() => onSelectUser(item)} className="w-full rounded-t-lg p-3 text-left hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0"><div className="truncate text-sm font-semibold text-gray-900">{item.fullName || item.username}</div>{item.fullName && <div className="mt-0.5 truncate text-xs text-gray-500">{item.username}</div>}</div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${item.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{item.isActive ? 'Hoạt động' : 'Đã khóa'}</span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <span className={`rounded px-2 py-1 text-xs ${sameRank ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{item.rankName || (item.crewId ? 'Chưa có chức danh' : 'Không gắn thuyền viên')}</span>
-                  {item.roleCode?.toUpperCase() === 'ADMIN' && <span className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">Quản trị hệ thống</span>}
-                </div>
-                <p className="mt-2 text-[11px] text-gray-400">Đăng nhập: {formatDateTime(item.lastLoginAt)}</p>
-              </button>
-              <div className="flex items-center gap-2 border-t border-gray-100 px-3 py-2">
-                <button type="button" onClick={() => void handleResetPassword(item)} disabled={isBusy} className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"><KeyRound className="h-3.5 w-3.5" />Đặt lại mật khẩu</button>
-                <button type="button" onClick={() => void handleToggleActive(item)} disabled={isBusy || item.id === currentUser?.id} className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"><ShieldCheck className="h-3.5 w-3.5" />{item.isActive ? 'Khóa' : 'Mở khóa'}</button>
-              </div>
-            </article>
-          })}
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-3 py-2 text-xs text-gray-500">
-        <span>{pageStart}–{pageEnd} / {filteredUsers.length}</span>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setPage(p => Math.max(1,p-1))} disabled={safePage <= 1} className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-40">Trước</button>
-          <span>{safePage}/{totalPages}</span>
-          <button type="button" onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={safePage >= totalPages} className="rounded border border-gray-300 px-2 py-1 hover:bg-gray-50 disabled:opacity-40">Sau</button>
+        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-2 text-xs text-gray-600">
+          <div>
+            {t('accountManagement.pagination.showing', {
+              start: pageStart,
+              end: pageEnd,
+              total: filteredUsers.length,
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={safePage <= 1}
+              className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('accountManagement.pagination.previous')}
+            </button>
+            <span>
+              {t('accountManagement.pagination.page', { current: safePage, total: totalPages })}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={safePage >= totalPages}
+              className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('accountManagement.pagination.next')}
+            </button>
+          </div>
         </div>
       </div>
     </div>
