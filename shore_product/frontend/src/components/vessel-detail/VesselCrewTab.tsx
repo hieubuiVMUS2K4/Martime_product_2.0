@@ -72,11 +72,9 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   /** Thuyền viên đang được chọn để cho xuống tàu (null = modal đóng) */
   const [signOffTarget, setSignOffTarget] = useState<CrewMember | null>(null);
-  const [selected, setSelected] = useState<Set<string | number>>(new Set());
 
   const { markViewed, marking } = useMarkCrewChangesViewed(ids => {
     setCrew(prev => prev.map(c => (ids.includes(c.id) ? { ...c, edgeChangesViewed: true } : c)));
-    setSelected(new Set());
   });
 
   const loadCrew = useCallback(async () => {
@@ -96,7 +94,6 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
 
   const unviewed = crew.filter(hasEdgeChanges);
   const unviewedChangesCount = unviewed.length;
-  const selectedUnviewed = unviewed.filter(c => selected.has(c.id));
 
   const markAllViewed = async () => {
     if (!(await ask(`Đánh dấu đã xem thay đổi từ tàu của ${unviewedChangesCount} thuyền viên?\nNên mở hồ sơ kiểm tra trước nếu thay đổi quan trọng.`, { title: 'Đánh dấu đã xem', confirmLabel: 'Đã xem tất cả' }))) return;
@@ -168,7 +165,7 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">
             {unviewedChangesCount} thuyền viên đã được chỉnh sửa bởi tàu (chấm đỏ cạnh tên). Mở hồ sơ để xem từng thay đổi,
-            hoặc bấm nút đánh dấu đã xem ở cột Thao tác / chọn nhiều dòng.
+            hoặc bấm nút ✓✓ ở cột Thao tác.
           </span>
           <Button size="sm" icon={<CheckCheck className="h-4 w-4" />} loading={marking} onClick={markAllViewed}>
             Đã xem tất cả ({unviewedChangesCount})
@@ -192,14 +189,6 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
           </Button>
         }
         onRowClick={handleViewCrew}
-        selection={{ selected, onChange: setSelected }}
-        bulkActions={
-          <Button size="sm" icon={<CheckCheck className="h-3.5 w-3.5" />} loading={marking}
-            disabled={selectedUnviewed.length === 0} onClick={() => markViewed(selectedUnviewed.map(c => c.id))}
-            title={selectedUnviewed.length === 0 ? 'Các dòng đã chọn không có thay đổi chưa xem' : undefined}>
-            Đánh dấu đã xem ({selectedUnviewed.length})
-          </Button>
-        }
         minWidth={1100}
       />
 

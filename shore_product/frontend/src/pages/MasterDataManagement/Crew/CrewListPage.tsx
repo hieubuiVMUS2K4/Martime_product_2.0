@@ -83,11 +83,9 @@ export const CrewListPage: React.FC = () => {
   const [editingCrew, setEditingCrew] = useState<CrewMember | null>(null);
   const [saving, setSaving] = useState(false);
   const [assignList, setAssignList] = useState<CrewMember[]>([]);
-  const [selected, setSelected] = useState<Set<string | number>>(new Set());
 
   const { markViewed, marking } = useMarkCrewChangesViewed(ids => {
     setCrew(prev => prev.map(m => (ids.includes(m.id) ? { ...m, edgeChangesViewed: true } : m)));
-    setSelected(new Set());
   });
 
   // Theo dõi chứng chỉ
@@ -179,7 +177,6 @@ export const CrewListPage: React.FC = () => {
   ), [crew, view]);
 
   const unviewed = useMemo(() => crewInView.filter(hasEdgeChanges), [crewInView]);
-  const selectedUnviewed = unviewed.filter(m => selected.has(m.id));
 
   const markAllViewed = async () => {
     if (!(await ask(`Đánh dấu đã xem thay đổi từ tàu của ${unviewed.length} thuyền viên?\nNên mở hồ sơ kiểm tra trước nếu thay đổi quan trọng.`, { title: 'Đánh dấu đã xem', confirmLabel: 'Đã xem tất cả' }))) return;
@@ -309,7 +306,7 @@ export const CrewListPage: React.FC = () => {
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">
             {unviewed.length} thuyền viên có thay đổi từ tàu chưa xem (số màu cam ở cột Trạng thái). Mở hồ sơ để xem từng thay đổi,
-            hoặc bấm nút đánh dấu đã xem ở cột Thao tác / chọn nhiều dòng.
+            hoặc bấm nút ✓✓ ở cột Thao tác.
           </span>
           <Button size="sm" icon={<CheckCheck className="h-4 w-4" />} loading={marking} onClick={markAllViewed}>
             Đã xem tất cả ({unviewed.length})
@@ -333,14 +330,6 @@ export const CrewListPage: React.FC = () => {
           onAdd={openNew}
           addLabel="Thêm thuyền viên"
           onRowClick={m => navigate(`/crew/${m.id}`)}
-          selection={{ selected, onChange: setSelected }}
-          bulkActions={
-            <Button size="sm" icon={<CheckCheck className="h-3.5 w-3.5" />} loading={marking}
-              disabled={selectedUnviewed.length === 0} onClick={() => markViewed(selectedUnviewed.map(m => m.id))}
-              title={selectedUnviewed.length === 0 ? 'Các dòng đã chọn không có thay đổi chưa xem' : undefined}>
-              Đánh dấu đã xem ({selectedUnviewed.length})
-            </Button>
-          }
           minWidth={1220}
         />
       ) : (
