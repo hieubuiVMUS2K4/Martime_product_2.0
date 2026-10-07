@@ -142,7 +142,7 @@ export function DataTable<T>({
   toolbarLeft,
   showIndex = true,
   pageSize: initialPageSize = 20,
-  pageSizeOptions = [20, 50, 100],
+  pageSizeOptions = [10, 15, 20, 25],
   itemLabel = 'kết quả',
   selection,
   bulkActions,

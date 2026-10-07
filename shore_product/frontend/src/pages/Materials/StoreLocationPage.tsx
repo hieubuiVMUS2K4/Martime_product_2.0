@@ -7,7 +7,7 @@ import type { StoreLocation } from '@/types/pms.types';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/common/ConfirmDialog';
 
-const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
+const ITEMS_PER_PAGE_OPTIONS = [10, 15, 20, 25];
 
 /** Build tree from flat list with parentId */
 function buildTree(items: StoreLocation[]): StoreLocation[] {

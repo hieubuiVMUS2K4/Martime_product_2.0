@@ -664,7 +664,6 @@ export const SyncDashboardPage: React.FC = () => {
               exportOptions={{ fileName: `nhat-ky-dong-bo-trang-${logPage}`, title: 'NHẬT KÝ ĐỒNG BỘ' }}
               onRowClick={setDetail}
               minWidth={1000}
-              pageSizeOptions={[25, 50, 100]}
               serverPagination={{
                 page: logs?.page ?? logPage,
                 pageSize,
@@ -700,7 +699,6 @@ export const SyncDashboardPage: React.FC = () => {
               emptyMessage="Không có bản ghi nào đang chờ gửi cho phạm vi này."
               exportOptions={{ fileName: `hang-cho-trang-${queuePage}`, title: 'HÀNG CHỜ GỬI XUỐNG TÀU' }}
               minWidth={900}
-              pageSizeOptions={[25, 50, 100]}
               serverPagination={{
                 page: queue?.page ?? queuePage,
                 pageSize,
