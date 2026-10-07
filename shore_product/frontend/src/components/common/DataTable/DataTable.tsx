@@ -55,6 +55,16 @@ export interface Column<T> {
   /** Có tham gia ô tìm nhanh không. Mặc định có nếu cột khai `value`. */
   searchable?: boolean;
   className?: string;
+  /**
+   * Lọc ở máy chủ (bảng phân trang máy chủ): menu lọc trên tiêu đề dùng danh sách lựa chọn cố định,
+   * chọn xong gọi `onChange` để trang tải lại từ máy chủ — không lọc trên trình duyệt.
+   */
+  serverFilter?: {
+    options: { value: string; label: string }[];
+    /** null = không lọc. */
+    selected: string[] | null;
+    onChange: (values: string[] | null) => void;
+  };
 }
 
 export interface DataTableProps<T> {
@@ -221,7 +231,8 @@ export function DataTable<T>({
       return next;
     });
 
-  const activeFilterCount = Object.keys(filters).length;
+  const serverFiltered = columns.filter(c => c.serverFilter?.selected);
+  const activeFilterCount = Object.keys(filters).length + serverFiltered.length;
   const hasQuery = !!search.trim() || activeFilterCount > 0;
 
   /* ── Chọn dòng ── */
@@ -273,7 +284,7 @@ export function DataTable<T>({
             {loading ? 'Đang tải...' : `${(serverPagination ? serverPagination.total : sorted.length).toLocaleString('vi-VN')} ${itemLabel}`}
           </span>
           {activeFilterCount > 0 && (
-            <button type="button" onClick={() => setFilters({})}
+            <button type="button" onClick={() => { setFilters({}); serverFiltered.forEach(c => c.serverFilter!.onChange(null)); }}
               className="flex h-7 items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2.5 text-[12px] font-medium text-primary hover:bg-accent-soft">
               Đang lọc {activeFilterCount} cột <X className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="sr-only">Bỏ tất cả bộ lọc</span>
@@ -333,11 +344,14 @@ export function DataTable<T>({
               )}
               {showIndex && <th scope="col" className={thClass}>STT</th>}
               {columns.map(col => {
-                const get = filterOf(col);
+                const sf = col.serverFilter;
+                const get = sf ? undefined : filterOf(col);
                 const sortable = col.sortable ?? !!col.value;
                 const sorting = sort?.key === col.key ? sort.dir : null;
+                const labelOf = (v: string) => sf?.options.find(o => o.value === v)?.label ?? v;
+                const valueOf = (l: string) => sf?.options.find(o => o.label === l)?.value ?? l;
                 return (
-                  <th key={col.key} scope="col" className={`${thClass} ${get ? 'pr-6' : ''}`}
+                  <th key={col.key} scope="col" className={`${thClass} ${get || sf ? 'pr-6' : ''}`}
                     title={col.headerHint ?? col.header}>
                     <span className="inline-flex max-w-full items-center justify-center gap-1 break-words">
                       {col.header}
@@ -354,6 +368,17 @@ export function DataTable<T>({
                         sortDirection={sorting}
                         onSort={dir => setSort(dir ? { key: col.key, dir } : null)}
                         onApply={sel => applyFilter(col.key, sel)}
+                      />
+                    )}
+                    {sf && (
+                      <ColumnFilterMenu
+                        label={col.header}
+                        values={sf.options.map(o => o.label)}
+                        selected={sf.selected ? sf.selected.map(labelOf) : null}
+                        sortable={sortable}
+                        sortDirection={sorting}
+                        onSort={dir => setSort(dir ? { key: col.key, dir } : null)}
+                        onApply={sel => sf.onChange(sel ? sel.map(valueOf) : null)}
                       />
                     )}
                   </th>

@@ -50,6 +50,10 @@ const TABLE_TO_LABEL: Record<string, string> = {
   report_type: 'Loại báo cáo',
   equipment_asset: 'Thiết bị',
   equipment_group: 'Nhóm thiết bị',
+  equipment_group_member: 'Thiết bị trong nhóm',
+  schedule_checklist_template: 'Hạng mục kiểm tra của lịch',
+  schedule_spare_part: 'Vật tư của lịch bảo dưỡng',
+  material_item: 'Vật tư',
   maintenance_schedule: 'Lịch bảo dưỡng',
   material_item_catalog: 'Danh mục vật tư',
   material_category: 'Nhóm vật tư',
@@ -63,6 +67,9 @@ const TABLE_TO_LABEL: Record<string, string> = {
 };
 
 const getVietLabel = (t: string) => TABLE_TO_LABEL[t] ?? t;
+
+/** Bỏ dấu, chữ thường — để gõ "vi tri tau" hay "Vị trí tàu" đều khớp. */
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase().trim();
 
 const ACTION_LABEL: Record<string, string> = {
   CREATE: 'Tạo mới', UPDATE: 'Cập nhật', DELETE: 'Xóa', SNAPSHOT: 'Bản chụp', CLEAR_EDGE_CHANGES: 'Xác nhận thay đổi',
@@ -270,6 +277,9 @@ export const SyncDashboardPage: React.FC = () => {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [tab, setTab] = useState<'logs' | 'queue'>('logs');
   const [nodeId, setNodeId] = useState('');
+  /** Lọc nhật ký — mỗi bộ lọc là danh sách giá trị nối bằng dấu phẩy ('' = không lọc). */
+  const [origins, setOrigins] = useState('');
+  const [actionType, setActionType] = useState('');
   const [status, setStatus] = useState('');
   const [direction, setDirection] = useState('');
   const [tableName, setTableName] = useState('');
@@ -337,24 +347,44 @@ export const SyncDashboardPage: React.FC = () => {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [search, tableName]);
+  // Ô tìm nhanh: loại dữ liệu theo nhãn tiếng Việt và tàu theo tên → tên bảng / mã node gửi kèm cho máy chủ.
+  const searchTables = useMemo(() => {
+    const q = fold(debouncedSearch);
+    if (!q) return '';
+    return Object.keys(TABLE_TO_LABEL).filter(t => fold(TABLE_TO_LABEL[t]).includes(q)).join(',');
+  }, [debouncedSearch]);
+  const searchNodes = useMemo(() => {
+    const q = fold(debouncedSearch);
+    if (!q) return '';
+    const ids = nodes.filter(n => n.shipName && fold(n.shipName).includes(q)).map(n => n.nodeId);
+    if (fold('Bờ').startsWith(q)) ids.push('SHORE');
+    return ids.join(',');
+  }, [debouncedSearch, nodes]);
+
   const filters = useMemo(
     () => ({
-      nodeId,
+      nodeId: origins,
       status,
       direction,
+      actionType,
       tableName: debouncedTable,
       search: debouncedSearch,
+      searchTables,
+      searchNodes,
       from: from ? new Date(from).toISOString() : undefined,
       to: to ? new Date(to).toISOString() : undefined,
       page: logPage,
       pageSize,
     }),
     [
-      nodeId,
+      origins,
       status,
       direction,
+      actionType,
       debouncedTable,
       debouncedSearch,
+      searchTables,
+      searchNodes,
       from,
       to,
       logPage,
@@ -410,6 +440,7 @@ export const SyncDashboardPage: React.FC = () => {
 
   const selectNode = (id: string) => {
     setNodeId(id);
+    setOrigins(id);
     setLogPage(1);
     setQueuePage(1);
   };
@@ -470,24 +501,43 @@ export const SyncDashboardPage: React.FC = () => {
   };
 
   const shipName = (node: string) => nodes.find(n => n.nodeId === node)?.shipName || node;
-  const hasLogFilter = !!(nodeId || status || direction || tableName || search || from || to);
+  const hasLogFilter = !!(origins || status || direction || tableName || actionType || search || from || to);
   const clearLogFilters = () => {
     selectNode('');
     setStatus('');
     setDirection('');
     setTableName('');
+    setActionType('');
     setSearch('');
     setFrom('');
     setTo('');
   };
 
+  /** Bộ lọc theo cột gọi xuống máy chủ: chuỗi nối dấu phẩy ↔ danh sách đã chọn. */
+  const facets = logs?.facets;
+  const serverFilter = (
+    current: string,
+    values: string[] | undefined,
+    label: (v: string) => string,
+    set: (v: string) => void,
+  ) => ({
+    options: [...new Set([...(values ?? []), ...(current ? current.split(',') : [])])].map(v => ({ value: v, label: label(v) })),
+    selected: current ? current.split(',') : null,
+    onChange: (vals: string[] | null) => { set(vals && vals.length ? vals.join(',') : ''); setLogPage(1); },
+  });
+
   const logColumns: Column<SyncLogEntry>[] = [
-    { key: 'direction', header: 'Hướng', width: 110, align: 'center', filter: false, value: l => directionLabel(l.direction), render: l => <DirectionPill value={l.direction} /> },
-    { key: 'origin', header: 'Nguồn', width: 170, filter: false, value: l => shipName(l.originNode), render: l => <span title={l.originNode}>{shipName(l.originNode)}</span> },
-    { key: 'table', header: 'Loại dữ liệu', filter: false, value: l => getVietLabel(l.tableName), render: l => <span title={l.tableName}>{getVietLabel(l.tableName)}</span> },
-    { key: 'action', header: 'Thao tác', width: 110, align: 'center', filter: false, value: l => actionLabel(l.actionType) },
+    { key: 'direction', header: 'Hướng', width: 110, align: 'center', value: l => directionLabel(l.direction), render: l => <DirectionPill value={l.direction} />,
+      serverFilter: serverFilter(direction, facets?.directions, directionLabel, setDirection) },
+    { key: 'origin', header: 'Nguồn', width: 170, value: l => shipName(l.originNode), render: l => <span title={l.originNode}>{shipName(l.originNode)}</span>,
+      serverFilter: serverFilter(origins, facets?.origins, v => (v === 'SHORE' ? 'Bờ' : shipName(v)), setOrigins) },
+    { key: 'table', header: 'Loại dữ liệu', value: l => getVietLabel(l.tableName), render: l => <span title={l.tableName}>{getVietLabel(l.tableName)}</span>,
+      serverFilter: serverFilter(tableName, facets?.tables, getVietLabel, setTableName) },
+    { key: 'action', header: 'Thao tác', width: 110, align: 'center', value: l => actionLabel(l.actionType),
+      serverFilter: serverFilter(actionType, facets?.actions, actionLabel, setActionType) },
     { key: 'key', header: 'ID bản ghi', width: 170, filter: false, truncate: true, value: l => l.recordKey, render: l => <span className="font-mono text-xs" title={l.recordKey}>{l.recordKey}</span> },
-    { key: 'status', header: 'Trạng thái', width: 120, align: 'center', filter: false, value: l => statusLabel(l.status), render: l => <StatusPill value={l.status} /> },
+    { key: 'status', header: 'Trạng thái', width: 120, align: 'center', value: l => statusLabel(l.status), render: l => <StatusPill value={l.status} />,
+      serverFilter: serverFilter(status, facets?.statuses, statusLabel, setStatus) },
     { key: 'time', header: 'Thời gian', width: 160, align: 'center', filter: false, value: l => l.processedAt, exportValue: l => formatTime(l.processedAt), render: l => formatTime(l.processedAt) },
     {
       key: 'actions', header: 'Chi tiết', width: 80, align: 'center', exportable: false,
@@ -627,21 +677,12 @@ export const SyncDashboardPage: React.FC = () => {
                   <label className="relative w-[260px]">
                     <span className="sr-only">Tìm bản ghi</span>
                     <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-ink-light" aria-hidden="true" />
-                    <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm ID, nguồn, nội dung lỗi..."
+                    <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm loại dữ liệu, tàu, ID, nội dung lỗi..."
                       className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
                   </label>
-                  {nodeSelect}
-                  <select aria-label="Trạng thái" value={status} onChange={e => { setStatus(e.target.value); setLogPage(1); }} className={filterCls}>
-                    <option value="">Mọi trạng thái</option>
-                    {['SUCCESS', 'APPLIED', 'CONFLICT', 'FAILED', 'ERROR'].map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
-                  </select>
-                  <select aria-label="Hướng" value={direction} onChange={e => { setDirection(e.target.value); setLogPage(1); }} className={filterCls}>
-                    <option value="">Cả hai hướng</option>
-                    <option value="EDGE_TO_SHORE">Tàu → Bờ</option>
-                    <option value="SHORE_TO_EDGE">Bờ → Tàu</option>
-                  </select>
-                  <input aria-label="Bảng dữ liệu" placeholder="Bảng, vd. crew_member" value={tableName} onChange={e => setTableName(e.target.value)} className={`${filterCls} w-44`} />
+                  <span className="text-[13px] text-ink-muted">Từ</span>
                   <input aria-label="Từ thời điểm" title="Từ thời điểm" type="datetime-local" value={from} onChange={e => { setFrom(e.target.value); setLogPage(1); }} className={filterCls} />
+                  <span className="text-[13px] text-ink-muted">đến</span>
                   <input aria-label="Đến thời điểm" title="Đến thời điểm" type="datetime-local" value={to} onChange={e => { setTo(e.target.value); setLogPage(1); }} className={filterCls} />
                   {hasLogFilter && <button type="button" onClick={clearLogFilters} className="text-[13px] font-medium text-primary hover:underline">Bỏ lọc</button>}
                 </div>
