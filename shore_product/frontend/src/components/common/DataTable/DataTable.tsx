@@ -97,6 +97,19 @@ export interface DataTableProps<T> {
   /** Chiều rộng tối thiểu của bảng trước khi cuộn ngang. */
   minWidth?: number;
   className?: string;
+  /** Nằm sát mép vùng chứa: bỏ viền ngoài và bo góc, kéo đầy chiều cao (bảng trong tab làm việc). */
+  flush?: boolean;
+  /**
+   * Phân trang ở máy chủ (dữ liệu quá lớn để tải hết): `data` là MỘT trang máy chủ trả về,
+   * thanh phân trang điều khiển trang/số dòng của máy chủ. Tìm/lọc nên làm ở máy chủ.
+   */
+  serverPagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange?: (size: number) => void;
+  };
 }
 
 const str = (v: CellValue) => (v === null || v === undefined ? '' : String(v));
@@ -128,6 +141,8 @@ export function DataTable<T>({
   rowClassName,
   minWidth = 760,
   className = '',
+  flush = false,
+  serverPagination,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, string[]>>({});
@@ -189,8 +204,8 @@ export function DataTable<T>({
   useEffect(() => { setPage(p => Math.min(p, totalPages)); }, [totalPages]);
   useEffect(() => { setPage(1); }, [search, filters, sort, pageSize]);
 
-  const first = (page - 1) * pageSize;
-  const rows = sorted.slice(first, first + pageSize);
+  const first = serverPagination ? (serverPagination.page - 1) * serverPagination.pageSize : (page - 1) * pageSize;
+  const rows = serverPagination ? sorted : sorted.slice(first, first + pageSize);
 
   /** Giá trị cho menu lọc của một cột, đã trừ các dòng bị cột khác lọc mất. */
   const valuesFor = (col: Column<T>, get: (i: T) => string) =>
@@ -237,7 +252,7 @@ export function DataTable<T>({
   const alignClass = { left: 'text-left', right: 'text-right tabular-nums', center: 'text-center' } as const;
 
   return (
-    <section className={`flex min-w-0 flex-col overflow-hidden rounded-md border border-grid-strong bg-surface ${className}`}>
+    <section className={`flex min-w-0 flex-col overflow-hidden bg-surface ${flush ? 'min-h-0 flex-1' : 'rounded-md border border-grid-strong'} ${className}`}>
       {/* ── Thanh công cụ ── */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-grid px-3 py-2.5">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -255,7 +270,7 @@ export function DataTable<T>({
             </label>
           )}
           <span className="whitespace-nowrap text-[13px] font-semibold text-ink" aria-live="polite">
-            {loading ? 'Đang tải...' : `${sorted.length} ${itemLabel}`}
+            {loading ? 'Đang tải...' : `${(serverPagination ? serverPagination.total : sorted.length).toLocaleString('vi-VN')} ${itemLabel}`}
           </span>
           {activeFilterCount > 0 && (
             <button type="button" onClick={() => setFilters({})}
@@ -402,7 +417,19 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {!loading && sorted.length > 0 && (
+      {serverPagination ? (
+        serverPagination.total > 0 && (
+          <TablePagination
+            page={serverPagination.page}
+            pageSize={serverPagination.pageSize}
+            totalItems={serverPagination.total}
+            onPageChange={serverPagination.onPageChange}
+            pageSizeOptions={pageSizeOptions}
+            onPageSizeChange={serverPagination.onPageSizeChange}
+            itemLabel={itemLabel}
+          />
+        )
+      ) : !loading && sorted.length > 0 && (
         <TablePagination
           page={page}
           pageSize={pageSize}

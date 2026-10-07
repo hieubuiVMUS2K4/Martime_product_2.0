@@ -23,7 +23,7 @@ export function NewFormModal(props: NewFormModalProps) {
   const handleCreateFormFromLibrary = onCreate;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-modal p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         
         {/* Modal Header */}

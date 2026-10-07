@@ -307,11 +307,16 @@ export interface InventoryStockItem {
   unit: string;
   storeLocationId: string;
   locationName: string;
+  /** Tên kho — API danh sách tồn kho trả trường này (không có locationName). */
+  storeLocationName?: string;
   quantity: number;
   unitCost: number;
   totalValue: number;
   lastReceiptDate?: string | null;
   updatedAt: string;
+  /** Tồn dưới mức tối thiểu khai báo của vật tư. */
+  isLowStock?: boolean;
+  minStock?: number | null;
 }
 
 export interface InventorySummary {

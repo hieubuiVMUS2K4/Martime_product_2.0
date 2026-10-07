@@ -3,6 +3,8 @@ import { X, AlertTriangle, Loader2, Download, Key, ShieldCheck, RefreshCw } from
 import { ENV } from '../../config/env';
 import { buildAuthHeaders } from '../../services/api.client';
 import { useConfirm } from '@/components/common/ConfirmDialog';
+// Hộp thoại này vẫn dùng khung .vp-* cũ; trang danh sách tàu đã chuyển sang Tailwind.
+import './VesselsPage.css';
 
 const BASE = ENV.API_BASE_URL;
 

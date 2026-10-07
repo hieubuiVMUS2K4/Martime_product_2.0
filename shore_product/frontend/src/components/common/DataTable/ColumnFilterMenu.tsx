@@ -163,7 +163,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
           role="dialog"
           aria-label={`Bộ lọc cột ${label}`}
           style={{ ...style, width: PANEL_WIDTH }}
-          className="fixed z-[450] flex flex-col overflow-hidden rounded-md border border-line bg-surface p-1.5 text-left font-normal normal-case tracking-normal shadow-xl"
+          className="fixed z-popover flex flex-col overflow-hidden rounded-md border border-line bg-surface p-1.5 text-left font-normal normal-case tracking-normal shadow-xl"
         >
           {sortable && (
             <>

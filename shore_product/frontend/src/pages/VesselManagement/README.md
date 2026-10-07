@@ -27,16 +27,15 @@ VesselsPage  ──(click "Xem chi tiết")──►  /vessels/:id
                                        ▼
                        switch(activeTab):
                          'overview'                                       → VesselOverviewTab (tự fetch alerts/engine events riêng)
-                         'basic-data'|'dimensions'|'machinery'|
-                         'class-flag-state'|'radio-comm'|'tanks-cargo'     → components/vessel-detail/<Tab>.tsx (nhận vessel qua prop) — 6 tab này đánh dấu `edgeSource: true` → hiện icon ⚡ "Synced from Edge"
-                         'shipowner'|'charterer'|'insurance'|'certificates' → tab thương mại/pháp lý, `edgeSource: false` (dữ liệu Shore sở hữu)
+                         'basic-data' … 'insurance' (9 mục con)            → VesselParticularsPanel (GET/PUT /vessels/:id/particulars, đồng bộ hai chiều với tàu)
+                         'certificates'                                    → VesselCertificateTab
                          'crew'                                            → VesselCrewTab (tự fetch crewApi riêng theo vesselId)
                          'pms-assets' | 'pms-work-planning'                → <AssetsPage/> | <WorkPlanningPage/>  (nguyên trang PMS, lọc theo vessel)
                          'materials-list'|'materials-requests'|
                          'materials-receipts'|'materials-inventory'        → <MaterialPage/>|<MaterialRequestPage/>|<StockReceiptPage/>|<InventoryPage/>
 ```
 
-Danh sách `edgeSource: true` (basic-data, dimensions, machinery, class-flag-state, radio-comm, tanks-cargo) **khớp chính xác** với nhóm "Edge sở hữu (Kỹ thuật)" trong README gốc (mục 6.4 — VesselType, Dimensions, FlagState...); nhóm `edgeSource: false` còn lại (shipowner, charterer, insurance) khớp nhóm "Shore sở hữu (Thương mại)". Đây là bằng chứng rõ ràng nhất trong toàn bộ frontend cho nguyên tắc Hybrid Ownership của dữ liệu tàu.
+Thông số tàu đồng bộ **hai chiều** theo từng trường: bờ sửa được mọi trường (trừ IMO) và gửi xuống tàu; tàu sửa thì gửi lên bờ. Xem `components/vessel-detail/README.md`.
 
 **Theo dõi vị trí:**
 ```
@@ -50,7 +49,7 @@ components/vessel/VesselMap  (multi-vessel mode)
 ## Liên kết với phần khác
 
 - **components/vessel-detail/**: 12 tab nội dung — xem README riêng của thư mục đó.
-- **components/vessel/VesselMap, VesselDataFields**: bản đồ + field helper dùng bởi tab và trang tracking.
+- **components/vessel/VesselMap**: bản đồ dùng bởi trang tracking.
 - **pages/PMS/, pages/Materials/**: được **nhúng trực tiếp** (không phải điều hướng route) vào `VesselDetailPage` — đây là lý do các trang PMS/Materials "độc lập" (`/pms/assets`, `/materials`...) và "bản nhúng trong tàu" là **cùng một component React**, chỉ khác context/props khi mount.
 - **services/crew.service.ts**: hậu thuẫn tab Crew.
 - **contexts/VesselContext**: về mặt khái niệm liên quan (chọn tàu toàn cục) nhưng **không thực sự được `VesselDetailPage`/`VesselsPage` sử dụng** — mỗi trang tự fetch/tự quản lý vessel theo `useParams()`/state riêng (xem `contexts/README.md`).

@@ -147,8 +147,9 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
   if (!vesselId) return <div className="p-6 text-sm text-gray-600">Vào Danh sách tàu, chọn tàu rồi mở Danh sách vật tư để quản lý.</div>;
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
       <DataTable
+        flush
         columns={columns}
         data={items}
         rowKey={i => i.id}
@@ -162,7 +163,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
         onAdd={readOnly ? undefined : () => { setEditingItem(null); setItemModalOpen(true); }}
         addLabel="Thêm vật tư"
         toolbarActions={
-          <Button icon={<RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />} disabled={syncing || !vesselId}
+          <Button variant="secondary" icon={<RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />} disabled={syncing || !vesselId}
             onClick={handleSync} title="Gửi danh sách vật tư xuống tàu">
             {syncing ? 'Đang đồng bộ...' : 'Đồng bộ xuống tàu'}
           </Button>

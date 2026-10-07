@@ -1,7 +1,7 @@
 export { DashboardPage } from './Dashboard';
 export { CategoryManagementPage } from './MasterDataManagement';
-export { CrewManagementPage, CrewListPage, CrewDetailPage, CertificateMonitorPage } from './CrewManagement';
+export { CrewHubPage, CrewListPage, CrewDetailPage } from './CrewManagement';
 export { MasterSchedulePage } from './PMS';
 export { VesselsPage } from './VesselManagement';
-export { ReportPage, VesselReportDetailPage, ReportDetailPage } from './Report';
+export { ReportDetailPage } from './Report';
 export { VoyageListPage, VoyageDetailPage, VoyageFormPage } from './VoyageManagement';

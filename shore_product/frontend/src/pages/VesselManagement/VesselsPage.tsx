@@ -1,15 +1,13 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Ship, Plus, RefreshCw, Pencil, Trash2,
-  AlertTriangle,
-  X, Loader2,
-  ExternalLink, FileText, Map, Settings
+  Ship, Plus, RefreshCw, Pencil, Trash2, AlertTriangle, Loader2, Search,
+  ExternalLink, FileText, Map, Settings, Users, Clock,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ENV } from '../../config/env';
 import { ProvisioningModal } from './ProvisioningModal';
-import './VesselsPage.css';
-import { toast } from 'sonner';
+import { Button, DateInput, Field, Input, Modal, PageHeader, Select, useConfirm } from '../../components/common';
 
 // ============================================================
 // Types
@@ -81,33 +79,22 @@ const FLAGS = [
   'Singapore', 'Malta', 'Cyprus', 'Hong Kong', 'Other'
 ];
 
-const PROVISIONING_LABELS: Record<string, string> = {
-  Unknown: 'Unknown',
-  Provisioned: 'Provisioned',
-  Downloaded: 'Needs Re-import',
-  PendingFirstContact: 'Pending Contact',
-  Registered: 'Registered',
-  Active: 'Active',
-  Revoked: 'Revoked',
-  Disabled: 'Disabled',
+/** Trạng thái kết nối Edge của tàu (gói cấu hình đã cấp, tàu đã liên lạc...). */
+const PROVISIONING: Record<string, { label: string; tone: string }> = {
+  Active:              { label: 'Đang kết nối',   tone: 'bg-emerald-50 text-emerald-700 [&>i]:bg-emerald-500' },
+  Registered:          { label: 'Đã đăng ký',     tone: 'bg-emerald-50 text-emerald-700 [&>i]:bg-emerald-500' },
+  Provisioned:         { label: 'Đã cấp gói',     tone: 'bg-sky-50 text-sky-700 [&>i]:bg-sky-500' },
+  PendingFirstContact: { label: 'Chờ kết nối',    tone: 'bg-sky-50 text-sky-700 [&>i]:bg-sky-500' },
+  Downloaded:          { label: 'Cần import lại', tone: 'bg-amber-50 text-amber-700 [&>i]:bg-amber-500' },
+  Revoked:             { label: 'Đã thu hồi',     tone: 'bg-red-50 text-red-700 [&>i]:bg-red-500' },
+  Disabled:            { label: 'Đã vô hiệu',     tone: 'bg-red-50 text-red-700 [&>i]:bg-red-500' },
+  Unknown:             { label: 'Chưa cấu hình',  tone: 'bg-slate-100 text-slate-600 [&>i]:bg-slate-400' },
 };
 
-const getProvisioningBadgeClass = (status?: string) => {
-  switch (status) {
-    case 'Active':
-    case 'Registered':
-      return 'vp-provision-badge--ok';
-    case 'Provisioned':
-    case 'PendingFirstContact':
-      return 'vp-provision-badge--pending';
-    case 'Downloaded':
-      return 'vp-provision-badge--needs-import';
-    case 'Revoked':
-    case 'Disabled':
-      return 'vp-provision-badge--blocked';
-    default:
-      return 'vp-provision-badge--unknown';
-  }
+const formatSync = (iso?: string) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
 // ============================================================
@@ -129,52 +116,151 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 // ============================================================
+// Thẻ một tàu
+// ============================================================
+const InfoItem: React.FC<{ label: string; value: React.ReactNode; mono?: boolean }> = ({ label, value, mono }) => (
+  <div className="min-w-0">
+    <dt className="text-xs font-medium text-ink-muted">{label}</dt>
+    <dd className={`truncate text-[13px] font-semibold text-ink ${mono ? 'font-mono' : ''}`}>{value || '—'}</dd>
+  </div>
+);
+
+const CardAction: React.FC<{ icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }> = ({ icon, label, onClick, danger }) => (
+  <button
+    type="button"
+    onClick={e => { e.stopPropagation(); onClick(); }}
+    className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-r border-grid py-2 text-[13px] font-medium transition-colors last:border-r-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 ${
+      danger ? 'text-red-600 hover:bg-danger-soft' : 'text-ink-muted hover:bg-primary-soft hover:text-primary'
+    }`}
+  >
+    {icon}<span className="truncate">{label}</span>
+  </button>
+);
+
+const VesselCard: React.FC<{
+  vessel: Vessel;
+  summary?: VesselSummary;
+  onOpen: () => void;
+  onEdit: () => void;
+  onProvision: () => void;
+  onDelete: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+}> = ({ vessel: v, summary, onOpen, onEdit, onProvision, onDelete, onContextMenu }) => {
+  const prov = PROVISIONING[v.provisioningStatus ?? 'Unknown'] ?? { label: v.provisioningStatus ?? '', tone: PROVISIONING.Unknown.tone };
+  const sync = formatSync(summary?.lastSyncAt);
+
+  return (
+    <article
+      role="link"
+      tabIndex={0}
+      aria-label={`Mở chi tiết tàu ${v.name}`}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter') onOpen(); }}
+      onContextMenu={onContextMenu}
+      className={`group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-md border bg-surface transition-colors hover:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
+        v.isActive ? 'border-grid-strong' : 'border-dashed border-grid-strong opacity-80'
+      }`}
+    >
+      {/* Đầu thẻ: tên, IMO, trạng thái kết nối */}
+      <header className="flex items-start gap-3 border-b border-grid px-3.5 py-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-white">
+          <Ship className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[15px] font-bold leading-5 text-ink group-hover:text-primary" title={v.name}>{v.name}</h3>
+          <p className="font-mono text-xs text-ink-muted">IMO {v.imo}</p>
+        </div>
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${prov.tone}`}>
+          <i className="h-1.5 w-1.5 rounded-full" />{prov.label}
+        </span>
+      </header>
+
+      {/* Thông số chính */}
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 px-3.5 py-3">
+        <InfoItem label="Call sign" value={v.callSign} mono />
+        <InfoItem label="Loại tàu" value={v.vesselType} />
+        <InfoItem label="Quốc tịch" value={v.flag} />
+        {v.grossTonnage
+          ? <InfoItem label="Tổng dung tích (GT)" value={v.grossTonnage.toLocaleString('vi-VN')} />
+          : <InfoItem label="Trọng tải (DWT)" value={v.deadWeight ? `${v.deadWeight.toLocaleString('vi-VN')} t` : null} />}
+      </dl>
+
+      {/* Tình trạng: thuyền viên, đồng bộ, cảnh báo */}
+      <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-grid bg-canvas/60 px-3.5 py-2 text-xs text-ink-muted">
+        <span className="inline-flex items-center gap-1.5" title="Thuyền viên đang trên tàu">
+          <Users className="h-3.5 w-3.5" aria-hidden="true" />
+          <strong className="text-ink">{summary?.crewOnboard ?? 0}</strong> thuyền viên
+        </span>
+        <span className="inline-flex items-center gap-1.5" title="Lần đồng bộ gần nhất với tàu">
+          <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+          {sync ? <>Đồng bộ {sync}</> : 'Chưa đồng bộ'}
+        </span>
+        {v.unacknowledgedAlerts > 0 && (
+          <span className="inline-flex items-center gap-1 font-semibold text-red-700">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {v.unacknowledgedAlerts} cảnh báo
+          </span>
+        )}
+      </div>
+
+      {/* Thao tác */}
+      <footer className="flex border-t border-grid">
+        <CardAction icon={<FileText />} label="Chi tiết" onClick={onOpen} />
+        <CardAction icon={<Pencil />} label="Sửa" onClick={onEdit} />
+        <CardAction icon={<Settings />} label="Cấu hình" onClick={onProvision} />
+        <CardAction icon={<Trash2 />} label="Xóa" onClick={onDelete} danger />
+      </footer>
+    </article>
+  );
+};
+
+// ============================================================
 // Main Page
 // ============================================================
 export const VesselsPage: React.FC = () => {
   const navigate = useNavigate();
+  const ask = useConfirm();
   const [vessels, setVessels] = useState<Vessel[]>([]);
-  const [, setSummaries] = useState<Record<string, VesselSummary>>({})
+  const [summaries, setSummaries] = useState<Record<string, VesselSummary>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Per-column filters
-  const [colF, setColF] = useState({ name: '', imo: '', type: '', flag: '' });
+  // Lọc
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [flagFilter, setFlagFilter] = useState('');
 
-  // Modal
+  // Modal thêm/sửa
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVessel, setEditingVessel] = useState<Vessel | null>(null);
   const [formData, setFormData] = useState<VesselFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Delete
-  const [deleteTarget, setDeleteTarget] = useState<Vessel | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // Context menu
+  // Menu chuột phải
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; vessel: Vessel } | null>(null);
-  const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
 
-  // Provisioning
+  // Cấu hình kết nối Edge
   const [provisionTarget, setProvisionTarget] = useState<Vessel | null>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, vessel: Vessel) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, vessel });
-    setSelectedVesselId(vessel.id);
   }, []);
 
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-    setSelectedVesselId(null);
-  }, []);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   useEffect(() => {
-    const handler = () => closeContextMenu();
-    window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
-  }, [closeContextMenu]);
+    if (!contextMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeContextMenu(); };
+    window.addEventListener('click', closeContextMenu);
+    window.addEventListener('scroll', closeContextMenu, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', closeContextMenu);
+      window.removeEventListener('scroll', closeContextMenu, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu, closeContextMenu]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -200,14 +286,21 @@ export const VesselsPage: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const filtered = useMemo(() => vessels.filter(v =>
-    (!colF.name || v.name.toLowerCase().includes(colF.name.toLowerCase())) &&
-    (!colF.imo  || v.imo.toLowerCase().includes(colF.imo.toLowerCase()) || v.callSign.toLowerCase().includes(colF.imo.toLowerCase())) &&
-    (!colF.type || v.vesselType.toLowerCase().includes(colF.type.toLowerCase())) &&
-    (!colF.flag || (v.flag ?? '').toLowerCase().includes(colF.flag.toLowerCase()))
-  ), [vessels, colF]);
+  // Bộ lọc chỉ liệt kê loại tàu / quốc tịch đang có trong đội tàu.
+  const typeOptions = useMemo(() => [...new Set(vessels.map(v => v.vesselType).filter(Boolean))].sort(), [vessels]);
+  const flagOptions = useMemo(() => [...new Set(vessels.map(v => v.flag).filter(Boolean))].sort(), [vessels]);
 
-  const cf = (k: keyof typeof colF, v: string) => setColF(p => ({ ...p, [k]: v }));
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return vessels.filter(v =>
+      (!q || v.name.toLowerCase().includes(q) || v.imo.toLowerCase().includes(q) || (v.callSign ?? '').toLowerCase().includes(q)) &&
+      (!typeFilter || v.vesselType === typeFilter) &&
+      (!flagFilter || v.flag === flagFilter)
+    );
+  }, [vessels, search, typeFilter, flagFilter]);
+
+  const hasFilter = !!(search || typeFilter || flagFilter);
+  const clearFilters = () => { setSearch(''); setTypeFilter(''); setFlagFilter(''); };
 
   const openCreate = () => { setEditingVessel(null); setFormData(EMPTY_FORM); setFormError(null); setModalOpen(true); };
   const openEdit = (v: Vessel) => {
@@ -216,313 +309,182 @@ export const VesselsPage: React.FC = () => {
     setFormError(null);
     setModalOpen(true);
   };
+  const setField = <K extends keyof VesselFormData>(k: K, val: VesselFormData[K]) => setFormData(p => ({ ...p, [k]: val }));
 
   const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true); setFormError(null);
+    e.preventDefault();
+    if (!formData.buildDate) { setFormError('Chưa nhập ngày đóng tàu.'); return; }
+    setSaving(true); setFormError(null);
     try {
-      if (editingVessel) await apiRequest(`${BASE}/vessels/${editingVessel.id}`, { method: 'PUT', body: JSON.stringify(formData) });
+      // Sửa qua API thông số: lưu ở bờ và gửi các trường đổi xuống tàu (IMO không đổi được).
+      if (editingVessel) await apiRequest(`${BASE}/vessels/${editingVessel.id}/particulars`, { method: 'PUT', body: JSON.stringify(formData) });
       else await apiRequest(`${BASE}/vessels`, { method: 'POST', body: JSON.stringify(formData) });
-      setModalOpen(false); fetchData();
+      setModalOpen(false);
+      toast.success(editingVessel ? 'Đã cập nhật tàu' : 'Đã thêm tàu', { description: `${formData.name} — IMO ${formData.imo}` });
+      fetchData();
     } catch (err) { setFormError(err instanceof Error ? err.message : 'Lưu thất bại'); }
     finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return; setDeleting(true);
+  const handleDelete = async (v: Vessel) => {
+    if (!(await ask(`Xóa tàu "${v.name}" (IMO ${v.imo})?\nThao tác này không thể hoàn tác.`))) return;
     try {
-      await apiRequest(`${BASE}/vessels/${deleteTarget.id}`, { method: 'DELETE' });
-      setDeleteTarget(null); fetchData();
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'Xóa thất bại'); }
-    finally { setDeleting(false); }
+      await apiRequest(`${BASE}/vessels/${v.id}`, { method: 'DELETE' });
+      toast.success('Đã xóa tàu', { description: `${v.name} — IMO ${v.imo}` });
+      fetchData();
+    } catch (err) {
+      toast.error('Không thể xóa tàu', { description: err instanceof Error ? err.message : undefined });
+    }
   };
 
   // ============================================================
   // Render
   // ============================================================
-  if (loading) return (
-    <div className="vp-page">
-      <div className="vp-loading"><Loader2 size={28} className="spin" /><p>Đang tải danh sách đội tàu...</p></div>
-    </div>
-  );
-
   return (
-    <div className="vp-page">
+    <div className="px-6 py-5">
+      <PageHeader
+        icon={<Ship />}
+        title="Danh sách tàu"
+        description="Đội tàu đang quản lý. Bấm vào một tàu để mở chi tiết, chuột phải để có thêm thao tác."
+        actions={
+          <>
+            <Button variant="secondary" icon={<RefreshCw className="h-4 w-4" />} onClick={fetchData} disabled={loading}>Làm mới</Button>
+            <Button variant="secondary" icon={<Map className="h-4 w-4" />} onClick={() => navigate('/vessels/tracking')}>Theo dõi tàu</Button>
+            <Button icon={<Plus className="h-4 w-4" />} onClick={openCreate}>Thêm tàu</Button>
+          </>
+        }
+      />
 
-      {/*  Page header  */}
-      <div className="vp-header">
-        <div className="vp-header-left">
-          <Ship size={18} className="vp-header-icon" />
-          <h1 className="vp-title">Danh sách tàu</h1>
-          <span className="vp-count-badge">{vessels.length}</span>
-        </div>
-        <div className="vp-header-right">
-          <button className="vp-btn vp-btn--ghost" onClick={fetchData} title="Làm mới"><RefreshCw size={14} /></button>
-          <button className="vp-btn vp-btn--outline" onClick={() => navigate('/vessels/tracking')} title="Bản đồ tracking">
-            <Map size={14} /> Tracking
-          </button>
-          <button className="vp-btn vp-btn--primary" onClick={openCreate}><Plus size={14} /> Thêm tàu</button>
-        </div>
-      </div>
-
-      {/*  Error  */}
-      {error && (
-        <div className="vp-error">
-          <AlertTriangle size={14} /> {error}
-          <button className="vp-link-btn" onClick={fetchData}>Thử lại</button>
-        </div>
-      )}
-
-      {/*  Search Bar  */}
-      <div className="vp-search-bar">
-        <div className="vp-search-field">
+      {/* Thanh tìm kiếm & lọc */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-grid-strong bg-surface px-3 py-2.5">
+        <label className="relative w-full max-w-[360px]">
+          <span className="sr-only">Tìm tàu</span>
+          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-ink-light" aria-hidden="true" />
           <input
-            className="vp-search-input"
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Tìm theo tên tàu, IMO, call sign..."
-            value={colF.name || colF.imo}
-            onChange={e => { cf('name', e.target.value); cf('imo', e.target.value); }}
+            className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
           />
-        </div>
-        <div className="vp-search-filters">
-          <select className="vp-select-filter" value={colF.type} onChange={e => cf('type', e.target.value)}>
-            <option value="">Tất cả loại tàu</option>
-            {VESSEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select className="vp-select-filter" value={colF.flag} onChange={e => cf('flag', e.target.value)}>
-            <option value="">Tất cả cờ</option>
-            {FLAGS.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
+        </label>
+        <select aria-label="Lọc theo loại tàu" value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={filterSelect}>
+          <option value="">Tất cả loại tàu</option>
+          {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select aria-label="Lọc theo quốc tịch" value={flagFilter} onChange={e => setFlagFilter(e.target.value)} className={filterSelect}>
+          <option value="">Tất cả quốc tịch</option>
+          {flagOptions.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+        <span className="text-[13px] font-semibold text-ink" aria-live="polite">
+          {loading ? 'Đang tải...' : hasFilter ? `${filtered.length} / ${vessels.length} tàu` : `${vessels.length} tàu`}
+        </span>
+        {hasFilter && (
+          <button type="button" onClick={clearFilters} className="text-[13px] font-medium text-primary hover:underline">Bỏ lọc</button>
+        )}
       </div>
 
-      {/*  Vessel Cards Grid  */}
-      <div className="vp-card-grid">
-        {filtered.length === 0 ? (
-          <div className="vp-empty">
-            <Ship size={32} />
-            <p>Không tìm thấy tàu nào</p>
-          </div>
-        ) : filtered.map((v) => (
-            <div
-              key={v.id}
-              className="vp-card"
-              onContextMenu={(e) => handleContextMenu(e, v)}
-              onClick={() => navigate(`/vessels/${v.id}`)}
-            >
-              {/* Card header */}
-              <div className="vp-card-head">
-                <div className="vp-card-head-left">
-                  <div className="vp-card-avatar">
-                    <Ship size={18} />
-                  </div>
-                  <div>
-                    <h3 className="vp-card-name">{v.name}</h3>
-                    <span className="vp-card-imo">{v.imo}</span>
-                  </div>
-                </div>
-                <div className="vp-card-head-right">
-                  <span className={`vp-provision-badge ${getProvisioningBadgeClass(v.provisioningStatus)}`}>
-                    {PROVISIONING_LABELS[v.provisioningStatus ?? 'Unknown'] ?? v.provisioningStatus}
-                  </span>
-                </div>
-              </div>
-
-              {/* Card body */}
-              <div className="vp-card-body">
-                <div className="vp-card-info">
-                  <div className="vp-card-info-item">
-                    <span className="vp-card-info-label">Call Sign</span>
-                    <span className="vp-card-info-value">{v.callSign || '—'}</span>
-                  </div>
-                  <div className="vp-card-info-item">
-                    <span className="vp-card-info-label">Loại tàu</span>
-                    <span className="vp-card-info-value">{v.vesselType || '—'}</span>
-                  </div>
-                  <div className="vp-card-info-item">
-                    <span className="vp-card-info-label">Quốc tịch</span>
-                    <span className="vp-card-info-value">{v.flag || '—'}</span>
-                  </div>
-                  <div className="vp-card-info-item">
-                    <span className="vp-card-info-label">{v.grossTonnage ? 'GT' : 'DWT'}</span>
-                    <span className="vp-card-info-value">{v.grossTonnage ? `${v.grossTonnage.toLocaleString()}` : v.deadWeight ? `${v.deadWeight.toLocaleString()} t` : '—'}</span>
-                  </div>
-                </div>
-                {v.unacknowledgedAlerts > 0 && (
-                  <div className="vp-card-alert">
-                    <AlertTriangle size={12} />
-                    <span>{v.unacknowledgedAlerts} cảnh báo chưa xử lý</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Card footer */}
-              <div className="vp-card-footer">
-                <button
-                  className="vp-card-action"
-                  onClick={(e) => { e.stopPropagation(); navigate(`/vessels/${v.id}`); }}
-                >
-                  <FileText size={12} /> Chi tiết
-                </button>
-                <button
-                  className="vp-card-action"
-                  onClick={(e) => { e.stopPropagation(); openEdit(v); }}
-                >
-                  <Pencil size={12} /> Sửa
-                </button>
-                <button
-                  className="vp-card-action"
-                  onClick={(e) => { e.stopPropagation(); setProvisionTarget(v); }}
-                >
-                  <Settings size={12} /> Cấu hình
-                </button>
-                <button
-                  className="vp-card-action vp-card-action--danger"
-                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(v); }}
-                >
-                  <Trash2 size={12} /> Xóa
-                </button>
-              </div>
-            </div>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className="vp-footer">Hiển thị {filtered.length} / {vessels.length} tàu</div>
-
-      {/*  Add/Edit Modal  */}
-      {modalOpen && (
-        <div className="vp-overlay" onClick={() => setModalOpen(false)}>
-          <div className="vp-modal" onClick={e => e.stopPropagation()}>
-            <div className="vp-modal-head">
-              <h2>{editingVessel ? 'Chỉnh sửa tàu' : 'Thêm tàu mới'}</h2>
-              <button className="vp-icon-btn" onClick={() => setModalOpen(false)}><X size={15} /></button>
-            </div>
-            {formError && <div className="vp-form-error"><AlertTriangle size={12} /> {formError}</div>}
-            <form className="vp-form" onSubmit={handleSave}>
-              <div className="vp-form-grid">
-                <div className="vp-field vp-field--full">
-                  <label>Tên tàu <span className="req">*</span></label>
-                  <input required value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} placeholder="VD: MV PIONEER STAR" />
-                </div>
-                <div className="vp-field">
-                  <label>Số IMO <span className="req">*</span></label>
-                  <input required value={formData.imo} onChange={e => setFormData(p => ({ ...p, imo: e.target.value }))} placeholder="7 chữ số" disabled={!!editingVessel} />
-                </div>
-                <div className="vp-field">
-                  <label>Call Sign <span className="req">*</span></label>
-                  <input required value={formData.callSign} onChange={e => setFormData(p => ({ ...p, callSign: e.target.value }))} placeholder="VD: XVAB1" />
-                </div>
-                <div className="vp-field">
-                  <label>Loại tàu <span className="req">*</span></label>
-                  <select value={formData.vesselType} onChange={e => setFormData(p => ({ ...p, vesselType: e.target.value }))}>
-                    {VESSEL_TYPES.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="vp-field">
-                  <label>Cờ quốc tịch <span className="req">*</span></label>
-                  <select value={formData.flag} onChange={e => setFormData(p => ({ ...p, flag: e.target.value }))}>
-                    {FLAGS.map(f => <option key={f}>{f}</option>)}
-                  </select>
-                </div>
-                <div className="vp-field">
-                  <label>Gross Tonnage (GT)</label>
-                  <input type="number" min={0} value={formData.grossTonnage} onChange={e => setFormData(p => ({ ...p, grossTonnage: +e.target.value }))} />
-                </div>
-                <div className="vp-field">
-                  <label>Deadweight (DWT)</label>
-                  <input type="number" min={0} value={formData.deadWeight} onChange={e => setFormData(p => ({ ...p, deadWeight: +e.target.value }))} />
-                </div>
-                <div className="vp-field">
-                  <label>Ngày đóng tàu <span className="req">*</span></label>
-                  <input required type="date" value={formData.buildDate} onChange={e => setFormData(p => ({ ...p, buildDate: e.target.value }))} />
-                </div>
-                {editingVessel && (
-                  <div className="vp-field vp-field--checkbox">
-                    <label className="vp-checkbox-label">
-                      <input type="checkbox" checked={formData.isActive} onChange={e => setFormData(p => ({ ...p, isActive: e.target.checked }))} />
-                      Đang hoạt động
-                    </label>
-                  </div>
-                )}
-              </div>
-              <div className="vp-form-footer">
-                <button type="button" className="vp-btn" onClick={() => setModalOpen(false)}>Hủy</button>
-                <button type="submit" className="vp-btn vp-btn--primary" disabled={saving}>
-                  {saving && <Loader2 size={12} className="spin" />}
-                  {saving ? 'Đang lưu...' : editingVessel ? 'Lưu thay đổi' : 'Thêm tàu'}
-                </button>
-              </div>
-            </form>
-          </div>
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">{error}</span>
+          <Button size="sm" variant="secondary" onClick={fetchData}>Thử lại</Button>
         </div>
       )}
 
-      {/* Context Menu */}
+      {/* Lưới tàu: luôn 4 cột */}
+      {loading && vessels.length === 0 ? (
+        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Đang tải danh sách đội tàu...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-grid-strong bg-surface py-16 text-[13px] text-ink-muted">
+          <Ship className="h-7 w-7 text-ink-light" aria-hidden="true" />
+          {hasFilter ? 'Không có tàu nào khớp bộ lọc.' : 'Chưa có tàu nào. Bấm "Thêm tàu" để bắt đầu.'}
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-3">
+          {filtered.map(v => (
+            <VesselCard
+              key={v.id}
+              vessel={v}
+              summary={summaries[v.imo]}
+              onOpen={() => navigate(`/vessels/${v.id}`)}
+              onEdit={() => openEdit(v)}
+              onProvision={() => setProvisionTarget(v)}
+              onDelete={() => handleDelete(v)}
+              onContextMenu={e => handleContextMenu(e, v)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Thêm / sửa tàu */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        icon={<Ship />}
+        title={editingVessel ? 'Chỉnh sửa tàu' : 'Thêm tàu mới'}
+        subtitle={editingVessel ? `${editingVessel.name} — IMO ${editingVessel.imo}` : 'Thông tin cơ bản của tàu. Thông số chi tiết nhập ở trang chi tiết tàu.'}
+        size="md"
+        busy={saving}
+        closeOnBackdrop={false}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>Hủy</Button>
+            <Button type="submit" form="vessel-form" loading={saving}>{editingVessel ? 'Lưu thay đổi' : 'Thêm tàu'}</Button>
+          </>
+        }
+      >
+        <form id="vessel-form" onSubmit={handleSave} className="grid grid-cols-2 gap-4">
+          {formError && (
+            <div className="col-span-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {formError}
+            </div>
+          )}
+          <div className="col-span-2">
+            <Input label="Tên tàu" required value={formData.name} onChange={e => setField('name', e.target.value)} placeholder="VD: MV PIONEER STAR" />
+          </div>
+          <Input label="Số IMO" required value={formData.imo} onChange={e => setField('imo', e.target.value)} placeholder="7 chữ số"
+            disabled={!!editingVessel} hint={editingVessel ? 'Không đổi được sau khi tạo.' : undefined} />
+          <Input label="Call sign" required value={formData.callSign} onChange={e => setField('callSign', e.target.value)} placeholder="VD: XVAB1" />
+          <Select label="Loại tàu" required value={formData.vesselType} onChange={e => setField('vesselType', e.target.value)}
+            options={VESSEL_TYPES.map(t => ({ value: t, label: t }))} />
+          <Select label="Quốc tịch (cờ)" required value={formData.flag} onChange={e => setField('flag', e.target.value)}
+            options={FLAGS.map(f => ({ value: f, label: f }))} />
+          <Input label="Tổng dung tích (GT)" type="number" min={0} value={formData.grossTonnage} onChange={e => setField('grossTonnage', +e.target.value)} />
+          <Input label="Trọng tải (DWT)" type="number" min={0} value={formData.deadWeight} onChange={e => setField('deadWeight', +e.target.value)} />
+          <Field label="Ngày đóng tàu" required>
+            <DateInput value={formData.buildDate} onChange={iso => setField('buildDate', iso)} />
+          </Field>
+          {editingVessel && (
+            <label className="flex cursor-pointer items-center gap-2 self-end pb-2 text-sm text-ink">
+              <input type="checkbox" className="h-4 w-4 accent-primary" checked={formData.isActive} onChange={e => setField('isActive', e.target.checked)} />
+              Đang hoạt động
+            </label>
+          )}
+        </form>
+      </Modal>
+
+      {/* Menu chuột phải */}
       {contextMenu && (
         <div
-          className="vp-context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+          className="fixed z-50 w-56 overflow-hidden rounded-md border border-line bg-surface py-1 text-[13px] shadow-lg"
+          style={{ left: Math.min(contextMenu.x, window.innerWidth - 232), top: Math.min(contextMenu.y, window.innerHeight - 220) }}
           onClick={e => e.stopPropagation()}
         >
-          <button
-            className="vp-ctx-item"
-            onClick={() => { navigate(`/vessels/${contextMenu.vessel.id}`); closeContextMenu(); }}
-          >
-            <FileText size={13} /> Xem chi tiết
-          </button>
-          <button
-            className="vp-ctx-item"
-            onClick={() => { window.open(`/vessels/${contextMenu.vessel.id}`, '_blank'); closeContextMenu(); }}
-          >
-            <ExternalLink size={13} /> Mở trong tab mới
-          </button>
-          <div className="vp-ctx-divider" />
-          <button
-            className="vp-ctx-item"
-            onClick={() => { openEdit(contextMenu.vessel); closeContextMenu(); }}
-          >
-            <Pencil size={13} /> Chỉnh sửa
-          </button>
-          <button
-            className="vp-ctx-item"
-            onClick={() => { setProvisionTarget(contextMenu.vessel); closeContextMenu(); }}
-          >
-            <Settings size={13} /> Cấu hình kết nối Edge
-          </button>
-          <div className="vp-ctx-divider" />
-          <button
-            className="vp-ctx-item vp-ctx-item--danger"
-            onClick={() => { setDeleteTarget(contextMenu.vessel); closeContextMenu(); }}
-          >
-            <Trash2 size={13} /> Xóa tàu
-          </button>
+          <MenuItem icon={<FileText />} label="Xem chi tiết" onClick={() => { navigate(`/vessels/${contextMenu.vessel.id}`); closeContextMenu(); }} />
+          <MenuItem icon={<ExternalLink />} label="Mở trong tab mới" onClick={() => { window.open(`/vessels/${contextMenu.vessel.id}`, '_blank'); closeContextMenu(); }} />
+          <div className="my-1 border-t border-grid" />
+          <MenuItem icon={<Pencil />} label="Chỉnh sửa" onClick={() => { openEdit(contextMenu.vessel); closeContextMenu(); }} />
+          <MenuItem icon={<Settings />} label="Cấu hình kết nối Edge" onClick={() => { setProvisionTarget(contextMenu.vessel); closeContextMenu(); }} />
+          <div className="my-1 border-t border-grid" />
+          <MenuItem icon={<Trash2 />} label="Xóa tàu" danger onClick={() => { const v = contextMenu.vessel; closeContextMenu(); handleDelete(v); }} />
         </div>
       )}
 
-      {/*  Delete confirm  */}
-      {deleteTarget && (
-        <div className="vp-overlay" onClick={() => setDeleteTarget(null)}>
-          <div className="vp-modal vp-modal--sm" onClick={e => e.stopPropagation()}>
-            <div className="vp-modal-head">
-              <h2>Xác nhận xóa</h2>
-              <button className="vp-icon-btn" onClick={() => setDeleteTarget(null)}><X size={15} /></button>
-            </div>
-            <div className="vp-delete-body">
-              <AlertTriangle size={26} className="vp-delete-icon" />
-              <p>Bạn có chắc muốn xóa tàu <strong>{deleteTarget.name}</strong> (IMO: {deleteTarget.imo})?</p>
-              <p className="vp-delete-warn">Hành động này không thể hoàn tác.</p>
-            </div>
-            <div className="vp-form-footer">
-              <button className="vp-btn" onClick={() => setDeleteTarget(null)}>Hủy</button>
-              <button className="vp-btn vp-btn--danger" onClick={handleDelete} disabled={deleting}>
-                {deleting ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
-                {deleting ? 'Đang xóa...' : 'Xóa tàu'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Provisioning Modal */}
+      {/* Cấu hình kết nối Edge */}
       {provisionTarget && (
         <ProvisioningModal
           vesselId={provisionTarget.id}
@@ -536,3 +498,19 @@ export const VesselsPage: React.FC = () => {
     </div>
   );
 };
+
+const filterSelect =
+  'h-9 rounded-md border border-line bg-surface px-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25';
+
+const MenuItem: React.FC<{ icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }> = ({ icon, label, onClick, danger }) => (
+  <button
+    type="button"
+    role="menuitem"
+    onClick={onClick}
+    className={`flex w-full items-center gap-2 px-3 py-2 text-left [&>svg]:h-4 [&>svg]:w-4 ${
+      danger ? 'text-red-600 hover:bg-danger-soft' : 'text-ink hover:bg-primary-soft'
+    }`}
+  >
+    {icon}{label}
+  </button>
+);

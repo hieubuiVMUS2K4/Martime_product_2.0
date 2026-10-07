@@ -11,7 +11,7 @@ export default function LoginPage() {
   const location = useLocation()
   const { login, isLoggingIn, error, clearError, isAuthenticated } = useAuth()
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/report'
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/vessels'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

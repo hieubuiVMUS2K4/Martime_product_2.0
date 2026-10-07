@@ -51,9 +51,9 @@ Tất cả route "sau đăng nhập" đều lồng trong `<Route element={<TopNa
 | `/login` | `Auth/LoginPage` | Public |
 | `/` | *(redirect)* | → `/report` |
 | `/report`, `/report/:reportId`, `/report/vessel/:vesselId` | `Report/*` | Trang chủ thật sự |
-| `/categories` | `CategoryManagement/CategoryManagementPage` | Tab crew/certificate-types |
-| `/crew`, `/crew/:id`, `/vessels/:vesselId/crew/:id` | `CrewManagement/CrewListPage`, `CrewDetailPage` | |
-| `/certificates` | `CrewManagement/CertificateMonitorPage` | |
+| `/categories` | `CategoryManagement/CategoryManagementPage` | Tab certificate-types/ranks/countries/ports (`?tab=crew` chuyển sang `/crew`) |
+| `/crew`, `/crew/:id`, `/vessels/:vesselId/crew/:id` | `CrewManagement/CrewHubPage` (tab `profiles`/`sign-off`/`certificates`), `CrewDetailPage` | |
+| `/certificates`, `/sign-off-requests` | Chuyển hướng tới `/crew?tab=certificates`, `/crew?tab=sign-off` | Địa chỉ cũ |
 | `/sync` | `SyncManagement/SyncDashboardPage` | |
 | `/work-assignments` | `WorkAssignment/WorkAssignmentPage` | ⚠️ dữ liệu mock |
 | `/vessels`, `/vessels/tracking`, `/vessels/:id` | `VesselManagement/*` | |

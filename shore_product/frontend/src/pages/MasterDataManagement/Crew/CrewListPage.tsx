@@ -1,24 +1,24 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Users, UserCheck, UserMinus, ShieldAlert, Clock,
+  Users, UserCheck, UserMinus, Clock,
   Eye, Pencil, Trash2, Anchor, Ship, CheckCheck, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useReferenceData, useExpiringCertificates, useCrewStats, useVessels } from '../../../hooks/useCrew';
+import { useReferenceData, useCrewStats } from '../../../hooks/useCrew';
 import { crewApi } from '../../../services/crew.service';
 import {
-  Button, DataTable, ImportExcelModal, PageHeader, QuickFilterBar, TableActions, TableIconButton, fieldClass,
+  Button, DataTable, ImportExcelModal, QuickFilterBar, TableActions, TableIconButton,
   useConfirm, type Column, type ImportField,
 } from '../../../components/common';
 import { CrewFormModal } from './CrewFormModal';
 import { AssignShipModal } from './AssignShipModal';
 import ProtectedImage from '../../../components/common/ProtectedImage';
-import type { CrewMember, CreateCrewRequest, CrewCertificate } from '../../../types/crew.types';
+import type { CrewMember, CreateCrewRequest } from '../../../types/crew.types';
 import { formatDateVi, parseImportDate } from '../../../utils/date';
 import { useMarkCrewChangesViewed } from '../../../hooks/useMarkCrewChangesViewed';
 
-type View = 'all' | 'onboard' | 'pool' | 'certificates';
+type View = 'all' | 'onboard' | 'pool';
 
 /** Máy chủ trả tối đa 200 thuyền viên mỗi lần; tải hết theo lô để lọc theo cột. */
 const FETCH_PAGE = 200;
@@ -45,12 +45,6 @@ const STATUS_TONE: Record<string, string> = {
   'Ở bờ': 'bg-slate-100 text-slate-600 [&>i]:bg-slate-400',
 };
 
-const CERT_STATUS: Record<string, { label: string; tone: string }> = {
-  VALID: { label: 'Còn hiệu lực', tone: 'bg-emerald-50 text-emerald-700' },
-  EXPIRING_SOON: { label: 'Sắp hết hạn', tone: 'bg-amber-50 text-amber-700' },
-  EXPIRED: { label: 'Đã hết hạn', tone: 'bg-red-50 text-red-700' },
-};
-
 const IMPORT_FIELDS: ImportField[] = [
   { key: 'crewId', header: 'Mã thuyền viên', required: true, example: 'TV0001' },
   { key: 'fullName', header: 'Họ và tên', required: true, example: 'Nguyễn Văn An' },
@@ -69,9 +63,7 @@ export const CrewListPage: React.FC = () => {
   const navigate = useNavigate();
   const ask = useConfirm();
   const { ranks } = useReferenceData();
-  const { data: expiringCerts } = useExpiringCertificates(90);
   const { data: crewStats, refetch: refetchStats } = useCrewStats();
-  const { vessels } = useVessels();
 
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,11 +79,6 @@ export const CrewListPage: React.FC = () => {
   const { markViewed, marking } = useMarkCrewChangesViewed(ids => {
     setCrew(prev => prev.map(m => (ids.includes(m.id) ? { ...m, edgeChangesViewed: true } : m)));
   });
-
-  // Theo dõi chứng chỉ
-  const [certDaysAhead, setCertDaysAhead] = useState(90);
-  const [certVessel, setCertVessel] = useState('');
-  const { data: certData, loading: certLoading } = useExpiringCertificates(certDaysAhead);
 
   const fetchCrew = useCallback(async () => {
     setLoading(true);
@@ -163,7 +150,6 @@ export const CrewListPage: React.FC = () => {
   const openEdit = (m: CrewMember) => { setEditingCrew(m); setFormOpen(true); };
   const openNew = () => { setEditingCrew(null); setFormOpen(true); };
 
-  const vesselMap = useMemo(() => new Map(vessels.map(v => [v.id, v.name])), [vessels]);
   const rankByText = useMemo(() => {
     const m = new Map<string, number>();
     ranks.forEach(r => { m.set(r.rankCode.toUpperCase(), r.id); m.set(r.rankName.toUpperCase(), r.id); });
@@ -183,15 +169,10 @@ export const CrewListPage: React.FC = () => {
     await markViewed(unviewed.map(m => m.id));
   };
 
-  const certsInView = useMemo(
-    () => (certVessel ? certData.filter(c => c.vesselId === certVessel) : certData),
-    [certData, certVessel],
-  );
-
   /* ── Cột bảng thuyền viên ── */
   const crewColumns: Column<CrewMember>[] = [
     {
-      key: 'name', header: 'Thuyền viên', value: m => m.fullName,
+      key: 'name', header: 'Thuyền viên', filter: false, value: m => m.fullName,
       render: m => (
         <span className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-[11px] font-bold text-primary">
@@ -204,7 +185,7 @@ export const CrewListPage: React.FC = () => {
         </span>
       ),
     },
-    { key: 'crewId', header: 'Mã TV', width: 110, value: m => m.crewId, render: m => <span className="font-mono">{m.crewId}</span> },
+    { key: 'crewId', header: 'Mã TV', width: 110, filter: false, value: m => m.crewId, render: m => <span className="font-mono">{m.crewId}</span> },
     { key: 'rank', header: 'Chức danh', width: 160, value: m => m.rankName ?? '' },
     { key: 'dept', header: 'Bộ phận', width: 110, value: m => m.department ?? '' },
     {
@@ -231,10 +212,10 @@ export const CrewListPage: React.FC = () => {
         );
       },
     },
-    { key: 'embark', header: 'Ngày lên tàu', width: 115, align: 'center', value: m => m.embarkDate ?? '',
-      filter: m => formatDateVi(m.embarkDate), exportValue: m => formatDateVi(m.embarkDate), render: m => formatDateVi(m.embarkDate) || '—' },
-    { key: 'contract', header: 'Hết hợp đồng', width: 115, align: 'center', value: m => m.contractEnd ?? '',
-      filter: m => formatDateVi(m.contractEnd), exportValue: m => formatDateVi(m.contractEnd), render: m => formatDateVi(m.contractEnd) || '—' },
+    { key: 'embark', header: 'Ngày lên tàu', width: 115, align: 'center', filter: false, value: m => m.embarkDate ?? '',
+      exportValue: m => formatDateVi(m.embarkDate), render: m => formatDateVi(m.embarkDate) || '—' },
+    { key: 'contract', header: 'Hết hợp đồng', width: 115, align: 'center', filter: false, value: m => m.contractEnd ?? '',
+      exportValue: m => formatDateVi(m.contractEnd), render: m => formatDateVi(m.contractEnd) || '—' },
     {
       key: 'actions', header: 'Thao tác', width: 170, align: 'center',
       render: m => (
@@ -251,40 +232,8 @@ export const CrewListPage: React.FC = () => {
     },
   ];
 
-  /* ── Cột bảng theo dõi chứng chỉ ── */
-  const certColumns: Column<CrewCertificate>[] = [
-    { key: 'crew', header: 'Thuyền viên', width: 200, value: c => c.crewMemberName ?? '', className: 'font-semibold' },
-    { key: 'vessel', header: 'Tàu', width: 160, value: c => (c.vesselId && vesselMap.get(c.vesselId)) || '' },
-    { key: 'cert', header: 'Chứng chỉ', value: c => c.certificateName || c.certificateCode || '' },
-    { key: 'number', header: 'Số chứng chỉ', width: 150, value: c => c.certificateNumber ?? '', className: 'font-mono' },
-    { key: 'issue', header: 'Ngày cấp', width: 110, align: 'center', value: c => c.issueDate ?? '',
-      filter: c => formatDateVi(c.issueDate), exportValue: c => formatDateVi(c.issueDate), render: c => formatDateVi(c.issueDate) || '—' },
-    { key: 'expiry', header: 'Ngày hết hạn', width: 115, align: 'center', value: c => c.expiryDate ?? '',
-      filter: c => formatDateVi(c.expiryDate), exportValue: c => formatDateVi(c.expiryDate), render: c => formatDateVi(c.expiryDate) || '—' },
-    {
-      key: 'days', header: 'Còn lại (ngày)', width: 110, numeric: true, filter: false, value: c => c.daysUntilExpiry ?? null,
-      render: c => c.daysUntilExpiry === undefined ? '—'
-        : <span className={c.daysUntilExpiry <= 0 ? 'font-semibold text-red-700' : c.daysUntilExpiry <= 30 ? 'font-semibold text-amber-700' : ''}>
-          {c.daysUntilExpiry <= 0 ? 'Quá hạn' : c.daysUntilExpiry}
-        </span>,
-    },
-    {
-      key: 'status', header: 'Trạng thái', width: 125, align: 'center', value: c => CERT_STATUS[c.status ?? '']?.label ?? c.status ?? '',
-      render: c => {
-        const s = CERT_STATUS[c.status ?? ''];
-        return s ? <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${s.tone}`}>{s.label}</span> : (c.status ?? '—');
-      },
-    },
-  ];
-
   return (
     <div>
-      <PageHeader
-        icon={<Users />}
-        title="Quản lý thuyền viên"
-        description="Hồ sơ thuyền viên toàn đội tàu. Bấm vào một dòng để mở hồ sơ chi tiết."
-      />
-
       <QuickFilterBar<View>
         active={view}
         onChange={setView}
@@ -292,16 +241,15 @@ export const CrewListPage: React.FC = () => {
           { key: 'all', label: 'Tổng', count: crewStats.total || crew.length, icon: <Users /> },
           { key: 'onboard', label: 'Trên tàu', count: crewStats.onboard, icon: <UserCheck />, tone: 'text-emerald-600' },
           { key: 'pool', label: 'Ở bờ', count: crewStats.pool, icon: <UserMinus />, tone: 'text-slate-500' },
-          { key: 'certificates', label: 'Chứng chỉ sắp hết hạn', count: expiringCerts.length, icon: <ShieldAlert />, tone: 'text-amber-600' },
         ]}
       />
-      {crewStats.pendingReview > 0 && view !== 'certificates' && (
+      {crewStats.pendingReview > 0 && (
         <p className="-mt-1 mb-3 flex items-center gap-1.5 text-[13px] text-amber-700">
           <Clock className="h-4 w-4" aria-hidden="true" /> {crewStats.pendingReview} thuyền viên đang chờ duyệt lên tàu.
         </p>
       )}
 
-      {view !== 'certificates' && unviewed.length > 0 && (
+      {unviewed.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">
@@ -314,54 +262,22 @@ export const CrewListPage: React.FC = () => {
         </div>
       )}
 
-      {view !== 'certificates' ? (
-        <DataTable
-          key="crew"
-          columns={crewColumns}
-          data={crewInView}
-          rowKey={m => m.id}
-          loading={loading}
-          error={error}
-          itemLabel="thuyền viên"
-          emptyMessage="Chưa có thuyền viên nào."
-          searchPlaceholder="Tìm theo tên, mã, chức danh, tàu..."
-          exportOptions={{ fileName: 'danh-sach-thuyen-vien', title: 'DANH SÁCH THUYỀN VIÊN' }}
-          onImport={() => setShowImport(true)}
-          onAdd={openNew}
-          addLabel="Thêm thuyền viên"
-          onRowClick={m => navigate(`/crew/${m.id}`)}
-          minWidth={1220}
-        />
-      ) : (
-        <DataTable
-          key="certificates"
-          columns={certColumns}
-          data={certsInView}
-          rowKey={c => c.id}
-          loading={certLoading}
-          itemLabel="chứng chỉ"
-          emptyMessage="Không có chứng chỉ nào trong khoảng thời gian này."
-          searchPlaceholder="Tìm chứng chỉ, thuyền viên, số chứng chỉ..."
-          exportOptions={{ fileName: 'chung-chi-sap-het-han', title: 'CHỨNG CHỈ SẮP HẾT HẠN' }}
-          onRowClick={c => c.crewMemberId && navigate(`/crew/${c.crewMemberId}`)}
-          minWidth={1180}
-          toolbarLeft={
-            <>
-              <select aria-label="Lọc theo tàu" value={certVessel} onChange={e => setCertVessel(e.target.value)} className={`${fieldClass} h-9 w-auto py-1`}>
-                <option value="">Tất cả tàu</option>
-                {vessels.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-              </select>
-              <select aria-label="Khoảng thời gian" value={certDaysAhead} onChange={e => setCertDaysAhead(Number(e.target.value))} className={`${fieldClass} h-9 w-auto py-1`}>
-                <option value={30}>Hết hạn trong 30 ngày</option>
-                <option value={60}>Hết hạn trong 60 ngày</option>
-                <option value={90}>Hết hạn trong 90 ngày</option>
-                <option value={180}>Hết hạn trong 180 ngày</option>
-                <option value={365}>Hết hạn trong 1 năm</option>
-              </select>
-            </>
-          }
-        />
-      )}
+      <DataTable
+        columns={crewColumns}
+        data={crewInView}
+        rowKey={m => m.id}
+        loading={loading}
+        error={error}
+        itemLabel="thuyền viên"
+        emptyMessage="Chưa có thuyền viên nào."
+        searchPlaceholder="Tìm theo tên, mã, chức danh, tàu..."
+        exportOptions={{ fileName: 'danh-sach-thuyen-vien', title: 'DANH SÁCH THUYỀN VIÊN' }}
+        onImport={() => setShowImport(true)}
+        onAdd={openNew}
+        addLabel="Thêm thuyền viên"
+        onRowClick={m => navigate(`/crew/${m.id}`)}
+        minWidth={1220}
+      />
 
       {formOpen && (
         <CrewFormModal

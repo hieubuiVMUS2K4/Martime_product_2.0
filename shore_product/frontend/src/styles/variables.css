@@ -112,9 +112,10 @@
   /* Z-index layers */
   --z-dropdown: 100;
   --z-sticky: 200;
-  --z-modal-backdrop: 300;
-  --z-modal: 400;
-  --z-toast: 500;
+  /* Thanh điều hướng trên cùng là 1100 (menu thả 1200): hộp thoại phải nằm trên. */
+  --z-modal-backdrop: 1290;
+  --z-modal: 1300;
+  --z-toast: 1500;
 
   /* Layout */
   --topnav-height: 56px;

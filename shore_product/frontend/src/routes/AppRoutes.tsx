@@ -1,9 +1,8 @@
 import React from 'react';
-import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { TopNavLayout } from '../components/layout';
-import { CategoryManagementPage, CrewListPage, CrewDetailPage, CertificateMonitorPage, MasterSchedulePage, VesselsPage, ReportPage, VesselReportDetailPage, ReportDetailPage, VoyageListPage, VoyageDetailPage, VoyageFormPage } from '../pages';
+import { CategoryManagementPage, CrewHubPage, CrewDetailPage, MasterSchedulePage, VesselsPage, ReportDetailPage, VoyageListPage, VoyageDetailPage, VoyageFormPage } from '../pages';
 import { VesselDetailPage, VesselTrackingPage } from '../pages/VesselManagement';
-import { PendingSignOffsPage } from '../pages/CrewManagement';
 import { SyncDashboardPage } from '../pages/SyncManagement';
 import { WorkAssignmentPage } from '../pages/WorkAssignment';
 import { OnboardingDashboardPage, OnboardingDetailPage } from '../pages/OnboardingManagement';
@@ -29,6 +28,12 @@ import { useAuth } from '../contexts/AuthContext';
 /**
  * Auth guard — redirects to /login if not authenticated
  */
+/** Địa chỉ cũ /report/vessel/:id → tab Báo cáo của tàu đó. */
+function ReportVesselRedirect() {
+  const { vesselId } = useParams<{ vesselId: string }>();
+  return <Navigate to={`/vessels/${vesselId}?tab=reports`} replace />;
+}
+
 function RequireAuth() {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
@@ -64,17 +69,19 @@ export const AppRoutes: React.FC = () => {
 
       {/* Protected routes */}
       <Route element={<RequireAuth />}>
-        <Route path="/" element={<Navigate to="/report" replace />} />
+        <Route path="/" element={<Navigate to="/vessels" replace />} />
         
         <Route element={<TopNavLayout />}>
-        <Route path="/report" element={<ReportPage />} />
-        <Route path="/report/vessel/:vesselId" element={<VesselReportDetailPage />} />
+        {/* Báo cáo nay là nhóm "Báo cáo" trong Chi tiết tàu */}
+        <Route path="/report" element={<Navigate to="/vessels" replace />} />
+        <Route path="/report/vessel/:vesselId" element={<ReportVesselRedirect />} />
         <Route path="/report/:reportId" element={<ReportDetailPage />} />
         <Route path="/categories" element={<CategoryManagementPage />} />
-        <Route path="/crew" element={<CrewListPage />} />
+        <Route path="/crew" element={<CrewHubPage />} />
         <Route path="/crew/:id" element={<CrewDetailPage />} />
-        <Route path="/certificates" element={<CertificateMonitorPage />} />
-        <Route path="/sign-off-requests" element={<PendingSignOffsPage />} />
+        {/* Địa chỉ cũ, nay là tab của trang Quản lý thuyền viên */}
+        <Route path="/certificates" element={<Navigate to="/crew?tab=certificates" replace />} />
+        <Route path="/sign-off-requests" element={<Navigate to="/crew?tab=sign-off" replace />} />
         <Route path="/sync" element={<SyncDashboardPage />} />
         <Route path="/work-assignments" element={<WorkAssignmentPage />} />
         <Route path="/vessels" element={<VesselsPage />} />

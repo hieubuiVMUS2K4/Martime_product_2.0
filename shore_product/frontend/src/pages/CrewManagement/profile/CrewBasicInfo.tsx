@@ -162,7 +162,7 @@ export const CrewBasicInfo: React.FC<Props> = ({
               <div className="flex items-start gap-2 border-b border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
-                  Ngày lên/xuống tàu bình thường được cập nhật qua quy trình gán lên tàu / duyệt xuống tàu và sổ thuyền viên.
+                  Ngày lên/xuống tàu bình thường được cập nhật qua quy trình gán lên tàu / phê duyệt rời tàu và sổ thuyền viên.
                   Chỉ sửa tay khi cần chỉnh lại ngày nhập sai. Trạng thái trên tàu không sửa ở đây được — dùng
                   "Gán lên tàu" / "Cho xuống tàu" ở Chi tiết tàu.
                 </span>

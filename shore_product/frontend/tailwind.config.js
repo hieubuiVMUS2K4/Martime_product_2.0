@@ -49,10 +49,13 @@ export default {
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
+      // Thanh điều hướng trên cùng là z-[1100], menu thả xuống của nó z-[1200].
+      // Hộp thoại và thông báo phải nằm TRÊN thanh điều hướng.
       zIndex: {
         dropdown: '100',
-        modal: '400',
-        toast: '500',
+        modal: '1300',
+        popover: '1350',
+        toast: '1500',
       },
     },
   },

@@ -9,7 +9,6 @@
 | File | Vai trò |
 |---|---|
 | `SyncDashboardPage.tsx` | Trang duy nhất (route `/sync`, menu "Đồng bộ"). Chứa cả UI chính lẫn sub-component `ShoreConfirmModal` (modal xác nhận trước khi force-push) ngay trong cùng file. |
-| `SyncDashboardPage.css` | Style riêng (phần lớn UI thực tế dùng class Tailwind trực tiếp trong JSX; file CSS chỉ còn một phần nhỏ). |
 | `index.ts` | `export { SyncDashboardPage } from './SyncDashboardPage'`. |
 
 Không có modal/tab con nào khác — đây là module **đơn giản nhất về cấu trúc file** trong số 4 module có README riêng, nhưng **đậm đặc về ý nghĩa kiến trúc** (là nơi duy nhất UI phản chiếu trực tiếp bảng `SyncOutbox`/`SyncLog`/node tracker của Backend).

@@ -11,7 +11,7 @@ import {
   Search, ChevronRight, ChevronDown, ChevronLeft,
   Eye, Pencil, Trash2,
   RefreshCw, Clock, Settings, Plus, Save, ExternalLink,
-  CheckCircle, ChevronsUpDown, FolderOpen, ClipboardList, X as XIcon, Users, Package,
+  CheckCircle, FolderOpen, ClipboardList, X as XIcon, Users, Package,
   AlertTriangle, FileText, History, Upload, Link2, Copy
 } from 'lucide-react';
 import { parseISO, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, addDays, getDay } from 'date-fns';
@@ -29,6 +29,7 @@ import type { MaintenanceTask, CrewMember, MaterialItem } from '@/types/maritime
 import { parseTaskScheduleInfo } from '@/types/maritime.types';
 import type { EquipmentAsset, MaintenanceSchedule, CreateMaintenanceScheduleDto, CreateScheduleSparePartDto, ChecklistItemTemplateDto } from '@/types/pms.types';
 import { useConfirm } from '@/components/common/ConfirmDialog';
+import { DataTable, TableActions, TableIconButton, type Column } from '@/components/common';
 
 type ViewTab = 'table' | 'calendar' | 'gantt' | 'config';
 
@@ -137,23 +138,23 @@ const PRIORITY_COLORS: Record<string, { bg: string; bar: string; text: string }>
 };
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; text: string }> = {
-  SCHEDULED: { label: 'Đã lên lịch', bg: 'bg-slate-100', text: 'text-slate-700' },
-  UPCOMING: { label: 'Sắp đến hạn', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  DUE: { label: 'Đến hạn', bg: 'bg-[#dce9f8]', text: 'text-[#16375f]' },
-  OVERDUE: { label: 'Quá hạn', bg: 'bg-red-100', text: 'text-red-700' },
-  IN_PROGRESS: { label: 'Đang thực hiện', bg: 'bg-amber-100', text: 'text-amber-700' },
-  PENDING_APPROVAL: { label: 'Chờ duyệt', bg: 'bg-purple-100', text: 'text-purple-700' },
-  RECTIFY: { label: 'Trả hoàn', bg: 'bg-orange-100', text: 'text-orange-700' },
-  COMPLETED: { label: 'Hoàn thành', bg: 'bg-green-100', text: 'text-green-700' },
-  CANCELLED: { label: 'Hủy bỏ', bg: 'bg-gray-100', text: 'text-gray-500' },
+  SCHEDULED: { label: 'Đã lên lịch', bg: 'bg-slate-100', text: 'text-slate-600' },
+  UPCOMING: { label: 'Sắp đến hạn', bg: 'bg-amber-50', text: 'text-amber-700' },
+  DUE: { label: 'Đến hạn', bg: 'bg-sky-50', text: 'text-sky-700' },
+  OVERDUE: { label: 'Quá hạn', bg: 'bg-red-50', text: 'text-red-700' },
+  IN_PROGRESS: { label: 'Đang thực hiện', bg: 'bg-amber-50', text: 'text-amber-700' },
+  PENDING_APPROVAL: { label: 'Chờ duyệt', bg: 'bg-violet-50', text: 'text-violet-700' },
+  RECTIFY: { label: 'Trả hoàn', bg: 'bg-orange-50', text: 'text-orange-700' },
+  COMPLETED: { label: 'Hoàn thành', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  CANCELLED: { label: 'Hủy bỏ', bg: 'bg-slate-100', text: 'text-slate-500' },
 };
 
 const PRIORITY_LABELS: Record<string, { label: string; bg: string; text: string }> = {
-  CRITICAL: { label: 'Rất cao', bg: 'bg-red-100', text: 'text-red-700' },
-  HIGH: { label: 'Cao', bg: 'bg-orange-100', text: 'text-orange-700' },
-  NORMAL: { label: 'Trung bình', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  MEDIUM: { label: 'Trung bình', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  LOW: { label: 'Thấp', bg: 'bg-[#dce9f8]', text: 'text-[#16375f]' },
+  CRITICAL: { label: 'Rất cao', bg: 'bg-red-50', text: 'text-red-700' },
+  HIGH: { label: 'Cao', bg: 'bg-orange-50', text: 'text-orange-700' },
+  NORMAL: { label: 'Trung bình', bg: 'bg-amber-50', text: 'text-amber-700' },
+  MEDIUM: { label: 'Trung bình', bg: 'bg-amber-50', text: 'text-amber-700' },
+  LOW: { label: 'Thấp', bg: 'bg-sky-50', text: 'text-sky-700' },
 };
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
@@ -191,22 +192,9 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [treeSearch, setTreeSearch] = useState('');
+  /** Lọc bảng theo mã lịch bảo dưỡng (mở từ tab Cấu hình). */
+  const [scheduleFilter, setScheduleFilter] = useState('');
 
-  // === Column filters ===
-  const [colFilterCode, setColFilterCode] = useState('');
-  const [colFilterEquip, setColFilterEquip] = useState('');
-  const [colFilterName, setColFilterName] = useState('');
-  const [colFilterDesc, setColFilterDesc] = useState('');
-  const [colFilterPriority, setColFilterPriority] = useState('');
-  const [colFilterStatus, setColFilterStatus] = useState('');
-  const [colFilterType, setColFilterType] = useState('');
-
-  // === Table state ===
-  const [searchQuery] = useState('');
-  const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize, setTablePageSize] = useState(10);
-  const [sortField, setSortField] = useState<string>('');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // === Calendar state ===
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -313,6 +301,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   };
 
   const handleTaskDelete = async (taskId: string) => {
+    if (readOnly) return;
     if (!await ask(t('pms.workPlanning.toast.confirmDeleteConfig'))) return;
     try {
       await maintenanceScheduleService.delete(taskId);
@@ -677,12 +666,8 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   // Config helpers: count tasks per schedule code, next due info
   // Navigate from config to table with filter by schedule code
   const viewScheduleTasks = (scheduleCode: string) => {
-    setColFilterCode('');
-    setColFilterEquip('');
-    setColFilterName('');
-    setColFilterDesc(scheduleCode);
+    setScheduleFilter(scheduleCode);
     setActiveTab('table');
-    setTablePage(1);
   };
 
   // Jump from Table tab → Config tab to edit PIC/Receiver/Support for a task's schedule
@@ -753,31 +738,13 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
       });
     }
 
-    // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      f = f.filter(task =>
-        task.taskId.toLowerCase().includes(q) ||
-        (task.equipmentName || '').toLowerCase().includes(q) ||
-        (task.equipmentGroupName || '').toLowerCase().includes(q) ||
-        task.taskDescription.toLowerCase().includes(q)
-      );
-    }
-
-    // Column filters
-    if (colFilterCode) f = f.filter(t => t.taskId.toLowerCase().includes(colFilterCode.toLowerCase()));
-    if (colFilterEquip) f = f.filter(t => (t.equipmentName || t.equipmentAssetName || t.equipmentGroupName || '').toLowerCase().includes(colFilterEquip.toLowerCase()));
-    if (colFilterName) f = f.filter(t => (t.taskDescription?.split('\n')[0] || t.taskType).toLowerCase().includes(colFilterName.toLowerCase()));
-    if (colFilterDesc) f = f.filter(t => t.taskDescription.toLowerCase().includes(colFilterDesc.toLowerCase()));
-    if (colFilterPriority) f = f.filter(t => t.priority === colFilterPriority);
-    if (colFilterStatus) f = f.filter(t => t.status === colFilterStatus);
-    if (colFilterType) {
-      if (colFilterType === 'adhoc') f = f.filter(t => t.taskType === 'AD_HOC' || t.taskType === 'CORRECTIVE');
-      else f = f.filter(t => t.taskType !== 'AD_HOC' && t.taskType !== 'CORRECTIVE');
+    if (scheduleFilter) {
+      const q = scheduleFilter.toLowerCase();
+      f = f.filter(task => task.taskDescription.toLowerCase().includes(q));
     }
 
     return f;
-  }, [showHistory, activeTasks, historyTasks, selectedAssetIds, searchQuery, assets, colFilterCode, colFilterEquip, colFilterName, colFilterDesc, colFilterPriority, colFilterStatus, colFilterType]);
+  }, [showHistory, activeTasks, historyTasks, selectedAssetIds, assets, scheduleFilter]);
 
   // Gantt data — derived from filteredTasks (same source as Bảng/Lịch/Kanban)
   const ganttTasksFromFiltered = useMemo((): GanttTask[] => {
@@ -826,7 +793,7 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   // === Export Excel ===
   const handleExportExcel = () => {
     try {
-      const data = sortedFilteredTasks.map((task, idx) => ({
+      const data = filteredTasks.map((task, idx) => ({
         [t('pms.workPlanning.table.index')]: idx + 1,
         [t('pms.workPlanning.export.taskCode')]: task.taskId,
         [t('pms.workPlanning.export.equipmentName')]: task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '',
@@ -868,14 +835,14 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
       const statsLabel = t('pms.workPlanning.export.statsLabel');
       const countLabel = t('pms.workPlanning.export.count');
       const summaryData = [
-        { [statsLabel]: t('pms.workPlanning.export.total'), [countLabel]: sortedFilteredTasks.length },
-        { [statsLabel]: getStatusLabel('SCHEDULED'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'SCHEDULED').length },
-        { [statsLabel]: getStatusLabel('DUE'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'DUE').length },
-        { [statsLabel]: getStatusLabel('OVERDUE'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'OVERDUE').length },
-        { [statsLabel]: getStatusLabel('IN_PROGRESS'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'IN_PROGRESS').length },
-        { [statsLabel]: getStatusLabel('PENDING_APPROVAL'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'PENDING_APPROVAL').length },
-        { [statsLabel]: getStatusLabel('COMPLETED'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'COMPLETED').length },
-        { [statsLabel]: getStatusLabel('CANCELLED'), [countLabel]: sortedFilteredTasks.filter(t => t.status === 'CANCELLED').length },
+        { [statsLabel]: t('pms.workPlanning.export.total'), [countLabel]: filteredTasks.length },
+        { [statsLabel]: getStatusLabel('SCHEDULED'), [countLabel]: filteredTasks.filter(t => t.status === 'SCHEDULED').length },
+        { [statsLabel]: getStatusLabel('DUE'), [countLabel]: filteredTasks.filter(t => t.status === 'DUE').length },
+        { [statsLabel]: getStatusLabel('OVERDUE'), [countLabel]: filteredTasks.filter(t => t.status === 'OVERDUE').length },
+        { [statsLabel]: getStatusLabel('IN_PROGRESS'), [countLabel]: filteredTasks.filter(t => t.status === 'IN_PROGRESS').length },
+        { [statsLabel]: getStatusLabel('PENDING_APPROVAL'), [countLabel]: filteredTasks.filter(t => t.status === 'PENDING_APPROVAL').length },
+        { [statsLabel]: getStatusLabel('COMPLETED'), [countLabel]: filteredTasks.filter(t => t.status === 'COMPLETED').length },
+        { [statsLabel]: getStatusLabel('CANCELLED'), [countLabel]: filteredTasks.filter(t => t.status === 'CANCELLED').length },
       ];
       const ws2 = XLSX.utils.json_to_sheet(summaryData);
       ws2['!cols'] = [{ wch: 25 }, { wch: 12 }];
@@ -889,33 +856,6 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
       toast.error(t('pms.workPlanning.toast.exportFailed'));
     }
   };
-
-  // === Sorting ===
-  const sortedFilteredTasks = useMemo(() => {
-    if (!sortField) return filteredTasks;
-    return [...filteredTasks].sort((a, b) => {
-      let va: any, vb: any;
-      switch (sortField) {
-        case 'taskId': va = a.taskId; vb = b.taskId; break;
-        case 'equipmentName': va = a.equipmentName || a.equipmentAssetName || a.equipmentGroupName || ''; vb = b.equipmentName || b.equipmentAssetName || b.equipmentGroupName || ''; break;
-        case 'taskType': va = a.taskDescription?.split('\n')[0] || a.taskType; vb = b.taskDescription?.split('\n')[0] || b.taskType; break;
-        case 'taskDescription': va = a.taskDescription; vb = b.taskDescription; break;
-        case 'priority': va = a.priority; vb = b.priority; break;
-        case 'status': va = a.status; vb = b.status; break;
-        case 'nextDueAt': va = a.nextDueAt; vb = b.nextDueAt; break;
-        default: return 0;
-      }
-      if (typeof va === 'string') va = va.toLowerCase();
-      if (typeof vb === 'string') vb = vb.toLowerCase();
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [filteredTasks, sortField, sortDir]);
-
-  // Table pagination
-  const totalPages = Math.ceil(sortedFilteredTasks.length / tablePageSize);
-  const pagedTasks = sortedFilteredTasks.slice((tablePage - 1) * tablePageSize, tablePage * tablePageSize);
 
   // === Toggle tree node ===
   const toggleExpand = (id: string) => {
@@ -952,15 +892,6 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
       }
       return n;
     });
-  };
-
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDir('asc');
-    }
   };
 
   // === Calendar helpers ===
@@ -1022,6 +953,69 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
     return { start: si * cw, width: Math.max(cw * 0.8, (ei - si + 1) * cw) };
   };
 
+  const isAdhoc = (task: MaintenanceTask) => task.taskType === 'AD_HOC' || task.taskType === 'CORRECTIVE';
+  const equipmentOf = (task: MaintenanceTask) => task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '';
+  const taskNameOf = (task: MaintenanceTask) => task.taskDescription?.split('\n')[0] || task.taskType;
+  const taskDetailOf = (task: MaintenanceTask) =>
+    task.taskDescription?.split('\n').slice(1).join(' ').replace(/<!--(META|CREW):.*?-->/gs, '').trim() || '';
+
+  const taskColumns: Column<MaintenanceTask>[] = [
+    {
+      key: 'code', header: t('pms.workPlanning.table.taskCode'), width: 150, filter: false, value: task => task.taskId,
+      render: task => <span className="font-mono text-xs font-semibold text-primary">{task.taskId}</span>,
+    },
+    { key: 'equipment', header: t('pms.workPlanning.table.equipmentName'), width: 190, value: equipmentOf },
+    { key: 'name', header: t('pms.workPlanning.table.taskName'), width: 190, filter: false, value: taskNameOf, className: 'font-semibold' },
+    {
+      key: 'detail', header: t('pms.workPlanning.table.taskDescription'), filter: false, truncate: true, value: taskDetailOf,
+      render: task => { const d = taskDetailOf(task); return d ? <span className="text-ink-muted" title={d}>{d}</span> : <span className="text-ink-light">—</span>; },
+    },
+    {
+      key: 'due', header: 'Đến hạn', width: 110, align: 'center', filter: false, value: task => task.nextDueAt ?? '',
+      exportValue: task => (task.nextDueAt ? format(parseISO(task.nextDueAt), 'dd/MM/yyyy') : ''),
+      render: task => (task.nextDueAt ? format(parseISO(task.nextDueAt), 'dd/MM/yyyy') : '—'),
+    },
+    {
+      key: 'priority', header: t('pms.workPlanning.table.priority'), width: 120, align: 'center', value: task => getPriorityLabel(task.priority),
+      render: task => {
+        const pri = PRIORITY_LABELS[task.priority] || PRIORITY_LABELS.NORMAL;
+        return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${pri.bg} ${pri.text}`}>{getPriorityLabel(task.priority)}</span>;
+      },
+    },
+    {
+      key: 'status', header: t('pms.workPlanning.table.status'), width: 150, align: 'center', value: task => getStatusLabel(task.status),
+      render: task => {
+        const sts = STATUS_LABELS[task.status] || STATUS_LABELS.SCHEDULED;
+        return (
+          <span className="inline-flex flex-wrap items-center justify-center gap-1">
+            <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${sts.bg} ${sts.text}`}>{getStatusLabel(task.status)}</span>
+            {task.hasPendingDeferral && (
+              <span className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{t('pms.workPlanning.table.deferralPending')}</span>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'type', header: t('pms.workPlanning.table.type'), width: 110, align: 'center',
+      value: task => (isAdhoc(task) ? t('pms.workPlanning.filters.adhoc') : t('pms.workPlanning.filters.periodic')),
+    },
+    {
+      key: 'actions', header: 'Thao tác', width: readOnly ? 80 : 120, align: 'center', exportable: false,
+      render: task => (
+        <TableActions>
+          <TableIconButton label={`${t('pms.workPlanning.table.view')} ${task.taskId}`} icon={<Eye />} onClick={() => navigate(`/pms/work-report/${task.id}`)} />
+          {!readOnly && (
+            <>
+              <TableIconButton label={`${t('pms.workPlanning.table.editConfig')} ${task.taskId}`} icon={<Pencil />} onClick={() => handleEditTaskConfig(task)} />
+              <TableIconButton label={`${t('pms.workPlanning.table.delete')} ${task.taskId}`} icon={<Trash2 />} variant="danger" onClick={() => handleTaskDelete(task.id)} />
+            </>
+          )}
+        </TableActions>
+      ),
+    },
+  ];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -1034,100 +1028,101 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   // ===================== RENDER =====================
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-white">
-      {/* === HEADER ROW 1: titles === */}
-      <div className="flex flex-shrink-0 border-b border-gray-200">
-        {/* Header trái: root tree */}
-        <button
-          onClick={() => activeTab === 'config' ? setCfgTreeSelectedIds(new Set()) : setSelectedAssetIds(new Set())}
-          className={`w-64 flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-semibold border-r border-gray-200 ${
-            (activeTab === 'config' ? cfgTreeSelectedIds.size === 0 : selectedAssetIds.size === 0)
-              ? 'bg-primary-hover text-white'
-              : 'text-gray-700 hover:bg-gray-50 bg-white'
-          }`}
-        >
-          <FolderOpen className="w-4 h-4 flex-shrink-0" />
-          <span className="flex-1 text-left truncate">{t('pms.workPlanning.allEquipment')} ({assets.length})</span>
-        </button>
+      {/* === THANH ĐẦU: tab hiển thị + thao tác === */}
+      <div className="flex shrink-0 border-b border-line bg-surface">
+        <div className="flex w-64 shrink-0 items-center gap-2 border-r border-line px-3">
+          <FolderOpen className="h-4 w-4 text-ink-muted" aria-hidden="true" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Cây thiết bị</span>
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+          <nav className="flex gap-1" role="tablist" aria-label="Kiểu hiển thị">
+            {([
+              { key: 'table' as ViewTab, label: t('pms.workPlanning.tabs.table'), icon: Table2 },
+              { key: 'calendar' as ViewTab, label: t('pms.workPlanning.tabs.calendar'), icon: Calendar },
+              { key: 'gantt' as ViewTab, label: t('pms.workPlanning.tabs.gantt'), icon: BarChart3 },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`-mb-px inline-flex h-11 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors ${
+                  activeTab === tab.key ? 'border-primary font-semibold text-primary' : 'border-transparent text-ink-muted hover:border-line hover:text-ink'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" aria-hidden="true" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
-        {/* Header phải: title + action buttons */}
-        <div className="flex-1 flex items-center justify-between px-4 py-3 bg-white">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">
-              {showHistory ? `≡ ${t('pms.workPlanning.taskHistory')}` : `≡ ${t('pms.workPlanning.myTaskList')}`}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-[13px] text-ink-muted">
+              <strong className="tabular-nums text-ink">{filteredTasks.length}</strong> {showHistory ? 'công việc đã lưu trữ' : 'công việc'}
+              {historyTasks.length > 0 && !showHistory && <> · {historyTasks.length} {t('pms.workPlanning.archived')}</>}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${showHistory ? 'bg-gray-100 text-gray-600' : 'bg-[#dce9f8] text-[#16375f]'}`}>{filteredTasks.length}</span>
-            {historyTasks.length > 0 && !showHistory && (
-              <span className="text-xs text-gray-400">+{historyTasks.length} {t('pms.workPlanning.archived')}</span>
-            )}
             {isBackgroundRefreshing && (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-[#eef2f7] border border-[#d6dee8] rounded text-xs text-[#0b2545]">
-                <div className="w-1.5 h-1.5 bg-[#1b4c7e] rounded-full animate-pulse" />
-                {t('pms.workPlanning.syncing')}
-              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2 py-0.5 text-xs text-primary">
+                <i className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> {t('pms.workPlanning.syncing')}
+              </span>
             )}
-          </div>
-          <div className="flex items-center gap-2">
             <button
-              onClick={() => { setShowHistory(h => !h); setTablePage(1); }}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${
-                showHistory
-                  ? 'bg-gray-700 text-white border-gray-700 hover:bg-gray-600'
-                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-              }`}
+              type="button"
+              onClick={() => setShowHistory(h => !h)}
+              aria-pressed={showHistory}
               title={showHistory ? t('pms.workPlanning.backToTasks') : t('pms.workPlanning.viewHistory')}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors ${
+                showHistory ? 'border-primary bg-primary text-white' : 'border-line bg-surface text-ink hover:border-accent/40 hover:bg-primary-soft'
+              }`}
             >
-              <History className="w-3.5 h-3.5" />
+              <History className="h-4 w-4" aria-hidden="true" />
               {showHistory ? t('pms.workPlanning.currentTasks') : t('pms.workPlanning.history')}
             </button>
-            <button onClick={() => loadData(true)} className="p-1.5 border border-gray-300 rounded text-gray-500 hover:bg-gray-50" title={t('pms.workPlanning.refresh')}>
-              <RefreshCw className={`w-3.5 h-3.5 ${isBackgroundRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* === HEADER ROW 2: search + tab bar === */}
-      <div className="flex flex-shrink-0 border-b border-gray-200">
-        <div className="w-64 flex-shrink-0 border-r border-gray-200 bg-white flex items-center px-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              placeholder={t('pms.workPlanning.searchPlaceholder')}
-              value={treeSearch}
-              onChange={e => setTreeSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#1b4c7e] focus:border-[#1b4c7e]"
-            />
-          </div>
-        </div>
-        <div className="flex-1 flex items-center gap-1 px-4 bg-white">
-          {([
-            { key: 'table' as ViewTab, label: t('pms.workPlanning.tabs.table'), icon: Table2 },
-            { key: 'calendar' as ViewTab, label: t('pms.workPlanning.tabs.calendar'), icon: Calendar },
-            { key: 'gantt' as ViewTab, label: t('pms.workPlanning.tabs.gantt'), icon: BarChart3 },
-          ]).map(tab => (
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`relative group flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? 'border-accent text-[#0b2545]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              type="button"
+              onClick={() => loadData(true)}
+              aria-label={t('pms.workPlanning.refresh')}
+              title={t('pms.workPlanning.refresh')}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-ink-muted transition-colors hover:border-accent/40 hover:bg-primary-soft hover:text-primary"
             >
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
+              <RefreshCw className={`h-4 w-4 ${isBackgroundRefreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
-          ))}
+          </div>
         </div>
       </div>
 
       {/* === BODY: LEFT PANEL + CONTENT === */}
       <div className="flex flex-1 overflow-hidden">
         {/* === LEFT PANEL: Equipment Tree === */}
-        <div className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col bg-white">
+        <div className="flex w-64 shrink-0 flex-col border-r border-line bg-surface">
+          <div className="border-b border-grid p-2">
+            <label className="relative block">
+              <span className="sr-only">{t('pms.workPlanning.searchPlaceholder')}</span>
+              <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-ink-light" aria-hidden="true" />
+              <input
+                type="search"
+                placeholder={t('pms.workPlanning.searchPlaceholder')}
+                value={treeSearch}
+                onChange={e => setTreeSearch(e.target.value)}
+                className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={() => activeTab === 'config' ? setCfgTreeSelectedIds(new Set()) : setSelectedAssetIds(new Set())}
+            className={`flex items-center gap-1.5 border-b border-grid px-3 py-2 text-left text-[13px] transition-colors ${
+              (activeTab === 'config' ? cfgTreeSelectedIds.size === 0 : selectedAssetIds.size === 0)
+                ? 'bg-primary-soft font-semibold text-primary' : 'text-ink hover:bg-primary-soft/60'
+            }`}
+          >
+            <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="flex-1">{t('pms.workPlanning.allEquipment')}</span>
+            <span className="text-xs tabular-nums text-ink-light">{assets.length}</span>
+          </button>
           {/* Tree nodes - scrollable */}
-          <div className="flex-1 overflow-y-auto text-xs">
+          <div className="min-h-0 flex-1 overflow-y-auto py-1 text-[13px]">
             {tree.filter(n => !treeSearch || n.assetName.toLowerCase().includes(treeSearch.toLowerCase()) || n.assetCode.toLowerCase().includes(treeSearch.toLowerCase())).map(node => (
               <TreeNode
                 key={node.id}
@@ -1148,234 +1143,25 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* ============ TAB: BẢNG ============ */}
           {activeTab === 'table' && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Table */}
-              <div className="flex-1 overflow-auto">
-                <table className="min-w-[1260px] w-full text-sm border-collapse">
-                  <thead className="sticky top-0 z-10">
-                    {/* Row 1: headers */}
-                    <tr className="bg-[#eef2f7]">
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">
-                        <input type="checkbox" className="rounded text-[#0b2545]" />
-                      </th>
-                      <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskId')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.taskCode')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[180px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('equipmentName')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.equipmentName')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskType')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.taskName')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[200px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskDescription')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.taskDescription')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="w-36 min-w-[144px] px-3 py-2 text-center border-b border-r border-gray-200">
-                        <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.riskAssessment')}</span>
-                      </th>
-                      <th className="w-28 px-3 py-2 text-center border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('priority')}>
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.priority')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="w-28 px-3 py-2 text-center border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('status')}>
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.status')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="w-24 px-3 py-2 text-center border-b border-r border-gray-200">
-                        <span className="text-xs font-semibold text-gray-600">{t('pms.workPlanning.table.type')}</span>
-                      </th>
-                      <th className="w-24 px-3 py-2 border-b border-gray-200">
-                        <span className="text-xs font-semibold text-gray-600"></span>
-                      </th>
-                    </tr>
-                    {/* Row 2: column filters */}
-                    <tr className="bg-white border-b border-gray-200">
-                      <th className="border-r border-gray-200"></th>
-                      <th className="border-r border-gray-200"></th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterCode} onChange={e => { setColFilterCode(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterEquip} onChange={e => { setColFilterEquip(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterName} onChange={e => { setColFilterName(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterDesc} onChange={e => { setColFilterDesc(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="border-r border-gray-200"></th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <select value={colFilterPriority} onChange={e => { setColFilterPriority(e.target.value); setTablePage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                          <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
-                          {Object.entries(PRIORITY_LABELS).map(([k,v])=><option key={k} value={k}>{getPriorityLabel(k)}</option>)}
-                        </select>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <select value={colFilterStatus} onChange={e => { setColFilterStatus(e.target.value); setTablePage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                          <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
-                          {Object.entries(STATUS_LABELS).map(([k,v])=><option key={k} value={k}>{getStatusLabel(k)}</option>)}
-                        </select>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <select value={colFilterType} onChange={e => { setColFilterType(e.target.value); setTablePage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                          <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
-                          <option value="adhoc">{t('pms.workPlanning.filters.adhoc')}</option>
-                          <option value="periodic">{t('pms.workPlanning.filters.periodic')}</option>
-                        </select>
-                      </th>
-                      <th className="border-gray-200"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {pagedTasks.length === 0 ? (
-                      <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">{t('pms.workPlanning.table.noTasks')}</td></tr>
-                    ) : (
-                      pagedTasks.map((task, idx) => {
-                        const pri = PRIORITY_LABELS[task.priority] || PRIORITY_LABELS.NORMAL;
-                        const sts = STATUS_LABELS[task.status] || STATUS_LABELS.SCHEDULED;
-                        return (
-                          <tr key={task.id} className={`hover:bg-[#eef2f7] ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                            <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">
-                              {(tablePage - 1) * tablePageSize + idx + 1}
-                            </td>
-                            <td className="px-2 py-2 text-center border-r border-gray-100">
-                              <input type="checkbox" className="rounded text-[#0b2545]" />
-                            </td>
-                            <td className="px-3 py-2 border-r border-gray-100">
-                              <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="flex items-center gap-1 text-[#0b2545] hover:underline font-medium text-xs text-left">
-                                <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                                {task.taskId}
-                              </button>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
-                              <span className="truncate block max-w-[180px]" title={task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || ''}>
-                                {task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '—'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
-                              <span className="truncate block max-w-[140px]" title={task.taskDescription?.split('\n')[0] || task.taskType}>
-                                {task.taskDescription?.split('\n')[0] || task.taskType}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 max-w-[200px]">
-                              <span className="truncate block" title={task.taskDescription?.replace(/<!--(META|CREW):.*?-->/gs, '').trim()}>
-                                {task.taskDescription?.split('\n').slice(1).join('\n').replace(/<!--(META|CREW):.*?-->/gs, '').trim() || ''}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center border-r border-gray-100">
-                              <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
-                            </td>
-                            <td className="px-3 py-2 text-center border-r border-gray-100">
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap ${pri.bg} ${pri.text}`}>
-                                {getPriorityLabel(task.priority)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center border-r border-gray-100">
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap ${sts.bg} ${sts.text}`}>
-                                {getStatusLabel(task.status)}
-                              </span>
-                              {task.hasPendingDeferral && (
-                                <span className="ml-1 px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap bg-amber-100 text-amber-700">
-                                  {t('pms.workPlanning.table.deferralPending')}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-center text-xs text-gray-500 border-r border-gray-100">
-                              {task.taskType === 'AD_HOC' || task.taskType === 'CORRECTIVE' ? t('pms.workPlanning.filters.adhoc') : t('pms.workPlanning.filters.periodic')}
-                            </td>
-                            <td className="px-2 py-2">
-                              <div className="flex items-center justify-center gap-0.5">
-                                <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="p-1 text-gray-400 hover:text-[#0b2545] hover:bg-[#eef2f7] rounded" title={t('pms.workPlanning.table.view')}>
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('pms.workPlanning.table.delete')} onClick={() => handleTaskDelete(task.id)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination (matches AssetsPage) */}
-              <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-                <div>
-                  <select value={tablePageSize} onChange={e => { setTablePageSize(Number(e.target.value)); setTablePage(1); }} className="border border-gray-300 rounded px-2 py-1 text-xs">
-                    <option value={10}>{t('pms.workPlanning.pagination.perPage', { count: '10' })}</option>
-                    <option value={20}>{t('pms.workPlanning.pagination.perPage', { count: '20' })}</option>
-                    <option value={50}>{t('pms.workPlanning.pagination.perPage', { count: '50' })}</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="mr-2">{t('pms.workPlanning.pagination.page', { current: String(tablePage), total: String(totalPages), records: String(sortedFilteredTasks.length) })}</span>
-                  <button disabled={tablePage <= 1} onClick={() => setTablePage(p => p - 1)} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let page: number;
-                    if (totalPages <= 5) page = i + 1;
-                    else if (tablePage <= 3) page = i + 1;
-                    else if (tablePage >= totalPages - 2) page = totalPages - 4 + i;
-                    else page = tablePage - 2 + i;
-                    if (page > totalPages || page < 1) return null;
-                    return (
-                      <button key={page} onClick={() => setTablePage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${page === tablePage ? 'bg-[#0b2545] text-white border-accent' : 'border-gray-300 hover:bg-gray-50'}`}>
-                        {page}
-                      </button>
-                    );
-                  })}
-                  <button disabled={tablePage >= totalPages} onClick={() => setTablePage(p => p + 1)} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>{t('pms.workPlanning.pagination.goToPage')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    className="w-12 border border-gray-300 rounded px-1 py-1 text-center text-xs"
-                    onKeyDown={e => { if (e.key === 'Enter') { const v = Number((e.target as HTMLInputElement).value); if (v >= 1 && v <= totalPages) setTablePage(v); }}}
-                  />
-                </div>
-              </div>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <DataTable
+                flush
+                columns={taskColumns}
+                data={filteredTasks}
+                rowKey={task => task.id}
+                itemLabel="công việc"
+                emptyMessage={t('pms.workPlanning.table.noTasks')}
+                searchPlaceholder="Tìm theo mã, thiết bị, tên công việc..."
+                exportOptions={{ fileName: showHistory ? 'lich-su-cong-viec' : 'ke-hoach-cong-viec', title: showHistory ? 'LỊCH SỬ CÔNG VIỆC' : 'KẾ HOẠCH CÔNG VIỆC' }}
+                onRowClick={task => navigate(`/pms/work-report/${task.id}`)}
+                minWidth={1250}
+                toolbarLeft={scheduleFilter && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-[13px] text-primary">
+                    Lịch <strong className="font-mono">{scheduleFilter}</strong>
+                    <button type="button" onClick={() => setScheduleFilter('')} className="ml-0.5 font-semibold hover:underline" aria-label="Bỏ lọc theo lịch">×</button>
+                  </span>
+                )}
+              />
             </div>
           )}
 
@@ -2232,25 +2018,25 @@ function TreeNode({
   return (
     <div>
       <div
-        className="flex items-center gap-1 py-1 px-1 hover:bg-[#eef2f7] rounded cursor-pointer"
-        style={{ paddingLeft: `${level * 16 + 4}px` }}
+        className={`flex cursor-pointer items-center gap-1.5 py-1 pr-2 hover:bg-primary-soft/60 ${allSelected ? 'bg-primary-soft' : ''}`}
+        style={{ paddingLeft: `${level * 14 + 6}px` }}
       >
         {hasChildren ? (
-          <button onClick={() => onToggle(node.id)} className="p-0.5 hover:bg-gray-200 rounded">
-            {isExpanded ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" />}
+          <button type="button" onClick={() => onToggle(node.id)} aria-label={isExpanded ? 'Thu gọn' : 'Mở rộng'} className="rounded p-0.5 text-ink-muted hover:bg-primary-soft">
+            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </button>
         ) : (
-          <span className="w-4" />
+          <span className="w-[22px] shrink-0" />
         )}
         <input
           type="checkbox"
           checked={allSelected}
           ref={el => { if (el) el.indeterminate = someSelected; }}
           onChange={() => onSelect(node)}
-          className="w-3.5 h-3.5 text-[#0b2545] rounded"
+          className="h-3.5 w-3.5 rounded accent-primary"
         />
-        <span className="text-xs text-gray-700 truncate flex-1" title={`${node.assetCode} - ${node.assetName}`}>
-          {node.assetCode} - {node.assetName}
+        <span className="min-w-0 flex-1 truncate text-ink" title={`${node.assetCode} - ${node.assetName}`}>
+          <span className="font-mono text-xs text-ink-muted">{node.assetCode}</span> {node.assetName}
         </span>
       </div>
       {hasChildren && isExpanded && filteredChildren?.map(child => (
