@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, CheckCircle, User, FileText, Image, Wrench, Download, Filter, Search } from 'lucide-react'
 import { MaintenanceTask } from '../../types/maritime.types'
-import { maritimeService } from '../../services/maritime.service'
+import { apiClient } from '../../services/api.client'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 import { format, parseISO, differenceInDays } from 'date-fns'
 import { toast } from 'sonner'
@@ -25,10 +25,7 @@ export function MaintenanceHistoryPage() {
   const loadCompletedTasks = async () => {
     try {
       setLoading(true)
-      const response = await maritimeService.maintenance.getAll({ 
-        pageSize: 1000,
-        status: 'COMPLETED'
-      })
+      const response = await apiClient.get<{ data: MaintenanceTask[] }>('/maintenance/history')
       setTasks(response.data)
     } catch (error) {
       console.error('Failed to load completed tasks:', error)
@@ -347,7 +344,7 @@ export function MaintenanceHistoryPage() {
             
             <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
               <button
-                onClick={() => navigate(`/pms/maintenance/${selectedTask.id}`)}
+                onClick={() => navigate(`/pms/maintenance/${(selectedTask as MaintenanceTask & { originalTaskId?: string }).originalTaskId || selectedTask.id}`)}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {t('pms.history.viewFullDetails')}

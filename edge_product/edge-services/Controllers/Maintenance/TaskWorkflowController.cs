@@ -5,6 +5,7 @@ using MaritimeEdge.Models;
 using MaritimeEdge.DTOs;
 using MaritimeEdge.Services.Core;
 using MaritimeEdge.Services.Maintenance;
+using MaritimeEdge.Services.Inventory;
 using System.Text.Json;
 using MTaskStatus = MaritimeEdge.Constants.TaskStatus;
 
@@ -41,7 +42,7 @@ public class TaskWorkflowController : ControllerBase
         
         try
         {
-            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
+            var userId = HttpContext.Items["WorkflowActorId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "MOBILE";
 
             var task = await _context.MaintenanceTasks
@@ -148,7 +149,7 @@ public class TaskWorkflowController : ControllerBase
     {
         try
         {
-            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
+            var userId = HttpContext.Items["WorkflowActorId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "MOBILE";
 
             var task = await _context.MaintenanceTasks
@@ -296,7 +297,8 @@ public class TaskWorkflowController : ControllerBase
     {
         try
         {
-            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
+            await using var transaction = await InventoryWriteScope.BeginAsync(_context);
+            var userId = HttpContext.Items["WorkflowActorId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "WEB";
 
             var task = await _context.MaintenanceTasks
@@ -458,7 +460,7 @@ public class TaskWorkflowController : ControllerBase
                 task.VerificationResult = "APPROVED";
                 task.VerificationNotes = dto.Notes;
                 task.CompletedAt = DateTime.UtcNow;
-                task.CompletedBy = userId;
+                task.CompletedBy ??= task.SubmittedBy ?? task.StartedBy;
                 task.LastDoneAt = DateTime.UtcNow;
                 
                 // Also update legacy fields for backward compatibility
@@ -473,7 +475,7 @@ public class TaskWorkflowController : ControllerBase
 
                 // === UPDATE EQUIPMENT RUNNING HOURS ===
                 // When crew submits running hours on mobile, sync back to equipment asset
-                var reportedHours = task.RunningHoursAtLastDone ?? task.ActualRunningHours;
+                var reportedHours = task.ActualRunningHours ?? task.RunningHoursAtLastDone;
                 if (reportedHours.HasValue && reportedHours.Value > 0 && task.EquipmentAssetId.HasValue)
                 {
                     var equipmentAsset = await _context.EquipmentAssets
@@ -586,6 +588,7 @@ public class TaskWorkflowController : ControllerBase
                 await UpdateEquipmentStatusForTaskAsync(task, "COMPLETED", "PENDING_APPROVAL");
             }
 
+            if (transaction != null) await transaction.CommitAsync();
             return Ok(new { 
                 message = action == "APPROVE" ? "Task approved and completed" : "Task returned for rectification",
                 taskId = task.TaskId,
@@ -962,7 +965,8 @@ public class TaskWorkflowController : ControllerBase
     {
         try
         {
-            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
+            await using var transaction = await InventoryWriteScope.BeginAsync(_context);
+            var userId = HttpContext.Items["WorkflowActorId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "WEB";
 
             if (dto.TaskIds == null || !dto.TaskIds.Any())
@@ -1006,7 +1010,7 @@ public class TaskWorkflowController : ControllerBase
                         task.VerificationResult = "APPROVED";
                         task.VerificationNotes = dto.Notes;
                         task.CompletedAt = DateTime.UtcNow;
-                        task.CompletedBy = userId;
+                        task.CompletedBy ??= task.SubmittedBy ?? task.StartedBy;
                         task.LastDoneAt = DateTime.UtcNow;
                         task.ApprovedBy = userId;
                         task.ApprovedAt = DateTime.UtcNow;
@@ -1015,6 +1019,7 @@ public class TaskWorkflowController : ControllerBase
                         {
                             task.NextDueAt = DateTime.UtcNow.AddDays(task.IntervalDays.Value);
                         }
+                        await _completionService.PostApprovalScheduleUpdateAsync(task);
                     }
                     else // REJECT
                     {
@@ -1056,16 +1061,14 @@ public class TaskWorkflowController : ControllerBase
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error processing task {TaskId} in bulk verify", task.TaskId);
-                    results.Add(new { 
-                        taskId = task.TaskId, 
-                        success = false, 
-                        error = "An internal error occurred." 
-                    });
-                    failCount++;
+                    // Roll back the batch rather than approve without preserving its report.
+                    throw;
                 }
             }
 
             await _context.SaveChangesAsync();
+
+            if (transaction != null) await transaction.CommitAsync();
 
             _logger.LogInformation("Bulk verify completed: {Success} success, {Failed} failed by {UserId}", 
                 successCount, failCount, userId);

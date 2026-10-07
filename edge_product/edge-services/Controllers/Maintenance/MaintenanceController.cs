@@ -63,7 +63,7 @@ public class MaintenanceController : ControllerBase
             // Skip RUNNING_HOURS tasks — Counter is the sole trigger for these
             if (task.ScheduleId.HasValue && scheduleMap.TryGetValue(task.ScheduleId.Value, out var schedule))
             {
-                if (schedule.IntervalType == "RUNNING_HOURS")
+                if (schedule.IntervalType is "RUNNING_HOURS" or "HYBRID")
                     continue;
             }
 
@@ -995,16 +995,10 @@ public class MaintenanceController : ControllerBase
                 });
             }
 
-            // Validate approver exists and has correct rank
-            var approver = await _context.CrewMembers
-                .FirstOrDefaultAsync(c => c.CrewId == request.ApprovedBy);
-            
-            if (approver == null)
-            {
-                return BadRequest(new { error = "Approver not found", crewId = request.ApprovedBy });
-            }
-
             // The global rank permission filter validates current actor and approve/reject grants.
+            var approverName = await _context.CrewMembers.AsNoTracking()
+                .Where(c => c.CrewId == request.ApprovedBy).Select(c => c.FullName).FirstOrDefaultAsync()
+                ?? request.ApprovedBy;
 
             if (request.IsApproved)
             {
@@ -1047,7 +1041,7 @@ public class MaintenanceController : ControllerBase
                 approvedAt = task.ApprovedAt,
                 rejectionReason = task.RejectionReason,
                 message = request.IsApproved 
-                    ? $"Task approved by {approver.FullName}" // approver.Rank removed
+                    ? $"Task approved by {approverName}"
                     : $"Task rejected: {task.RejectionReason}"
             });
         }

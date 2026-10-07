@@ -28,9 +28,11 @@ import { KanbanBoard } from '@/components/maintenance/KanbanBoard';
 import { isEventMaintenance, maintenanceCategoryLabel } from '@/components/pms/maintenance-categories';
 import { AddScheduleModal } from '@/components/pms/AddScheduleModal';
 import { ImportMaintenanceModal } from '@/components/pms/ImportMaintenanceModal';
+import { MaintenanceHistoryModal } from '@/components/pms/MaintenanceHistoryModal';
 
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import { toast } from 'sonner';
+import axios from 'axios';
 import type { MaintenanceTask, CrewMember } from '@/types/maritime.types';
 import { parseTaskScheduleInfo } from '@/types/maritime.types';
 import type { EquipmentAsset, MaintenanceSchedule, CreateMaintenanceScheduleDto, CreateScheduleSparePartDto, ChecklistItemTemplateDto } from '@/types/pms.types';
@@ -227,6 +229,7 @@ export default function WorkPlanningPage() {
 
   // === Data state ===
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [historyTask, setHistoryTask] = useState<MaintenanceTask | null>(null);
   const [crewList, setCrewList] = useState<CrewMember[]>([]);
   const [assets, setAssets] = useState<EquipmentAsset[]>(() => getCachedEquipmentTree() ?? []);
   const [loading, setLoading] = useState(true);
@@ -959,25 +962,40 @@ export default function WorkPlanningPage() {
   };
 
   // Jump from Table tab → Config tab to edit PIC/Receiver/Support for a task's schedule
-  const handleEditTaskConfig = (task: MaintenanceTask) => {
-    // 1. Find schedule directly by scheduleId
-    let schedule = schedules.find(s => s.id === task.scheduleId);
-    // 2. Fallback: match via scheduleCode embedded in task notes
-    if (!schedule) {
-      const { scheduleCode } = parseTaskScheduleInfo(task);
-      if (scheduleCode) schedule = schedules.find(s => s.scheduleCode === scheduleCode);
+  const handleEditTaskConfig = async (task: MaintenanceTask) => {
+    try {
+      let available = schedules;
+      if (task.scheduleId && !available.some(s => s.id === task.scheduleId)) {
+        const fetched = await maintenanceScheduleService.getById(task.scheduleId);
+        available = [...available, fetched];
+        setSchedules(previous => previous.some(s => s.id === fetched.id) ? previous : [...previous, fetched]);
+      } else if (!task.scheduleId && !schedulesLoaded.current) {
+        available = await maintenanceScheduleService.getAll();
+        setSchedules(available);
+        schedulesLoaded.current = true;
+      }
+      // 1. Find schedule directly by scheduleId
+      let schedule = available.find(s => s.id === task.scheduleId);
+      // 2. Fallback: match via scheduleCode embedded in task notes
+      if (!schedule) {
+        const { scheduleCode } = parseTaskScheduleInfo(task);
+        if (scheduleCode) schedule = available.find(s => s.scheduleCode === scheduleCode);
+      }
+      // 3. Fallback: match by taskId prefix (taskId = scheduleCode + suffix like '-1', '-2')
+      if (!schedule) {
+        const prefix = task.taskId?.replace(/-\d+$/, '');
+        if (prefix) schedule = available.find(s => task.taskId?.startsWith(`SCHED-${s.scheduleCode}-`) || s.scheduleCode === prefix || task.taskId?.startsWith(`${s.scheduleCode}-`));
+      }
+      if (!schedule) {
+        toast.error(t('pms.workPlanning.toast.scheduleNotFound'));
+        return;
+      }
+      cfgLoadForEdit(schedule);
+      setActiveTab('config');
+    } catch (error) {
+      toast.error(t(axios.isAxiosError(error) && error.response?.status === 404
+        ? 'pms.workPlanning.toast.scheduleNotFound' : 'pms.workPlanning.toast.scheduleLoadFailed'));
     }
-    // 3. Fallback: match by taskId prefix (taskId = scheduleCode + suffix like '-1', '-2')
-    if (!schedule) {
-      const prefix = task.taskId?.replace(/-\d+$/, '');
-      if (prefix) schedule = schedules.find(s => s.scheduleCode === prefix || task.taskId?.startsWith(s.scheduleCode));
-    }
-    if (!schedule) {
-      toast.error(t('pms.workPlanning.toast.scheduleNotFound'));
-      return;
-    }
-    cfgLoadForEdit(schedule);
-    setActiveTab('config');
   };
 
   const handleTaskDelete = (taskId: string) => {
@@ -1472,31 +1490,37 @@ export default function WorkPlanningPage() {
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Table */}
               <div className="flex-1 overflow-auto">
-                <table className="w-[1590px] min-w-[1590px] table-fixed text-sm border-collapse">
+                <table className="w-[1610px] min-w-[1610px] table-fixed text-sm border-collapse">
                   <colgroup>
                     <col className="w-10" />
                     <col className="w-10" />
-                    <col className="w-[220px]" />
-                    <col className="w-[220px]" />
                     <col className="w-[200px]" />
+                    <col className="w-[220px]" />
+                    <col className="w-[220px]" />
                     <col className="w-[260px]" />
                     <col className="w-[144px]" />
                     <col className="w-[120px]" />
                     <col className="w-[130px]" />
                     <col className="w-[116px]" />
-                    <col className="w-[100px]" />
+                    <col className="w-[120px]" />
                   </colgroup>
-                  <thead className="sticky top-0 z-10">
+                  <thead className="sticky top-0 z-40">
                     {/* Row 1: headers */}
                     <tr className="bg-blue-50">
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('pms.workPlanning.config.index')}</th>
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">
+                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200 sticky left-0 z-30 bg-blue-50">{t('pms.workPlanning.config.index')}</th>
+                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200 sticky left-[40px] z-30 bg-blue-50">
                         <input
                           type="checkbox"
                           checked={isAllPagedTasksSelected}
                           onChange={togglePagedTaskSelection}
                           className="rounded text-blue-600"
                         />
+                      </th>
+                      <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer sticky left-[80px] z-30 bg-blue-50" onClick={() => handleSort('taskType')}>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.taskName')}</span>
+                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        </div>
                       </th>
                       <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskId')}>
                         <div className="flex items-center justify-between gap-1">
@@ -1507,12 +1531,6 @@ export default function WorkPlanningPage() {
                       <th className="min-w-[180px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('equipmentName')}>
                         <div className="flex items-center justify-between gap-1">
                           <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.equipmentName')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskType')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.taskName')}</span>
                           <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
                         </div>
                       </th>
@@ -1540,14 +1558,21 @@ export default function WorkPlanningPage() {
                       <th className="w-24 px-3 py-2 text-center border-b border-r border-gray-200">
                         <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.type')}</span>
                       </th>
-                      <th className="w-24 px-3 py-2 border-b border-gray-200">
+                      <th className="w-[120px] px-3 py-2 border-b border-gray-200 sticky right-0 z-30 bg-blue-50">
                         <span className="text-xs font-semibold text-gray-600"></span>
                       </th>
                     </tr>
                     {/* Row 2: column filters */}
                     <tr className="bg-white border-b border-gray-200">
-                      <th className="border-r border-gray-200"></th>
-                      <th className="border-r border-gray-200"></th>
+                      <th className="border-r border-gray-200 sticky left-0 z-30 bg-white"></th>
+                      <th className="border-r border-gray-200 sticky left-[40px] z-30 bg-white"></th>
+                      <th className="px-2 py-1 border-r border-gray-200 sticky left-[80px] z-30 bg-white">
+                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
+                          <span className="text-gray-400 text-xs select-none">→</span>
+                          <input type="text" value={colFilterName} onChange={e => { setColFilterName(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
+                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        </div>
+                      </th>
                       <th className="px-2 py-1 border-r border-gray-200">
                         <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
                           <span className="text-gray-400 text-xs select-none">→</span>
@@ -1559,13 +1584,6 @@ export default function WorkPlanningPage() {
                         <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
                           <span className="text-gray-400 text-xs select-none">→</span>
                           <input type="text" value={colFilterEquip} onChange={e => { setColFilterEquip(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterName} onChange={e => { setColFilterName(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
                           <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
                         </div>
                       </th>
@@ -1597,7 +1615,7 @@ export default function WorkPlanningPage() {
                           <option value="DRY_DOCK">Lên đà</option><option value="ON_DEMAND">Theo yêu cầu</option><option value="VOYAGE">Theo chuyến</option>
                         </select>
                       </th>
-                      <th className="border-gray-200"></th>
+                      <th className="border-gray-200 sticky right-0 z-30 bg-white"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1608,17 +1626,22 @@ export default function WorkPlanningPage() {
                         const pri = PRIORITY_LABELS[task.priority] || PRIORITY_LABELS.NORMAL;
                         const sts = STATUS_LABELS[task.status] || STATUS_LABELS.SCHEDULED;
                         return (
-                          <tr key={task.id} className={`hover:bg-blue-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                            <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">
+                          <tr key={task.id} className={`group hover:bg-blue-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
+                            <td className={`px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100 sticky left-0 z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
                               {(tablePage - 1) * tablePageSize + idx + 1}
                             </td>
-                            <td className="px-2 py-2 text-center border-r border-gray-100">
+                            <td className={`px-2 py-2 text-center border-r border-gray-100 sticky left-[40px] z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
                               <input
                                 type="checkbox"
                                 checked={selectedTaskIds.has(task.id)}
                                 onChange={() => toggleTaskSelection(task.id)}
                                 className="rounded text-blue-600"
                               />
+                            </td>
+                            <td className={`px-3 py-2 text-xs text-gray-600 border-r border-gray-100 sticky left-[80px] z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
+                              <span className="truncate block max-w-[140px]" title={task.taskDescription?.split('\n')[0] || task.taskType}>
+                                {task.taskDescription?.split('\n')[0] || task.taskType}
+                              </span>
                             </td>
                             <td className="px-3 py-2 text-left border-r border-gray-100">
                               <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="text-blue-600 hover:underline font-medium text-xs text-left">
@@ -1628,11 +1651,6 @@ export default function WorkPlanningPage() {
                             <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
                               <span className="truncate block max-w-[180px]" title={task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || ''}>
                                 {task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '—'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
-                              <span className="truncate block max-w-[140px]" title={task.taskDescription?.split('\n')[0] || task.taskType}>
-                                {task.taskDescription?.split('\n')[0] || task.taskType}
                               </span>
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 max-w-[200px]">
@@ -1665,11 +1683,12 @@ export default function WorkPlanningPage() {
                             <td className="px-3 py-2 text-center text-xs text-gray-500 border-r border-gray-100 whitespace-nowrap">
                               {maintenanceCategoryLabel(task.taskType, t)}
                             </td>
-                            <td className="px-2 py-2">
+                            <td className={`px-2 py-2 sticky right-0 z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
                               <div className="flex items-center justify-center gap-0.5">
                                 <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title={t('pms.workPlanning.table.view')}>
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
+                                {['PERIODIC', 'CALENDAR', 'RUNNING_HOURS', 'HYBRID'].includes(task.taskType) && <button type="button" onClick={() => setHistoryTask(task)} title="Lịch sử bảo trì" aria-label="Lịch sử bảo trì" className="shrink-0 rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"><History size={14} /></button>}
                                 <PermissionGate permission="pms.config.update"><button disabled={!canPerform('pms.config.update')} onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button></PermissionGate>
@@ -2710,6 +2729,7 @@ export default function WorkPlanningPage() {
       </div>
 
       {/* Modals - keep AddScheduleModal for the + button in other tabs */}
+      {historyTask && <MaintenanceHistoryModal key={historyTask.id} task={historyTask} onClose={() => setHistoryTask(null)} />}
       {showImportMaintenance && <ImportMaintenanceModal
         onClose={() => setShowImportMaintenance(false)}
         onSuccess={async () => { await loadSchedules(); setActiveTab('config'); }}

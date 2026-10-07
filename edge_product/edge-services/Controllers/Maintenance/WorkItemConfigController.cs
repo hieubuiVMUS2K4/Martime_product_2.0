@@ -1160,6 +1160,9 @@ public class WorkItemConfigController : ControllerBase
 
             if (!activeTasks.Any())
             {
+                if (schedule.MaintenanceCategory == "PERIODIC" && await _context.MaintenanceTasks.AnyAsync(t =>
+                    t.ScheduleId == schedule.Id && !t.IsDeleted && t.Status == "COMPLETED")) return;
+
                 _logger.LogDebug("No active tasks found for schedule {ScheduleCode}, creating initial task", schedule.ScheduleCode);
                 // If no task exists yet, create one
                 if (schedule.AutoGenerate && schedule.NextDueDate.HasValue && !MaintenanceCategories.IsEventDriven(schedule.MaintenanceCategory))

@@ -274,6 +274,8 @@ public class ScheduleChecklistTemplate
 
 public class MaintenanceHistory
 {
+    [Column("report_snapshot")]
+    public string? ReportSnapshot { get; set; }
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
 

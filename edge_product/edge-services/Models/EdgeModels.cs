@@ -5381,6 +5381,8 @@ public class ScheduleChecklistTemplate
 /// </summary>
 public class MaintenanceHistory
 {
+    /// <summary>Immutable report, checklist and forms for this execution cycle.</summary>
+    public string? ReportSnapshot { get; set; }
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
     

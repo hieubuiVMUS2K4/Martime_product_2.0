@@ -989,6 +989,19 @@ public class SyncFileTransferService : ISyncFileTransferService
         _logger.LogInformation("[UpdateEntityFilePath] START: table={Table}, recordKey={RecordKey}, fileRole={FileRole}, relativePath={RelativePath}",
             tableName, recordKey, fileRole, relativePath);
 
+        if (tableName == "maintenance_history")
+        {
+            if (supplierNodeId == null) throw new InvalidOperationException("Maintenance file supplier identity is required.");
+            var identity = await _context.SyncRecordIdentities.AsNoTracking().SingleOrDefaultAsync(m =>
+                m.OriginNode == supplierNodeId && m.TableName == tableName && m.LocalKey == recordKey, cancellationToken)
+                ?? throw new InvalidOperationException("Maintenance file record has no verified local key mapping.");
+            var key = Guid.Parse(identity.ShoreKey);
+            var history = await _context.MaintenanceHistories.AsTracking().SingleOrDefaultAsync(h => h.Id == key, cancellationToken)
+                ?? throw new InvalidOperationException("Maintenance history file record is missing.");
+            if (history.OriginNode != supplierNodeId) throw new InvalidOperationException("Maintenance file belongs to another vessel.");
+            history.ReportSnapshot = MaintenanceHistorySyncFiles.Rewrite(history.ReportSnapshot, fileRole, relativePath);
+            return;
+        }
         if (tableName == "task_deferral_request")
         {
             if (supplierNodeId == null) throw new InvalidOperationException("Deferral file supplier identity is required.");

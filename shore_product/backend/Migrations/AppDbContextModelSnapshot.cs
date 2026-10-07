@@ -4303,6 +4303,10 @@ namespace productapi.Migrations
 
             modelBuilder.Entity("ProductApi.Models.MaintenanceHistory", b =>
                 {
+                    b.Property<string>("ReportSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("report_snapshot");
+
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
@@ -4453,7 +4457,7 @@ namespace productapi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ScheduleCode")
+                    b.HasIndex("VesselId", "ScheduleCode")
                         .IsUnique();
 
                     b.ToTable("maintenance_schedules", (string)null);
