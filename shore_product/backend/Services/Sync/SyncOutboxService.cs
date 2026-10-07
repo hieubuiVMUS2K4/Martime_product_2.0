@@ -203,7 +203,7 @@ public class SyncOutboxService : ISyncOutboxService
             if (allowed.Length == 0) return new SyncPullResponse { ServerTime = DateTime.UtcNow };
             var streamId = await GetStreamIdAsync();
             var criticalTables = new[] { "safety_alarm", "engine_event", "alert" };
-            var operationalTables = new[] { "crew_member", "crew_certificate", "crew_logbook_entry", "maritime_report", "report_type", "rank", "country", "certificate", "rank_certificate", "country_certificate", "port", "ism_element", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates" };
+            var operationalTables = new[] { "crew_member", "crew_certificate", "crew_logbook_entry", "maritime_report", "report_type", "ship_data", "rank", "country", "certificate", "rank_certificate", "country_certificate", "port", "ism_element", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates" };
             if (!allowed.Contains(SyncPriority.Low))
                 query = query.Where(o => criticalTables.Contains(o.TableName) || (allowed.Contains(SyncPriority.Operational) && operationalTables.Contains(o.TableName)));
             var items = await query

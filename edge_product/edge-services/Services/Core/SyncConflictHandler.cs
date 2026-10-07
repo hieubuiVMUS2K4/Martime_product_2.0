@@ -169,6 +169,11 @@ public class SyncConflictHandler : ISyncConflictHandler
             await ApplyVesselMaterialAsync(context, item, token);
             return;
         }
+        if (item.TableName == "ship_data")
+        {
+            await ApplyShipDataAsync(context, item, token);
+            return;
+        }
         if (!_tableEntityMap.TryGetValue(item.TableName, out var entityType))
         {
             throw new InvalidOperationException($"Unsupported Shore sync table: {item.TableName}. Update the Edge backend before acknowledging this item.");
@@ -205,6 +210,52 @@ public class SyncConflictHandler : ISyncConflictHandler
             default:
                 throw new InvalidOperationException($"Unsupported Shore sync action: {action}");
         }
+    }
+
+    // Thông số tàu bờ sửa được — mọi cột vô hướng của ShipData trừ khóa, IMO và mốc thời gian.
+    private static readonly Dictionary<string, System.Reflection.PropertyInfo> _shipDataFields = typeof(ShipData)
+        .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+        .Where(p => p.CanRead && p.CanWrite
+                    && p.Name is not ("Id" or "ImoNumber" or "CreatedAt" or "UpdatedAt")
+                    && (Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType) is var t
+                    && (t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime)))
+        .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Bờ sửa thông số tàu: payload chỉ gồm các cột vừa đổi (tên theo ShipData) và ImoNumber.
+    /// Áp đúng các cột đó, giữ nguyên phần còn lại. Hàng đợi đồng bộ đang tắt khi kéo về nên không gửi ngược lên bờ.
+    /// </summary>
+    private async Task ApplyShipDataAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
+    {
+        using var doc = JsonDocument.Parse(item.Payload);
+        var root = doc.RootElement;
+        var imo = root.TryGetProperty("ImoNumber", out var imoEl) && imoEl.ValueKind == JsonValueKind.String ? imoEl.GetString() : null;
+
+        // Tàu chỉ có một bản ghi ShipData. Bờ đã định tuyến gói này tới đúng tàu (theo node đã cấp).
+        var ship = await context.ShipData.AsTracking().FirstOrDefaultAsync(token)
+            ?? throw new InvalidOperationException("Shore sent ship_data but this vessel has no ShipData record yet.");
+        if (!string.IsNullOrWhiteSpace(imo) && !string.Equals(ship.ImoNumber, imo, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Ignored shore ship_data for IMO {Imo}: this vessel is {Own}", imo, ship.ImoNumber);
+            return;
+        }
+
+        var applied = new List<string>();
+        foreach (var field in root.EnumerateObject())
+        {
+            if (!_shipDataFields.TryGetValue(field.Name, out var prop)) continue;
+            var value = field.Value.ValueKind == JsonValueKind.Null
+                ? null
+                : JsonSerializer.Deserialize(field.Value.GetRawText(), prop.PropertyType, _jsonOptions);
+            if (value is DateTime dt) value = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+            if (value == null && prop.PropertyType.IsValueType && Nullable.GetUnderlyingType(prop.PropertyType) == null) continue;
+            prop.SetValue(ship, value);
+            applied.Add(prop.Name);
+        }
+
+        if (applied.Count == 0) return;
+        ship.UpdatedAt = DateTime.UtcNow;
+        _logger.LogInformation("Applied shore ship_data update: [{Fields}]", string.Join(", ", applied));
     }
 
     private static async Task ApplyVesselMaterialAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
