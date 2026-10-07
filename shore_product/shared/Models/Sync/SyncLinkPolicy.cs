@@ -24,7 +24,7 @@ public sealed record SyncLinkPolicy(int MetadataBytes, int ChunkBytes, int Reque
     {
         "safety_alarm" or "engine_event" or "alert" => SyncPriority.Critical,
         "maintenance_history" or "task_deferral_request" or "maintenance_task" or "maintenance_schedule" or "equipment_asset" or "equipment_group" or
-        "crew_member" or "crew_certificate" or "crew_logbook_entry" or "maritime_report" or "report_type" or
+        "crew_member" or "crew_certificate" or "crew_logbook_entry" or "maritime_report" or "report_type" or "ship_data" or
         "rank" or "country" or "certificate" or "rank_certificate" or "country_certificate" or "port" or
         "ism_element" or "sms_procedure" or "sms_procedures" or "sms_form_template" or "sms_form_templates" => SyncPriority.Operational,
         _ => SyncPriority.Low

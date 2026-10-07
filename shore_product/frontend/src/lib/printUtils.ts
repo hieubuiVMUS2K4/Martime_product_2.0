@@ -1,3 +1,5 @@
+import { toast } from 'sonner';
+
 export interface PrintSmsDocumentOptions {
   title: string;
   subtitle?: string;
@@ -35,7 +37,7 @@ export function printSmsDocument(options: PrintSmsDocumentOptions) {
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    alert('Không thể mở cửa sổ in. Vui lòng tắt trình chặn pop-up của trình duyệt.');
+    toast.error('Không thể mở cửa sổ in. Vui lòng tắt trình chặn pop-up của trình duyệt.');
     return;
   }
 

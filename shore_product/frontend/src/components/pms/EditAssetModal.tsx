@@ -170,7 +170,7 @@ export function EditAssetModal({ isOpen, asset, onClose, onSuccess }: EditAssetM
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'bg-green-100 text-green-800 border-green-300';
-      case 'STANDBY': return 'bg-[#dce9f8] text-blue-800 border-blue-300';
+      case 'STANDBY': return 'bg-[#dce9f8] text-primary border-accent/40';
       case 'UNDER_MAINTENANCE': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'DECOMMISSIONED': return 'bg-gray-100 text-gray-800 border-gray-300';
       case 'IN_STORAGE': return 'bg-purple-100 text-purple-800 border-purple-300';
@@ -181,7 +181,7 @@ export function EditAssetModal({ isOpen, asset, onClose, onSuccess }: EditAssetM
   if (!isOpen || !asset) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
@@ -459,7 +459,7 @@ export function EditAssetModal({ isOpen, asset, onClose, onSuccess }: EditAssetM
                         <p className="text-xs text-gray-500">{group.groupCode}</p>
                       </div>
                       {group.category && (
-                        <span className="text-xs px-2 py-1 bg-[#dce9f8] text-blue-800 rounded">
+                        <span className="text-xs px-2 py-1 bg-[#dce9f8] text-primary rounded">
                           {group.category}
                         </span>
                       )}

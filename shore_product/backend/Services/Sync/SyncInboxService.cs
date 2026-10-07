@@ -3357,6 +3357,49 @@ public class SyncInboxService : ISyncInboxService
     /// - Technical data (dimensions, machinery, radio, tanks): Edge is master → always update
     /// - Commercial data (shipowner, charterer, insurance): Shore is master → preserve existing values
     /// </summary>
+    /// <summary>
+    /// Trường (tên theo ShipData của tàu) bờ đã sửa mà tàu chưa áp vào lúc tạo bản <paramref name="item"/>:
+    /// bản vá ship_data của bờ còn chờ giao, hoặc được tàu xác nhận SAU thời điểm tàu tạo bản này.
+    /// </summary>
+    private async Task<HashSet<string>> ShoreNewerShipDataFieldsAsync(Vessel vessel, SyncQueueItemDto item)
+    {
+        var targets = new List<string> { item.OriginNode, vessel.IMO, $"vessel:{vessel.Id}" };
+        try { targets.Add(await VesselSyncIdentity.CanonicalTargetAsync(_context, vessel.IMO)); }
+        catch (InvalidOperationException) { /* nhiều node cùng tàu — dùng các địa chỉ đã có */ }
+
+        var since = DateTime.UtcNow.AddDays(-30);
+        var producedAt = item.Timestamp.Kind == DateTimeKind.Utc ? item.Timestamp : item.Timestamp.ToUniversalTime();
+        var payloads = await _context.SyncOutbox.AsNoTracking()
+            .Where(o => o.TableName == VesselParticulars.SyncTable && targets.Contains(o.TargetNode) && o.CreatedAt >= since
+                        && (o.DeliveredAt == null || o.DeliveredAt > producedAt))
+            .Select(o => o.Payload)
+            .ToListAsync();
+
+        var fields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var payload in payloads)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(payload);
+                foreach (var p in doc.RootElement.EnumerateObject())
+                    if (!p.Name.Equals("ImoNumber", StringComparison.OrdinalIgnoreCase)) fields.Add(p.Name);
+            }
+            catch (JsonException) { /* bỏ qua bản ghi hỏng */ }
+        }
+        return fields;
+    }
+
+    /// <summary>Bản sao payload bỏ đi các trường trong <paramref name="fields"/> (so không phân biệt hoa thường, bỏ gạch dưới).</summary>
+    private static JsonDocument WithoutFields(JsonElement root, HashSet<string> fields)
+    {
+        static string Norm(string n) => n.Replace("_", "").ToLowerInvariant();
+        var blocked = fields.Select(Norm).ToHashSet();
+        var kept = new Dictionary<string, JsonElement>();
+        foreach (var p in root.EnumerateObject())
+            if (!blocked.Contains(Norm(p.Name))) kept[p.Name] = p.Value;
+        return JsonDocument.Parse(JsonSerializer.Serialize(kept));
+    }
+
     private async Task ProcessShipDataAsync(SyncQueueItemDto item)
     {
         if (string.IsNullOrWhiteSpace(item.Payload))
@@ -3438,6 +3481,17 @@ public class SyncInboxService : ISyncInboxService
             ?? throw new InvalidOperationException("ship_data requires a provisioned vessel binding");
         var vessel = await _context.Vessels.AsTracking().SingleAsync(v => v.Id == boundVessel);
         bool isNew = false;
+
+        // ── Đồng bộ hai chiều: trường bờ vừa sửa mà tàu chưa áp lúc tạo bản này thì giữ giá trị bờ.
+        // Tàu luôn áp bản vá của bờ, nên bờ cũng phải giữ giá trị đó — hai bên mới ra cùng một kết quả.
+        var shoreOwned = await ShoreNewerShipDataFieldsAsync(vessel, item);
+        using var filteredDoc = shoreOwned.Count == 0 ? null : WithoutFields(root, shoreOwned);
+        if (filteredDoc != null)
+        {
+            root = filteredDoc.RootElement;
+            _logger.LogInformation("ship_data from {Node}: kept shore values for [{Fields}] (shore edit not yet applied on vessel)",
+                item.OriginNode, string.Join(", ", shoreOwned));
+        }
 
         // ══════════════════════════════════════════════════════════════════
         // BASIC DATA - Always update from Edge (Edge is master)

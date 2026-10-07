@@ -169,9 +169,9 @@ public partial class SyncReliabilityTests
         using (services)
         {
             var db = services.GetRequiredService<EdgeDbContext>(); await db.Database.EnsureCreatedAsync(); db.SuppressSyncQueue = true;
-            for (var i = 0; i < 250; i++) db.Ports.Add(new() { PortCode = "T" + i.ToString("D4"), PortName = "Test " + i });
-            await db.SaveChangesAsync(); var keys = await db.Ports.OrderBy(p => p.Id).Select(p => p.Id.ToString()).ToListAsync();
-            foreach (var key in keys.Take(200)) db.SyncQueue.Add(new() { TableName = "port", RecordKey = key, Payload = "{}" });
+            for (var i = 0; i < 250; i++) db.StoreLocations.Add(new() { LocationCode = "T" + i.ToString("D4"), Name = "Test " + i });
+            await db.SaveChangesAsync(); var keys = await db.StoreLocations.OrderBy(p => p.Id).Select(p => p.Id.ToString()).ToListAsync();
+            foreach (var key in keys.Take(200)) db.SyncQueue.Add(new() { TableName = "store_location", RecordKey = key, Payload = "{}" });
             await db.SaveChangesAsync(); db.ChangeTracker.Clear();
             await db.Database.ExecuteSqlRawAsync("ALTER TABLE sync_queue DROP COLUMN event_id");
             var migrations = db.GetService<IMigrationsAssembly>();
@@ -179,8 +179,8 @@ public partial class SyncReliabilityTests
             foreach (var command in db.GetService<IMigrationsSqlGenerator>().Generate(migration.UpOperations, db.Model)) await db.Database.ExecuteSqlRawAsync(command.CommandText);
             var ids = await db.SyncQueue.Select(q => q.EventId).ToListAsync(); Assert.Equal(200, ids.Distinct().Count()); Assert.DoesNotContain(Guid.Empty, ids);
             await sync.ExecuteSyncAsync(default); db.ChangeTracker.Clear();
-            Assert.Equal(250, await db.SyncQueue.CountAsync(q => q.TableName == "port"));
-            Assert.Equal(50, await db.SyncQueue.CountAsync(q => q.TableName == "port" && q.ActionType == SyncActionType.SNAPSHOT));
+            Assert.Equal(250, await db.SyncQueue.CountAsync(q => q.TableName == "store_location"));
+            Assert.Equal(50, await db.SyncQueue.CountAsync(q => q.TableName == "store_location" && q.ActionType == SyncActionType.SNAPSHOT));
             await db.Database.EnsureDeletedAsync();
         }
     }
@@ -199,9 +199,9 @@ public partial class SyncReliabilityTests
     {
         await using var db = new EdgeDbContext(new DbContextOptionsBuilder<EdgeDbContext>().UseNpgsql(PostgresConnection()).AddInterceptors(new RejectOutbox()).Options);
         await db.Database.EnsureCreatedAsync();
-        db.Ports.Add(new() { PortCode = "ZZZZZ", PortName = "Rollback" });
+        db.NmeaRawData.Add(new() { SentenceType = "RMC", RawSentence = "$GPRMC,Rollback" });
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync()); db.ChangeTracker.Clear();
-        Assert.False(await db.Ports.AnyAsync(c => c.PortCode == "ZZZZZ")); Assert.Empty(await db.SyncQueue.ToListAsync());
+        Assert.False(await db.NmeaRawData.AnyAsync(c => c.RawSentence == "$GPRMC,Rollback")); Assert.Empty(await db.SyncQueue.ToListAsync());
         await db.Database.EnsureDeletedAsync();
     }
 

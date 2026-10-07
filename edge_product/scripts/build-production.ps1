@@ -97,19 +97,23 @@ if ($dumpCandidates -and $dumpCandidates.Count -gt 0) {
 }
 
 # Remove psql meta commands unsupported by some container psql versions.
+# Đọc/ghi bằng UTF-8 không BOM qua .NET: Get-Content của PowerShell 5.1 đọc UTF-8 không BOM theo
+# bảng mã ANSI và Set-Content -Encoding UTF8 chèn BOM — cả hai làm hỏng tiếng Việt trong dump.
+# Regex dùng chuỗi nháy đơn: PowerShell không thoát "\", viết "\\\\" là khớp HAI dấu gạch chéo.
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $sqlFiles = Get-ChildItem (Join-Path $prodDir "init-scripts") -Filter "*.sql" -File -Recurse -ErrorAction SilentlyContinue
 foreach ($sql in $sqlFiles) {
-    $raw = Get-Content $sql.FullName -Raw
+    $raw = [System.IO.File]::ReadAllText($sql.FullName, $utf8NoBom)
     $sanitized = [System.Text.RegularExpressions.Regex]::Replace(
         $raw,
-        "(?m)^\\\\(restrict|unrestrict)\\b.*(?:\\r?\\n)?",
-        "")
+        '(?m)^\\(restrict|unrestrict)\b.*(?:\r?\n)?',
+        '')
     $sanitized = [System.Text.RegularExpressions.Regex]::Replace(
         $sanitized,
-        "(?m)^CREATE SCHEMA public;\\s*$",
-        "CREATE SCHEMA IF NOT EXISTS public;")
+        '(?m)^CREATE SCHEMA public;(?=[ \t]*\r?$)',
+        'CREATE SCHEMA IF NOT EXISTS public;')
     if ($sanitized -ne $raw) {
-        Set-Content -Path $sql.FullName -Value $sanitized -Encoding UTF8 -NoNewline
+        [System.IO.File]::WriteAllText($sql.FullName, $sanitized, $utf8NoBom)
         Write-OK ("Sanitized init SQL for compatibility/idempotency: " + $sql.Name)
     }
 }

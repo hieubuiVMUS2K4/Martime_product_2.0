@@ -6,6 +6,7 @@ import { complianceRuleSetApi, complianceRuleApi } from '../../services/complian
 import type { CreateRuleSetRequest, ComplianceRuleSet, ComplianceRule } from '../../types/compliance.types';
 import { RuleSeverity } from '../../types/compliance.types';
 import './RuleSetsPage.css';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
 
@@ -23,17 +24,18 @@ const RuleSetCard: React.FC<{
   ruleSet: ComplianceRuleSet;
   onDeleted: () => void;
 }> = ({ ruleSet, onDeleted }) => {
+  const ask = useConfirm();
   const [expanded, setExpanded] = useState(false);
   const { data: rules, loading } = useComplianceRules(expanded ? ruleSet.id : undefined);
 
   const handleDelete = async () => {
-    if (!confirm(`Xóa rule set "${ruleSet.name}"?`)) return;
+    if (!await ask(`Xóa bộ quy tắc "${ruleSet.name}"?`)) return;
     await complianceRuleSetApi.delete(ruleSet.id);
     onDeleted();
   };
 
   const handleDeleteRule = async (rule: ComplianceRule) => {
-    if (!confirm(`Xóa rule "${rule.title}"?`)) return;
+    if (!await ask(`Xóa quy tắc "${rule.title}"?`)) return;
     await complianceRuleApi.delete(rule.id);
     onDeleted();
   };

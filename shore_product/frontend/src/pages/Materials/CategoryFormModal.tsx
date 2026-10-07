@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useState, useEffect, useId } from 'react'
+import { FolderTree } from 'lucide-react'
 import type { MaterialCategory } from '@/types/maritime.types'
 import type { CreateMaterialCategoryDto, UpdateMaterialCategoryDto } from '@/services/materialService'
 import { useTranslationSafe } from '@/contexts/I18nContext'
+import { Button, Modal, FormSection, FormAlert, Input, Select, Textarea } from '@/components/common'
 
 interface CategoryFormModalProps {
   isOpen: boolean
@@ -13,9 +14,6 @@ interface CategoryFormModalProps {
   title: string
 }
 
-const inp = 'w-full px-2 py-1.5 border border-gray-300 text-sm focus:ring-1 focus:ring-[#1b4c7e] focus:border-[#1b4c7e] outline-none bg-white'
-const lbl = 'text-sm text-gray-600 whitespace-nowrap text-right pr-3'
-
 export function CategoryFormModal({
   isOpen,
   onClose,
@@ -25,6 +23,7 @@ export function CategoryFormModal({
   title,
 }: CategoryFormModalProps) {
   const { t } = useTranslationSafe()
+  const formId = useId()
   const [formData, setFormData] = useState<CreateMaterialCategoryDto>({
     categoryCode: '',
     name: '',
@@ -75,86 +74,45 @@ export function CategoryFormModal({
   const availableParents = categories.filter((c) => !category || c.id !== category.id)
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      busy={loading}
+      closeOnBackdrop={false}
+      icon={<FolderTree />}
+      title={title}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={loading}>{t('common.cancel')}</Button>
+          <Button type="submit" form={formId} variant="primary" loading={loading}>
+            {loading ? t('materials.saving') : category ? t('materials.update') : t('materials.create')}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <FormAlert>{error}</FormAlert>
 
-        <div className="relative w-full max-w-xl bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 shrink-0">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
-          </div>
+        <FormSection title="Thông tin danh mục">
+          <Input label="Mã danh mục" required maxLength={50} value={formData.categoryCode} placeholder="VD: CAT-001"
+            onChange={e => setFormData({ ...formData, categoryCode: e.target.value })} />
+          <Input label="Tên danh mục" required maxLength={200} value={formData.name} placeholder="Tên danh mục"
+            onChange={e => setFormData({ ...formData, name: e.target.value })} />
+          <Select label="Danh mục cha" value={formData.parentCategoryId || ''} placeholder="Không (Cấp cao nhất)"
+            options={availableParents.map(c => ({ value: c.id, label: `${c.name} (${c.categoryCode})` }))}
+            onChange={e => setFormData({ ...formData, parentCategoryId: e.target.value ? Number(e.target.value) : null })} />
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
+            <input type="checkbox" checked={formData.isActive} className="h-4 w-4 rounded border-line accent-primary"
+              onChange={e => setFormData({ ...formData, isActive: e.target.checked })} />
+            Đang hoạt động
+          </label>
+        </FormSection>
 
-          {/* Body */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-            {error && (
-              <div className="mx-5 mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm">{error}</div>
-            )}
-
-            <div className="p-5 space-y-5">
-              {/* General Info */}
-              <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Thông tin danh mục</div>
-                <div className="border border-t-0 border-gray-200 rounded-b p-4 space-y-2.5">
-                  <div className="flex items-center">
-                    <label className={lbl} style={{ width: 120 }}>Mã danh mục <span className="text-red-500">*</span></label>
-                    <input type="text" required maxLength={50} value={formData.categoryCode} onChange={e => setFormData({ ...formData, categoryCode: e.target.value })} className={inp} placeholder="VD: CAT-001" />
-                  </div>
-                  <div className="flex items-center">
-                    <label className={lbl} style={{ width: 120 }}>Tên danh mục <span className="text-red-500">*</span></label>
-                    <input type="text" required maxLength={200} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className={inp} placeholder="Tên danh mục" />
-                  </div>
-                  <div className="flex items-center">
-                    <label className={lbl} style={{ width: 120 }}>Danh mục cha</label>
-                    <select value={formData.parentCategoryId || ''} onChange={e => setFormData({ ...formData, parentCategoryId: e.target.value ? Number(e.target.value) : null })} className={inp}>
-                      <option value="">Không (Cấp cao nhất)</option>
-                      {availableParents.map(c => <option key={c.id} value={c.id}>{c.name} ({c.categoryCode})</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Mô tả</div>
-                <div className="border border-t-0 border-gray-200 rounded-b p-4">
-                  <textarea
-                    rows={3}
-                    maxLength={1000}
-                    value={formData.description || ''}
-                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                    className={`${inp} resize-y`}
-                    placeholder="Mô tả tùy chọn..."
-                  />
-                </div>
-              </div>
-
-              {/* Options */}
-              <div>
-                <div className="bg-slate-700 text-white text-sm font-semibold px-3 py-1.5 rounded-t">Tùy chọn</div>
-                <div className="border border-t-0 border-gray-200 rounded-b p-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={formData.isActive} onChange={e => setFormData({ ...formData, isActive: e.target.checked })} className="w-4 h-4 text-[#0b2545] rounded" />
-                    Đang hoạt động
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-gray-200 bg-gray-50 sticky bottom-0">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">
-                {t('common.cancel')}
-              </button>
-              <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50">
-                {loading ? t('materials.saving') : category ? t('materials.update') : t('materials.create')}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+        <FormSection title="Mô tả" columns={1}>
+          <Textarea rows={3} maxLength={1000} value={formData.description || ''} placeholder="Mô tả tùy chọn..."
+            onChange={e => setFormData({ ...formData, description: e.target.value })} />
+        </FormSection>
+      </form>
+    </Modal>
   )
 }
-

@@ -440,6 +440,37 @@ namespace ProductApi.Controllers
         }
 
         /// <summary>
+        /// Sửa thông số tàu từ bờ — gửi các trường cần đổi (tên theo VesselDto, camelCase).
+        /// Lưu ở bờ rồi đẩy đúng các trường đó xuống tàu qua bảng đồng bộ ship_data.
+        /// </summary>
+        [HttpGet("{id:guid}/particulars")]
+        public async Task<ActionResult<Dictionary<string, object?>>> GetParticulars(Guid id)
+        {
+            var particulars = await _vesselService.GetParticularsAsync(id);
+            return particulars == null ? NotFound($"Vessel with ID {id} not found") : Ok(particulars);
+        }
+
+        [HttpPut("{id:guid}/particulars")]
+        public async Task<ActionResult<Dictionary<string, object?>>> UpdateParticulars(Guid id, [FromBody] JsonElement payload)
+        {
+            try
+            {
+                var vessel = await _vesselService.UpdateParticularsAsync(id, payload);
+                if (vessel == null) return NotFound($"Vessel with ID {id} not found");
+                return Ok(vessel);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating particulars for vessel {VesselId}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
         /// Update basic vessel registry fields from the fleet list form.
         /// </summary>
         [HttpPut("{id:guid}/basic")]

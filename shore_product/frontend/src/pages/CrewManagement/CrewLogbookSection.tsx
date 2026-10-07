@@ -6,6 +6,8 @@ import {
 import { logbookApi, crewApi } from '../../services/crew.service';
 import type { CrewLogbookEntry } from '../../types/crew.types';
 import { useToast } from '../../components/common/Toast';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 interface CrewLogbookSectionProps {
   crewMemberId: string;
@@ -55,6 +57,7 @@ interface SeaServiceDetails {
 }
 
 export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemberId, onSaved }) => {
+  const ask = useConfirm();
   const [crew, setCrew] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
@@ -366,7 +369,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
   };
 
   const handleDeleteService = async (entryId: string) => {
-    if (!window.confirm('Xóa quá trình đi biển này?')) return;
+    if (!await ask('Xóa quá trình đi biển này?')) return;
     try {
       await logbookApi.deleteEntry(crewMemberId, entryId);
       toast.success('Xóa quá trình đi biển thành công');
@@ -773,7 +776,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
       {/* METADATA EDIT MODAL */}
       {isEditingMeta && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-gray-150 flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-gray-100 bg-[#0b2545] text-white rounded-t-2xl flex items-center justify-between">
               <div>
@@ -1086,7 +1089,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
       {/* SEA SERVICE CRUD MODAL */}
       {isServiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-gray-150 flex flex-col max-h-[90vh]">
             
             <div className="px-6 py-4 border-b border-gray-100 bg-[#0b2545] text-white rounded-t-2xl flex items-center justify-between">

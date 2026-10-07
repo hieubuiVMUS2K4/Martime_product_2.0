@@ -18,9 +18,17 @@ if (-not $containerRunning) {
     exit 1
 }
 
-# Create backup using pg_dump
+# Create backup using pg_dump.
+# pg_dump ghi file NGAY TRONG container rồi docker cp chép nguyên byte ra ngoài. KHÔNG pipe qua
+# "| Out-File": PowerShell 5.1 giải mã stdout theo bảng mã console (CP437) nên tiếng Việt UTF-8
+# thành rác kiểu "Lß╗ìc"; thêm "-t" còn đổi xuống dòng thành CRLF.
 Write-Host "Creating backup: $backupFile" -ForegroundColor Yellow
-docker exec -t $container pg_dump -U $user -d $database --clean --if-exists --format=plain | Out-File -FilePath $backupFile -Encoding UTF8
+$containerFile = "/tmp/$backupFile"
+docker exec $container pg_dump -U $user -d $database --clean --if-exists --format=plain -f $containerFile
+if ($LASTEXITCODE -eq 0) {
+    docker cp "${container}:${containerFile}" $backupFile
+    docker exec $container rm -f $containerFile | Out-Null
+}
 
 if ($LASTEXITCODE -eq 0) {
     $fileSize = (Get-Item $backupFile).Length / 1MB
@@ -28,8 +36,9 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Backup completed successfully!" -ForegroundColor Green
     Write-Host "File: $backupFile (Size: $fileSizeRounded MB)" -ForegroundColor Green
     Write-Host ""
-    Write-Host "To restore, run command:" -ForegroundColor Cyan
-    Write-Host "docker exec -i $container psql -U $user -d $database -f /backup/$backupFile" -ForegroundColor White
+    Write-Host "To restore, run commands (KHÔNG pipe file qua PowerShell):" -ForegroundColor Cyan
+    Write-Host "docker cp $backupFile ${container}:/tmp/$backupFile" -ForegroundColor White
+    Write-Host "docker exec $container psql -U $user -d $database -f /tmp/$backupFile" -ForegroundColor White
 } else {
     Write-Host "Backup failed!" -ForegroundColor Red
     exit 1

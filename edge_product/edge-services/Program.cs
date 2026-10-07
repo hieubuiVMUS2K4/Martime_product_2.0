@@ -498,6 +498,7 @@ namespace MaritimeEdge
                           AND m.storage_path IS NOT NULL AND m.storage_path <> '';
                     ");
 
+                    // Danh mục cảng KHÔNG nạp ở tàu: bờ làm chủ và phát xuống qua đồng bộ.
                     if (await AdminAccountSeed.SeedAsync(dbContext))
                         logger.LogInformation("Created initial admin account; password change required on first login");
 
@@ -603,6 +604,5 @@ namespace MaritimeEdge
             app.Run();
 
         }
-
     }
 }

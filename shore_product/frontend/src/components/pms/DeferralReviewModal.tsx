@@ -80,7 +80,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
   const isEmpty = !loading && deferrals.length === 0;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-modal" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200">
@@ -107,7 +107,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent" />
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent border-t-transparent" />
               <span className="ml-2 text-sm text-gray-500">Đang tải...</span>
             </div>
           ) : isEmpty ? (
@@ -184,7 +184,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
 
       {/* ── Review Confirm Sub-modal ── */}
       {selected && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60]" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-popover" onClick={() => setSelected(null)}>
           <div className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="p-5">
               <h3 className="text-base font-semibold text-gray-900 mb-3">

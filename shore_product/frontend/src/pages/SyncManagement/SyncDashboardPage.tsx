@@ -1,27 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  RefreshCw,
-  Activity,
-  CheckCircle2,
-  XCircle,
-  Server,
-  Database,
-  Clock,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Ship,
-  Send,
-  Loader2,
-  ArrowDown,
-  WifiOff,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Inbox,
-  Search,
-  Download,
-  X,
-  AlertTriangle,
+  Activity, AlertTriangle, ArrowDownLeft, ArrowUpRight, CheckCircle2, Eye, Inbox, Loader2,
+  RefreshCw, Search, Send, ServerCog, Ship, ShieldCheck, WifiOff, X, XCircle,
 } from 'lucide-react';
 import { syncApi } from '../../services/sync.service';
 import type {
@@ -32,63 +12,129 @@ import type {
   SyncLogEntry,
   SyncIntegrity,
 } from '../../services/sync.service';
-import './SyncDashboardPage.css';
+import { Button, DataTable, Modal, PageHeader, TableActions, TableIconButton, type Column } from '../../components/common';
 
 // ============================================================
-// TABLE → VIETNAMESE LABEL MAP
+// Nhãn tiếng Việt
 // ============================================================
 const TABLE_TO_LABEL: Record<string, string> = {
   crew_member: 'Thuyền viên',
   crew_members: 'Thuyền viên',
-  crew_certificate: 'Chứng chỉ TV',
-  crew_certificates: 'Chứng chỉ TV',
+  crew_certificate: 'Chứng chỉ thuyền viên',
+  crew_certificates: 'Chứng chỉ thuyền viên',
+  crew_logbook_entry: 'Sổ thuyền viên',
   certificate: 'Loại chứng chỉ',
   certificates: 'Loại chứng chỉ',
   rank: 'Chức danh',
   ranks: 'Chức danh',
-  rank_certificate: 'CC chức danh',
+  rank_certificate: 'Chứng chỉ theo chức danh',
   country: 'Quốc gia',
   countries: 'Quốc gia',
-  country_certificate: 'CC quốc gia',
+  country_certificate: 'Chứng chỉ theo quốc gia',
   service_record: 'Lý lịch công tác',
   service_records: 'Lý lịch công tác',
-  travel_document: 'Giấy tờ du lịch',
-  travel_documents: 'Giấy tờ du lịch',
-  seafarer_document: 'Hồ sơ TV',
-  seafarer_documents: 'Hồ sơ TV',
-  employment_document: 'Hợp đồng LĐ',
-  employment_documents: 'Hợp đồng LĐ',
-  health_document: 'Sức khỏe',
-  health_documents: 'Sức khỏe',
+  travel_document: 'Giấy tờ đi lại',
+  travel_documents: 'Giấy tờ đi lại',
+  seafarer_document: 'Sổ thuyền viên',
+  seafarer_documents: 'Sổ thuyền viên',
+  employment_document: 'Hợp đồng lao động',
+  employment_documents: 'Hợp đồng lao động',
+  health_document: 'Giấy sức khỏe',
+  health_documents: 'Giấy sức khỏe',
   voyage_record: 'Chuyến đi',
-  noon_report: 'Báo cáo Noon',
+  noon_report: 'Báo cáo trưa',
   maritime_report: 'Báo cáo hải hành',
-  maintenance_task: 'Bảo trì thiết bị',
-  ship_data: 'Dữ liệu tàu',
+  maintenance_task: 'Công việc bảo dưỡng',
+  ship_data: 'Thông số tàu',
   port: 'Cảng',
+  report_type: 'Loại báo cáo',
   equipment_asset: 'Thiết bị',
   equipment_group: 'Nhóm thiết bị',
-  maintenance_schedule: 'Lịch bảo trì',
+  equipment_group_member: 'Thiết bị trong nhóm',
+  schedule_checklist_template: 'Hạng mục kiểm tra của lịch',
+  schedule_spare_part: 'Vật tư của lịch bảo dưỡng',
+  material_item: 'Vật tư',
+  maintenance_schedule: 'Lịch bảo dưỡng',
   material_item_catalog: 'Danh mục vật tư',
   material_category: 'Nhóm vật tư',
+  vessel_material_definition: 'Vật tư của tàu',
   position_data: 'Vị trí tàu',
   engine_data: 'Dữ liệu máy',
   engine_event: 'Sự kiện máy',
   safety_alarm: 'Cảnh báo an toàn',
-  deferral_request: 'Đề nghị hoãn bảo trì',
+  deferral_request: 'Đề nghị hoãn bảo dưỡng',
+  task_deferral_request: 'Đề nghị hoãn bảo dưỡng',
 };
 
 const getVietLabel = (t: string) => TABLE_TO_LABEL[t] ?? t;
 
+/** Bỏ dấu, chữ thường — để gõ "vi tri tau" hay "Vị trí tàu" đều khớp. */
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase().trim();
+
+const ACTION_LABEL: Record<string, string> = {
+  CREATE: 'Tạo mới', UPDATE: 'Cập nhật', DELETE: 'Xóa', SNAPSHOT: 'Bản chụp', CLEAR_EDGE_CHANGES: 'Xác nhận thay đổi',
+  '0': 'Tạo mới', '1': 'Cập nhật', '2': 'Xóa', '3': 'Bản chụp',
+};
+const actionLabel = (a: string) => ACTION_LABEL[String(a).toUpperCase()] ?? a;
+
+const formatTime = (value?: string) =>
+  value ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '—';
+
+const fmtRelative = (d?: string) => {
+  if (!d) return '—';
+  const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+  if (mins < 1) return 'vừa xong';
+  if (mins < 60) return `${mins} phút trước`;
+  const h = Math.floor(mins / 60);
+  return h < 24 ? `${h} giờ trước` : `${Math.floor(h / 24)} ngày trước`;
+};
+
+const isIncoming = (value: string) => ['EDGE_TO_SHORE', 'EdgeToShore', 'Incoming'].includes(value);
+const isOutgoing = (value: string) => ['SHORE_TO_EDGE', 'ShoreToEdge', 'Outgoing'].includes(value);
+const directionLabel = (value: string) => (isIncoming(value) ? 'Tàu → Bờ' : isOutgoing(value) ? 'Bờ → Tàu' : value);
+
+const STATUS: Record<string, { label: string; tone: string }> = {
+  SUCCESS: { label: 'Thành công', tone: 'bg-emerald-50 text-emerald-700' },
+  APPLIED: { label: 'Đã áp dụng', tone: 'bg-emerald-50 text-emerald-700' },
+  CONFLICT: { label: 'Xung đột', tone: 'bg-amber-50 text-amber-700' },
+  FAILED: { label: 'Thất bại', tone: 'bg-red-50 text-red-700' },
+  ERROR: { label: 'Lỗi', tone: 'bg-red-50 text-red-700' },
+  QUEUED: { label: 'Chờ xử lý', tone: 'bg-slate-100 text-slate-600' },
+};
+const statusLabel = (value: string) => STATUS[value.toUpperCase()]?.label ?? value;
+const StatusPill: React.FC<{ value: string }> = ({ value }) => (
+  <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS[value.toUpperCase()]?.tone ?? 'bg-amber-50 text-amber-700'}`}>
+    {statusLabel(value)}
+  </span>
+);
+
+const DirectionPill: React.FC<{ value: string }> = ({ value }) => (
+  <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+    isIncoming(value) ? 'bg-sky-50 text-sky-700' : isOutgoing(value) ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'
+  }`}>
+    {isIncoming(value) ? <ArrowDownLeft className="h-3 w-3" aria-hidden="true" /> : isOutgoing(value) ? <ArrowUpRight className="h-3 w-3" aria-hidden="true" /> : null}
+    {directionLabel(value)}
+  </span>
+);
+
+const filterCls = 'h-9 rounded-md border border-line bg-surface px-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25';
+
+const Card: React.FC<{ title: string; icon: React.ReactNode; aside?: React.ReactNode; children: React.ReactNode }> = ({ title, icon, aside, children }) => (
+  <section className="overflow-hidden rounded-md border border-grid-strong bg-surface">
+    <header className="flex items-center gap-2 border-b border-grid px-4 py-2.5">
+      <span className="text-primary [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+      <h2 className="text-sm font-semibold text-ink">{title}</h2>
+      {aside && <span className="ml-auto text-[13px] text-ink-muted">{aside}</span>}
+    </header>
+    {children}
+  </section>
+);
+
 // ============================================================
-// SHORE SYNC CONFIRM MODAL
+// Hộp xác nhận: tạo lại hàng chờ bờ → tàu
 // ============================================================
 function ShoreConfirmModal({
-  data,
-  queue,
-  syncing,
-  onConfirm,
-  onClose,
+  data, queue, syncing, onConfirm, onClose,
 }: {
   data: SyncStatusResponse | null;
   queue: SyncOutboxPage | null;
@@ -97,388 +143,124 @@ function ShoreConfirmModal({
   onClose: () => void;
 }) {
   const allNodes = data?.nodes ?? [];
-  const onlineNodes = allNodes.filter((n) => n.isOnline);
+  const onlineNodes = allNodes.filter(n => n.isOnline);
   const [selected, setSelected] = useState<string>('ALL');
 
-  const groups = useMemo(
-    () =>
-      (queue?.groups ?? []).map((g) => ({
-        label: `${getVietLabel(g.tableName)} · ${g.node === '*' ? 'Mọi tàu' : g.node}`,
-        total: g.pending,
-        errors: 0,
-      })),
-    [queue],
-  );
+  const groups = (queue?.groups ?? []).map(g => ({
+    label: getVietLabel(g.tableName),
+    target: g.node === '*' ? 'Mọi tàu' : g.node,
+    total: g.pending,
+  }));
   const totalPending = queue?.total ?? 0;
-  const targetNode =
-    selected === 'ALL'
-      ? undefined
-      : allNodes.find((n) => n.nodeId === selected);
-  const targetOnline =
-    selected === 'ALL'
-      ? onlineNodes.length > 0
-      : (targetNode?.isOnline ?? false);
-  const groupTotal = groups.reduce((s, g) => s + g.total, 0);
+  const maxGroup = Math.max(1, ...groups.map(g => g.total));
+  const targetNode = selected === 'ALL' ? undefined : allNodes.find(n => n.nodeId === selected);
+  const targetOnline = selected === 'ALL' ? onlineNodes.length > 0 : (targetNode?.isOnline ?? false);
 
-  const fmtRelative = (d?: string) => {
-    if (!d) return '—';
-    const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-    if (mins < 1) return 'Vừa xong';
-    if (mins < 60) return `${mins} phút trước`;
-    const h = Math.floor(mins / 60);
-    return h < 24 ? `${h} giờ trước` : `${Math.floor(h / 24)} ngày trước`;
+  const option = (key: string, title: string, sub: string, online: boolean | null) => {
+    const on = selected === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        disabled={syncing}
+        onClick={() => setSelected(key)}
+        aria-pressed={on}
+        className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors ${
+          on ? 'border-primary bg-primary-soft' : 'border-line hover:border-accent/40 hover:bg-primary-soft/50'
+        }`}
+      >
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-white">
+          {key === 'ALL' ? <ServerCog className="h-4 w-4" aria-hidden="true" /> : <Ship className="h-4 w-4" aria-hidden="true" />}
+          {online !== null && (
+            <i className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface ${online ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-ink">{title}</span>
+          <span className="block truncate text-[13px] text-ink-muted">{sub}</span>
+        </span>
+        {on && <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />}
+      </button>
+    );
   };
 
-  const confirmLabel = syncing
-    ? 'Đang tạo hàng chờ...'
-    : selected === 'ALL'
-      ? `Tạo hàng chờ cho ${allNodes.length} tàu`
-      : `Tạo hàng chờ: ${targetNode?.shipName ?? selected}`;
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !syncing) onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [syncing, onClose]);
-
   return (
-    <div
-      className="sync-confirm fixed inset-0 z-50 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="sync-confirm-title"
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="lg"
+      icon={<Send />}
+      title="Gửi lại dữ liệu xuống tàu"
+      subtitle="Tạo lại bản chụp thuyền viên, chứng chỉ và danh mục liên quan cho tàu nhận."
+      busy={syncing}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={syncing}>Hủy</Button>
+          <Button icon={<Send className="h-4 w-4" />} loading={syncing} onClick={() => onConfirm(selected)}>
+            {selected === 'ALL' ? `Gửi cho ${allNodes.length} tàu` : `Gửi cho ${targetNode?.shipName ?? selected}`}
+          </Button>
+        </>
+      }
     >
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={!syncing ? onClose : undefined}
-      />
-
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#0b2545] to-[#16375f]">
-          <div className="flex items-center gap-3 text-white">
-            <Send className="w-5 h-5" />
-            <span id="sync-confirm-title" className="font-semibold text-lg">
-              Tạo hàng chờ đồng bộ Shore → Tàu
-            </span>
-            {totalPending > 0 && (
-              <span className="bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">
-                {totalPending} bản ghi
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            disabled={syncing}
-            aria-label="Đóng xác nhận"
-            className="sync-confirm-close"
-          >
-            <XCircle className="w-5 h-5" />
-          </button>
+      {!targetOnline && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+          <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {selected === 'ALL'
+            ? 'Hiện không có tàu nào trực tuyến. Dữ liệu sẽ chờ trong hàng đợi tới khi tàu kết nối.'
+            : `Tàu ${targetNode?.shipName ?? selected} đang ngoại tuyến. Dữ liệu sẽ chờ tới khi tàu kết nối.`}
         </div>
+      )}
 
-        {/* Offline warning */}
-        {!targetOnline && (
-          <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-6 py-2.5">
-            <WifiOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
-            <span className="text-amber-700 text-sm">
-              {selected === 'ALL'
-                ? 'Không có tàu nào online. Dữ liệu sẽ đợi trong hàng đợi.'
-                : `Tàu ${targetNode?.shipName ?? selected} hiện offline.`}
-            </span>
-          </div>
-        )}
-
-        {/* Two-panel body */}
-        <div className="flex" style={{ minHeight: 320 }}>
-          {/* LEFT — Shore outbox */}
-          <div className="flex-1 px-6 py-5 border-r border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-lg bg-[#dce9f8] flex items-center justify-center">
-                <Server className="w-4 h-4 text-[#0b2545]" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-gray-700 tracking-wide">
-                  BỜC (SHORE)
-                </div>
-                <div className="text-xs text-gray-400">
-                  Hàng chờ hiện tại của bờ
-                </div>
-              </div>
-            </div>
-
-            {groups.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <CheckCircle2 className="w-10 h-10 text-emerald-400 mb-2" />
-                <p className="text-sm text-gray-500 font-medium">
-                  Hàng đợi trống
-                </p>
-                <p className="text-xs text-gray-400">
-                  Không có dữ liệu chờ gửi
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {groups.map((g) => (
-                  <div key={g.label}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-gray-700">{g.label}</span>
-                      <div className="flex items-center gap-2">
-                        {g.errors > 0 && (
-                          <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                            {g.errors} lỗi
-                          </span>
-                        )}
-                        <span className="text-xs font-semibold text-gray-600 tabular-nums w-5 text-right">
-                          {g.total}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          syncing
-                            ? 'bg-[#4c6a8f] animate-pulse'
-                            : g.errors > 0
-                              ? 'bg-amber-400'
-                              : 'bg-[#1b4c7e]'
-                        }`}
-                        style={{
-                          width: `${Math.max(4, Math.round((g.total / Math.max(1, groupTotal)) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
+      <div className="grid grid-cols-2 gap-5">
+        <div className="min-w-0">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Chọn tàu nhận</p>
+          <div className="space-y-2">
+            {option('ALL', 'Tất cả tàu', `${onlineNodes.length} trực tuyến / ${allNodes.length} tàu`, null)}
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {allNodes.length === 0
+                ? <p className="py-4 text-center text-[13px] text-ink-muted">Chưa có tàu nào kết nối.</p>
+                : allNodes.map(n => option(
+                  n.nodeId,
+                  n.shipName ?? n.nodeId,
+                  `${n.isOnline ? `Liên lạc ${fmtRelative(n.lastHeartbeatAt)}` : 'Ngoại tuyến'}${n.pendingOutboxCount > 0 ? ` · ${n.pendingOutboxCount} chờ gửi` : ''}`,
+                  n.isOnline,
                 ))}
-                <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Tổng cộng</span>
-                  <span className="text-sm font-bold text-[#16375f]">
-                    {totalPending} bản ghi
-                  </span>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
+        </div>
 
-          {/* MIDDLE — arrow */}
-          <div className="flex flex-col items-center justify-center px-3 py-5 bg-gray-50/50 gap-2">
-            <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shadow ${
-                syncing
-                  ? 'bg-[#1b4c7e]'
-                  : targetOnline
-                    ? 'bg-emerald-500'
-                    : 'bg-gray-400'
-              }`}
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 text-white animate-spin" />
-              ) : (
-                <ArrowDown className="w-4 h-4 text-white" />
-              )}
+        <div className="min-w-0">
+          <p className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            Hàng chờ hiện tại của bờ
+            <span className="normal-case tracking-normal text-ink">{totalPending.toLocaleString('vi-VN')} bản ghi</span>
+          </p>
+          {groups.length === 0 ? (
+            <div className="flex flex-col items-center gap-1 rounded-md border border-dashed border-grid-strong py-8 text-[13px] text-ink-muted">
+              <CheckCircle2 className="h-6 w-6 text-emerald-500" aria-hidden="true" />
+              Hàng chờ trống
             </div>
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className={`w-0.5 h-3 rounded-full ${
-                  syncing
-                    ? 'bg-[#a9bdd6] animate-pulse'
-                    : targetOnline
-                      ? 'bg-emerald-200'
-                      : 'bg-gray-200'
-                }`}
-                style={{ opacity: 1 - i * 0.3 }}
-              />
-            ))}
-          </div>
-
-          {/* RIGHT — Ship selector */}
-          <div className="flex-1 px-5 py-5 flex flex-col">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-[#dce9f8] flex items-center justify-center">
-                <Ship className="w-4 h-4 text-[#0b2545]" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-gray-700 tracking-wide">
-                  CHỌN TÀU NHẬN
-                </div>
-                <div className="text-xs text-gray-400">
-                  Click để chọn mục tiêu
-                </div>
-              </div>
-            </div>
-
-            {/* "All ships" option */}
-            <div
-              onClick={() => !syncing && setSelected('ALL')}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all mb-2 ${
-                selected === 'ALL'
-                  ? 'border-[#1b4c7e] bg-[#eef2f7] shadow-sm'
-                  : 'border-gray-200 hover:border-[#d6dee8] hover:bg-gray-50'
-              }`}
-            >
-              <div className="w-6 h-6 rounded-full bg-[#dce9f8] flex items-center justify-center flex-shrink-0">
-                <span className="text-xs">📡</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-gray-800">
-                  Tất cả tàu
-                </div>
-                <div className="text-xs text-gray-400">
-                  {onlineNodes.length} online / {allNodes.length} tổng
-                </div>
-              </div>
-              {selected === 'ALL' && (
-                <CheckCircle2 className="w-4 h-4 text-[#1b4c7e] flex-shrink-0" />
-              )}
-            </div>
-
-            {/* Individual ship cards */}
-            <div
-              className="flex-1 overflow-y-auto space-y-1.5"
-              style={{ maxHeight: 220 }}
-            >
-              {allNodes.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">
-                  Chưa có tàu nào kết nối
-                </p>
-              ) : (
-                allNodes.map((node) => (
-                  <div
-                    key={node.nodeId}
-                    onClick={() => !syncing && setSelected(node.nodeId)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
-                      selected === node.nodeId
-                        ? 'border-[#1b4c7e] bg-[#eef2f7] shadow-sm'
-                        : 'border-gray-200 hover:border-[#d6dee8] hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="relative flex-shrink-0">
-                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                        <Ship className="w-3 h-3 text-gray-500" />
-                      </div>
-                      <div
-                        className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                          node.isOnline ? 'bg-emerald-400' : 'bg-gray-300'
-                        }`}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-gray-800 truncate">
-                        {node.shipName ?? node.nodeId}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {node.isOnline
-                          ? `HB: ${fmtRelative(node.lastHeartbeatAt)}`
-                          : 'Offline'}
-                        {node.pendingOutboxCount > 0
-                          ? ` • ${node.pendingOutboxCount} chờ`
-                          : ''}
-                      </div>
-                    </div>
-                    {selected === node.nodeId && (
-                      <CheckCircle2 className="w-4 h-4 text-[#1b4c7e] flex-shrink-0" />
-                    )}
+          ) : (
+            <ul className="space-y-2.5">
+              {groups.map(g => (
+                <li key={`${g.label}:${g.target}`}>
+                  <div className="mb-1 flex items-center justify-between gap-2 text-[13px]">
+                    <span className="truncate text-ink">{g.label} <span className="text-ink-muted">· {g.target}</span></span>
+                    <strong className="tabular-nums text-ink">{g.total}</strong>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 py-3 text-xs text-slate-600 bg-blue-50 border-t border-blue-100">
-          Thao tác này tạo lại bản chụp dữ liệu thuyền viên, chứng chỉ và danh
-          mục liên quan cho tàu nhận. Tàu sẽ lấy dữ liệu khi kết nối; hoàn tất
-          chỉ được xác nhận sau khi tàu phản hồi.
-        </div>
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            disabled={syncing}
-            className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={() => onConfirm(selected)}
-            disabled={syncing}
-            className="primary flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed transition-colors shadow-sm"
-          >
-            {syncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            {confirmLabel}
-          </button>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-canvas">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, Math.round((g.total / maxGroup) * 100))}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
 
-const formatTime = (value?: string) =>
-  value
-    ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
-    : '—';
-const directionLabel = (value: string) =>
-  ['EDGE_TO_SHORE', 'EdgeToShore', 'Incoming'].includes(value)
-    ? 'Tàu → Bờ'
-    : ['SHORE_TO_EDGE', 'ShoreToEdge', 'Outgoing'].includes(value)
-      ? 'Bờ → Tàu'
-      : value;
-const statusClass = (value: string) =>
-  ['SUCCESS', 'APPLIED'].includes(value.toUpperCase())
-    ? 'ok'
-    : ['FAILED', 'ERROR'].includes(value.toUpperCase())
-      ? 'error'
-      : 'warn';
-const statusLabel = (value: string) =>
-  ({
-    SUCCESS: 'Thành công',
-    APPLIED: 'Đã áp dụng',
-    CONFLICT: 'Xung đột',
-    FAILED: 'Thất bại',
-    ERROR: 'Lỗi',
-    QUEUED: 'Chờ xử lý',
-  })[value.toUpperCase()] ?? value;
-
-function Pagination({
-  page,
-  totalPages,
-  total,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  total: number;
-  onChange: (page: number) => void;
-}) {
-  return (
-    <div className="sync-pagination">
-      <span>
-        {total.toLocaleString('vi-VN')} bản ghi · Trang {page}/{totalPages}
-      </span>
-      <div>
-        <button
-          aria-label="Trang trước"
-          disabled={page <= 1}
-          onClick={() => onChange(page - 1)}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <button
-          aria-label="Trang sau"
-          disabled={page >= totalPages}
-          onClick={() => onChange(page + 1)}
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
-    </div>
+      <p className="mt-4 border-t border-grid pt-3 text-[13px] text-ink-muted">
+        Tàu lấy dữ liệu ở lần kết nối tới. Việc gửi chỉ được tính là hoàn tất khi tàu xác nhận đã nhận.
+      </p>
+    </Modal>
   );
 }
 
@@ -495,6 +277,9 @@ export const SyncDashboardPage: React.FC = () => {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [tab, setTab] = useState<'logs' | 'queue'>('logs');
   const [nodeId, setNodeId] = useState('');
+  /** Lọc nhật ký — mỗi bộ lọc là danh sách giá trị nối bằng dấu phẩy ('' = không lọc). */
+  const [origins, setOrigins] = useState('');
+  const [actionType, setActionType] = useState('');
   const [status, setStatus] = useState('');
   const [direction, setDirection] = useState('');
   const [tableName, setTableName] = useState('');
@@ -562,24 +347,44 @@ export const SyncDashboardPage: React.FC = () => {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [search, tableName]);
+  // Ô tìm nhanh: loại dữ liệu theo nhãn tiếng Việt và tàu theo tên → tên bảng / mã node gửi kèm cho máy chủ.
+  const searchTables = useMemo(() => {
+    const q = fold(debouncedSearch);
+    if (!q) return '';
+    return Object.keys(TABLE_TO_LABEL).filter(t => fold(TABLE_TO_LABEL[t]).includes(q)).join(',');
+  }, [debouncedSearch]);
+  const searchNodes = useMemo(() => {
+    const q = fold(debouncedSearch);
+    if (!q) return '';
+    const ids = nodes.filter(n => n.shipName && fold(n.shipName).includes(q)).map(n => n.nodeId);
+    if (fold('Bờ').startsWith(q)) ids.push('SHORE');
+    return ids.join(',');
+  }, [debouncedSearch, nodes]);
+
   const filters = useMemo(
     () => ({
-      nodeId,
+      nodeId: origins,
       status,
       direction,
+      actionType,
       tableName: debouncedTable,
       search: debouncedSearch,
+      searchTables,
+      searchNodes,
       from: from ? new Date(from).toISOString() : undefined,
       to: to ? new Date(to).toISOString() : undefined,
       page: logPage,
       pageSize,
     }),
     [
-      nodeId,
+      origins,
       status,
       direction,
+      actionType,
       debouncedTable,
       debouncedSearch,
+      searchTables,
+      searchNodes,
       from,
       to,
       logPage,
@@ -635,6 +440,7 @@ export const SyncDashboardPage: React.FC = () => {
 
   const selectNode = (id: string) => {
     setNodeId(id);
+    setOrigins(id);
     setLogPage(1);
     setQueuePage(1);
   };
@@ -693,665 +499,358 @@ export const SyncDashboardPage: React.FC = () => {
       setReconciling(false);
     }
   };
-  const exportPage = () => {
-    const rows =
-      tab === 'logs'
-        ? [
-            [
-              'Hướng',
-              'Nguồn',
-              'Bảng',
-              'Thao tác',
-              'ID',
-              'Trạng thái',
-              'Thời gian',
-              'Chi tiết',
-            ],
-            ...(logs?.items ?? []).map((l) => [
-              directionLabel(l.direction),
-              l.originNode,
-              l.tableName,
-              l.actionType,
-              l.recordKey,
-              l.status,
-              formatTime(l.processedAt),
-              l.conflictDetail || '',
-            ]),
-          ]
-        : [
-            ['Đích', 'Bảng', 'Thao tác', 'ID', 'Tạo lúc'],
-            ...(queue?.items ?? []).map((o) => [
-              o.targetNode,
-              o.tableName,
-              o.actionType,
-              o.recordKey,
-              formatTime(o.createdAt),
-            ]),
-          ];
-    const csv = rows
-      .map((row) =>
-        row
-          .map((value) => {
-            const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-            return `"${text.replace(/"/g, '""')}"`;
-          })
-          .join(','),
-      )
-      .join('\r\n');
-    const url = URL.createObjectURL(
-      new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }),
-    );
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `sync-${tab}-page-${tab === 'logs' ? logPage : queuePage}.csv`;
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  const shipName = (node: string) => nodes.find(n => n.nodeId === node)?.shipName || node;
+  const hasLogFilter = !!(origins || status || direction || tableName || actionType || search || from || to);
+  const clearLogFilters = () => {
+    selectNode('');
+    setStatus('');
+    setDirection('');
+    setTableName('');
+    setActionType('');
+    setSearch('');
+    setFrom('');
+    setTo('');
   };
 
+  /** Bộ lọc theo cột gọi xuống máy chủ: chuỗi nối dấu phẩy ↔ danh sách đã chọn. */
+  const facets = logs?.facets;
+  const serverFilter = (
+    current: string,
+    values: string[] | undefined,
+    label: (v: string) => string,
+    set: (v: string) => void,
+  ) => ({
+    options: [...new Set([...(values ?? []), ...(current ? current.split(',') : [])])].map(v => ({ value: v, label: label(v) })),
+    selected: current ? current.split(',') : null,
+    onChange: (vals: string[] | null) => { set(vals && vals.length ? vals.join(',') : ''); setLogPage(1); },
+  });
+
+  const logColumns: Column<SyncLogEntry>[] = [
+    { key: 'direction', header: 'Hướng', width: 110, align: 'center', value: l => directionLabel(l.direction), render: l => <DirectionPill value={l.direction} />,
+      serverFilter: serverFilter(direction, facets?.directions, directionLabel, setDirection) },
+    { key: 'origin', header: 'Nguồn', width: 170, value: l => shipName(l.originNode), render: l => <span title={l.originNode}>{shipName(l.originNode)}</span>,
+      serverFilter: serverFilter(origins, facets?.origins, v => (v === 'SHORE' ? 'Bờ' : shipName(v)), setOrigins) },
+    { key: 'table', header: 'Loại dữ liệu', value: l => getVietLabel(l.tableName), render: l => <span title={l.tableName}>{getVietLabel(l.tableName)}</span>,
+      serverFilter: serverFilter(tableName, facets?.tables, getVietLabel, setTableName) },
+    { key: 'action', header: 'Thao tác', width: 110, align: 'center', value: l => actionLabel(l.actionType),
+      serverFilter: serverFilter(actionType, facets?.actions, actionLabel, setActionType) },
+    { key: 'key', header: 'ID bản ghi', width: 170, filter: false, truncate: true, value: l => l.recordKey, render: l => <span className="font-mono text-xs" title={l.recordKey}>{l.recordKey}</span> },
+    { key: 'status', header: 'Trạng thái', width: 120, align: 'center', value: l => statusLabel(l.status), render: l => <StatusPill value={l.status} />,
+      serverFilter: serverFilter(status, facets?.statuses, statusLabel, setStatus) },
+    { key: 'time', header: 'Thời gian', width: 160, align: 'center', filter: false, value: l => l.processedAt, exportValue: l => formatTime(l.processedAt), render: l => formatTime(l.processedAt) },
+    {
+      key: 'actions', header: 'Chi tiết', width: 80, align: 'center', exportable: false,
+      render: l => <TableActions><TableIconButton label={`Xem chi tiết ${l.recordKey}`} icon={<Eye />} onClick={() => setDetail(l)} /></TableActions>,
+    },
+  ];
+
+  type QueueItem = SyncOutboxPage['items'][number];
+  const queueColumns: Column<QueueItem>[] = [
+    { key: 'target', header: 'Tàu nhận', width: 200, filter: false, value: o => (o.targetNode === '*' ? 'Mọi tàu' : shipName(o.targetNode)) },
+    { key: 'table', header: 'Loại dữ liệu', filter: false, value: o => getVietLabel(o.tableName), render: o => <span title={o.tableName}>{getVietLabel(o.tableName)}</span> },
+    { key: 'action', header: 'Thao tác', width: 110, align: 'center', filter: false, value: o => actionLabel(o.actionType) },
+    { key: 'key', header: 'ID bản ghi', width: 260, filter: false, truncate: true, value: o => o.recordKey, render: o => <span className="font-mono text-xs" title={o.recordKey}>{o.recordKey}</span> },
+    { key: 'created', header: 'Chờ từ', width: 160, align: 'center', filter: false, value: o => o.createdAt, exportValue: o => formatTime(o.createdAt), render: o => formatTime(o.createdAt) },
+  ];
+
+  const onlineCount = nodes.filter(n => n.isOnline).length;
+  const metric = (icon: React.ReactNode, tone: string, value: React.ReactNode, label: string) => (
+    <div className="flex min-w-0 items-center gap-3 px-4 py-3">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md [&>svg]:h-[18px] [&>svg]:w-[18px] ${tone}`}>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-lg font-bold tabular-nums leading-6 text-ink">{value}</p>
+        <p className="truncate text-[13px] text-ink-muted">{label}</p>
+      </div>
+    </div>
+  );
+
+  const nodeSelect = (
+    <select aria-label={tab === 'logs' ? 'Tàu / nguồn' : 'Tàu nhận'} value={nodeId} onChange={e => selectNode(e.target.value)} className={filterCls}>
+      <option value="">{tab === 'logs' ? 'Mọi nguồn' : 'Mọi tàu'}</option>
+      {tab === 'logs' && <option value="SHORE">Bờ</option>}
+      {nodes.map(n => <option key={n.nodeId} value={n.nodeId}>{n.shipName || n.nodeId}</option>)}
+    </select>
+  );
+
   return (
-    <div className="sync-workspace">
-      <header className="sync-toolbar">
-        <div className="sync-heading">
-          <Database size={19} />
-          <div>
-            <h1>Điều hành đồng bộ</h1>
-            <p>Bờ ↔ Đội tàu · Cập nhật: {formatTime(data?.serverTime)}</p>
-          </div>
-        </div>
-        <div className="sync-actions">
-          <label className="sync-auto">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-            />{' '}
-            Tự làm mới
-          </label>
-          <select
-            aria-label="Chu kỳ làm mới màn hình"
-            value={interval}
-            onChange={(e) => setIntervalSeconds(Number(e.target.value))}
-            disabled={!autoRefresh}
-          >
-            {[10, 15, 30, 60].map((n) => (
-              <option key={n} value={n}>
-                {n}s
-              </option>
-            ))}
-          </select>
-          <button onClick={() => setRefresh((n) => n + 1)}>
-            <RefreshCw size={14} /> Làm mới
-          </button>
-          <button
-            className="primary"
-            disabled={syncing || !data || nodes.length === 0}
-            onClick={() => setShowSyncModal(true)}
-          >
-            <Send size={14} /> Tạo hàng chờ gửi xuống
-          </button>
-        </div>
-      </header>
+    <div className="px-6 py-5">
+      <PageHeader
+        icon={<RefreshCw />}
+        title="Đồng bộ dữ liệu"
+        description={<>Bờ ↔ đội tàu · cập nhật lúc {formatTime(data?.serverTime)}</>}
+        actions={
+          <>
+            <label className="inline-flex items-center gap-2 text-[13px] text-ink">
+              <input type="checkbox" className="h-4 w-4 accent-primary" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+              Tự làm mới
+            </label>
+            <select aria-label="Chu kỳ làm mới màn hình" value={interval} onChange={e => setIntervalSeconds(Number(e.target.value))} disabled={!autoRefresh} className={`${filterCls} disabled:opacity-50`}>
+              {[10, 15, 30, 60].map(n => <option key={n} value={n}>mỗi {n} giây</option>)}
+            </select>
+            <Button variant="secondary" icon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />} onClick={() => setRefresh(n => n + 1)}>Làm mới</Button>
+            <Button icon={<Send className="h-4 w-4" />} disabled={syncing || !data || nodes.length === 0} onClick={() => setShowSyncModal(true)}>
+              Gửi lại dữ liệu xuống tàu
+            </Button>
+          </>
+        }
+      />
+
       {error && (
-        <div className="sync-banner error" role="alert">
-          <XCircle size={16} />
-          <span>{error}</span>
-          <button onClick={() => setRefresh((n) => n + 1)}>Thử lại</button>
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700" role="alert">
+          <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">{error}</span>
+          <Button size="sm" variant="secondary" onClick={() => setRefresh(n => n + 1)}>Thử lại</Button>
         </div>
       )}
       {notice && (
-        <div className="sync-banner ok" role="status">
-          <CheckCircle2 size={16} />
-          <span>{notice}</span>
-          <button onClick={() => setNotice('')} aria-label="Đóng thông báo">
-            <X size={14} />
-          </button>
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800" role="status">
+          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">{notice}</span>
+          <button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo" className="rounded p-0.5 hover:bg-emerald-100"><X className="h-4 w-4" /></button>
         </div>
       )}
-      {loading && (
-        <div className="sync-banner">
-          <Loader2 size={16} className="animate-spin" /> Đang tải trạng thái...
-        </div>
-      )}
-      <div className="sync-metrics">
-        <div>
-          <Ship size={20} />
-          <span>
-            <strong>
-              {nodes.filter((n) => n.isOnline).length}/{nodes.length}
-            </strong>
-            <small>Tàu đang kết nối</small>
-          </span>
-        </div>
-        <div>
-          <Inbox size={20} />
-          <span>
-            <strong>{allQueue?.total ?? '—'}</strong>
-            <small>Bản ghi bờ đang chờ gửi</small>
-          </span>
-        </div>
-        <div>
-          <CheckCircle2 size={20} className="text-emerald-600" />
-          <span>
-            <strong>
-              {logs && !logsError ? totalStatus(['SUCCESS', 'APPLIED']) : '—'}
-            </strong>
-            <small>Thành công theo bộ lọc</small>
-          </span>
-        </div>
-        <div>
-          <AlertTriangle size={20} className="text-amber-600" />
-          <span>
-            <strong>
-              {logs && !logsError ? totalStatus(['CONFLICT']) : '—'} /{' '}
-              {logs && !logsError ? totalStatus(['FAILED', 'ERROR']) : '—'}
-            </strong>
-            <small>Xung đột / Lỗi theo bộ lọc</small>
-          </span>
-        </div>
+
+      {/* Chỉ số nhanh */}
+      <div className="mb-4 grid grid-cols-4 divide-x divide-grid overflow-hidden rounded-md border border-grid-strong bg-surface">
+        {metric(<Ship />, 'bg-sky-50 text-sky-600', loading && !nodes.length ? '—' : `${onlineCount}/${nodes.length}`, 'Tàu đang trực tuyến')}
+        {metric(<Inbox />, 'bg-primary-soft text-primary', allQueue?.total?.toLocaleString('vi-VN') ?? '—', 'Bản ghi bờ đang chờ gửi')}
+        {metric(<CheckCircle2 />, 'bg-emerald-50 text-emerald-600', logs && !logsError ? totalStatus(['SUCCESS', 'APPLIED']).toLocaleString('vi-VN') : '—', 'Thành công (theo bộ lọc)')}
+        {metric(<AlertTriangle />, 'bg-amber-50 text-amber-600',
+          logs && !logsError ? `${totalStatus(['CONFLICT'])} / ${totalStatus(['FAILED', 'ERROR'])}` : '—', 'Xung đột / lỗi (theo bộ lọc)')}
       </div>
-      <div className="sync-layout">
-        <main className="sync-panel">
-          <div className="sync-panel-head">
-            <div className="sync-tabs">
-              <button
-                className={tab === 'logs' ? 'active' : ''}
-                onClick={() => setTab('logs')}
-              >
-                <Activity size={15} /> Nhật ký
-              </button>
-              <button
-                className={tab === 'queue' ? 'active' : ''}
-                onClick={() => {
-                  setTab('queue');
-                  if (nodeId === 'SHORE') selectNode('');
-                }}
-              >
-                <Inbox size={15} /> Hàng chờ {queue ? `(${queue.total})` : ''}
-              </button>
-            </div>
-            <button
-              onClick={exportPage}
-              disabled={
-                tab === 'logs'
-                  ? logsLoading || !!logsError || !logs?.items.length
-                  : queueLoading || !!queueError || !queue?.items.length
-              }
-            >
-              <Download size={14} /> CSV trang này
-            </button>
-          </div>
-          <div className="sync-filters">
-            <label>
-              {tab === 'logs' ? 'Tàu / nguồn' : 'Tàu nhận'}
-              <select
-                value={nodeId}
-                onChange={(e) => selectNode(e.target.value)}
-              >
-                <option value="">
-                  {tab === 'logs' ? 'Tất cả nguồn' : 'Tất cả tàu'}
-                </option>
-                {tab === 'logs' && <option value="SHORE">Bờ (SHORE)</option>}
-                {nodes.map((n) => (
-                  <option key={n.nodeId} value={n.nodeId}>
-                    {n.shipName || n.nodeId}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {tab === 'logs' && (
-              <>
-                <label>
-                  Trạng thái
-                  <select
-                    value={status}
-                    onChange={(e) => {
-                      setStatus(e.target.value);
-                      setLogPage(1);
-                    }}
-                  >
-                    <option value="">Tất cả</option>
-                    {['SUCCESS', 'APPLIED', 'CONFLICT', 'FAILED', 'ERROR'].map(
-                      (s) => (
-                        <option key={s} value={s}>
-                          {statusLabel(s)}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </label>
-                <label>
-                  Hướng
-                  <select
-                    value={direction}
-                    onChange={(e) => {
-                      setDirection(e.target.value);
-                      setLogPage(1);
-                    }}
-                  >
-                    <option value="">Cả hai hướng</option>
-                    <option value="EDGE_TO_SHORE">Tàu → Bờ</option>
-                    <option value="SHORE_TO_EDGE">Bờ → Tàu</option>
-                  </select>
-                </label>
-                <label>
-                  Bảng dữ liệu
-                  <input
-                    placeholder="VD: crew_certificate"
-                    value={tableName}
-                    onChange={(e) => setTableName(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Từ thời điểm
-                  <input
-                    type="datetime-local"
-                    value={from}
-                    onChange={(e) => {
-                      setFrom(e.target.value);
-                      setLogPage(1);
-                    }}
-                  />
-                </label>
-                <label>
-                  Đến thời điểm
-                  <input
-                    type="datetime-local"
-                    value={to}
-                    onChange={(e) => {
-                      setTo(e.target.value);
-                      setLogPage(1);
-                    }}
-                  />
-                </label>
-                <label className="sync-search">
-                  Tìm bản ghi
-                  <div>
-                    <Search size={14} />
-                    <input
-                      placeholder="ID, nguồn, bảng hoặc nội dung lỗi..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </div>
-                </label>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-4">
+        {/* ── Nhật ký / hàng chờ ── */}
+        <div className="min-w-0">
+          <div className="mb-3 flex gap-1 border-b border-line" role="tablist" aria-label="Nội dung đồng bộ">
+            {([
+              { id: 'logs' as const, label: 'Nhật ký đồng bộ', icon: <Activity />, count: logs?.total },
+              { id: 'queue' as const, label: 'Hàng chờ gửi xuống', icon: <Inbox />, count: queue?.total },
+            ]).map(t => {
+              const on = tab === t.id;
+              return (
                 <button
-                  onClick={() => {
-                    selectNode('');
-                    setStatus('');
-                    setDirection('');
-                    setTableName('');
-                    setSearch('');
-                    setFrom('');
-                    setTo('');
-                  }}
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => { setTab(t.id); if (t.id === 'queue' && nodeId === 'SHORE') selectNode(''); }}
+                  className={`-mb-px inline-flex h-10 items-center gap-2 border-b-2 px-3.5 text-sm transition-colors [&>svg]:h-4 [&>svg]:w-4 ${
+                    on ? 'border-primary font-semibold text-primary' : 'border-transparent text-ink-muted hover:border-line hover:text-ink'
+                  }`}
                 >
-                  Xóa bộ lọc
+                  {t.icon}{t.label}
+                  {t.count !== undefined && (
+                    <span className={`rounded-full px-1.5 text-xs tabular-nums ${on ? 'bg-primary-soft text-primary' : 'bg-canvas text-ink-light'}`}>
+                      {t.count.toLocaleString('vi-VN')}
+                    </span>
+                  )}
                 </button>
-              </>
-            )}
-            <label>
-              Số dòng
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setLogPage(1);
-                  setQueuePage(1);
-                }}
-              >
-                {[25, 50, 100].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
-              </select>
-            </label>
+              );
+            })}
           </div>
+
           {tab === 'logs' ? (
-            <>
-              <p className="sync-help">
-                Bấm “Chi tiết” để xem đầy đủ ID và nội dung xử lý. Xung đột được
-                thống kê riêng với lỗi. Bộ lọc tàu sử dụng nguồn ghi trong nhật
-                ký.
-              </p>
-              {logsError ? (
-                <div className="sync-empty text-red-600" role="alert">
-                  {logsError}
+            <DataTable
+              columns={logColumns}
+              data={logs?.items ?? []}
+              rowKey={l => l.id ?? `${l.tableName}:${l.recordKey}:${l.processedAt}`}
+              loading={logsLoading && !logs}
+              error={logsError || null}
+              searchable={false}
+              itemLabel="bản ghi"
+              emptyMessage="Không có nhật ký phù hợp với bộ lọc."
+              exportOptions={{ fileName: `nhat-ky-dong-bo-trang-${logPage}`, title: 'NHẬT KÝ ĐỒNG BỘ' }}
+              onRowClick={setDetail}
+              minWidth={1000}
+              serverPagination={{
+                page: logs?.page ?? logPage,
+                pageSize,
+                total: logs?.total ?? 0,
+                onPageChange: setLogPage,
+                onPageSizeChange: size => { setPageSize(size); setLogPage(1); setQueuePage(1); },
+              }}
+              toolbarLeft={
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="relative w-[260px]">
+                    <span className="sr-only">Tìm bản ghi</span>
+                    <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-ink-light" aria-hidden="true" />
+                    <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm loại dữ liệu, tàu, ID, nội dung lỗi..."
+                      className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
+                  </label>
+                  <span className="text-[13px] text-ink-muted">Từ</span>
+                  <input aria-label="Từ thời điểm" title="Từ thời điểm" type="datetime-local" value={from} onChange={e => { setFrom(e.target.value); setLogPage(1); }} className={filterCls} />
+                  <span className="text-[13px] text-ink-muted">đến</span>
+                  <input aria-label="Đến thời điểm" title="Đến thời điểm" type="datetime-local" value={to} onChange={e => { setTo(e.target.value); setLogPage(1); }} className={filterCls} />
+                  {hasLogFilter && <button type="button" onClick={clearLogFilters} className="text-[13px] font-medium text-primary hover:underline">Bỏ lọc</button>}
                 </div>
-              ) : (
-                <div className="sync-table-wrap" aria-busy={logsLoading}>
-                  <table className="sync-table">
-                    <thead>
-                      <tr>
-                        <th>Hướng</th>
-                        <th>Nguồn</th>
-                        <th>Loại dữ liệu</th>
-                        <th>Thao tác</th>
-                        <th>ID bản ghi</th>
-                        <th>Trạng thái</th>
-                        <th>Thời gian</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(logs?.items ?? []).map((l, index) => (
-                        <tr key={l.id ?? index}>
-                          <td>{directionLabel(l.direction)}</td>
-                          <td title={l.originNode}>
-                            {nodes.find((n) => n.nodeId === l.originNode)
-                              ?.shipName || l.originNode}
-                          </td>
-                          <td title={l.tableName}>
-                            {getVietLabel(l.tableName)}
-                          </td>
-                          <td>{l.actionType}</td>
-                          <td className="mono" title={l.recordKey}>
-                            {l.recordKey.length > 16
-                              ? `${l.recordKey.slice(0, 16)}…`
-                              : l.recordKey}
-                          </td>
-                          <td>
-                            <span
-                              className={`sync-badge ${statusClass(l.status)}`}
-                            >
-                              {statusLabel(l.status)}
-                            </span>
-                          </td>
-                          <td>{formatTime(l.processedAt)}</td>
-                          <td>
-                            <button onClick={() => setDetail(l)}>
-                              Chi tiết
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {!logs?.items.length && (
-                        <tr>
-                          <td colSpan={8} className="sync-empty">
-                            {logsLoading
-                              ? 'Đang tải nhật ký...'
-                              : 'Không có nhật ký phù hợp với bộ lọc.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {logs && !logsError && (
-                <Pagination
-                  page={logs.page}
-                  totalPages={logs.totalPages}
-                  total={logs.total}
-                  onChange={setLogPage}
-                />
-              )}
-            </>
+              }
+            />
           ) : (
-            <>
-              <p className="sync-help">
-                Hàng chờ bờ → tàu. Bản ghi phát cho mọi tàu được tính riêng theo
-                xác nhận của từng tàu; danh sách toàn đội chỉ đếm mỗi bản ghi
-                một lần.
-              </p>
-              {queueError ? (
-                <div className="sync-empty text-red-600" role="alert">
-                  {queueError}
+            <DataTable
+              columns={queueColumns}
+              data={queue?.items ?? []}
+              rowKey={o => o.id}
+              loading={queueLoading && !queue}
+              error={queueError || null}
+              searchable={false}
+              itemLabel="bản ghi"
+              emptyMessage="Không có bản ghi nào đang chờ gửi cho phạm vi này."
+              exportOptions={{ fileName: `hang-cho-trang-${queuePage}`, title: 'HÀNG CHỜ GỬI XUỐNG TÀU' }}
+              minWidth={900}
+              serverPagination={{
+                page: queue?.page ?? queuePage,
+                pageSize,
+                total: queue?.total ?? 0,
+                onPageChange: setQueuePage,
+                onPageSizeChange: size => { setPageSize(size); setLogPage(1); setQueuePage(1); },
+              }}
+              toolbarLeft={
+                <div className="flex flex-wrap items-center gap-2">
+                  {nodeSelect}
+                  <span className="text-[13px] text-ink-muted">Bản ghi gửi cho mọi tàu được tính theo xác nhận của từng tàu.</span>
                 </div>
-              ) : (
-                <div className="sync-table-wrap" aria-busy={queueLoading}>
-                  <table className="sync-table">
-                    <thead>
-                      <tr>
-                        <th>Đích nhận</th>
-                        <th>Loại dữ liệu</th>
-                        <th>Thao tác</th>
-                        <th>ID đầy đủ</th>
-                        <th>Chờ từ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(queue?.items ?? []).map((o) => (
-                        <tr key={o.id}>
-                          <td>
-                            {o.targetNode === '*'
-                              ? 'Mọi tàu (broadcast)'
-                              : nodes.find((n) => n.nodeId === o.targetNode)
-                                  ?.shipName || o.targetNode}
-                          </td>
-                          <td>{getVietLabel(o.tableName)}</td>
-                          <td>{o.actionType}</td>
-                          <td className="mono">{o.recordKey}</td>
-                          <td>{formatTime(o.createdAt)}</td>
-                        </tr>
-                      ))}
-                      {!queue?.items.length && (
-                        <tr>
-                          <td colSpan={5} className="sync-empty">
-                            {queueLoading
-                              ? 'Đang tải hàng chờ...'
-                              : 'Không có bản ghi đang chờ cho phạm vi này.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {queue && !queueError && (
-                <Pagination
-                  page={queue.page}
-                  totalPages={queue.totalPages}
-                  total={queue.total}
-                  onChange={setQueuePage}
-                />
-              )}
-            </>
+              }
+            />
           )}
-        </main>
-        <aside className="sync-sidebar">
-          <section className="sync-panel">
-            <div className="sync-panel-head">
-              <h2>
-                <Ship size={15} /> Đội tàu
-              </h2>
-              <span>{nodes.length} tàu</span>
-            </div>
-            <div className="sync-fleet">
-              {nodes.map((n) => (
-                <button
-                  key={n.nodeId}
-                  className={`sync-vessel ${nodeId === n.nodeId ? 'selected' : ''}`}
-                  onClick={() =>
-                    selectNode(nodeId === n.nodeId ? '' : n.nodeId)
-                  }
-                >
-                  <span className={`sync-dot ${n.isOnline ? 'online' : ''}`} />
-                  <span>
-                    <strong>{n.shipName || n.nodeId}</strong>
-                    <small>
-                      {n.currentNetworkType || 'Chưa báo mạng'} ·{' '}
-                      {n.isOnline ? 'Online' : 'Offline'}
-                    </small>
-                  </span>
-                  <span
-                    className={`sync-badge ${n.health.consecutiveFailures ? 'error' : 'ok'}`}
-                  >
-                    {n.health.consecutiveFailures
-                      ? `${n.health.consecutiveFailures} lỗi`
-                      : 'Ổn định'}
-                  </span>
-                </button>
-              ))}
-              {!nodes.length && (
-                <p className="sync-help">Chưa có tàu kết nối.</p>
-              )}
-            </div>
+        </div>
+
+        {/* ── Cột phải ── */}
+        <aside className="flex min-w-0 flex-col gap-4">
+          <Card title="Đội tàu" icon={<Ship />} aside={`${nodes.length} tàu`}>
+            <ul className="divide-y divide-grid">
+              {nodes.map(n => {
+                const on = nodeId === n.nodeId;
+                return (
+                  <li key={n.nodeId}>
+                    <button
+                      type="button"
+                      onClick={() => selectNode(on ? '' : n.nodeId)}
+                      aria-pressed={on}
+                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${on ? 'bg-primary-soft' : 'hover:bg-primary-soft/50'}`}
+                    >
+                      <i className={`h-2.5 w-2.5 shrink-0 rounded-full ${n.isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-ink">{n.shipName || n.nodeId}</span>
+                        <span className="block truncate text-[13px] text-ink-muted">
+                          {n.isOnline ? 'Trực tuyến' : 'Ngoại tuyến'} · {n.currentNetworkType || 'chưa báo mạng'}
+                        </span>
+                      </span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${n.health.consecutiveFailures ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        {n.health.consecutiveFailures ? `${n.health.consecutiveFailures} lỗi` : 'Ổn định'}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+              {!nodes.length && <li className="px-4 py-6 text-center text-[13px] text-ink-muted">Chưa có tàu nào kết nối.</li>}
+            </ul>
             {selectedNode && (
-              <div className="sync-node-detail">
-                <strong>{selectedNode.shipName || selectedNode.nodeId}</strong>
-                <dl>
-                  <dt>Node</dt>
-                  <dd className="mono">{selectedNode.nodeId}</dd>
-                  <dt>Heartbeat</dt>
-                  <dd>{formatTime(selectedNode.health.lastHeartbeat)}</dd>
-                  <dt>Tàu gửi lên</dt>
-                  <dd>{formatTime(selectedNode.push.lastAt)}</dd>
-                  <dt>Tàu lấy xuống</dt>
-                  <dd>{formatTime(selectedNode.pull.lastAt)}</dd>
-                  <dt>Tổng nhận / giao</dt>
-                  <dd>
-                    {selectedNode.push.totalReceived} /{' '}
-                    {selectedNode.pull.totalDelivered}
-                  </dd>
-                  <dt>Chờ gửi xuống</dt>
-                  <dd>{queue?.total ?? '—'}</dd>
-                  <dt>Đăng ký</dt>
-                  <dd>
-                    {selectedNode.security.isRevoked
-                      ? 'Đã thu hồi'
-                      : selectedNode.security.isRegistered
-                        ? 'Đã đăng ký'
-                        : 'Chưa đăng ký'}
-                  </dd>
+              <div className="border-t border-grid bg-canvas/60 px-4 py-3">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+                  <dt className="text-ink-muted">Mã node</dt><dd className="truncate font-mono text-xs text-ink" title={selectedNode.nodeId}>{selectedNode.nodeId}</dd>
+                  <dt className="text-ink-muted">Liên lạc cuối</dt><dd className="text-ink">{formatTime(selectedNode.health.lastHeartbeat)}</dd>
+                  <dt className="text-ink-muted">Tàu gửi lên</dt><dd className="text-ink">{formatTime(selectedNode.push.lastAt)}</dd>
+                  <dt className="text-ink-muted">Tàu lấy xuống</dt><dd className="text-ink">{formatTime(selectedNode.pull.lastAt)}</dd>
+                  <dt className="text-ink-muted">Đã nhận / đã giao</dt><dd className="tabular-nums text-ink">{selectedNode.push.totalReceived} / {selectedNode.pull.totalDelivered}</dd>
+                  <dt className="text-ink-muted">Chờ gửi xuống</dt><dd className="tabular-nums text-ink">{queue?.total ?? '—'}</dd>
+                  <dt className="text-ink-muted">Đăng ký</dt>
+                  <dd className="text-ink">{selectedNode.security.isRevoked ? 'Đã thu hồi' : selectedNode.security.isRegistered ? 'Đã đăng ký' : 'Chưa đăng ký'}</dd>
                 </dl>
                 {selectedNode.health.lastError && (
-                  <p className="sync-node-error">
+                  <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[13px] text-red-700">
                     {selectedNode.health.lastError}
-                    <br />
-                    <small>{formatTime(selectedNode.health.lastErrorAt)}</small>
+                    <span className="mt-0.5 block text-xs text-red-600/80">{formatTime(selectedNode.health.lastErrorAt)}</span>
                   </p>
                 )}
               </div>
             )}
-          </section>
-          <section className="sync-panel">
-            <div className="sync-panel-head">
-              <h2>
-                <Inbox size={15} /> Phân bố hàng chờ
-              </h2>
-            </div>
-            <div className="sync-queue-summary">
-              {(queue?.groups ?? []).map((g) => (
-                <div key={`${g.node}:${g.tableName}`}>
-                  <span>
-                    {getVietLabel(g.tableName)}
-                    <small>
-                      {g.node === '*'
-                        ? 'Mọi tàu'
-                        : nodes.find((n) => n.nodeId === g.node)?.shipName ||
-                          g.node}{' '}
-                      · Từ {formatTime(g.oldestAt)}
-                    </small>
+          </Card>
+
+          <Card title="Phân bố hàng chờ" icon={<Inbox />}>
+            <ul className="divide-y divide-grid">
+              {(queue?.groups ?? []).map(g => (
+                <li key={`${g.node}:${g.tableName}`} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-ink">{getVietLabel(g.tableName)}</span>
+                    <span className="block truncate text-[13px] text-ink-muted">
+                      {g.node === '*' ? 'Mọi tàu' : shipName(g.node)} · từ {fmtRelative(g.oldestAt)}
+                    </span>
                   </span>
-                  <strong>{g.pending}</strong>
-                </div>
+                  <strong className="tabular-nums text-ink">{g.pending}</strong>
+                </li>
               ))}
               {!queue?.groups.length && (
-                <p>
-                  {queueError ||
-                    (queueLoading ? 'Đang tải...' : 'Hàng chờ trống')}
-                </p>
+                <li className="px-4 py-6 text-center text-[13px] text-ink-muted">
+                  {queueError || (queueLoading ? 'Đang tải...' : 'Hàng chờ trống')}
+                </li>
               )}
-            </div>
-          </section>
-          <section className="sync-panel">
-            <div className="sync-panel-head">
-              <h2>
-                <Settings size={15} /> Kiểm tra dữ liệu
-              </h2>
-            </div>
-            <div className="sync-tools">
-              <button onClick={checkIntegrity} disabled={checking}>
-                <Activity size={14} />{' '}
+            </ul>
+          </Card>
+
+          <Card title="Kiểm tra dữ liệu" icon={<ShieldCheck />}>
+            <div className="space-y-2 px-4 py-3">
+              <Button variant="secondary" fullWidth icon={checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />} onClick={checkIntegrity} disabled={checking}>
                 {checking ? 'Đang kiểm tra...' : 'Kiểm tra dữ liệu bờ'}
-              </button>
-              <button onClick={reconcile} disabled={reconciling}>
-                <RefreshCw size={14} />{' '}
-                {reconciling
-                  ? 'Đang đối soát...'
-                  : 'Đưa dữ liệu chưa đồng bộ vào hàng chờ'}
-              </button>
-              <p className="sync-help">
-                Áp dụng cho thuyền viên và chứng chỉ tại bờ. Chu kỳ làm mới chỉ
-                cập nhật màn hình.
-              </p>
+              </Button>
+              <Button variant="secondary" fullWidth icon={<RefreshCw className={`h-4 w-4 ${reconciling ? 'animate-spin' : ''}`} />} onClick={reconcile} disabled={reconciling}>
+                {reconciling ? 'Đang đối soát...' : 'Đưa dữ liệu chưa đồng bộ vào hàng chờ'}
+              </Button>
+              <p className="text-[13px] text-ink-muted">Áp dụng cho thuyền viên và chứng chỉ ở bờ.</p>
               {integrity && (
-                <div className="sync-integrity">
-                  <strong>
-                    {integrity.healthy ? 'Kiểm tra đạt' : 'Cần kiểm tra thêm'}
-                  </strong>
-                  <small>{formatTime(integrity.timestamp)}</small>
-                  <dl>
-                    <dt>Thuyền viên chưa đồng bộ</dt>
-                    <dd>{integrity.syncGaps.unsyncedCrew}</dd>
-                    <dt>Chứng chỉ chưa đồng bộ</dt>
-                    <dd>{integrity.syncGaps.unsyncedCerts}</dd>
-                    <dt>Chứng chỉ thiếu thuyền viên</dt>
-                    <dd>{integrity.syncGaps.orphanCertificates}</dd>
-                    <dt>Hàng chờ quá 7 ngày</dt>
-                    <dd>{integrity.syncGaps.staleOutboxItems}</dd>
+                <div className={`rounded-md border px-3 py-2.5 ${integrity.healthy ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                  <p className={`flex items-center gap-1.5 text-sm font-semibold ${integrity.healthy ? 'text-emerald-800' : 'text-amber-800'}`}>
+                    {integrity.healthy ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                    {integrity.healthy ? 'Dữ liệu ổn' : 'Cần kiểm tra thêm'}
+                    <span className="ml-auto text-xs font-normal text-ink-muted">{formatTime(integrity.timestamp)}</span>
+                  </p>
+                  <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[13px]">
+                    <dt className="text-ink-muted">Thuyền viên chưa đồng bộ</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.unsyncedCrew}</dd>
+                    <dt className="text-ink-muted">Chứng chỉ chưa đồng bộ</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.unsyncedCerts}</dd>
+                    <dt className="text-ink-muted">Chứng chỉ không có thuyền viên</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.orphanCertificates}</dd>
+                    <dt className="text-ink-muted">Hàng chờ quá 7 ngày</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.staleOutboxItems}</dd>
                   </dl>
                 </div>
               )}
             </div>
-          </section>
+          </Card>
         </aside>
       </div>
+
       {showSyncModal && (
-        <ShoreConfirmModal
-          data={data}
-          queue={allQueue}
-          syncing={syncing}
-          onConfirm={handleForcePush}
-          onClose={() => setShowSyncModal(false)}
-        />
+        <ShoreConfirmModal data={data} queue={allQueue} syncing={syncing} onConfirm={handleForcePush} onClose={() => setShowSyncModal(false)} />
       )}
-      {detail && (
-        <div className="sync-dialog-backdrop" onClick={() => setDetail(null)}>
-          <section
-            className="sync-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sync-log-detail"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sync-panel-head">
-              <h2 id="sync-log-detail">Chi tiết đồng bộ</h2>
-              <button
-                autoFocus
-                aria-label="Đóng chi tiết"
-                onClick={() => setDetail(null)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="sync-dialog-body">
-              <dl>
-                <dt>Hướng</dt>
-                <dd>{directionLabel(detail.direction)}</dd>
-                <dt>Nguồn</dt>
-                <dd>{detail.originNode}</dd>
-                <dt>Bảng</dt>
-                <dd>{detail.tableName}</dd>
-                <dt>ID bản ghi</dt>
-                <dd className="mono">{detail.recordKey}</dd>
-                <dt>Thao tác</dt>
-                <dd>{detail.actionType}</dd>
-                <dt>Trạng thái</dt>
-                <dd>
-                  {statusLabel(detail.status)} ({detail.status})
-                </dd>
-                <dt>Thời gian</dt>
-                <dd>{formatTime(detail.processedAt)}</dd>
-              </dl>
-              <h3>Nội dung xử lý / xung đột</h3>
-              <pre>
-                {detail.conflictDetail ||
-                  'Máy chủ không ghi nội dung chi tiết cho bản ghi này.'}
+
+      <Modal
+        isOpen={!!detail}
+        onClose={() => setDetail(null)}
+        size="md"
+        icon={<Activity />}
+        title="Chi tiết đồng bộ"
+        subtitle={detail ? `${getVietLabel(detail.tableName)} · ${formatTime(detail.processedAt)}` : undefined}
+        footer={<Button variant="secondary" onClick={() => setDetail(null)}>Đóng</Button>}
+      >
+        {detail && (
+          <div className="space-y-4">
+            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-2 text-[13px]">
+              <dt className="text-ink-muted">Hướng</dt><dd><DirectionPill value={detail.direction} /></dd>
+              <dt className="text-ink-muted">Nguồn</dt><dd className="text-ink">{shipName(detail.originNode)} <span className="font-mono text-xs text-ink-muted">({detail.originNode})</span></dd>
+              <dt className="text-ink-muted">Loại dữ liệu</dt><dd className="text-ink">{getVietLabel(detail.tableName)} <span className="font-mono text-xs text-ink-muted">({detail.tableName})</span></dd>
+              <dt className="text-ink-muted">ID bản ghi</dt><dd className="break-all font-mono text-xs text-ink">{detail.recordKey}</dd>
+              <dt className="text-ink-muted">Thao tác</dt><dd className="text-ink">{actionLabel(detail.actionType)}</dd>
+              <dt className="text-ink-muted">Trạng thái</dt><dd><StatusPill value={detail.status} /></dd>
+              <dt className="text-ink-muted">Thời gian</dt><dd className="text-ink">{formatTime(detail.processedAt)}</dd>
+            </dl>
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">Nội dung xử lý / xung đột</p>
+              <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border border-grid bg-canvas px-3 py-2.5 font-mono text-xs text-ink">
+                {detail.conflictDetail || 'Máy chủ không ghi nội dung chi tiết cho bản ghi này.'}
               </pre>
             </div>
-          </section>
-        </div>
-      )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

@@ -45,7 +45,7 @@ public class InventoryController : ControllerBase
                         s.Quantity,
                         s.UnitCost,
                         totalValue = s.Quantity * s.UnitCost,
-                        isLowStock = m.MinStock != null && (double)s.Quantity <= m.MinStock.Value,
+                        isLowStock = m.MinStock != null && (double)s.Quantity <= m.MinStock,
                         minStock = m.MinStock,
                         s.LastReceiptDate
                     };

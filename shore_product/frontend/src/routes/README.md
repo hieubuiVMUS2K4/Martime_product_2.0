@@ -51,9 +51,9 @@ Tất cả route "sau đăng nhập" đều lồng trong `<Route element={<TopNa
 | `/login` | `Auth/LoginPage` | Public |
 | `/` | *(redirect)* | → `/report` |
 | `/report`, `/report/:reportId`, `/report/vessel/:vesselId` | `Report/*` | Trang chủ thật sự |
-| `/categories` | `CategoryManagement/CategoryManagementPage` | Tab crew/certificate-types |
-| `/crew`, `/crew/:id`, `/vessels/:vesselId/crew/:id` | `CrewManagement/CrewListPage`, `CrewDetailPage` | |
-| `/certificates` | `CrewManagement/CertificateMonitorPage` | |
+| `/categories` | `CategoryManagement/CategoryManagementPage` | Tab certificate-types/ranks/countries/ports (`?tab=crew` chuyển sang `/crew`) |
+| `/crew`, `/crew/:id`, `/vessels/:vesselId/crew/:id` | `CrewManagement/CrewHubPage` (tab `profiles`/`sign-off`/`certificates`), `CrewDetailPage` | |
+| `/certificates`, `/sign-off-requests` | Chuyển hướng tới `/crew?tab=certificates`, `/crew?tab=sign-off` | Địa chỉ cũ |
 | `/sync` | `SyncManagement/SyncDashboardPage` | |
 | `/work-assignments` | `WorkAssignment/WorkAssignmentPage` | ⚠️ dữ liệu mock |
 | `/vessels`, `/vessels/tracking`, `/vessels/:id` | `VesselManagement/*` | |
@@ -71,11 +71,10 @@ Tất cả route "sau đăng nhập" đều lồng trong `<Route element={<TopNa
 ## Liên kết với phần khác
 
 - **contexts/AuthContext**: nguồn của `isAuthenticated`/`isLoading` dùng trong `RequireAuth`.
-- **components/layout/TopNavLayout**: layout bao toàn bộ route đã đăng nhập; menu điều hướng khai báo *độc lập* trong chính `TopNavLayout.tsx`, không đọc từ file route này — nếu thêm route mới, phải tự tay thêm cả `<Route>` ở đây **và** mục menu trong `TopNavLayout` (hai nơi tách biệt, dễ quên một bên).
+- **components/layout/navigation.ts**: nguồn duy nhất của menu điều hướng (TopNavLayout đọc từ đây). Thêm route mới thì thêm cả `<Route>` ở đây **và** một mục trong `navigation.ts`.
 - **pages/**: mọi page module export qua `index.ts` của từng thư mục rồi được import vào đây.
 
 ## Ghi chú khi đọc/dạy
 
 - `routes/index.tsx` **rỗng** — nếu bạn quen mẫu "index.ts barrel" ở các thư mục khác, đừng tìm route ở đây; toàn bộ nằm trong `AppRoutes.tsx`.
 - Không có khái niệm route theo role/permission (không có `<Route roles={...}>`); `RequireAuth` chỉ kiểm tra đã đăng nhập hay chưa, chưa phân quyền theo `user.role` ở tầng route (phân quyền UI, nếu có, phải tự kiểm tra bên trong từng page).
-- So sánh với `components/layout/MainLayout.tsx` (sidebar dọc, danh sách menu ít hơn nhiều — 7 mục) — layout đó **không được dùng** trong `AppRoutes.tsx` nào cả, là tàn dư từ bản refactor đầu tiên (xem `pages/REFACTOR_NOTES.md`). Layout thật là `TopNavLayout`.

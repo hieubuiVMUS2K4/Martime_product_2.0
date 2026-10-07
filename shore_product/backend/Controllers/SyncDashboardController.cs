@@ -37,6 +37,9 @@ public class SyncDashboardController : ControllerBase
     public async Task<IActionResult> GetLogs(
         [FromQuery] string? nodeId = null, [FromQuery] string? status = null,
         [FromQuery] string? tableName = null, [FromQuery] string? direction = null,
+        [FromQuery] string? actionType = null,
+        // Ô tìm nhanh: giao diện đổi từ khóa tiếng Việt ("vị trí tàu", tên tàu) thành tên bảng / mã node khớp.
+        [FromQuery] string? searchTables = null, [FromQuery] string? searchNodes = null,
         [FromQuery] string? search = null, [FromQuery] DateTimeOffset? from = null,
         [FromQuery] DateTimeOffset? to = null, [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25)
@@ -47,18 +50,30 @@ public class SyncDashboardController : ControllerBase
             return BadRequest(new { error = "Start time must precede end time" });
 
         var query = _context.SyncLogs.AsNoTracking();
+        // Mỗi bộ lọc nhận một hoặc nhiều giá trị, phân cách bằng dấu phẩy (menu lọc trên tiêu đề cột).
+        static List<string> Values(string? raw) =>
+            (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var nodeIds = Values(nodeId);
+        var statuses = Values(status).Select(v => v.ToUpperInvariant()).ToList();
+        var tables = Values(tableName);
+        var directions = Values(direction);
+        var actions = Values(actionType);
         // Logs have no recipient field: never attribute every SHORE log to a selected vessel.
-        if (!string.IsNullOrWhiteSpace(nodeId)) query = query.Where(l => l.OriginNode == nodeId);
-        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(l => l.Status.ToUpper() == status.ToUpper());
-        if (!string.IsNullOrWhiteSpace(tableName)) query = query.Where(l => l.TableName == tableName);
-        if (!string.IsNullOrWhiteSpace(direction)) query = query.Where(l => l.Direction == direction);
+        if (nodeIds.Count > 0) query = query.Where(l => nodeIds.Contains(l.OriginNode));
+        if (statuses.Count > 0) query = query.Where(l => statuses.Contains(l.Status.ToUpper()));
+        if (tables.Count > 0) query = query.Where(l => tables.Contains(l.TableName));
+        if (directions.Count > 0) query = query.Where(l => directions.Contains(l.Direction));
+        if (actions.Count > 0) query = query.Where(l => actions.Contains(l.ActionType));
         if (from.HasValue) query = query.Where(l => l.ProcessedAt >= from.Value.UtcDateTime);
         if (to.HasValue) query = query.Where(l => l.ProcessedAt <= to.Value.UtcDateTime);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
+            var termTables = Values(searchTables);
+            var termNodes = Values(searchNodes);
             query = query.Where(l => l.RecordKey.ToLower().Contains(term) || l.TableName.ToLower().Contains(term)
-                || l.OriginNode.ToLower().Contains(term) || (l.ConflictDetail != null && l.ConflictDetail.ToLower().Contains(term)));
+                || l.OriginNode.ToLower().Contains(term) || (l.ConflictDetail != null && l.ConflictDetail.ToLower().Contains(term))
+                || termTables.Contains(l.TableName) || termNodes.Contains(l.OriginNode));
         }
         var total = await query.CountAsync();
         var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
@@ -68,7 +83,17 @@ public class SyncDashboardController : ControllerBase
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(l => new { l.Id, l.Direction, l.OriginNode, l.TableName, l.RecordKey, l.ActionType, l.Status, l.ConflictDetail, l.ProcessedAt })
             .ToListAsync();
-        return Ok(new { items, total, page, pageSize, totalPages, summary });
+        // Giá trị có thật trong nhật ký — làm lựa chọn cho menu lọc trên tiêu đề cột.
+        var all = _context.SyncLogs.AsNoTracking();
+        var facets = new
+        {
+            origins = await all.Select(l => l.OriginNode).Distinct().OrderBy(v => v).ToListAsync(),
+            tables = await all.Select(l => l.TableName).Distinct().OrderBy(v => v).ToListAsync(),
+            actions = await all.Select(l => l.ActionType).Distinct().OrderBy(v => v).ToListAsync(),
+            directions = await all.Select(l => l.Direction).Distinct().OrderBy(v => v).ToListAsync(),
+            statuses = await all.Select(l => l.Status.ToUpper()).Distinct().OrderBy(v => v).ToListAsync(),
+        };
+        return Ok(new { items, total, page, pageSize, totalPages, summary, facets });
     }
 
     private IQueryable<Maritime.Shared.Models.Sync.SyncOutbox> PendingOutbox(string? nodeId = null)
@@ -112,7 +137,8 @@ public class SyncDashboardController : ControllerBase
     {
         try
         {
-            var nodes = await _context.SyncNodeTrackers.AsNoTracking().ToListAsync();
+            // Bỏ node "ma": chưa đăng ký và không gắn tàu nào.
+            var nodes = await _context.SyncNodeTrackers.AsNoTracking().Where(n => n.IsRegistered || n.VesselId != null).ToListAsync();
 
             var pendingOutbox = await PendingOutbox().CountAsync();
 
@@ -184,6 +210,8 @@ public class SyncDashboardController : ControllerBase
         {
             var nodes = await _context.SyncNodeTrackers
                 .AsNoTracking()
+                // Bỏ node "ma": chưa đăng ký và không gắn tàu nào (sót lại từ lúc thử nghiệm / gói cấu hình cũ).
+                .Where(n => n.IsRegistered || n.VesselId != null)
                 .OrderByDescending(n => n.IsOnline)
                 .ThenBy(n => n.ShipName)
                 .ToListAsync();

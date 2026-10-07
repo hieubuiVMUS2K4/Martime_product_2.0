@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Eye, ArrowLeft, ChevronRight as ChevronRightIcon, Search, X, CheckCircle, Paperclip, Info, Package, Truck, ChevronsUpDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, ArrowLeft, ChevronRight as ChevronRightIcon, X, CheckCircle, Paperclip, Info, Package, Truck, ClipboardList } from 'lucide-react';
 import { stockReceiptService } from '@/services/stockReceipt.service';
 import { materialService } from '@/services/materialService';
 import { storeLocationService } from '@/services/store-location.service';
@@ -9,13 +9,17 @@ import { VESSEL_CONFIG } from '@/config/app.config';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { StockReceipt, StockReceiptItem, StoreLocation, MaterialRequest } from '@/types/pms.types';
 import type { MaterialItem, VoyageRecord } from '@/types/maritime.types';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { Button, DataTable, Modal, TableActions, TableIconButton, type Column } from '@/components/common';
+import { formatDateVi } from '@/utils/date';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
 const STATUS_COLORS: Record<string, string> = {
-  Draft: 'bg-gray-100 text-gray-700',
-  Approved: 'bg-green-100 text-green-700',
-  Completed: 'bg-purple-100 text-purple-700',
+  Draft: 'bg-slate-100 text-slate-600',
+  Approved: 'bg-emerald-50 text-emerald-700',
+  Completed: 'bg-violet-50 text-violet-700',
 };
 const STATUS_LABELS: Record<string, string> = {
   Draft: 'Bản nháp',
@@ -23,19 +27,17 @@ const STATUS_LABELS: Record<string, string> = {
   Completed: 'Hoàn thành',
 };
 
-const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
+/** Tải hết theo lô để bảng tự tìm/lọc/phân trang. */
+const FETCH_PAGE = 100;
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export default function StockReceiptPage({ vesselId, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
   const [view, setView] = useState<ViewMode>('list');
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [searchQ, setSearchQ] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // Form state
@@ -77,19 +79,23 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   const [showRequestPicker, setShowRequestPicker] = useState(false);
 
   const loadList = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      setLoading(true);
-      const res = await stockReceiptService.getAll({
-        page: currentPage, pageSize,
-        status: filterStatus || undefined,
-        q: searchQ || undefined,
-        vesselId,
-      });
-      setReceipts(res.items);
-      setTotal(res.total);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [currentPage, pageSize, filterStatus, searchQ, vesselId]);
+      const all: StockReceipt[] = [];
+      for (let page = 1; ; page++) {
+        const res = await stockReceiptService.getAll({ page, pageSize: FETCH_PAGE, vesselId });
+        all.push(...res.items);
+        if (all.length >= res.total || res.items.length === 0) break;
+      }
+      setReceipts(all);
+    } catch (e) {
+      console.error(e);
+      setLoadError('Không tải được danh sách phiếu nhập kho');
+    } finally {
+      setLoading(false);
+    }
+  }, [vesselId]);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -168,7 +174,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   };
 
   const handleSave = async (andApprove = false) => {
-    if (formItems.length === 0) return alert('Vui lòng thêm ít nhất 1 dòng vật tư.');
+    if (formItems.length === 0) return void toast.warning('Vui lòng thêm ít nhất 1 dòng vật tư.');
     try {
       setSaving(true);
       const payload = {
@@ -200,7 +206,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   const handleComplete = async (id: number) => {
     if (readOnly) return;
 
-    if (!confirm('Xác nhận hoàn thành nhập kho? Tồn kho sẽ được cập nhật.')) return;
+    if (!await ask('Hoàn thành phiếu nhập kho này? Tồn kho sẽ được cập nhật.', { title: 'Hoàn thành nhập kho', confirmLabel: 'Hoàn thành' })) return;
     await stockReceiptService.complete(id);
     setView('list');
     loadList();
@@ -209,7 +215,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
   const handleDelete = async (id: number) => {
     if (readOnly) return;
 
-    if (!confirm('Xác nhận xóa phiếu này?')) return;
+    if (!await ask('Xác nhận xóa phiếu này?')) return;
     await stockReceiptService.delete(id);
     loadList();
   };
@@ -272,170 +278,66 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
     }
   };
 
-  const totalPages = Math.ceil(total / pageSize);
   const fmt = (n?: number | null) => n != null ? n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '';
+
+  const columns: Column<StockReceipt>[] = [
+    {
+      key: 'code', header: t('stockReceipts.code'), width: 180, filter: false, value: r => r.receiptCode,
+      render: r => <span className="font-mono text-xs font-semibold text-primary">{r.receiptCode}</span>,
+    },
+    { key: 'supplier', header: t('stockReceipts.supplier'), value: r => r.supplierName || r.supplierCode || '' },
+    { key: 'receivedDate', header: t('stockReceipts.receivedDate'), width: 120, align: 'center', filter: false, value: r => r.receivedDate ?? '',
+      exportValue: r => formatDateVi(r.receivedDate), render: r => formatDateVi(r.receivedDate) || '—' },
+    { key: 'receiptDate', header: t('stockReceipts.receiptDate'), width: 120, align: 'center', filter: false, value: r => r.receiptDate ?? '',
+      exportValue: r => formatDateVi(r.receiptDate), render: r => formatDateVi(r.receiptDate) || '—' },
+    { key: 'createdBy', header: t('stockReceipts.createdBy'), width: 150, value: r => r.createdBy ?? '' },
+    {
+      key: 'status', header: t('stockReceipts.status'), width: 130, align: 'center', value: r => STATUS_LABELS[r.status] ?? r.status,
+      render: r => <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[r.status] ?? ''}`}>{STATUS_LABELS[r.status] ?? r.status}</span>,
+    },
+    {
+      key: 'value', header: 'Tổng giá trị (USD)', width: 140, numeric: true, filter: false, value: r => r.totalValue ?? 0,
+      render: r => <span className="font-semibold">{fmt(r.totalValue)}</span>,
+    },
+    {
+      key: 'actions', header: 'Thao tác', width: readOnly ? 80 : 130, align: 'center', exportable: false,
+      render: r => (
+        <TableActions>
+          <TableIconButton label={`Xem ${r.receiptCode}`} icon={<Eye />} onClick={() => openDetail(r.id)} />
+          {!readOnly && r.status === 'Draft' && (
+            <>
+              <TableIconButton label={`Sửa ${r.receiptCode}`} icon={<Edit2 />} onClick={() => openEdit(r.id)} />
+              <TableIconButton label={`Xóa ${r.receiptCode}`} icon={<Trash2 />} variant="danger" onClick={() => handleDelete(r.id)} />
+            </>
+          )}
+          {!readOnly && r.status === 'Approved' && (
+            <TableIconButton label={`Hoàn thành nhập kho ${r.receiptCode}`} icon={<CheckCircle />} onClick={() => handleComplete(r.id)} />
+          )}
+        </TableActions>
+      ),
+    },
+  ];
 
   // ─────── LIST VIEW ───────
   if (view === 'list') {
     return (
-      <div className="h-full w-full flex flex-col overflow-hidden bg-white">
-        {/* ── HEADER ROW ── */}
-        <div className="flex flex-shrink-0 border-b border-gray-200">
-          <div className="flex-1 flex items-center justify-between px-4 py-3 bg-white">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-700">
-                ≡ {t('stockReceipts.title')}
-              </span>
-              <span className="text-xs bg-[#dce9f8] text-[#16375f] px-2 py-0.5 rounded-full font-semibold">{total}</span>
-            </div>
-            <div className="flex items-center gap-2">
-            </div>
-          </div>
-        </div>
-
-        {/* ── TABLE ── */}
-        <div className="flex-1 overflow-auto">
-          <table className="min-w-full text-sm border-collapse table-fixed">
-            <thead className="sticky top-0 z-10">
-              {/* Row 1: Column headers + sort icons */}
-              <tr className="bg-[#eef2f7]">
-                <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                <th className="w-[180px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.code')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[160px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.supplier')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.receivedDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.receiptDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[110px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.createdBy')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[100px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.status')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[100px] px-3 py-2 text-right border-b border-r border-gray-200">
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-semibold text-gray-600">Tổng giá trị</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-24 px-3 py-2 border-b border-gray-200"></th>
-              </tr>
-              {/* Row 2: Column filters */}
-              <tr className="bg-white border-b border-gray-200">
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                    <span className="text-gray-400 text-xs select-none">→</span>
-                    <input type="text" placeholder={t('common.search')} value={searchQ} onChange={e => { setSearchQ(e.target.value); setCurrentPage(1); }} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                    <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                    <option value="">Tất cả</option>
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-gray-200"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Đang tải...</td></tr>
-              ) : receipts.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Không có dữ liệu</td></tr>
-              ) : receipts.map((r, idx) => (
-                <tr key={r.id} className={`hover:bg-[#eef2f7] ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                  <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{(currentPage - 1) * pageSize + idx + 1}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <button onClick={() => openDetail(r.id)} className="text-[#0b2545] hover:underline font-medium text-xs">{r.receiptCode}</button>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.supplierName || r.supplierCode || '—'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.receivedDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.receiptDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.createdBy}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>{STATUS_LABELS[r.status] || r.status}</span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-right font-medium border-r border-gray-100">{fmt(r.totalValue)} USD</td>
-                  <td className="px-3 py-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openDetail(r.id)} className="p-1 text-gray-400 hover:text-[#0b2545] hover:bg-[#eef2f7] rounded"><Eye size={15} /></button>
-                      {r.status === 'Draft' && (
-                        <>
-                          {!readOnly && <button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"><Edit2 size={15} /></button>}
-                          {!readOnly && <button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={15} /></button>}
-                        </>
-                      )}
-                      {r.status === 'Approved' && (
-                        <button onClick={() => handleComplete(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Hoàn thành nhập kho"><CheckCircle size={15} /></button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── PAGINATION ── */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-          <div>
-            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }} className="border border-gray-300 rounded px-2 py-1 text-xs">
-              {ITEMS_PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / trang</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="mr-2">Trang {currentPage} / {totalPages} ({total} bản ghi)</span>
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-            {[...Array(Math.min(5, totalPages))].map((_, i) => {
-              let page: number;
-              if (totalPages <= 5) page = i + 1;
-              else if (currentPage <= 3) page = i + 1;
-              else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-              else page = currentPage - 2 + i;
-              return (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
-                  {page}
-                </button>
-              );
-            })}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-          </div>
-          <div className="flex items-center gap-2">
-            <span>Đến trang</span>
-            <input type="number" min={1} max={totalPages} value={currentPage} onChange={e => { const v = Number(e.target.value); if (v >= 1 && v <= totalPages) setCurrentPage(v); }} className="w-12 border border-gray-300 rounded px-1 py-1 text-center text-xs" />
-          </div>
-        </div>
+      <div className="flex h-full min-h-0 w-full flex-col">
+        <DataTable
+          flush
+          columns={columns}
+          data={receipts}
+          rowKey={r => r.id}
+          loading={loading}
+          error={loadError}
+          itemLabel="phiếu"
+          emptyMessage="Chưa có phiếu nhập kho nào."
+          searchPlaceholder="Tìm theo mã phiếu, nhà cung cấp, người lập..."
+          exportOptions={{ fileName: 'phieu-nhap-kho', title: 'PHIẾU NHẬP KHO' }}
+          onRowClick={r => openDetail(r.id)}
+          onAdd={readOnly ? undefined : openCreate}
+          addLabel="Tạo phiếu nhập"
+          minWidth={1050}
+        />
       </div>
     );
   }
@@ -550,7 +452,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
             <button
               onClick={() => setActiveTab('materials')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'materials' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === 'materials' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               <Package size={14} /> Vật tư
@@ -558,7 +460,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
             <button
               onClick={() => setActiveTab('shipping')}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'shipping' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === 'shipping' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               <Truck size={14} /> Vận chuyển
@@ -756,7 +658,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
             <div className="flex items-center col-span-3">
               <label className="text-sm font-medium text-gray-700 text-right pr-3 shrink-0 whitespace-nowrap" style={{ width: 140 }}>Đính kèm tệp tin</label>
               <div className="flex-1">
-                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-blue-800">
+                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-primary">
                   <Paperclip size={14} /> Đính kèm tệp tin
                   <input
                     type="file"
@@ -780,7 +682,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
           <button
             onClick={() => setActiveTab('materials')}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'materials' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === 'materials' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             <Package size={14} /> Vật tư
@@ -788,7 +690,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
           <button
             onClick={() => setActiveTab('shipping')}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'shipping' ? 'border-blue-600 text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === 'shipping' ? 'border-accent text-[#0b2545]' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             <Truck size={14} /> Vận chuyển
@@ -873,12 +775,12 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
               </table>
             </div>
             <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between">
-              <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-blue-800">
+              <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-primary">
                 <Plus size={14} /> Thêm dòng
               </button>
               <button
                 onClick={() => setShowRequestPicker(true)}
-                className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-blue-800"
+                className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-primary"
               >
                 <Plus size={14} /> Chọn yêu cầu nhập kho
               </button>
@@ -892,19 +794,21 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
       </div>
 
       {/* ── Modal: Chọn yêu cầu nhập kho ── */}
-      {showRequestPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <h3 className="font-bold text-base">Chọn yêu cầu nhập kho</h3>
-              <button onClick={() => setShowRequestPicker(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-auto">
+      <Modal
+        isOpen={showRequestPicker}
+        onClose={() => setShowRequestPicker(false)}
+        size="lg"
+        flush
+        icon={<ClipboardList />}
+        title="Chọn yêu cầu nhập kho"
+        subtitle="Chỉ hiện các yêu cầu đã được duyệt."
+      >
+            <div>
               {requestOptions.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">Không có yêu cầu nào đã duyệt</div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-[#eef2f7] sticky top-0">
+                  <thead className="sticky top-0 bg-primary-soft text-[13px] text-primary">
                     <tr>
                       <th className="px-3 py-2 text-left">Mã yêu cầu</th>
                       <th className="px-3 py-2 text-left">Người yêu cầu</th>
@@ -916,15 +820,12 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
                   <tbody>
                     {requestOptions.map(req => (
                       <tr key={req.id} className="border-b hover:bg-gray-50">
-                        <td className="px-3 py-2 font-medium text-[#0b2545]">{req.requestCode}</td>
+                        <td className="px-3 py-2 font-medium text-primary">{req.requestCode}</td>
                         <td className="px-3 py-2 text-gray-600">{req.requestedBy || '—'}</td>
                         <td className="px-3 py-2 text-gray-600">{req.requestDate?.slice(0, 10)}</td>
                         <td className="px-3 py-2 text-right">{req.itemCount || 0}</td>
                         <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => selectRequest(req)}
-                            className="bg-[#0b2545] text-white px-3 py-1 rounded text-xs hover:bg-[#16375f]"
-                          >Chọn</button>
+                          <Button size="sm" variant="primary" onClick={() => selectRequest(req)}>Chọn</Button>
                         </td>
                       </tr>
                     ))}
@@ -932,9 +833,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
                 </table>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

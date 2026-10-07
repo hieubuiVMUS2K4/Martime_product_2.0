@@ -339,7 +339,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-modal, 400);
+  z-index: var(--z-modal, 1300);
   animation: fadeIn 0.15s ease-out;
 }
 

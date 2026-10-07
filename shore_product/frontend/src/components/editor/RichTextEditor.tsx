@@ -44,7 +44,7 @@ function ToolbarButton({
       title={title}
       className={`p-1.5 rounded-md transition-all duration-100 ${
         isActive
-          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shadow-sm'
+          ? 'bg-accent-soft dark:bg-blue-900/40 text-primary dark:text-blue-300 shadow-sm'
           : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200'
       } ${disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
     >

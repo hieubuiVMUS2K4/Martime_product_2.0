@@ -1,17 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Ship, ArrowLeft, Save, Loader2, AlertCircle, ChevronDown, Navigation, Wind, Activity, Users, Anchor } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  AlertCircle, ArrowLeft, ArrowLeftRight, BarChart3, FileText, LayoutDashboard, Loader2, Package, Ship, Users, Wrench,
+} from 'lucide-react';
 import { ENV } from '../../config/env';
+import { Button, useConfirm } from '../../components/common';
 import { VesselCrewTab } from '../../components/vessel-detail/VesselCrewTab';
-import { BasicDataTab } from '../../components/vessel-detail/BasicDataTab';
-import { DimensionsTab } from '../../components/vessel-detail/DimensionsTab';
-import { MachineryTab } from '../../components/vessel-detail/MachineryTab';
-import { ShipownerTab } from '../../components/vessel-detail/ShipownerTab';
-import { ChartererTab } from '../../components/vessel-detail/ChartererTab';
-import { ClassFlagStateTab } from '../../components/vessel-detail/ClassFlagStateTab';
-import { InsuranceTab } from '../../components/vessel-detail/InsuranceTab';
-import { RadioCommTab } from '../../components/vessel-detail/RadioCommTab';
-import { TanksCargoTab } from '../../components/vessel-detail/TanksCargoTab';
+import { VesselParticularsPanel } from '../../components/vessel-detail/VesselParticularsPanel';
+import { isParticularsTab } from '../../components/vessel-detail/vesselParticularsFields';
 import { VesselCertificateTab } from '../../components/vessel-detail/VesselCertificateTab';
 import { VesselOverviewTab } from '../../components/vessel-detail/VesselOverviewTab';
 import AssetsPage from '../PMS/AssetsPage';
@@ -20,8 +16,7 @@ import { MaterialPage } from '../Materials/MaterialPage';
 import MaterialRequestPage from '../Materials/MaterialRequestPage';
 import StockReceiptPage from '../Materials/StockReceiptPage';
 import InventoryPage from '../Materials/InventoryPage';
-import { useToast } from '../../components/common/Toast';
-import './VesselDetailPage.css';
+import { VesselReportsTab } from '../Report/VesselReportsTab';
 
 // ============================================================
 // EXTENDED VESSEL TYPE with all fields from backend
@@ -196,53 +191,46 @@ interface Vessel {
   masterName?: string;
 }
 
-type TabId = 'overview' | 'basic-data' | 'dimensions' | 'machinery' | 'shipowner' | 'charterer' | 'class-flag-state' | 'insurance' | 'radio-comm' | 'tanks-cargo' | 'certificates' | 'crew' | 'pms-assets' | 'pms-work-planning' | 'materials-list' | 'materials-requests' | 'materials-receipts' | 'materials-inventory';
+type TabId = 'overview' | 'basic-data' | 'dimensions' | 'machinery' | 'shipowner' | 'charterer' | 'class-flag-state' | 'insurance' | 'radio-comm' | 'tanks-cargo' | 'certificates' | 'crew' | 'reports-list' | 'reports-calendar' | 'pms-assets' | 'pms-work-planning' | 'materials-list' | 'materials-requests' | 'materials-receipts' | 'materials-inventory';
 
-const TABS: { id: TabId; label: string; edgeSource: boolean }[] = [
-  { id: 'pms-assets',       label: 'Thiết bị',             edgeSource: false },
-  { id: 'pms-work-planning', label: 'Kế hoạch công việc', edgeSource: false },
-  { id: 'materials-list',   label: 'Danh sách vật tư',    edgeSource: false },
-  { id: 'materials-requests', label: 'Yêu cầu vật tư',    edgeSource: false },
-  { id: 'materials-receipts', label: 'Phiếu nhập kho',    edgeSource: false },
-  { id: 'materials-inventory', label: 'Tồn kho',          edgeSource: false },
-  { id: 'overview',         label: 'Tổng quan',          edgeSource: false },
-  { id: 'basic-data',       label: 'Basic Data',        edgeSource: true },
-  { id: 'dimensions',       label: 'Dimensions',         edgeSource: true },
-  { id: 'machinery',        label: 'Machinery',          edgeSource: true },
-  { id: 'shipowner',        label: 'Shipowner',          edgeSource: false },
-  { id: 'charterer',        label: 'Charterer',          edgeSource: false },
-  { id: 'class-flag-state', label: 'Class / Flag State', edgeSource: true },
-  { id: 'insurance',        label: 'Insurance',          edgeSource: false },
-  { id: 'radio-comm',       label: 'Radio Comm.',        edgeSource: true },
-  { id: 'tanks-cargo',      label: 'Tanks & Cargo',      edgeSource: true },
-  { id: 'certificates',     label: 'Chứng chỉ',          edgeSource: false },
-  { id: 'crew',             label: 'Thuyền viên', edgeSource: false },
-];
+/** Thông số tàu (basic-data … insurance) đồng bộ hai chiều: bờ sửa được, tàu sửa được. */
+const TABS: Record<TabId, { label: string }> = {
+  'overview':            { label: 'Tổng quan' },
+  'crew':                { label: 'Thuyền viên' },
+  'basic-data':          { label: 'Thông tin chung' },
+  'dimensions':          { label: 'Kích thước' },
+  'class-flag-state':    { label: 'Đăng kiểm & cờ' },
+  'machinery':           { label: 'Máy móc' },
+  'radio-comm':          { label: 'Thông tin liên lạc' },
+  'tanks-cargo':         { label: 'Két & hầm hàng' },
+  'shipowner':           { label: 'Chủ tàu' },
+  'charterer':           { label: 'Người thuê tàu' },
+  'insurance':           { label: 'Bảo hiểm' },
+  'certificates':        { label: 'Chứng chỉ tàu' },
+  'reports-list':        { label: 'Danh sách báo cáo' },
+  'reports-calendar':    { label: 'Lịch báo cáo' },
+  'pms-assets':          { label: 'Thiết bị' },
+  'pms-work-planning':   { label: 'Kế hoạch công việc' },
+  'materials-list':      { label: 'Danh sách vật tư' },
+  'materials-requests':  { label: 'Yêu cầu vật tư' },
+  'materials-receipts':  { label: 'Phiếu nhập kho' },
+  'materials-inventory': { label: 'Tồn kho' },
+};
 
-// Grouped menus — giống TopNav PMS / Vật tư
-const TAB_GROUPS: { label: string; items: TabId[] }[] = [
+/** Tầng 1: nhóm. Nhóm có nhiều mục thì hiện thêm hàng mục con (tầng 2). */
+const TAB_GROUPS: { id: string; label: string; icon: React.ReactNode; items: TabId[] }[] = [
+  { id: 'overview', label: 'Tổng quan', icon: <LayoutDashboard />, items: ['overview'] },
+  { id: 'crew', label: 'Thuyền viên', icon: <Users />, items: ['crew'] },
   {
-    label: 'Tổng quan',
-    items: ['overview'],
-  },
-  {
-    label: 'Thuyền viên',
-    items: ['crew'],
-  },
-  {
-    label: 'Ship Data',
+    id: 'ship-data', label: 'Thông số tàu', icon: <FileText />,
     items: ['basic-data', 'dimensions', 'class-flag-state', 'machinery', 'radio-comm', 'tanks-cargo', 'shipowner', 'charterer', 'insurance', 'certificates'],
   },
-  {
-    label: 'PMS',
-    items: ['pms-assets', 'pms-work-planning'],
-  },
-  {
-    label: 'Vật tư',
-    items: ['materials-list', 'materials-requests', 'materials-receipts', 'materials-inventory'],
-  },
-  
+  { id: 'reports', label: 'Báo cáo', icon: <BarChart3 />, items: ['reports-list', 'reports-calendar'] },
+  { id: 'pms', label: 'Bảo dưỡng (PMS)', icon: <Wrench />, items: ['pms-assets', 'pms-work-planning'] },
+  { id: 'materials', label: 'Vật tư', icon: <Package />, items: ['materials-list', 'materials-requests', 'materials-receipts', 'materials-inventory'] },
 ];
+
+const groupOf = (tab: TabId) => TAB_GROUPS.find(g => g.items.includes(tab))!;
 
 // ============================================================
 // API Helper
@@ -258,52 +246,68 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+interface TelemetryRealtime {
+  latest?: { latitude: number; longitude: number; speedOverGround?: number | null; courseOverGround?: number | null; timestamp: string };
+  engine?: { isRunning: boolean };
+}
+
+interface CrewLite {
+  fullName?: string; name?: string; firstName?: string; lastName?: string;
+  rank?: string; rankName?: string; position?: string;
+}
+
+interface VesselStatus {
+  latitude?: number;
+  longitude?: number;
+  speedOverGround?: number;
+  courseOverGround?: number;
+  timestamp?: string;
+  captainName?: string;
+  engineRunning?: boolean;
+  crewCount?: number;
+  lastReport?: string;
+}
+
+const applyTelemetry = (prev: VesselStatus | null, t: TelemetryRealtime | null): VesselStatus | null => {
+  if (!t?.latest && !t?.engine) return prev;
+  const next = { ...prev };
+  if (t.latest) {
+    next.latitude = t.latest.latitude;
+    next.longitude = t.latest.longitude;
+    next.speedOverGround = t.latest.speedOverGround ?? undefined;
+    next.courseOverGround = t.latest.courseOverGround ?? undefined;
+    next.timestamp = t.latest.timestamp;
+  }
+  if (t.engine) next.engineRunning = t.engine.isRunning;
+  return next;
+};
+
 // ============================================================
 // Main Component
 // ============================================================
 export const VesselDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const toast = useToast();
 
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Mở thẳng một tab qua ?tab= (vd. từ địa chỉ cũ /report/vessel/:id → ?tab=reports)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const t = searchParams.get('tab');
+    if (t === 'reports') return 'reports-list';
+    return t && t in TABS ? (t as TabId) : 'overview';
+  });
+  /** Mục con mở gần nhất của từng nhóm, để quay lại nhóm thì về đúng chỗ cũ. */
+  const [lastInGroup, setLastInGroup] = useState<Record<string, TabId>>({});
   const [vessel, setVessel] = useState<Vessel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  /** Đang sửa dở thông số tàu (để hỏi trước khi rời nhóm Thông số tàu). */
+  const [particularsDirty, setParticularsDirty] = useState(false);
+  const ask = useConfirm();
 
-  const [formData, setFormData] = useState<Partial<Vessel>>({});
-
-  // ── Telemetry & status ──
-  interface VesselStatus {
-    latitude?: number;
-    longitude?: number;
-    speedOverGround?: number;
-    courseOverGround?: number;
-    timestamp?: string;
-    captainName?: string;
-    engineRunning?: boolean;
-    crewCount?: number;
-    lastReport?: string;
-  }
   const [vesselStatus, setVesselStatus] = useState<VesselStatus | null>(null);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const insideTab = Object.values(groupRefs.current).some(
-        ref => ref && ref.contains(e.target as Node)
-      );
-      if (!insideTab) setOpenGroup(null);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // Load vessel data + telemetry
+  // Tải tàu + vị trí/động cơ + thuyền viên
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -311,57 +315,32 @@ export const VesselDetailPage: React.FC = () => {
 
     const loadAll = async () => {
       try {
-        // Fetch vessel + telemetry + crew song song
         const [vData, posRes, crewRes] = await Promise.all([
           apiFetch<Vessel>(`${BASE}/vessels/${id}`),
-          apiFetch<any>(`${BASE}/vessel-telemetry/vessel/${id}/realtime?hours=1`).catch(() => null),
-          apiFetch<any>(`${BASE}/crew/vessel/${id}`).catch(() => null),
+          apiFetch<TelemetryRealtime>(`${BASE}/vessel-telemetry/vessel/${id}/realtime?hours=1`).catch(() => null),
+          apiFetch<CrewLite[] | { data?: CrewLite[] }>(`${BASE}/crew/vessel/${id}`).catch(() => null),
         ]);
 
         setVessel(vData);
-        setFormData(vData);
+        setVesselStatus(prev => applyTelemetry(prev, posRes));
 
-        // Parse telemetry
-        if (posRes?.latest) {
-          const l = posRes.latest;
-          setVesselStatus(prev => ({
-            ...prev,
-            latitude: l.latitude,
-            longitude: l.longitude,
-            speedOverGround: l.speedOverGround ?? undefined,
-            courseOverGround: l.courseOverGround ?? undefined,
-            timestamp: l.timestamp,
-          }));
-        }
-
-        // Parse engine status từ realtime API
-        if (posRes?.engine) {
-          setVesselStatus(prev => ({
-            ...prev,
-            engineRunning: posRes.engine.isRunning,
-          }));
-        }
-
-        // Parse crew
         if (crewRes) {
-          const crewList = crewRes?.data || crewRes || [];
-          const captain = Array.isArray(crewList)
-            ? crewList.find((c: any) =>
-                c.rank?.toLowerCase()?.includes('captain') ||
-                c.position?.toLowerCase()?.includes('master') ||
-                c.rankName?.toLowerCase()?.includes('thuyền trưởng')
-              )
-            : undefined;
+          const crewList = Array.isArray(crewRes) ? crewRes : crewRes.data ?? [];
+          const captain = crewList.find(c =>
+            c.rank?.toLowerCase()?.includes('captain') ||
+            c.position?.toLowerCase()?.includes('master') ||
+            c.rankName?.toLowerCase()?.includes('thuyền trưởng')
+          );
           setVesselStatus(prev => ({
             ...prev,
             captainName: captain
               ? (captain.fullName || captain.name || `${captain.firstName || ''} ${captain.lastName || ''}`.trim())
               : undefined,
-            crewCount: Array.isArray(crewList) ? crewList.length : undefined,
+            crewCount: crewList.length,
           }));
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load vessel');
+        setError(e instanceof Error ? e.message : 'Không tải được dữ liệu tàu');
       } finally {
         setLoading(false);
       }
@@ -370,121 +349,31 @@ export const VesselDetailPage: React.FC = () => {
     loadAll();
   }, [id]);
 
-  // ── Auto-refresh telemetry (vị trí + động cơ) mỗi 30s ──
+  // Cập nhật vị trí + động cơ mỗi 10s
   useEffect(() => {
     if (!id) return;
     const interval = setInterval(async () => {
-      try {
-        const posRes = await apiFetch<any>(`${BASE}/vessel-telemetry/vessel/${id}/realtime?hours=1`).catch(() => null);
-        if (posRes?.latest) {
-          const l = posRes.latest;
-          setVesselStatus(prev => ({
-            ...prev,
-            latitude: l.latitude,
-            longitude: l.longitude,
-            speedOverGround: l.speedOverGround ?? undefined,
-            courseOverGround: l.courseOverGround ?? undefined,
-            timestamp: l.timestamp,
-          }));
-        }
-        if (posRes?.engine) {
-          setVesselStatus(prev => ({ ...prev, engineRunning: posRes.engine.isRunning }));
-        }
-      } catch {
-        // Silent fail — không làm gián đoạn trải nghiệm
-      }
+      const posRes = await apiFetch<TelemetryRealtime>(`${BASE}/vessel-telemetry/vessel/${id}/realtime?hours=1`).catch(() => null);
+      setVesselStatus(prev => applyTelemetry(prev, posRes));
     }, 10000);
     return () => clearInterval(interval);
   }, [id]);
 
-  const handleChange = useCallback((field: keyof Vessel, value: Vessel[keyof Vessel]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setIsDirty(true);
-  }, []);
-
-  const selectTab = (tabId: TabId) => {
+  const selectTab = async (tabId: TabId) => {
+    if (particularsDirty && !isParticularsTab(tabId) &&
+        !await ask('Thông số tàu còn thay đổi chưa lưu. Rời đi sẽ mất các thay đổi này.', { title: 'Bỏ thay đổi?', confirmLabel: 'Bỏ thay đổi' })) return;
+    if (!isParticularsTab(tabId)) setParticularsDirty(false);
     setActiveTab(tabId);
-    setOpenGroup(null);
+    setLastInGroup(prev => ({ ...prev, [groupOf(tabId).id]: tabId }));
 
-    if ((tabId.startsWith('pms-') || tabId.startsWith('materials-')) && id) {
-      navigate(`/vessels/${id}?vesselId=${id}`, { replace: true });
-    }
+    // Ghi tab lên địa chỉ: F5, gửi link hay "Quay lại" từ một báo cáo đều mở đúng tab.
+    // Trang PMS/Vật tư nhúng vẫn đọc vesselId từ địa chỉ như trước.
+    const params: Record<string, string> = { tab: tabId };
+    if ((tabId.startsWith('pms-') || tabId.startsWith('materials-')) && id) params.vesselId = id;
+    setSearchParams(params, { replace: true });
   };
 
-  const handleSave = async () => {
-    if (!id) return;
-    setSaving(true);
-    try {
-      // Only send commercial fields that can be edited on Shore
-      const commercialFields = {
-        // Shipowner
-        shipownerName: formData.shipownerName,
-        shipownerStreet: formData.shipownerStreet,
-        shipownerCountry: formData.shipownerCountry,
-        shipownerZip: formData.shipownerZip,
-        shipownerCity: formData.shipownerCity,
-        shipownerPhone: formData.shipownerPhone,
-        shipownerFax: formData.shipownerFax,
-        shipownerEmail: formData.shipownerEmail,
-        shipownerContactPerson: formData.shipownerContactPerson,
-        managingOwnerName: formData.managingOwnerName,
-        managingOwnerEmail: formData.managingOwnerEmail,
-        managingOwnerContactPerson: formData.managingOwnerContactPerson,
-        operatorName: formData.operatorName,
-        operatorEmail: formData.operatorEmail,
-        operatorContactPerson: formData.operatorContactPerson,
-        csoFirstName: formData.csoFirstName,
-        csoLastName: formData.csoLastName,
-        csoEmail: formData.csoEmail,
-        csoPhone24h: formData.csoPhone24h,
-        dpaFirstName: formData.dpaFirstName,
-        dpaLastName: formData.dpaLastName,
-        dpaEmail: formData.dpaEmail,
-        dpaPhone24h: formData.dpaPhone24h,
-        // Charterer
-        chartererName: formData.chartererName,
-        chartererStreet: formData.chartererStreet,
-        chartererCountry: formData.chartererCountry,
-        chartererZip: formData.chartererZip,
-        chartererCity: formData.chartererCity,
-        chartererPhone: formData.chartererPhone,
-        chartererEmail: formData.chartererEmail,
-        chartererContactPerson: formData.chartererContactPerson,
-        bareboatChartererName: formData.bareboatChartererName,
-        bareboatChartererEmail: formData.bareboatChartererEmail,
-        bareboatChartererContactPerson: formData.bareboatChartererContactPerson,
-        // Insurance
-        piClubName: formData.piClubName,
-        piClubStreet: formData.piClubStreet,
-        piClubCountry: formData.piClubCountry,
-        piClubZip: formData.piClubZip,
-        piClubCity: formData.piClubCity,
-        piClubPhone: formData.piClubPhone,
-        piClubEmail: formData.piClubEmail,
-        piClubContactPerson: formData.piClubContactPerson,
-        hmClubName: formData.hmClubName,
-        hmClubEmail: formData.hmClubEmail,
-        hmClubContactPerson: formData.hmClubContactPerson,
-      };
-
-      await apiFetch(`${BASE}/vessels/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(commercialFields),
-      });
-      
-      setIsDirty(false);
-      toast.success('Đã lưu dữ liệu thương mại. Dữ liệu sẽ đồng bộ sang Edge trong lần pull tiếp theo.');
-      
-      // Reload
-      const updated = await apiFetch<Vessel>(`${BASE}/vessels/${id}`);
-      setVessel(updated);
-      setFormData(updated);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Không thể lưu');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const selectGroup = (group: typeof TAB_GROUPS[number]) => selectTab(lastInGroup[group.id] ?? group.items[0]);
 
   const renderTabContent = () => {
     if (!vessel) return null;
@@ -492,62 +381,44 @@ export const VesselDetailPage: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return <VesselOverviewTab vessel={vessel} vesselStatus={vesselStatus} />;
-
       case 'basic-data':
-        return <BasicDataTab vessel={vessel} />;
-
       case 'dimensions':
-        return <DimensionsTab vessel={vessel} />;
-
       case 'machinery':
-        return <MachineryTab vessel={vessel} />;
-
       case 'shipowner':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <ShipownerTab vessel={vessel} formData={formData} onChange={handleChange as any} />;
-
       case 'charterer':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <ChartererTab vessel={vessel} formData={formData} onChange={handleChange as any} />;
-
       case 'class-flag-state':
-        return <ClassFlagStateTab vessel={vessel} />;
-
       case 'insurance':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return <InsuranceTab vessel={vessel} formData={formData} onChange={handleChange as any} />;
-
       case 'radio-comm':
-        return <RadioCommTab vessel={vessel} />;
-
       case 'tanks-cargo':
-        return <TanksCargoTab vessel={vessel} />;
-
+        return (
+          <VesselParticularsPanel
+            vesselId={id!}
+            tab={activeTab}
+            onDirtyChange={setParticularsDirty}
+            onSaved={data => setVessel(prev => (prev ? { ...prev, ...(data as Partial<Vessel>) } : prev))}
+          />
+        );
       case 'certificates':
         return <VesselCertificateTab vesselId={id!} vesselName={vessel.name || 'Vessel'} />;
-
       case 'crew':
         return <VesselCrewTab vesselId={id!} vesselName={vessel.name || 'Vessel'} />;
-
       // Bờ chỉ xem hoạt động dưới tàu — lọc theo tàu đang mở, không cho sửa.
       case 'pms-assets':
         return <AssetsPage vesselId={id!} readOnly />;
-
       case 'pms-work-planning':
         return <WorkPlanningPage vesselId={id!} readOnly />;
-
       case 'materials-list':
         return <MaterialPage vesselId={id!} />;
-
       case 'materials-requests':
         return <MaterialRequestPage vesselId={id!} readOnly />;
-
       case 'materials-receipts':
         return <StockReceiptPage vesselId={id!} readOnly />;
-
       case 'materials-inventory':
         return <InventoryPage vesselId={id!} readOnly />;
-
+      case 'reports-list':
+        return <VesselReportsTab vesselId={id!} view="list" />;
+      case 'reports-calendar':
+        return <VesselReportsTab vesselId={id!} view="calendar" />;
       default:
         return null;
     }
@@ -555,127 +426,125 @@ export const VesselDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="vd-loading-screen">
-        <Loader2 size={32} className="vd-spin" />
-        <span>Loading vessel data...</span>
+      <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-muted">
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Đang tải dữ liệu tàu...
       </div>
     );
   }
 
   if (error || !vessel) {
     return (
-      <div className="vd-error-screen">
-        <AlertCircle size={32} />
-        <span>{error ?? 'Vessel not found'}</span>
-        <button className="vd-btn" onClick={() => navigate('/vessels')}>
-          Back to list
-        </button>
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-[13px] text-ink-muted">
+        <AlertCircle className="h-7 w-7 text-red-600" aria-hidden="true" />
+        <span>{error ?? 'Không tìm thấy tàu'}</span>
+        <Button variant="secondary" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/vessels')}>Về danh sách tàu</Button>
       </div>
     );
   }
 
-  const currentTab = TABS.find(t => t.id === activeTab);
-  const isEditable = currentTab && !currentTab.edgeSource;
-  const isWorkspaceTab = activeTab.startsWith('pms-') || activeTab.startsWith('materials-');
+  const isWorkspaceTab = activeTab.startsWith('pms-') || activeTab.startsWith('materials-') || activeTab.startsWith('reports-');
+  const activeGroup = groupOf(activeTab);
+  const meta = [vessel.imo && `IMO ${vessel.imo}`, vessel.callSign, vessel.vesselType, vessel.flag].filter(Boolean);
 
   return (
-    <div className="vd-page-new">
-      {/* Header */}
-      <div className="vd-header-new">
-        <button className="vd-back-btn-new" onClick={() => navigate('/vessels')}>
-          <ArrowLeft size={18} />
-        </button>
-        <div className="vd-header-left">
-          <Ship className="vd-ship-icon" size={24} />
-          <div>
-            <h1 className="vd-title-new">{vessel.name}</h1>
-            {vessel.imo && (
-              <p className="vd-subtitle">IMO: {vessel.imo} • {vessel.callSign}</p>
-            )}
+    <div className="flex h-full min-h-0 flex-col bg-canvas">
+      {/* ── Đầu trang + thanh tab ── */}
+      <div className="shrink-0 border-b border-line bg-surface">
+        <header className="flex items-center gap-3 px-6 pb-2 pt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/vessels')}
+            aria-label="Về danh sách tàu"
+            title="Về danh sách tàu"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line text-ink-muted transition-colors hover:border-accent/40 hover:bg-primary-soft hover:text-primary"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-white">
+            <Ship className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2.5 text-lg font-bold leading-7 text-ink">
+              <span className="truncate">{vessel.name}</span>
+              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                vessel.isActive ? 'bg-emerald-50 text-emerald-700 [&>i]:bg-emerald-500' : 'bg-slate-100 text-slate-600 [&>i]:bg-slate-400'
+              }`}>
+                <i className="h-1.5 w-1.5 rounded-full" />{vessel.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+              </span>
+            </h1>
+            <p className="truncate text-[13px] text-ink-muted">
+              {meta.map((m, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="mx-1.5 text-ink-light">·</span>}
+                  <span className={i <= 1 ? 'font-mono' : ''}>{m}</span>
+                </React.Fragment>
+              ))}
+            </p>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Tab group menu bar */}
-      <div className="vd-tabs-new">
-        <div className="vd-tabs-nav">
+        {/* Tầng 1: nhóm */}
+        <nav className="flex gap-1 overflow-x-auto px-6" role="tablist" aria-label="Nhóm thông tin tàu">
           {TAB_GROUPS.map(group => {
-            const groupActive = group.items.includes(activeTab);
-            const isOpen = openGroup === group.label;
+            const on = group.id === activeGroup.id;
             return (
-              <div
-                key={group.label}
-                className="vd-tab-group"
-                ref={el => { groupRefs.current[group.label] = el; }}
+              <button
+                key={group.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => selectGroup(group)}
+                className={`-mb-px inline-flex h-10 shrink-0 items-center gap-2 border-b-2 px-3.5 text-sm transition-colors [&>svg]:h-4 [&>svg]:w-4 ${
+                  on ? 'border-primary font-semibold text-primary' : 'border-transparent text-ink-muted hover:border-line hover:text-ink'
+                }`}
               >
-                <button
-                  className={`vd-tab-btn${groupActive ? ' vd-tab-btn--active' : ''}`}
-                  onClick={() => setOpenGroup(isOpen ? null : group.label)}
-                >
-                  {group.label}
-                  <ChevronDown size={13} className={`vd-tab-chevron${isOpen ? ' vd-tab-chevron--open' : ''}`} />
-                </button>
-                {isOpen && (
-                  <div className="vd-tab-dropdown">
-                    {group.items.map(tabId => {
-                      const tab = TABS.find(t => t.id === tabId)!;
-                      return (
-                        <button
-                          key={tabId}
-                          className={`vd-tab-dropdown-item${activeTab === tabId ? ' vd-tab-dropdown-item--active' : ''}`}
-                          onClick={() => selectTab(tabId)}
-                        >
-                          <span>{tab.label}</span>
-                          {tab.edgeSource && <span className="vd-edge-dot" title="Synced from Edge">⚡</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {group.icon}
+                {group.label}
+                {group.items.length > 1 && (
+                  <span className={`rounded-full px-1.5 text-xs tabular-nums ${on ? 'bg-primary-soft text-primary' : 'bg-canvas text-ink-light'}`}>
+                    {group.items.length}
+                  </span>
                 )}
-              </div>
+              </button>
             );
           })}
-          {/* Active tab label breadcrumb */}
-          <span className="vd-active-tab-label">
-            {TABS.find(t => t.id === activeTab)?.label}
-            {TABS.find(t => t.id === activeTab)?.edgeSource && <span className="vd-edge-indicator" title="Synced from Edge">⚡</span>}
-          </span>
-        </div>
+        </nav>
       </div>
 
-      {/* Tab Content */}
-      <div className={`vd-content-new${isWorkspaceTab ? ' vd-content-new--flush' : ''}`}>
+      {/* Tầng 2: mục con của nhóm đang mở */}
+      {activeGroup.items.length > 1 && (
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-surface/70 px-6 py-2" role="tablist" aria-label={activeGroup.label}>
+          {activeGroup.items.map(tabId => {
+            const tab = TABS[tabId];
+            const on = tabId === activeTab;
+            return (
+              <button
+                key={tabId}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => selectTab(tabId)}
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-[13px] transition-colors ${
+                  on ? 'bg-primary text-white font-semibold' : 'text-ink-muted hover:bg-primary-soft hover:text-ink'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+          {isParticularsTab(activeTab) && (
+            <span className="ml-auto hidden shrink-0 items-center gap-1.5 pl-4 text-[13px] text-ink-muted md:inline-flex">
+              <ArrowLeftRight className="h-4 w-4" aria-hidden="true" /> Bờ và tàu cùng sửa được, tự đồng bộ hai chiều
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ── Nội dung tab ── */}
+      <div className={isWorkspaceTab ? 'flex min-h-0 flex-1 overflow-hidden bg-surface [&>*]:min-h-0 [&>*]:min-w-0 [&>*]:flex-1' : 'min-h-0 flex-1 overflow-y-auto px-6 py-5'}>
         {renderTabContent()}
       </div>
 
-      {/* Floating Save Bar — only when editable tab has changes */}
-      {isDirty && isEditable && (
-        <div className="vd-floating-save">
-          <div className="vd-floating-save-inner">
-            <div className="vd-floating-save-info">
-              <AlertCircle size={16} />
-              <span>Bạn có thay đổi chưa được lưu</span>
-            </div>
-            <button
-              className="vd-floating-save-btn"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={16} className="vd-spin" />
-                  <span>Đang lưu...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={16} />
-                  <span>Lưu dữ liệu thương mại</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

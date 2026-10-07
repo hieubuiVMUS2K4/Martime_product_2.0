@@ -97,6 +97,10 @@ namespace ProductApi.Services.Background
                 if (resent > 0)
                     _logger.LogInformation("[NETWORK-SYNC] Đối soát: đẩy lại {Count} kỳ phục vụ chưa được tàu áp dụng", resent);
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 // Không để việc đối soát làm hỏng cả chu kỳ đồng bộ
@@ -144,6 +148,9 @@ namespace ProductApi.Services.Background
                     }
                     catch (Exception ex)
                     {
+                        // Logging providers are being disposed during shutdown.
+                        if (stoppingToken.IsCancellationRequested) break;
+
                         _logger.LogError(
                             ex,
                             "[NETWORK-SYNC] Error in network-aware sync loop");
