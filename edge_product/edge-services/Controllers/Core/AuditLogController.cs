@@ -42,11 +42,12 @@ public class AuditLogController : ControllerBase
     public async Task<IActionResult> GetAuditLogs(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
-        [FromQuery] string? category = null,
-        [FromQuery] string? action = null,
-        [FromQuery] string? level = null,
-        [FromQuery] string? entityType = null,
-        [FromQuery] string? username = null,
+        [FromQuery] string[]? category = null,
+        [FromQuery] string[]? action = null,
+        [FromQuery] string[]? level = null,
+        [FromQuery] string[]? entityType = null,
+        [FromQuery] string[]? username = null,
+        [FromQuery] string[]? message = null,
         [FromQuery] string? search = null,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null)
@@ -63,17 +64,25 @@ public class AuditLogController : ControllerBase
 
             var query = _context.SystemLogs.AsNoTracking().AsQueryable();
 
-            // Apply filters
-            if (!string.IsNullOrWhiteSpace(category))
-                query = query.Where(l => l.Category == category);
-            if (!string.IsNullOrWhiteSpace(action))
-                query = query.Where(l => l.Action == action);
-            if (!string.IsNullOrWhiteSpace(level))
-                query = query.Where(l => l.Level == level);
-            if (!string.IsNullOrWhiteSpace(entityType))
-                query = query.Where(l => l.EntityType == entityType);
-            if (!string.IsNullOrWhiteSpace(username))
-                query = query.Where(l => l.Username != null && l.Username.Contains(username));
+            // Apply filters — mỗi bộ lọc nhận nhiều giá trị (?level=INFO&level=WARNING), khớp chính xác
+            var categories = Values(category);
+            if (categories.Count > 0)
+                query = query.Where(l => categories.Contains(l.Category));
+            var actions = Values(action);
+            if (actions.Count > 0)
+                query = query.Where(l => actions.Contains(l.Action));
+            var levels = Values(level);
+            if (levels.Count > 0)
+                query = query.Where(l => levels.Contains(l.Level));
+            var entityTypes = Values(entityType);
+            if (entityTypes.Count > 0)
+                query = query.Where(l => l.EntityType != null && entityTypes.Contains(l.EntityType));
+            var usernames = Values(username);
+            if (usernames.Count > 0)
+                query = query.Where(l => l.Username != null && usernames.Contains(l.Username));
+            var messages = Values(message);
+            if (messages.Count > 0)
+                query = query.Where(l => l.Message != null && messages.Contains(l.Message));
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(l =>
                     (l.Message != null && l.Message.Contains(search)) ||
@@ -202,6 +211,39 @@ public class AuditLogController : ControllerBase
         {
             _logger.LogError(ex, "Error fetching audit stats");
             return StatusCode(500, new { success = false, message = "Error fetching audit stats" });
+        }
+    }
+
+    private static List<string> Values(string[]? values) =>
+        values?.Where(v => !string.IsNullOrWhiteSpace(v)).Distinct().ToList() ?? new List<string>();
+
+    /// <summary>
+    /// GET /api/audit-logs/filter-options
+    /// Giá trị riêng biệt của từng cột cho menu lọc trên tiêu đề bảng nhật ký
+    /// </summary>
+    [HttpGet("filter-options")]
+    public async Task<IActionResult> GetFilterOptions()
+    {
+        var authResult = await AuthorizeAdminOrCaptain();
+        if (authResult != null) return authResult;
+
+        try
+        {
+            var logs = _context.SystemLogs.AsNoTracking();
+            var categories = await logs.Select(l => l.Category).Distinct().OrderBy(v => v).ToListAsync();
+            var actions = await logs.Select(l => l.Action).Distinct().OrderBy(v => v).ToListAsync();
+            var levels = await logs.Select(l => l.Level).Distinct().OrderBy(v => v).ToListAsync();
+            var entityTypes = await logs.Where(l => l.EntityType != null).Select(l => l.EntityType!).Distinct().OrderBy(v => v).ToListAsync();
+            var usernames = await logs.Where(l => l.Username != null).Select(l => l.Username!).Distinct().OrderBy(v => v).ToListAsync();
+            // Nội dung có thể rất nhiều — giới hạn để menu lọc không quá nặng
+            var messages = await logs.Where(l => l.Message != null).Select(l => l.Message!).Distinct().OrderBy(v => v).Take(2000).ToListAsync();
+
+            return Ok(new { success = true, categories, actions, levels, entityTypes, usernames, messages });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching audit log filter options");
+            return StatusCode(500, new { success = false, message = "Error fetching filter options" });
         }
     }
 

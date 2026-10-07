@@ -117,7 +117,7 @@ public abstract class BaseSyncEnqueuerService<TEntity> : BackgroundService
             syncQueueItems.Add(new SyncQueue
             {
                 TableName = EntityTableName,
-                RecordKey = GetEntityId(entity).ToString(),
+                RecordKey = GetEntityId(entity).ToString() ?? string.Empty,
                 ActionType = SyncActionType.CREATE,
                 Payload = payload,
                 Priority = SyncPriority.Critical,

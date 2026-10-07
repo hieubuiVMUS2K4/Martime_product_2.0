@@ -1,6 +1,7 @@
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Plus, Search, Trash2, Edit2, Save, X, FolderOpen, Warehouse, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { DataTable, TableActions, type Column } from '@/components/common/DataTable';
 import { toast } from 'sonner';
 import { storeLocationService } from '@/services/store-location.service';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -15,18 +16,7 @@ export default function StoreLocationPage() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [collapsedLocations, setCollapsedLocations] = useState<Set<string>>(new Set());
 
-  const [searchName, setSearchName] = useState('');
-  const [searchCode, setSearchCode] = useState('');
-  const [searchDesc, setSearchDesc] = useState('');
-  const [searchAddress, setSearchAddress] = useState('');
-  const [searchManager, setSearchManager] = useState('');
-  const [searchPhone, setSearchPhone] = useState('');
-  const [searchEmail, setSearchEmail] = useState('');
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(25);
-
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -97,26 +87,9 @@ export default function StoreLocationPage() {
       data = data.filter(l => ids.has(l.id));
     }
 
-    if (searchName) data = data.filter(l => l.name.toLowerCase().includes(searchName.toLowerCase()));
-    if (searchCode) data = data.filter(l => l.locationCode.toLowerCase().includes(searchCode.toLowerCase()));
-    if (searchDesc) data = data.filter(l => l.description?.toLowerCase().includes(searchDesc.toLowerCase()));
-    if (searchAddress) data = data.filter(l => l.address?.toLowerCase().includes(searchAddress.toLowerCase()));
-    if (searchManager) data = data.filter(l => l.managerName?.toLowerCase().includes(searchManager.toLowerCase()));
-    if (searchPhone) data = data.filter(l => l.phone?.toLowerCase().includes(searchPhone.toLowerCase()));
-    if (searchEmail) data = data.filter(l => l.email?.toLowerCase().includes(searchEmail.toLowerCase()));
 
     return data;
-  }, [locations, locationMap, selectedLocationId, searchName, searchCode, searchDesc, searchAddress, searchManager, searchPhone, searchEmail]);
-
-  const totalPages = Math.ceil(filteredLocations.length / itemsPerPage);
-  const paginatedLocations = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredLocations.slice(start, start + itemsPerPage);
-  }, [filteredLocations, currentPage, itemsPerPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedLocationId, searchName, searchCode, searchDesc, searchAddress, searchManager, searchPhone, searchEmail]);
+  }, [locations, selectedLocationId]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -129,19 +102,6 @@ export default function StoreLocationPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [contextMenu]);
 
-  const toggleRow = (id: string) => {
-    setSelectedRows(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAllRows = () => {
-    if (selectedRows.size === paginatedLocations.length) setSelectedRows(new Set());
-    else setSelectedRows(new Set(paginatedLocations.map(l => l.id))); 
-  };
-
   const handleBulkDelete = async () => {
     if (selectedRows.size === 0) return;
     toast(t('storeLocations.confirmBulkDelete', { count: selectedRows.size }), {
@@ -149,7 +109,7 @@ export default function StoreLocationPage() {
         label: t('storeLocations.delete') || 'Xóa',
         onClick: async () => {
           try {
-            await Promise.all([...selectedRows].map(id => storeLocationService.delete(id)));
+            await Promise.all([...selectedRows].map(id => storeLocationService.delete(String(id))));
             setSelectedRows(new Set());
             await loadData();
             toast.success('Xóa các vị trí kho thành công');
@@ -257,6 +217,47 @@ export default function StoreLocationPage() {
 
 
 
+  const childCount = (id: string) => locations.filter(l => l.parentId === id).length;
+  const muted = (v?: string | null) => v || <span className="text-gray-400">—</span>;
+
+  const columns: Column<StoreLocation>[] = [
+    {
+      key: 'name', header: t('storeLocations.colName'), width: 240, value: l => l.name,
+      render: l => (
+        <button type="button" onClick={() => setSelectedLocationId(l.id)} title={l.name}
+          className="flex w-full min-w-0 items-center gap-1.5 text-left font-medium text-blue-600 hover:underline">
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+          <span className="truncate">{l.name}</span>
+          {childCount(l.id) > 0 && <span className="shrink-0 text-[11px] font-normal text-gray-400">({childCount(l.id)})</span>}
+        </button>
+      ),
+    },
+    { key: 'code', header: t('storeLocations.colCode'), width: 140, value: l => l.locationCode, className: 'font-mono' },
+    { key: 'description', header: t('storeLocations.colDescription'), value: l => l.description ?? '', render: l => muted(l.description) },
+    { key: 'address', header: t('storeLocations.colAddress'), width: 180, value: l => l.address ?? '', render: l => muted(l.address) },
+    { key: 'manager', header: t('storeLocations.colManager'), width: 160, value: l => l.managerName ?? '', render: l => muted(l.managerName) },
+    { key: 'phone', header: t('storeLocations.colPhone'), width: 130, value: l => l.phone ?? '', render: l => muted(l.phone) },
+    { key: 'email', header: t('storeLocations.colEmail'), width: 190, value: l => l.email ?? '', render: l => muted(l.email) },
+    {
+      key: 'updatedAt', header: t('storeLocations.colUpdatedAt'), width: 110, align: 'center', value: l => l.updatedAt ?? '', filter: l => (l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('vi-VN') : ''),
+      exportValue: l => (l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('vi-VN') : ''),
+      render: l => (l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('vi-VN') : '—'),
+    },
+    {
+      key: 'actions', header: 'Hành động', width: 90, align: 'center', exportable: false,
+      render: l => (
+        <TableActions>
+          <PermissionGate permission="pms.locations.update">
+            <button type="button" onClick={() => openEditModal(l)} className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600" title={t('storeLocations.edit')} aria-label={`${t('storeLocations.edit')} ${l.name}`}><Edit2 className="h-3.5 w-3.5" /></button>
+          </PermissionGate>
+          <PermissionGate permission="pms.locations.delete">
+            <button type="button" onClick={() => handleDelete(l)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title={t('storeLocations.delete')} aria-label={`${t('storeLocations.delete')} ${l.name}`}><Trash2 className="h-3.5 w-3.5" /></button>
+          </PermissionGate>
+        </TableActions>
+      ),
+    },
+  ];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -307,93 +308,20 @@ export default function StoreLocationPage() {
         <aside className="flex min-h-0 w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
           <div className="min-h-0 flex-1 overflow-y-auto py-1">{locations.filter(l => !l.parentId || !locationMap.has(l.parentId)).map(l => renderLocation(l, 0))}</div>
         </aside>
-        <div className="min-w-0 flex-1 flex flex-col overflow-hidden min-h-0">
-          <>
-              <div className="min-h-0 min-w-0 flex-1 overflow-x-scroll overflow-y-auto" aria-label="Danh sách vị trí kho">
-                <table className="table-fixed border-separate border-spacing-0 text-sm" style={{ width: 1860 }}>
-                  <colgroup>{[40, 40, 260, 150, 240, 220, 200, 160, 240, 190, 120].map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
-                  <thead className="sticky top-0 z-30">
-                    <tr className="bg-blue-50">
-                      <th className="sticky left-0 z-40 bg-blue-50 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                      <th className="sticky left-10 z-40 bg-blue-50 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">
-                        <input type="checkbox" checked={selectedRows.size === paginatedLocations.length && paginatedLocations.length > 0} onChange={toggleAllRows} className="rounded text-blue-600" />
-                      </th>
-                      {[
-                        { key: 'colName', minW: 'min-w-[200px]' },
-                        { key: 'colCode', minW: 'w-32' },
-                        { key: 'colDescription', minW: 'min-w-[160px]' },
-                        { key: 'colAddress', minW: 'min-w-[140px]' },
-                        { key: 'colManager', minW: 'w-36' },
-                        { key: 'colPhone', minW: 'w-32' },
-                        { key: 'colEmail', minW: 'w-36' },
-                        { key: 'colUpdatedAt', minW: 'w-28' },
-                      ].map(col => (
-                        <th key={col.key} className={`bg-blue-50 px-3 py-2 text-left border-b border-gray-200 ${col.key === 'colUpdatedAt' ? '' : 'border-r'} ${col.key === 'colName' ? 'sticky left-20 z-40' : ''}`}>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-xs font-semibold text-gray-600">{t(`storeLocations.${col.key}`)}</span>
-                          </div>
-                        </th>
-                      ))}
-                      <th className="sticky right-0 z-40 bg-blue-50 px-2 py-2 border-b border-l border-gray-200 text-xs font-semibold text-gray-600">Hành động</th>
-                    </tr>
-                    <tr className="bg-white border-b border-gray-200">
-                      <th className="sticky left-0 z-40 bg-white border-b border-r border-gray-200" />
-                      <th className="sticky left-10 z-40 bg-white border-b border-r border-gray-200" />
-                      <th className="sticky left-20 z-40 bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchName} onChange={e => setSearchName(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchCode} onChange={e => setSearchCode(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchDesc} onChange={e => setSearchDesc(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchAddress} onChange={e => setSearchAddress(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchManager} onChange={e => setSearchManager(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchPhone} onChange={e => setSearchPhone(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white px-2 py-1 border-b border-r border-gray-200"><div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white"><input type="text" placeholder={t('common.search')} value={searchEmail} onChange={e => setSearchEmail(e.target.value)} className="flex-1 text-xs outline-none min-w-0 bg-transparent" /><Search className="w-3 h-3 text-gray-400 flex-shrink-0" /></div></th>
-                      <th className="bg-white border-b border-gray-200" />
-                      <th className="sticky right-0 z-40 bg-white border-b border-l border-gray-200" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedLocations.length === 0 ? (
-                      <tr>
-                        <td colSpan={11} className="px-4 py-12 text-center text-gray-400">
-                          <Warehouse className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                          <p>{t('storeLocations.noLocations')}</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedLocations.map((loc, idx) => (
-                        <tr key={loc.id} className={`hover:bg-blue-50 ${selectedRows.has(loc.id) ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}`}>
-                          <td className="sticky left-0 z-10 bg-inherit px-2 py-2 text-center text-xs text-gray-500 border-b border-r border-gray-100">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                          <td className="sticky left-10 z-10 bg-inherit px-2 py-2 text-center border-b border-r border-gray-100"><input type="checkbox" checked={selectedRows.has(loc.id)} onChange={() => toggleRow(loc.id)} className="rounded text-blue-600" /></td>
-                          <td title={loc.name} className="sticky left-20 z-20 bg-inherit px-3 py-2 border-b border-r border-gray-100"><button onClick={() => setSelectedLocationId(loc.id)} className="flex items-center gap-1 text-blue-600 hover:underline font-medium text-xs text-left w-full"><FolderOpen className="w-3 h-3 flex-shrink-0 text-gray-400" /><span className="flex-1 min-w-0 truncate"><span className="block truncate">{loc.name} (SL:{locations.filter(l => l.parentId === loc.id).length})</span></span></button></td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100 font-mono">{loc.locationCode}</td>
-                          <td className="px-3 py-2 text-xs text-gray-500 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.description || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-500 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.address || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.managerName || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100">{loc.phone || ''}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600 border-b border-r border-gray-100"><div className="min-w-0 truncate"><span className="block truncate">{loc.email || ''}</span></div></td>
-                          <td className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100 whitespace-nowrap">{loc.updatedAt ? new Date(loc.updatedAt).toLocaleDateString() : ''}</td>
-                          <td className="sticky right-0 z-20 bg-inherit border-b border-l border-gray-100 px-2 py-2"><div className="flex items-center justify-center gap-0.5"><PermissionGate permission="pms.locations.update"><button onClick={() => openEditModal(loc)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('storeLocations.edit')}><Edit2 className="w-3.5 h-3.5" /></button></PermissionGate><PermissionGate permission="pms.locations.delete"><button onClick={() => handleDelete(loc)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('storeLocations.delete')}><Trash2 className="w-3.5 h-3.5" /></button></PermissionGate></div></td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-center px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-                  {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                    let page: number;
-                    if (totalPages <= 5) page = i + 1;
-                    else if (currentPage <= 3) page = i + 1;
-                    else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-                    else page = currentPage - 2 + i;
-                    return <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>{page}</button>;
-                  })}
-                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-                </div>
-              </div>
-            </>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            flush
+            showCount={false}
+            columns={columns}
+            data={filteredLocations}
+            rowKey={l => l.id}
+            itemLabel="kho"
+            emptyMessage={t('storeLocations.noLocations')}
+            searchPlaceholder="Tìm tên kho, mã kho, địa chỉ, người phụ trách..."
+            exportOptions={{ fileName: 'danh-sach-kho', title: 'DANH SÁCH VỊ TRÍ KHO' }}
+            selection={{ selected: selectedRows, onChange: setSelectedRows }}
+            minWidth={1300}
+          />
         </div>
       </div>
 

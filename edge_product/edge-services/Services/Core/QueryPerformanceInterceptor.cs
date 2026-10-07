@@ -73,10 +73,10 @@ public class QueryPerformanceInterceptor : DbCommandInterceptor
         return base.NonQueryExecuted(command, eventData, result);
     }
 
-    public override object ScalarExecuted(
+    public override object? ScalarExecuted(
         DbCommand command,
         CommandExecutedEventData eventData,
-        object result)
+        object? result)
     {
         LogQueryExecuted(command, eventData.Duration);
         return base.ScalarExecuted(command, eventData, result);

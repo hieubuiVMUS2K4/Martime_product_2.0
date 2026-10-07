@@ -537,11 +537,6 @@ public class CrewController : ControllerBase
                 if (newVal.HasValue && oldVal != newVal)
                     changes.Add(new { field, oldValue = oldVal?.ToString() ?? "", newValue = newVal.Value.ToString(), changedAt = now });
             }
-            void TrackBool(string field, bool oldVal, bool newVal)
-            {
-                if (oldVal != newVal)
-                    changes.Add(new { field, oldValue = oldVal.ToString(), newValue = newVal.ToString(), changedAt = now });
-            }
 
             // Personal info
             TrackStr("fullName", existing.FullName, crew.FullName);

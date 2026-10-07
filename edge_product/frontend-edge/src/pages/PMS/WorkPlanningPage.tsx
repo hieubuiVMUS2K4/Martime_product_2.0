@@ -29,6 +29,7 @@ import { isEventMaintenance, maintenanceCategoryLabel } from '@/components/pms/m
 import { AddScheduleModal } from '@/components/pms/AddScheduleModal';
 import { ImportMaintenanceModal } from '@/components/pms/ImportMaintenanceModal';
 import { MaintenanceHistoryModal } from '@/components/pms/MaintenanceHistoryModal';
+import { DataTable, TableActions, type Column } from '@/components/common/DataTable';
 
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import { toast } from 'sonner';
@@ -235,6 +236,8 @@ export default function WorkPlanningPage() {
   const [loading, setLoading] = useState(true);
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
   const [showHistory] = useState(false);
+  // Lọc theo mã lịch khi bấm "Xem công việc" từ tab cấu hình
+  const [scheduleCodeFilter, setScheduleCodeFilter] = useState('');
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
   // Gantt draggable divider
@@ -249,20 +252,8 @@ export default function WorkPlanningPage() {
   const [treeSearch, setTreeSearch] = useState('');
 
   // === Column filters ===
-  const [colFilterCode, setColFilterCode] = useState('');
-  const [colFilterEquip, setColFilterEquip] = useState('');
-  const [colFilterName, setColFilterName] = useState('');
-  const [colFilterDesc, setColFilterDesc] = useState('');
-  const [colFilterPriority, setColFilterPriority] = useState('');
-  const [colFilterStatus, setColFilterStatus] = useState('');
-  const [colFilterType, setColFilterType] = useState('');
 
   // === Table state ===
-  const [searchQuery] = useState('');
-  const [tablePage, setTablePage] = useState(1);
-  const [tablePageSize] = useState(25);
-  const [sortField, setSortField] = useState<string>('');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // === Calendar state ===
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -953,12 +944,8 @@ export default function WorkPlanningPage() {
   // Config helpers: count tasks per schedule code, next due info
   // Navigate from config to table with filter by schedule code
   const viewScheduleTasks = (scheduleCode: string) => {
-    setColFilterCode('');
-    setColFilterEquip('');
-    setColFilterName('');
-    setColFilterDesc(scheduleCode);
+    setScheduleCodeFilter(scheduleCode);
     setActiveTab('table');
-    setTablePage(1);
   };
 
   // Jump from Table tab → Config tab to edit PIC/Receiver/Support for a task's schedule
@@ -1093,35 +1080,13 @@ export default function WorkPlanningPage() {
       });
     }
 
-    // Date filter
-    // (date/crew/type/status filters removed — UI controls removed)
-
-    // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      f = f.filter(task =>
-        task.taskId.toLowerCase().includes(q) ||
-        (task.equipmentName || '').toLowerCase().includes(q) ||
-        (task.equipmentGroupName || '').toLowerCase().includes(q) ||
-        task.taskDescription.toLowerCase().includes(q)
-      );
-    }
-
-    // Column filters
-    if (colFilterCode) f = f.filter(t => t.taskId.toLowerCase().includes(colFilterCode.toLowerCase()));
-    if (colFilterEquip) f = f.filter(t => (t.equipmentName || t.equipmentAssetName || t.equipmentGroupName || '').toLowerCase().includes(colFilterEquip.toLowerCase()));
-    if (colFilterName) f = f.filter(t => (t.taskDescription?.split('\n')[0] || t.taskType).toLowerCase().includes(colFilterName.toLowerCase()));
-    if (colFilterDesc) f = f.filter(t => t.taskDescription.toLowerCase().includes(colFilterDesc.toLowerCase()));
-    if (colFilterPriority) f = f.filter(t => t.priority === colFilterPriority);
-    if (colFilterStatus) f = f.filter(t => t.status === colFilterStatus);
-    if (colFilterType) {
-      if (colFilterType === 'adhoc') f = f.filter(t => t.taskType === 'AD_HOC' || t.taskType === 'CORRECTIVE');
-      else if (colFilterType === 'periodic') f = f.filter(t => t.taskType !== 'AD_HOC' && t.taskType !== 'CORRECTIVE' && !isEventMaintenance(t.taskType));
-      else f = f.filter(t => t.taskType === colFilterType);
+    if (scheduleCodeFilter) {
+      const code = scheduleCodeFilter.toLowerCase();
+      f = f.filter(task => task.taskDescription.toLowerCase().includes(code));
     }
 
     return f;
-  }, [showHistory, activeTasks, historyTasks, selectedAssetIds, searchQuery, assets, colFilterCode, colFilterEquip, colFilterName, colFilterDesc, colFilterPriority, colFilterStatus, colFilterType]);
+  }, [showHistory, activeTasks, historyTasks, selectedAssetIds, assets, scheduleCodeFilter]);
 
   // Gantt data — derived from filteredTasks (same source as Bảng/Lịch/Kanban)
   const scheduleById = useMemo(() => new Map(schedules.map(schedule => [schedule.id, schedule])), [schedules]);
@@ -1190,56 +1155,7 @@ export default function WorkPlanningPage() {
       .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
   }, [filteredTasks, getCounterAwareDueDate, activeTab]);
 
-  // === Sorting ===
-  const sortedFilteredTasks = useMemo(() => {
-    if (!sortField) return filteredTasks;
-    return [...filteredTasks].sort((a, b) => {
-      let va: any, vb: any;
-      switch (sortField) {
-        case 'taskId': va = a.taskId; vb = b.taskId; break;
-        case 'equipmentName': va = a.equipmentName || a.equipmentAssetName || a.equipmentGroupName || ''; vb = b.equipmentName || b.equipmentAssetName || b.equipmentGroupName || ''; break;
-        case 'taskType': va = a.taskDescription?.split('\n')[0] || a.taskType; vb = b.taskDescription?.split('\n')[0] || b.taskType; break;
-        case 'taskDescription': va = a.taskDescription; vb = b.taskDescription; break;
-        case 'priority': va = a.priority; vb = b.priority; break;
-        case 'status': va = a.status; vb = b.status; break;
-        case 'nextDueAt': va = a.nextDueAt; vb = b.nextDueAt; break;
-        default: return 0;
-      }
-      if (typeof va === 'string') va = va.toLowerCase();
-      if (typeof vb === 'string') vb = vb.toLowerCase();
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [filteredTasks, sortField, sortDir]);
-
-  // Table pagination
-  const totalPages = Math.ceil(sortedFilteredTasks.length / tablePageSize);
-  const pagedTasks = sortedFilteredTasks.slice((tablePage - 1) * tablePageSize, tablePage * tablePageSize);
-  const pagedTaskIds = pagedTasks.map(task => task.id);
-  const isAllPagedTasksSelected = pagedTaskIds.length > 0 && pagedTaskIds.every(id => selectedTaskIds.has(id));
   const selectedTaskCount = selectedTaskIds.size;
-
-  const toggleTaskSelection = (taskId: string) => {
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
-      return next;
-    });
-  };
-
-  const togglePagedTaskSelection = () => {
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev);
-      if (isAllPagedTasksSelected) {
-        pagedTaskIds.forEach(id => next.delete(id));
-      } else {
-        pagedTaskIds.forEach(id => next.add(id));
-      }
-      return next;
-    });
-  };
 
   const handleBulkTaskDelete = () => {
     if (selectedTaskIds.size === 0) return;
@@ -1303,14 +1219,65 @@ export default function WorkPlanningPage() {
     });
   };
 
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDir('asc');
-    }
-  };
+  const taskName = (task: MaintenanceTask) => task.taskDescription?.split('\n')[0] || task.taskType;
+  const taskEquipment = (task: MaintenanceTask) => task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '';
+  const taskDetail = (task: MaintenanceTask) => task.taskDescription?.split('\n').slice(1).join('\n').replace(/<!--(META|CREW):.*?-->/gs, '').trim() || '';
+
+  const taskColumns: Column<MaintenanceTask>[] = [
+    { key: 'taskName', header: t('pms.workPlanning.table.taskName'), width: 220, value: taskName, truncate: true },
+    {
+      key: 'taskId', header: t('pms.workPlanning.table.taskCode'), width: 200, value: task => task.taskId,
+      render: task => (
+        <button type="button" onClick={() => navigate(`/pms/work-report/${task.id}`)} className="text-left font-medium text-blue-600 hover:underline">{task.taskId}</button>
+      ),
+    },
+    { key: 'equipment', header: t('pms.workPlanning.table.equipmentName'), width: 220, value: taskEquipment, truncate: true, render: task => taskEquipment(task) || <span className="text-gray-400">—</span> },
+    { key: 'description', header: t('pms.workPlanning.table.taskDescription'), width: 260, value: taskDetail, truncate: true, className: 'text-gray-500' },
+    {
+      key: 'risk', header: t('pms.workPlanning.table.riskAssessment'), width: 140, align: 'center',
+      value: task => (task.requireRiskAssessment ? 'Có' : 'Không'),
+      render: task => (task.requireRiskAssessment ? <CheckCircle className="mx-auto h-4 w-4 text-green-500" /> : <span className="text-gray-300">-</span>),
+    },
+    {
+      key: 'priority', header: t('pms.workPlanning.table.priority'), width: 120, align: 'center', value: task => getPriorityLabel(task.priority),
+      render: task => {
+        const pri = PRIORITY_LABELS[task.priority] || PRIORITY_LABELS.NORMAL;
+        return <span className={`whitespace-nowrap rounded px-2 py-0.5 font-medium ${pri.bg} ${pri.text}`}>{getPriorityLabel(task.priority)}</span>;
+      },
+    },
+    {
+      key: 'status', header: t('pms.workPlanning.table.status'), width: 150, align: 'center', value: task => getStatusLabel(task.status),
+      render: task => {
+        const sts = STATUS_LABELS[task.status] || STATUS_LABELS.SCHEDULED;
+        return (
+          <>
+            <span className={`whitespace-nowrap rounded px-2 py-0.5 font-medium ${sts.bg} ${sts.text}`}>{getStatusLabel(task.status)}</span>
+            {task.hasPendingDeferral && (
+              <span className="ml-1 whitespace-nowrap rounded bg-amber-100 px-2 py-0.5 font-medium text-amber-700">{t('pms.workPlanning.table.deferralPending')}</span>
+            )}
+          </>
+        );
+      },
+    },
+    { key: 'type', header: t('pms.workPlanning.table.type'), width: 130, align: 'center', value: task => maintenanceCategoryLabel(task.taskType, t), className: 'text-gray-500' },
+    {
+      key: 'actions', header: 'Hành động', width: 130, align: 'center', exportable: false,
+      render: task => (
+        <TableActions>
+          <button type="button" onClick={() => navigate(`/pms/work-report/${task.id}`)} className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600" title={t('pms.workPlanning.table.view')}>
+            <Eye className="h-3.5 w-3.5" />
+          </button>
+          {['PERIODIC', 'CALENDAR', 'RUNNING_HOURS', 'HYBRID'].includes(task.taskType) && <button type="button" onClick={() => setHistoryTask(task)} title="Lịch sử bảo trì" aria-label="Lịch sử bảo trì" className="shrink-0 rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"><History size={14} /></button>}
+          <PermissionGate permission="pms.config.update"><button type="button" disabled={!canPerform('pms.config.update')} onClick={() => handleEditTaskConfig(task)} className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600" title={t('pms.workPlanning.table.editConfig')}>
+            <Pencil className="h-3.5 w-3.5" />
+          </button></PermissionGate>
+          <PermissionGate permission={'pms.work.delete'}><button type="button" className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title={t('pms.workPlanning.table.delete')} disabled={!canPerform('pms.work.delete')} onClick={() => handleTaskDelete(task.id)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </button></PermissionGate>
+        </TableActions>
+      ),
+    },
+  ];
 
   // === Calendar helpers ===
   const calendarDays = useMemo(() => {
@@ -1488,243 +1455,25 @@ export default function WorkPlanningPage() {
           {/* ============ TAB: BẢNG ============ */}
           {activeTab === 'table' && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Table */}
-              <div className="flex-1 overflow-auto">
-                <table className="w-[1610px] min-w-[1610px] table-fixed text-sm border-collapse">
-                  <colgroup>
-                    <col className="w-10" />
-                    <col className="w-10" />
-                    <col className="w-[200px]" />
-                    <col className="w-[220px]" />
-                    <col className="w-[220px]" />
-                    <col className="w-[260px]" />
-                    <col className="w-[144px]" />
-                    <col className="w-[120px]" />
-                    <col className="w-[130px]" />
-                    <col className="w-[116px]" />
-                    <col className="w-[120px]" />
-                  </colgroup>
-                  <thead className="sticky top-0 z-40">
-                    {/* Row 1: headers */}
-                    <tr className="bg-blue-50">
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200 sticky left-0 z-30 bg-blue-50">{t('pms.workPlanning.config.index')}</th>
-                      <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200 sticky left-[40px] z-30 bg-blue-50">
-                        <input
-                          type="checkbox"
-                          checked={isAllPagedTasksSelected}
-                          onChange={togglePagedTaskSelection}
-                          className="rounded text-blue-600"
-                        />
-                      </th>
-                      <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer sticky left-[80px] z-30 bg-blue-50" onClick={() => handleSort('taskType')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.taskName')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[140px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskId')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.taskCode')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[180px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('equipmentName')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.equipmentName')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="min-w-[200px] px-3 py-2 text-left border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('taskDescription')}>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.taskDescription')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-center border-b border-r border-gray-200">
-                        <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.riskAssessment')}</span>
-                      </th>
-                      <th className="w-28 px-3 py-2 text-center border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('priority')}>
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.priority')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="w-28 px-3 py-2 text-center border-b border-r border-gray-200 cursor-pointer" onClick={() => handleSort('status')}>
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.status')}</span>
-                          <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="w-24 px-3 py-2 text-center border-b border-r border-gray-200">
-                        <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">{t('pms.workPlanning.table.type')}</span>
-                      </th>
-                      <th className="w-[120px] px-3 py-2 border-b border-gray-200 sticky right-0 z-30 bg-blue-50">
-                        <span className="text-xs font-semibold text-gray-600"></span>
-                      </th>
-                    </tr>
-                    {/* Row 2: column filters */}
-                    <tr className="bg-white border-b border-gray-200">
-                      <th className="border-r border-gray-200 sticky left-0 z-30 bg-white"></th>
-                      <th className="border-r border-gray-200 sticky left-[40px] z-30 bg-white"></th>
-                      <th className="px-2 py-1 border-r border-gray-200 sticky left-[80px] z-30 bg-white">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterName} onChange={e => { setColFilterName(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterCode} onChange={e => { setColFilterCode(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterEquip} onChange={e => { setColFilterEquip(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                          <span className="text-gray-400 text-xs select-none">→</span>
-                          <input type="text" value={colFilterDesc} onChange={e => { setColFilterDesc(e.target.value); setTablePage(1); }} placeholder={t('pms.workPlanning.table.searchPlaceholder')} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                          <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </th>
-                      <th className="border-r border-gray-200"></th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <select value={colFilterPriority} onChange={e => { setColFilterPriority(e.target.value); setTablePage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                          <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
-                          {Object.entries(PRIORITY_LABELS).map(([k])=><option key={k} value={k}>{getPriorityLabel(k)}</option>)}
-                        </select>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <select value={colFilterStatus} onChange={e => { setColFilterStatus(e.target.value); setTablePage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                          <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
-                          {Object.entries(STATUS_LABELS).map(([k])=><option key={k} value={k}>{getStatusLabel(k)}</option>)}
-                        </select>
-                      </th>
-                      <th className="px-2 py-1 border-r border-gray-200">
-                        <select value={colFilterType} onChange={e => { setColFilterType(e.target.value); setTablePage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                          <option value="">{t('pms.workPlanning.table.searchPlaceholder')}</option>
-                          <option value="adhoc">{t('pms.workPlanning.filters.adhoc')}</option>
-                          <option value="periodic">{t('pms.workPlanning.filters.periodic')}</option>
-                          <option value="DRY_DOCK">Lên đà</option><option value="ON_DEMAND">Theo yêu cầu</option><option value="VOYAGE">Theo chuyến</option>
-                        </select>
-                      </th>
-                      <th className="border-gray-200 sticky right-0 z-30 bg-white"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {pagedTasks.length === 0 ? (
-                      <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">{t('pms.workPlanning.table.noTasks')}</td></tr>
-                    ) : (
-                      pagedTasks.map((task, idx) => {
-                        const pri = PRIORITY_LABELS[task.priority] || PRIORITY_LABELS.NORMAL;
-                        const sts = STATUS_LABELS[task.status] || STATUS_LABELS.SCHEDULED;
-                        return (
-                          <tr key={task.id} className={`group hover:bg-blue-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                            <td className={`px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100 sticky left-0 z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
-                              {(tablePage - 1) * tablePageSize + idx + 1}
-                            </td>
-                            <td className={`px-2 py-2 text-center border-r border-gray-100 sticky left-[40px] z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
-                              <input
-                                type="checkbox"
-                                checked={selectedTaskIds.has(task.id)}
-                                onChange={() => toggleTaskSelection(task.id)}
-                                className="rounded text-blue-600"
-                              />
-                            </td>
-                            <td className={`px-3 py-2 text-xs text-gray-600 border-r border-gray-100 sticky left-[80px] z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
-                              <span className="truncate block max-w-[140px]" title={task.taskDescription?.split('\n')[0] || task.taskType}>
-                                {task.taskDescription?.split('\n')[0] || task.taskType}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-left border-r border-gray-100">
-                              <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="text-blue-600 hover:underline font-medium text-xs text-left">
-                                {task.taskId}
-                              </button>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">
-                              <span className="truncate block max-w-[180px]" title={task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || ''}>
-                                {task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '—'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-500 border-r border-gray-100 max-w-[200px]">
-                              <span className="truncate block" title={task.taskDescription?.replace(/<!--(META|CREW):.*?-->/gs, '').trim()}>
-                                {task.taskDescription?.split('\n').slice(1).join('\n').replace(/<!--(META|CREW):.*?-->/gs, '').trim() || ''}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center border-r border-gray-100">
-                              {task.requireRiskAssessment ? (
-                                <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
-                              ) : (
-                                <span className="text-gray-300">-</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-center border-r border-gray-100">
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap ${pri.bg} ${pri.text}`}>
-                                {getPriorityLabel(task.priority)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center border-r border-gray-100">
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap ${sts.bg} ${sts.text}`}>
-                                {getStatusLabel(task.status)}
-                              </span>
-                              {task.hasPendingDeferral && (
-                                <span className="ml-1 px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap bg-amber-100 text-amber-700">
-                                  {t('pms.workPlanning.table.deferralPending')}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-center text-xs text-gray-500 border-r border-gray-100 whitespace-nowrap">
-                              {maintenanceCategoryLabel(task.taskType, t)}
-                            </td>
-                            <td className={`px-2 py-2 sticky right-0 z-20 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} group-hover:bg-blue-50`}>
-                              <div className="flex items-center justify-center gap-0.5">
-                                <button onClick={() => navigate(`/pms/work-report/${task.id}`)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title={t('pms.workPlanning.table.view')}>
-                                  <Eye className="w-3.5 h-3.5" />
-                                </button>
-                                {['PERIODIC', 'CALENDAR', 'RUNNING_HOURS', 'HYBRID'].includes(task.taskType) && <button type="button" onClick={() => setHistoryTask(task)} title="Lịch sử bảo trì" aria-label="Lịch sử bảo trì" className="shrink-0 rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"><History size={14} /></button>}
-                                <PermissionGate permission="pms.config.update"><button disabled={!canPerform('pms.config.update')} onClick={() => handleEditTaskConfig(task)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title={t('pms.workPlanning.table.editConfig')}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button></PermissionGate>
-                                <PermissionGate permission={'pms.work.delete'}><button className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title={t('pms.workPlanning.table.delete')} disabled={!canPerform('pms.work.delete')} onClick={() => handleTaskDelete(task.id)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button></PermissionGate>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination (matches AssetsPage) */}
-              <div className="flex items-center justify-center px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <button disabled={tablePage <= 1} onClick={() => setTablePage(p => p - 1)} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let page: number;
-                    if (totalPages <= 5) page = i + 1;
-                    else if (tablePage <= 3) page = i + 1;
-                    else if (tablePage >= totalPages - 2) page = totalPages - 4 + i;
-                    else page = tablePage - 2 + i;
-                    if (page > totalPages || page < 1) return null;
-                    return (
-                      <button key={page} onClick={() => setTablePage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${page === tablePage ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
-                        {page}
-                      </button>
-                    );
-                  })}
-                  <button disabled={tablePage >= totalPages} onClick={() => setTablePage(p => p + 1)} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-                </div>
-              </div>
+              <DataTable
+                flush
+                showCount={false}
+                columns={taskColumns}
+                data={filteredTasks}
+                rowKey={task => task.id}
+                itemLabel="công việc"
+                emptyMessage={t('pms.workPlanning.table.noTasks')}
+                searchPlaceholder="Tìm tên công việc, mã, thiết bị, mô tả..."
+                exportOptions={{ fileName: 'danh-sach-cong-viec', title: 'DANH SÁCH CÔNG VIỆC BẢO DƯỠNG' }}
+                selection={{ selected: selectedTaskIds, onChange: next => setSelectedTaskIds(new Set([...next].map(String))) }}
+                minWidth={1600}
+                toolbarActions={scheduleCodeFilter ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    Lịch: {scheduleCodeFilter}
+                    <button type="button" onClick={() => setScheduleCodeFilter('')} title="Bỏ lọc theo lịch" aria-label="Bỏ lọc theo lịch" className="rounded-full p-0.5 hover:bg-blue-200"><XIcon className="h-3 w-3" /></button>
+                  </span>
+                ) : undefined}
+              />
             </div>
           )}
 

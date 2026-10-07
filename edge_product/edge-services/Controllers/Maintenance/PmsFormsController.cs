@@ -103,9 +103,9 @@ public class PmsFormsController : ControllerBase
         if (task == null) return NotFound(new { error = "Task not found" });
         var resolvedTaskId = task.TaskId ?? taskId;
 
-        var form = await _context.TaskRiskAssessments.FirstOrDefaultAsync(r => r.TaskId == resolvedTaskId);
-        var isNew = form == null;
-        if (isNew) form = new TaskRiskAssessment { TaskId = resolvedTaskId, CreatedBy = userId };
+        var existingForm = await _context.TaskRiskAssessments.FirstOrDefaultAsync(r => r.TaskId == resolvedTaskId);
+        var isNew = existingForm == null;
+        var form = existingForm ?? new TaskRiskAssessment { TaskId = resolvedTaskId, CreatedBy = userId };
 
         // Map fields from body
         form.JobName = body.TryGet("jobName");
@@ -248,9 +248,9 @@ public class PmsFormsController : ControllerBase
         if (task == null) return NotFound(new { error = "Task not found" });
         var resolvedTaskId3 = task.TaskId ?? taskId;
 
-        var form = await _context.TaskInspectionReports.FirstOrDefaultAsync(r => r.TaskId == resolvedTaskId3);
-        var isNew = form == null;
-        if (isNew) form = new TaskInspectionReport { TaskId = resolvedTaskId3, CreatedBy = userId };
+        var existingForm = await _context.TaskInspectionReports.FirstOrDefaultAsync(r => r.TaskId == resolvedTaskId3);
+        var isNew = existingForm == null;
+        var form = existingForm ?? new TaskInspectionReport { TaskId = resolvedTaskId3, CreatedBy = userId };
 
         form.ShipName = body.TryGet("shipName");
         form.EquipmentName = body.TryGet("equipmentName");

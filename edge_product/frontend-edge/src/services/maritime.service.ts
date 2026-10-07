@@ -889,15 +889,26 @@ export interface AuditLogStats {
   topEntities: { entityType: string; count: number }[]
 }
 
+export interface AuditLogFilterOptions {
+  success: boolean
+  categories: string[]
+  actions: string[]
+  levels: string[]
+  entityTypes: string[]
+  usernames: string[]
+  messages: string[]
+}
+
 export const auditLogService = {
   getLogs: (params?: {
     page?: number
     pageSize?: number
-    category?: string
-    action?: string
-    level?: string
-    entityType?: string
-    username?: string
+    category?: string | string[]
+    action?: string | string[]
+    level?: string | string[]
+    entityType?: string | string[]
+    username?: string | string[]
+    message?: string | string[]
     search?: string
     from?: string
     to?: string
@@ -905,9 +916,11 @@ export const auditLogService = {
     const searchParams = new URLSearchParams()
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          searchParams.append(key, String(value))
-        }
+        // Mảng gửi thành nhiều tham số cùng tên (?level=INFO&level=WARNING)
+        const values = Array.isArray(value) ? value : [value]
+        values.forEach(v => {
+          if (v !== undefined && v !== null && v !== '') searchParams.append(key, String(v))
+        })
       })
     }
     const qs = searchParams.toString()
@@ -920,6 +933,8 @@ export const auditLogService = {
     const qs = params.toString()
     return apiClient.get<AuditLogStats>(`/audit-logs/stats${qs ? `?${qs}` : ''}`)
   },
+  getFilterOptions: () =>
+    apiClient.get<AuditLogFilterOptions>('/audit-logs/filter-options'),
   getEntityTypes: () =>
     apiClient.get<{ success: boolean; entityTypes: string[] }>('/audit-logs/entity-types'),
   getById: (id: number) =>

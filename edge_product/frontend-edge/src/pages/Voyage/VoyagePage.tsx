@@ -5,8 +5,9 @@ import {
   Ship, Plus, Edit2, Trash2, ArrowLeft, Anchor,
   Users, FileText, Navigation,
   X, Check, AlertCircle, Package,
-  DollarSign, Fuel, UserCheck, Activity, BarChart3, Search
+  DollarSign, Fuel, UserCheck, Activity, BarChart3
 } from 'lucide-react'
+import { DataTable, type Column } from '@/components/common/DataTable'
 import CockpitTab from './CockpitTab'
 import FinancialTab from './FinancialTab'
 import EfficiencyTab from './EfficiencyTab'
@@ -156,22 +157,6 @@ function formatMetric(value?: number | null, digits = 1, suffix = '') {
   return `${value.toFixed(digits)}${suffix}`
 }
 
-function matchesVoyageSearch(voyage: VoyageRecord, search: string) {
-  if (!search.trim()) return true
-  const needle = search.trim().toLowerCase()
-  return [
-    voyage.voyageNumber,
-    voyage.vesselName,
-    voyage.vesselIMO,
-    voyage.departurePort,
-    voyage.departurePortCode,
-    voyage.arrivalPort,
-    voyage.arrivalPortCode,
-    voyage.cargoType,
-    voyage.voyageStatus,
-  ].some(value => value?.toLowerCase().includes(needle))
-}
-
 function toDateTimeLocalValue(value?: string) {
   if (!value) return ''
   try {
@@ -276,8 +261,6 @@ export function VoyagePage() {
   const [voyages, setVoyages] = useState<VoyageRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
 
   // Read voyage ID from URL: /voyage?id=xxx&tab=overview
   const selectedVoyageId = searchParams.get('id')
@@ -316,10 +299,27 @@ export function VoyagePage() {
     }
   }
 
-  const filteredVoyages = voyages.filter(v => matchesVoyageSearch(v, searchQuery) && (!statusFilter || v.voyageStatus === statusFilter))
   const activeVoyageCount = voyages.filter(v => ['APPROVED', 'READY', 'UNDERWAY', 'ARRIVED'].includes(v.voyageStatus)).length
   const planningVoyageCount = voyages.filter(v => v.voyageStatus === 'PLANNING').length
   const completedVoyageCount = voyages.filter(v => v.voyageStatus === 'COMPLETED').length
+
+  const portLabel = (name?: string | null, code?: string | null) => (name ? (code ? `${name} (${code})` : name) : '')
+  const voyageColumns: Column<VoyageRecord>[] = [
+    {
+      key: 'voyageNumber', header: t('voyage.page.voyageNumber'), width: 170, value: v => v.voyageNumber,
+      render: v => <button type="button" onClick={() => openDetail(v.id)} className="rounded text-left font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-500">{v.voyageNumber}</button>,
+    },
+    { key: 'vesselName', header: t('voyage.page.vesselName'), width: 170, value: v => v.vesselName ?? '', render: v => v.vesselName || <span className="text-gray-400">—</span> },
+    {
+      key: 'voyageStatus', header: t('voyage.page.voyageStatus'), width: 140, align: 'center', value: v => formatStatusLabel(v.voyageStatus),
+      render: v => <span className={`inline-flex whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[v.voyageStatus] || 'bg-gray-100 text-gray-600'}`}>{formatStatusLabel(v.voyageStatus)}</span>,
+    },
+    { key: 'departurePort', header: t('voyage.page.departurePort'), width: 190, value: v => portLabel(v.departurePort, v.departurePortCode), render: v => portLabel(v.departurePort, v.departurePortCode) || <span className="text-gray-400">{t('voyage.page.tbd')}</span> },
+    { key: 'arrivalPort', header: t('voyage.page.arrivalPort'), width: 190, value: v => portLabel(v.arrivalPort, v.arrivalPortCode), render: v => portLabel(v.arrivalPort, v.arrivalPortCode) || <span className="text-gray-400">{t('voyage.page.tbd')}</span> },
+    { key: 'departureTime', header: t('voyage.page.departureLabel'), width: 140, align: 'center', value: v => v.departureTime ?? '', filter: v => formatDateShort(v.departureTime), exportValue: v => formatDateShort(v.departureTime), render: v => formatDateShort(v.departureTime) },
+    { key: 'arrivalTime', header: t('voyage.page.arrivalLabel'), width: 140, align: 'center', value: v => v.arrivalTime ?? '', filter: v => formatDateShort(v.arrivalTime), exportValue: v => formatDateShort(v.arrivalTime), render: v => formatDateShort(v.arrivalTime) },
+    { key: 'distance', header: t('voyage.page.distanceNm'), width: 130, numeric: true, value: v => v.distanceTraveled ?? null, render: v => (v.distanceTraveled != null ? v.distanceTraveled.toFixed(0) : <span className="text-gray-400">—</span>) },
+  ]
 
   if (selectedVoyageId) {
     return (
@@ -360,67 +360,19 @@ export function VoyagePage() {
           </button></PermissionGate>
         </div>
 
-        {/* Search */}
-        <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-2.5">
-          <div className="relative min-w-0 flex-1 basis-64 max-w-xl">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder={t('voyage.page.searchPlaceholder')}
-            aria-label={t('voyage.page.searchPlaceholder')}
-            className="w-full rounded border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-xs text-gray-700 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
-          </div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} aria-label={t('voyage.page.voyageStatus')}
-            className="rounded border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-blue-500">
-            <option value="">{t('voyage.page.voyageStatus')}: {t('common.all')}</option>
-            {Object.keys(STATUS_COLORS).map(status => <option key={status} value={status}>{formatStatusLabel(status)}</option>)}
-          </select>
-          {(searchQuery || statusFilter) && <button type="button" onClick={() => { setSearchQuery(''); setStatusFilter('') }}
-            aria-label={t('common.reset')} title={t('common.reset')} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X className="h-4 w-4" /></button>}
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-auto">
-          <table className="voyage-list-table w-full border-separate border-spacing-0 text-xs">
-            <thead className="sticky top-0 z-10">
-              <tr>
-                <th scope="col" className="w-12 text-center">#</th>
-                {[['voyageNumber', 'min-w-[160px]'], ['vesselName', 'min-w-[150px]'], ['voyageStatus', 'min-w-[130px]'], ['departurePort', 'min-w-[150px]'], ['arrivalPort', 'min-w-[150px]'], ['departureLabel', 'min-w-[130px]'], ['arrivalLabel', 'min-w-[130px]'], ['distanceNm', 'min-w-[120px]']].map(([key, width]) =>
-                  <th key={key} scope="col" className={width}>{t(`voyage.page.${key}`)}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-          {loading ? (
-            <tr><td colSpan={9} className="text-center py-16 text-gray-400" aria-live="polite">{t('voyage.page.loadingVoyages')}</td></tr>
-          ) : filteredVoyages.length === 0 ? (
-            <tr><td colSpan={9} className="py-16 text-center">
-              <Ship className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-600 font-medium">{t('voyage.page.noVoyages')}</p>
-              <p className="text-gray-400 text-sm mt-1">
-                {searchQuery || statusFilter ? t('voyage.page.tryDifferent') : t('voyage.page.createToStart')}
-              </p>
-            </td></tr>
-          ) : (
-            filteredVoyages.map((v, index) => (
-              <tr key={v.id} className="voyage-list-row">
-                <td className="text-center text-gray-400">{index + 1}</td>
-                <td><button type="button" onClick={() => openDetail(v.id)} className="rounded text-left font-medium text-blue-700 hover:underline focus-visible:ring-2 focus-visible:ring-blue-500">{v.voyageNumber}</button></td>
-                <td className="text-gray-700">{v.vesselName || '—'}</td>
-                <td><span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${STATUS_COLORS[v.voyageStatus] || 'bg-gray-100 text-gray-600'}`}>{formatStatusLabel(v.voyageStatus)}</span></td>
-                <td className="text-gray-600">{v.departurePort || t('voyage.page.tbd')}</td>
-                <td className="text-gray-600">{v.arrivalPort || t('voyage.page.tbd')}</td>
-                <td className="whitespace-nowrap text-gray-500">{formatDateShort(v.departureTime)}</td>
-                <td className="whitespace-nowrap text-gray-500">{formatDateShort(v.arrivalTime)}</td>
-                <td className="text-right tabular-nums text-gray-600">{v.distanceTraveled != null ? v.distanceTraveled.toFixed(0) : '—'}</td>
-              </tr>
-            ))
-          )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex-shrink-0 border-t border-gray-200 px-4 py-2 text-xs text-gray-500" aria-live="polite">{filteredVoyages.length} / {voyages.length} {t('voyage.page.voyages')}</div>
+        <DataTable
+          flush
+          showCount={false}
+          loading={loading}
+          columns={voyageColumns}
+          data={voyages}
+          rowKey={v => v.id}
+          itemLabel={t('voyage.page.voyages')}
+          emptyMessage={t('voyage.page.noVoyages')}
+          searchPlaceholder={t('voyage.page.searchPlaceholder')}
+          exportOptions={{ fileName: 'danh-sach-chuyen-di', title: 'DANH SÁCH CHUYẾN ĐI' }}
+          minWidth={1200}
+        />
       </div>
 
       {/* Create Voyage Modal */}

@@ -1,192 +1,79 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, MapPin, Globe, Info, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MapPin, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { voyageMgmtService } from '@/services/voyage.service'
-import type { Port, PortSearchQuery } from '@/types/voyage.types'
+import type { Port } from '@/types/voyage.types'
 import { useTranslationSafe } from '@/contexts/I18nContext'
+import { DataTable, type Column } from '@/components/common/DataTable'
 
 /**
  * Danh mục cảng — CHỈ ĐỌC tại tàu. Bờ làm chủ danh mục (thêm/sửa/ngừng dùng trên Shore)
  * và phát xuống tàu qua đồng bộ; API tạo/sửa/xoá cảng của Edge đã bị khoá.
+ * Danh mục chỉ vài trăm cảng nên tải hết một lần, bảng tự tìm / lọc / phân trang.
  */
 export function PortManagementPage() {
   const { t } = useTranslationSafe()
   const [ports, setPorts] = useState<Port[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterCountry, setFilterCountry] = useState('')
-  const [countries, setCountries] = useState<string[]>([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const pageSize = 20
 
   const loadPorts = useCallback(async () => {
     try {
       setLoading(true)
-      const query: PortSearchQuery = {
-        search: searchQuery || undefined,
-        countryCode: filterCountry || undefined,
-        isActive: true,
-        page,
-        pageSize,
-      }
-      const result = await voyageMgmtService.ports.search(query)
+      const result = await voyageMgmtService.ports.search({ isActive: true, page: 1, pageSize: 100000 })
       setPorts(result.data)
-      setTotalPages(result.pagination.totalPages)
-      setTotalCount(result.pagination.totalCount)
     } catch (err: any) {
-      toast.error('Failed to load ports: ' + (err.message || 'Unknown error'))
+      toast.error('Không tải được danh mục cảng: ' + (err.message || 'Lỗi không xác định'))
     } finally {
       setLoading(false)
     }
-  }, [searchQuery, filterCountry, page])
-
-  const loadCountries = useCallback(async () => {
-    try {
-      const list = await voyageMgmtService.ports.getCountries()
-      setCountries(list)
-    } catch {
-      // ignore
-    }
   }, [])
 
-  useEffect(() => {
-    loadPorts()
-  }, [loadPorts])
+  useEffect(() => { loadPorts() }, [loadPorts])
 
-  useEffect(() => {
-    loadCountries()
-  }, [loadCountries])
+  const coord = (v?: number | null) => (v != null ? v.toFixed(4) : '')
+  const dash = (v?: string | null) => v || <span className="text-gray-400">—</span>
 
-  // Debounced search
-  useEffect(() => {
-    setPage(1)
-  }, [searchQuery, filterCountry])
+  const columns: Column<Port>[] = [
+    {
+      key: 'portCode', header: t('voyage.portMgmt.code'), width: 120, value: p => p.portCode,
+      render: p => <span className="rounded bg-blue-50 px-2 py-0.5 font-mono font-semibold text-blue-700">{p.portCode}</span>,
+    },
+    { key: 'portName', header: t('voyage.portMgmt.portName'), value: p => p.portName, className: 'font-medium text-gray-900' },
+    { key: 'country', header: t('voyage.portMgmt.country'), width: 180, value: p => p.country ?? '', render: p => dash(p.country) },
+    { key: 'countryCode', header: 'Mã quốc gia', width: 110, align: 'center', value: p => p.countryCode ?? '', className: 'font-mono', render: p => dash(p.countryCode) },
+    { key: 'latitude', header: t('voyage.portMgmt.lat'), width: 120, numeric: true, value: p => p.latitude ?? null, className: 'font-mono', render: p => coord(p.latitude) || <span className="text-gray-400">—</span> },
+    { key: 'longitude', header: t('voyage.portMgmt.lng'), width: 120, numeric: true, value: p => p.longitude ?? null, className: 'font-mono', render: p => coord(p.longitude) || <span className="text-gray-400">—</span> },
+    { key: 'timeZone', header: t('voyage.portMgmt.timeZone'), width: 140, align: 'center', value: p => p.timeZone ?? '', render: p => dash(p.timeZone) },
+  ]
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <MapPin className="w-7 h-7 text-blue-600" />
-            {t('voyage.portMgmt.title')}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {t('voyage.portMgmt.subtitle', { count: totalCount })}
-          </p>
-        </div>
-
-        <div className="flex items-start gap-2 mb-6 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-          <Info className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>{t('voyage.portMgmt.shoreManaged')}</span>
-        </div>
-
-        {/* Search & Filter */}
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder={t('voyage.portMgmt.searchPlaceholder')}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <select
-            value={filterCountry}
-            onChange={e => setFilterCountry(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
-          >
-            <option value="">{t('voyage.portMgmt.allCountries')}</option>
-            {countries.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 w-[100px]">{t('voyage.portMgmt.code')}</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700">{t('voyage.portMgmt.portName')}</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 w-[160px]">{t('voyage.portMgmt.country')}</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 w-[80px]">{t('voyage.portMgmt.code')}</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-700 w-[100px]">{t('voyage.portMgmt.lat')}</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-700 w-[100px]">{t('voyage.portMgmt.lng')}</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 w-[120px]">{t('voyage.portMgmt.timeZone')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-400">
-                      {t('voyage.portMgmt.loading')}
-                    </td>
-                  </tr>
-                ) : ports.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-400">
-                      <Globe className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      {t('voyage.portMgmt.noPortsFound')}
-                    </td>
-                  </tr>
-                ) : (
-                  ports.map(port => (
-                    <tr key={port.id} className="hover:bg-blue-50/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-mono font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                          {port.portCode}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{port.portName}</td>
-                      <td className="px-4 py-3 text-gray-600">{port.country || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500 font-mono">{port.countryCode || '-'}</td>
-                      <td className="px-4 py-3 text-right text-gray-500 font-mono text-xs">
-                        {port.latitude != null ? port.latitude.toFixed(4) : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-500 font-mono text-xs">
-                        {port.longitude != null ? port.longitude.toFixed(4) : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{port.timeZone || '-'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-              <span className="text-sm text-gray-500">
-                {t('voyage.portMgmt.page', { page, totalPages, totalCount })}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-1.5 rounded border border-gray-300 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-1.5 rounded border border-gray-300 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white">
+      {/* Header */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-200 px-4 py-3">
+        <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <MapPin className="h-4 w-4 text-blue-600" aria-hidden="true" />
+          {t('voyage.portMgmt.title')}
+        </span>
+        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">{ports.length}</span>
+        <span className="flex items-center gap-1 text-xs italic text-gray-500">
+          <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {t('voyage.portMgmt.shoreManaged')}
+        </span>
       </div>
+
+      <DataTable
+        flush
+        showCount={false}
+        loading={loading}
+        columns={columns}
+        data={ports}
+        rowKey={p => p.id}
+        itemLabel="cảng"
+        emptyMessage={t('voyage.portMgmt.noPortsFound')}
+        searchPlaceholder={t('voyage.portMgmt.searchPlaceholder')}
+        exportOptions={{ fileName: 'danh-muc-cang', title: 'DANH MỤC CẢNG' }}
+        minWidth={900}
+      />
     </div>
   )
 }

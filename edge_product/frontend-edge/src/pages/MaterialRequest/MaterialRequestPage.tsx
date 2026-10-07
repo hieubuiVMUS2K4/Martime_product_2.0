@@ -8,6 +8,7 @@ import { materialService, type MaterialCatalogItem } from '@/services/materialSe
 import { maritimeService } from '@/services/maritime.service';
 import { equipmentAssetService } from '@/services/equipment-asset.service';
 import { VESSEL_CONFIG } from '@/config/app.config';
+import { DataTable, TableActions, type Column } from '@/components/common/DataTable';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { MaterialRequest, MaterialRequestItem } from '@/types/pms.types';
 import type { VoyageRecord } from '@/types/maritime.types';
@@ -182,10 +183,6 @@ export default function MaterialRequestPage() {
   const [requests, setRequests] = useState<MaterialRequest[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(25);
-  const [searchQ, setSearchQ] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
 
@@ -221,12 +218,7 @@ export default function MaterialRequestPage() {
   const loadList = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await materialRequestService.getAll({
-        page: currentPage,
-        pageSize,
-        status: filterStatus || undefined,
-        q: searchQ || undefined,
-      });
+      const res = await materialRequestService.getAll({ page: 1, pageSize: 100000 });
       setRequests(res.items);
       setTotal(res.total);
     } catch (e) {
@@ -234,7 +226,7 @@ export default function MaterialRequestPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, filterStatus, searchQ]);
+  }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -496,7 +488,47 @@ export default function MaterialRequestPage() {
     }));
   };
 
-  const totalPages = Math.ceil(total / pageSize);
+  const urgencyOf = (v: string) => URGENCY_OPTIONS.find(u => u.value === v);
+  const columns: Column<MaterialRequest>[] = [
+    {
+      key: 'requestCode', header: t('materialRequests.code'), width: 200, value: r => r.requestCode,
+      render: r => (
+        <button type="button" onClick={() => openDetail(r.id)} className="font-medium text-blue-600 hover:underline">{r.requestCode}</button>
+      ),
+    },
+    {
+      key: 'urgency', header: t('materialRequests.urgency'), width: 130, align: 'center', value: r => urgencyOf(r.urgency)?.label || r.urgency,
+      render: r => <span className={`rounded px-2 py-0.5 font-medium ${urgencyOf(r.urgency)?.color || ''}`}>{urgencyOf(r.urgency)?.label || r.urgency}</span>,
+    },
+    { key: 'requestDate', header: t('materialRequests.requestDate'), width: 115, align: 'center', value: r => r.requestDate?.slice(0, 10) ?? '' },
+    { key: 'neededDate', header: t('materialRequests.neededDate'), width: 115, align: 'center', value: r => r.neededDate?.slice(0, 10) ?? '' },
+    { key: 'requestedBy', header: t('materialRequests.requestedBy'), width: 160, value: r => r.requestedBy ?? '' },
+    {
+      key: 'status', header: t('materialRequests.status'), width: 130, align: 'center', value: r => STATUS_LABELS[r.status] || r.status,
+      render: r => <span className={`rounded px-2 py-0.5 font-medium ${STATUS_COLORS[r.status] || ''}`}>{STATUS_LABELS[r.status] || r.status}</span>,
+    },
+    { key: 'itemCount', header: t('materialRequests.items'), width: 90, numeric: true, value: r => r.itemCount ?? 0 },
+    {
+      key: 'actions', header: 'Hành động', width: 110, align: 'center', exportable: false,
+      render: r => (
+        <TableActions>
+          <button type="button" onClick={() => openDetail(r.id)} className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600" title="Xem"><Eye size={15} /></button>
+          {r.status === 'Draft' && (
+            <>
+              <PermissionGate permission="pms.requests.update"><button type="button" onClick={() => openEdit(r.id)} className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600" title="Sửa"><Edit2 size={15} /></button></PermissionGate>
+              <PermissionGate permission="pms.requests.delete"><button type="button" onClick={() => handleDelete(r.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Xóa"><Trash2 size={15} /></button></PermissionGate>
+            </>
+          )}
+          {r.status === 'Submitted' && (
+            <>
+              <PermissionGate permission="pms.requests.approve"><button type="button" onClick={() => handleApprove(r.id)} className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600" title="Duyệt"><CheckCircle size={15} /></button></PermissionGate>
+              <PermissionGate permission="pms.requests.reject"><button type="button" onClick={() => handleReject(r.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600" title="Từ chối"><XCircle size={15} /></button></PermissionGate>
+            </>
+          )}
+        </TableActions>
+      ),
+    },
+  ];
 
   // ─────── FORM MODAL (Create / Edit) ───────
   const formModal = showFormModal && (
@@ -687,150 +719,19 @@ export default function MaterialRequestPage() {
           </div>
         </div>
 
-        {/* ── TABLE ── */}
-        <div className="flex-1 overflow-auto">
-          <table className="min-w-full text-sm border-collapse table-fixed">
-            <thead className="sticky top-0 z-10">
-              {/* Row 1: Column headers + sort icons */}
-              <tr className="bg-blue-50">
-                <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                <th className="w-[200px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.code')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[110px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.urgency')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.requestDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.neededDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[120px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.requestedBy')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[110px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.status')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-14 px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.items')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-20 px-3 py-2 border-b border-gray-200"></th>
-              </tr>
-              {/* Row 2: Column filters */}
-              <tr className="bg-white border-b border-gray-200">
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                    <span className="text-gray-400 text-xs select-none">→</span>
-                    <input type="text" placeholder={t('common.search')} value={searchQ} onChange={e => { setSearchQ(e.target.value); setCurrentPage(1); }} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                    <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                    <option value="">Tất cả</option>
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-gray-200"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Đang tải...</td></tr>
-              ) : requests.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Không có dữ liệu</td></tr>
-              ) : requests.map((r, idx) => (
-                <tr key={r.id} className={`hover:bg-blue-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                  <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{(currentPage - 1) * pageSize + idx + 1}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <button onClick={() => openDetail(r.id)} className="text-blue-600 hover:underline font-medium text-xs">
-                      {r.requestCode}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${URGENCY_OPTIONS.find(u => u.value === r.urgency)?.color || ''}`}>
-                      {URGENCY_OPTIONS.find(u => u.value === r.urgency)?.label || r.urgency}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.requestDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.neededDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.requestedBy}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>
-                      {STATUS_LABELS[r.status] || r.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.itemCount}</td>
-                  <td className="px-3 py-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openDetail(r.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Xem"><Eye size={15} /></button>
-                      {r.status === 'Draft' && (
-                        <>
-                          <PermissionGate permission="pms.requests.update"><button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Sửa"><Edit2 size={15} /></button></PermissionGate>
-                          <PermissionGate permission="pms.requests.delete"><button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Xóa"><Trash2 size={15} /></button></PermissionGate>
-                        </>
-                      )}
-                      {r.status === 'Submitted' && (
-                        <>
-                          <PermissionGate permission="pms.requests.approve"><button onClick={() => handleApprove(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Duyệt"><CheckCircle size={15} /></button></PermissionGate>
-                          <PermissionGate permission="pms.requests.reject"><button onClick={() => handleReject(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Từ chối"><XCircle size={15} /></button></PermissionGate>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── PAGINATION ── */}
-        <div className="flex items-center justify-center px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-            {[...Array(Math.min(5, totalPages))].map((_, i) => {
-              let page: number;
-              if (totalPages <= 5) page = i + 1;
-              else if (currentPage <= 3) page = i + 1;
-              else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-              else page = currentPage - 2 + i;
-              return (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
-                  {page}
-                </button>
-              );
-            })}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-          </div>
-        </div>
+        <DataTable
+          flush
+          showCount={false}
+          loading={loading}
+          columns={columns}
+          data={requests}
+          rowKey={r => r.id}
+          itemLabel="phiếu yêu cầu"
+          emptyMessage="Không có dữ liệu"
+          searchPlaceholder="Tìm mã phiếu, người yêu cầu..."
+          exportOptions={{ fileName: 'yeu-cau-vat-tu', title: 'DANH SÁCH YÊU CẦU VẬT TƯ' }}
+          minWidth={1000}
+        />
     </div>
   );
 

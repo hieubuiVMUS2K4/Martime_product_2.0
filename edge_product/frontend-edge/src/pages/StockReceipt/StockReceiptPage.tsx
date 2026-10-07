@@ -12,6 +12,7 @@ import { storeLocationService } from '@/services/store-location.service';
 import { materialRequestService } from '@/services/materialRequest.service';
 import { maritimeService } from '@/services/maritime.service';
 import { VESSEL_CONFIG } from '@/config/app.config';
+import { DataTable, TableActions, type Column } from '@/components/common/DataTable';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { StockReceipt, StockReceiptItem, StoreLocation, MaterialRequest } from '@/types/pms.types';
 import type { MaterialItem, VoyageRecord } from '@/types/maritime.types';
@@ -175,10 +176,6 @@ export default function StockReceiptPage() {
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(25);
-  const [searchQ, setSearchQ] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
 
@@ -212,11 +209,7 @@ export default function StockReceiptPage() {
   const loadList = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await stockReceiptService.getAll({
-        page: currentPage, pageSize,
-        status: filterStatus || undefined,
-        q: searchQ || undefined,
-      });
+      const res = await stockReceiptService.getAll({ page: 1, pageSize: 100000 });
       setReceipts(res.items);
       setTotal(res.total);
     } catch (e) {
@@ -224,7 +217,7 @@ export default function StockReceiptPage() {
         ? e.response.data : 'Không thể tải danh sách phiếu nhập kho');
     }
     finally { setLoading(false); }
-  }, [currentPage, pageSize, filterStatus, searchQ]);
+  }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -482,8 +475,40 @@ export default function StockReceiptPage() {
     }
   };
 
-  const totalPages = Math.ceil(total / pageSize);
   const fmt = (n?: number | null) => n != null ? n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '';
+
+  const columns: Column<StockReceipt>[] = [
+    {
+      key: 'receiptCode', header: t('stockReceipts.code'), width: 190, value: r => r.receiptCode,
+      render: r => <button type="button" onClick={() => openDetail(r.id)} className="font-medium text-blue-600 hover:underline">{r.receiptCode}</button>,
+    },
+    { key: 'supplier', header: t('stockReceipts.supplier'), width: 200, value: r => r.supplierName || r.supplierCode || '', render: r => r.supplierName || r.supplierCode || <span className="text-gray-400">—</span> },
+    { key: 'receivedDate', header: t('stockReceipts.receivedDate'), width: 115, align: 'center', value: r => r.receivedDate?.slice(0, 10) ?? '' },
+    { key: 'receiptDate', header: t('stockReceipts.receiptDate'), width: 115, align: 'center', value: r => r.receiptDate?.slice(0, 10) ?? '' },
+    { key: 'createdBy', header: t('stockReceipts.createdBy'), width: 150, value: r => r.createdBy ?? '' },
+    {
+      key: 'status', header: t('stockReceipts.status'), width: 130, align: 'center', value: r => STATUS_LABELS[r.status] || r.status,
+      render: r => <span className={`rounded px-2 py-0.5 font-medium ${STATUS_COLORS[r.status] || ''}`}>{STATUS_LABELS[r.status] || r.status}</span>,
+    },
+    { key: 'totalValue', header: 'Tổng giá trị (USD)', width: 140, numeric: true, value: r => r.totalValue ?? null, render: r => <span className="font-medium">{fmt(r.totalValue)}</span> },
+    {
+      key: 'actions', header: 'Hành động', width: 140, align: 'center', exportable: false,
+      render: r => (
+        <TableActions>
+          <button type="button" onClick={() => openDetail(r.id)} title="Xem" className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"><Eye size={15} /></button>
+          {r.status === 'Draft' && (
+            <>
+              <PermissionGate permission="pms.receipts.update"><button type="button" onClick={() => openEdit(r.id)} title="Sửa" className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600"><Edit2 size={15} /></button></PermissionGate>
+              <PermissionGate permission="pms.receipts.delete"><button type="button" onClick={() => handleDelete(r.id)} title="Xóa" className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button></PermissionGate>
+              {canSubmit && <button type="button" onClick={() => handleSubmit(r.id)} title="Gửi duyệt phiếu nhập" className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-600"><Send size={15} /></button>}
+            </>
+          )}
+          {r.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button type="button" onClick={() => handleApprove(r.id)} title="Duyệt phiếu nhập" className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600"><CheckCircle size={15} /></button></PermissionGate>}
+          <ReceiptCompletionButton status={r.status} iconOnly onComplete={() => handleComplete(r.id)} />
+        </TableActions>
+      ),
+    },
+  ];
 
   // ─────── LIST VIEW ───────
   const listView = (
@@ -505,139 +530,19 @@ export default function StockReceiptPage() {
           </div>
         </div>
 
-        {/* ── TABLE ── */}
-        <div className="flex-1 overflow-auto">
-          <table className="min-w-full text-sm border-collapse table-fixed">
-            <thead className="sticky top-0 z-10">
-              {/* Row 1: Column headers + sort icons */}
-              <tr className="bg-blue-50">
-                <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                <th className="w-[180px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.code')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[160px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.supplier')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.receivedDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.receiptDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[110px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.createdBy')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[100px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('stockReceipts.status')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[100px] px-3 py-2 text-right border-b border-r border-gray-200">
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-semibold text-gray-600">Tổng giá trị</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-32 px-3 py-2 border-b border-gray-200">Hành động</th>
-              </tr>
-              {/* Row 2: Column filters */}
-              <tr className="bg-white border-b border-gray-200">
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                    <span className="text-gray-400 text-xs select-none">→</span>
-                    <input type="text" placeholder={t('common.search')} value={searchQ} onChange={e => { setSearchQ(e.target.value); setCurrentPage(1); }} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                    <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                    <option value="">Tất cả</option>
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-gray-200"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Đang tải...</td></tr>
-              ) : receipts.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Không có dữ liệu</td></tr>
-              ) : receipts.map((r, idx) => (
-                <tr key={r.id} className={`hover:bg-blue-50 ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                  <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{(currentPage - 1) * pageSize + idx + 1}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <button onClick={() => openDetail(r.id)} className="text-blue-600 hover:underline font-medium text-xs">{r.receiptCode}</button>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.supplierName || r.supplierCode || '—'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.receivedDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.receiptDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.createdBy}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>{STATUS_LABELS[r.status] || r.status}</span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-right font-medium border-r border-gray-100">{fmt(r.totalValue)} USD</td>
-                  <td className="px-3 py-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openDetail(r.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Eye size={15} /></button>
-                      {r.status === 'Draft' && (
-                        <>
-                          <PermissionGate permission="pms.receipts.update"><button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"><Edit2 size={15} /></button></PermissionGate>
-                          <PermissionGate permission="pms.receipts.delete"><button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={15} /></button></PermissionGate>
-                          {canSubmit && <button onClick={() => handleSubmit(r.id)} title="Gửi duyệt phiếu nhập" className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Send size={15} /></button>}
-                        </>
-                      )}
-                      {r.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleApprove(r.id)} title="Duyệt phiếu nhập" className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"><CheckCircle size={15} /></button></PermissionGate>}
-                      <ReceiptCompletionButton status={r.status} iconOnly onComplete={() => handleComplete(r.id)} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* PAGINATION */}
-        <div className="flex items-center justify-center px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-            {[...Array(Math.min(5, totalPages))].map((_, i) => {
-              let page: number;
-              if (totalPages <= 5) page = i + 1;
-              else if (currentPage <= 3) page = i + 1;
-              else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-              else page = currentPage - 2 + i;
-              return (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
-                  {page}
-                </button>
-              );
-            })}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-          </div>
-        </div>
+        <DataTable
+          flush
+          showCount={false}
+          loading={loading}
+          columns={columns}
+          data={receipts}
+          rowKey={r => r.id}
+          itemLabel="phiếu nhập"
+          emptyMessage="Không có dữ liệu"
+          searchPlaceholder="Tìm mã phiếu, nhà cung cấp, người tạo..."
+          exportOptions={{ fileName: 'phieu-nhap-kho', title: 'DANH SÁCH PHIẾU NHẬP KHO' }}
+          minWidth={1100}
+        />
       </div>
     );
 

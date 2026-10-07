@@ -166,7 +166,7 @@ public class TelemetryController : ControllerBase
     {
         try
         {
-            if (_cache.TryGetValue("LatestNavigation", out NavigationData cachedNav))
+            if (_cache.TryGetValue("LatestNavigation", out NavigationData? cachedNav) && cachedNav != null)
             {
                 return Ok(cachedNav);
             }

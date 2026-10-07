@@ -1,0 +1,573 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, ChevronDown, Download, FileSpreadsheet, Inbox, Loader2, Plus, Search, Upload, X } from 'lucide-react';
+import { foldVietnamese } from '@/utils/text';
+import { ColumnFilterMenu, type SortDirection } from './ColumnFilterMenu';
+import { TablePagination } from './TablePagination';
+import { exportToCsv, exportToExcel, type ExportColumn } from './exportTable';
+
+/*
+  Bảng dữ liệu dùng chung của phân hệ bờ.
+
+  Quy chuẩn (mọi bảng giống nhau):
+  - Thanh công cụ: ô tìm nhanh + số kết quả bên trái; Xuất dữ liệu, Import, Thêm mới bên phải.
+  - KHÔNG có hàng ô lọc dưới tiêu đề. Mỗi cột có nút lọc riêng ở góc tiêu đề (kiểu Excel),
+    sắp xếp nằm trong menu đó.
+  - Chữ căn trái, số căn phải, nút căn giữa. Tiêu đề cột căn giữa.
+  - Nét kẻ cột đậm (token --rgb-grid), dưới tiêu đề đậm hơn.
+  - Phân trang 20 dòng, tự lùi trang khi lọc làm số trang giảm.
+  - Độ rộng cột CỐ ĐỊNH theo % (table-layout: fixed): chuyển tab, sắp xếp, lọc không làm cột
+    co giãn theo dữ liệu. Chữ dài hơn cột thì cắt bằng "…", rê chuột vào hiện toàn bộ.
+
+  Trang chỉ khai báo cột:
+    { key: 'name', header: 'Tên cảng', value: p => p.portName }
+    { key: 'lat', header: 'Vĩ độ', value: p => p.latitude, numeric: true }
+    { key: 'actions', header: 'Thao tác', align: 'center', render: p => <...nút...> }
+  `value` dùng chung cho hiển thị (khi không có render), tìm nhanh, lọc cột, sắp xếp và xuất file.
+*/
+
+type CellValue = string | number | boolean | null | undefined;
+
+export interface Column<T> {
+  key: string;
+  header: string;
+  /** Giải thích ngắn hiện khi rê chuột lên tiêu đề cột. */
+  headerHint?: string;
+  value?: (item: T) => CellValue;
+  render?: (item: T) => React.ReactNode;
+  /** Có nút lọc cột không. Mặc định có nếu cột khai `value`. Truyền hàm để lọc theo nhãn khác giá trị gốc. */
+  filter?: boolean | ((item: T) => string);
+  /** Lọc nhanh theo nhóm trong menu lọc, ví dụ { label: 'Sắp hết hạn', match: v => ... }. */
+  quickFilters?: { label: string; match: (value: string) => boolean }[];
+  sortable?: boolean;
+  /** Cột số: căn phải, sắp xếp theo trị số. */
+  numeric?: boolean;
+  align?: 'left' | 'right' | 'center';
+  /**
+   * Độ rộng cột. Số = trọng số tương đối, quy ra % bề ngang bảng (150 cạnh 300 → cột hẹp
+   * bằng nửa). Chuỗi '12%' dùng nguyên. Bỏ trống = cột "co giãn" lấy phần lớn chỗ còn lại.
+   */
+  width?: number | string;
+  /** Cắt chữ dài bằng "…" (mặc định có; cột "actions" không cắt). */
+  truncate?: boolean;
+  /** Có xuất ra file không. Mặc định có nếu cột khai `value`. */
+  exportable?: boolean;
+  exportValue?: (item: T) => CellValue;
+  /** Có tham gia ô tìm nhanh không. Mặc định có nếu cột khai `value`. */
+  searchable?: boolean;
+  className?: string;
+  /**
+   * Lọc ở máy chủ (bảng phân trang máy chủ): menu lọc trên tiêu đề dùng danh sách lựa chọn cố định,
+   * chọn xong gọi `onChange` để trang tải lại từ máy chủ — không lọc trên trình duyệt.
+   */
+  serverFilter?: {
+    options: { value: string; label: string }[];
+    /** null = không lọc. */
+    selected: string[] | null;
+    onChange: (values: string[] | null) => void;
+  };
+}
+
+export interface DataTableProps<T> {
+  columns: Column<T>[];
+  data: T[];
+  rowKey: (item: T) => string | number;
+  loading?: boolean;
+  /** Lỗi tải dữ liệu, hiện thay cho bảng trống. */
+  error?: string | null;
+  emptyMessage?: string;
+
+  searchPlaceholder?: string;
+  /** Tắt ô tìm nhanh (bảng rất nhỏ). */
+  searchable?: boolean;
+
+  onAdd?: () => void;
+  addLabel?: string;
+  onImport?: () => void;
+  importLabel?: string;
+  /** Cấu hình xuất file. `false` để tắt. */
+  exportOptions?: { fileName: string; title?: string } | false;
+  /** Nút riêng của trang, đặt trước nút Xuất. */
+  toolbarActions?: React.ReactNode;
+  /** Khối riêng bên trái thanh công cụ, sau ô tìm (ví dụ bộ chọn tàu). */
+  toolbarLeft?: React.ReactNode;
+  /** Tên bảng ở đầu thanh công cụ (thay cho số đếm mặc định). */
+  toolbarTitle?: React.ReactNode;
+  /** Hiện số dòng ("12 kho") trên thanh công cụ. Tắt khi trang đã có số đếm riêng. */
+  showCount?: boolean;
+
+  showIndex?: boolean;
+  pageSize?: number;
+  pageSizeOptions?: number[];
+  itemLabel?: string;
+
+  /** Cột tích chọn nhiều dòng. */
+  selection?: { selected: Set<string | number>; onChange: (next: Set<string | number>) => void };
+  /** Thanh thao tác khi đang chọn dòng, ví dụ nút "Xóa đã chọn". */
+  bulkActions?: React.ReactNode;
+
+  onRowClick?: (item: T) => void;
+  onRowContextMenu?: (event: React.MouseEvent, item: T) => void;
+  rowClassName?: (item: T) => string | undefined;
+  /** Chiều rộng tối thiểu của bảng trước khi cuộn ngang. */
+  minWidth?: number;
+  className?: string;
+  /** Nằm sát mép vùng chứa: bỏ viền ngoài và bo góc, kéo đầy chiều cao (bảng trong tab làm việc). */
+  flush?: boolean;
+  /**
+   * Phân trang ở máy chủ (dữ liệu quá lớn để tải hết): `data` là MỘT trang máy chủ trả về,
+   * thanh phân trang điều khiển trang/số dòng của máy chủ. Tìm/lọc nên làm ở máy chủ.
+   */
+  serverPagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange?: (size: number) => void;
+  };
+  /**
+   * Tìm ở máy chủ (đi cùng `serverPagination`): ô tìm nhanh không lọc trên trình duyệt
+   * mà gọi hàm này (đã chờ người dùng ngừng gõ) để trang tải lại từ máy chủ.
+   */
+  onServerSearch?: (keyword: string) => void;
+}
+
+const str = (v: CellValue) => (v === null || v === undefined ? '' : String(v));
+
+export function DataTable<T>({
+  columns,
+  data,
+  rowKey,
+  loading = false,
+  error,
+  emptyMessage = 'Chưa có dữ liệu.',
+  searchPlaceholder = 'Tìm nhanh...',
+  searchable = true,
+  onAdd,
+  addLabel = 'Thêm mới',
+  onImport,
+  importLabel = 'Import Excel',
+  exportOptions,
+  toolbarActions,
+  toolbarLeft,
+  toolbarTitle,
+  showCount = true,
+  showIndex = true,
+  pageSize: initialPageSize = 20,
+  pageSizeOptions = [10, 15, 20, 25],
+  itemLabel = 'kết quả',
+  selection,
+  bulkActions,
+  onRowClick,
+  onRowContextMenu,
+  rowClassName,
+  minWidth = 760,
+  className = '',
+  flush = false,
+  serverPagination,
+  onServerSearch,
+}: DataTableProps<T>) {
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
+  const [sort, setSort] = useState<{ key: string; dir: SortDirection } | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+
+  const filterOf = (col: Column<T>): ((item: T) => string) | null => {
+    if (typeof col.filter === 'function') return col.filter;
+    if (col.filter === false || !col.value) return null;
+    return item => str(col.value!(item));
+  };
+
+  const filterable = useMemo(
+    () => columns.map(c => ({ col: c, get: filterOf(c) })).filter(x => x.get) as { col: Column<T>; get: (i: T) => string }[],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [columns],
+  );
+
+  const passes = (item: T, except?: string) =>
+    filterable.every(({ col, get }) => {
+      if (col.key === except) return true;
+      const allowed = filters[col.key];
+      return !allowed || allowed.includes(get(item));
+    });
+
+  // Tìm ở máy chủ: chờ ngừng gõ rồi mới báo cho trang tải lại
+  const serverSearchRef = useRef(onServerSearch);
+  serverSearchRef.current = onServerSearch;
+  const firstSearch = useRef(true);
+  useEffect(() => {
+    if (firstSearch.current) { firstSearch.current = false; return; }
+    if (!serverSearchRef.current) return;
+    const timer = setTimeout(() => serverSearchRef.current?.(search.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const searched = useMemo(() => {
+    const keyword = foldVietnamese(search);
+    if (!keyword || onServerSearch) return data;
+    const cols = columns.filter(c => c.value && c.searchable !== false);
+    return data.filter(item => cols.some(c => foldVietnamese(str(c.value!(item))).includes(keyword)));
+  }, [data, columns, search, onServerSearch]);
+
+  const filtered = useMemo(
+    () => searched.filter(item => passes(item)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searched, filters, filterable],
+  );
+
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const col = columns.find(c => c.key === sort.key);
+    if (!col?.value) return filtered;
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const x = col.value!(a);
+      const y = col.value!(b);
+      if (x === y) return 0;
+      if (x === null || x === undefined || x === '') return 1;
+      if (y === null || y === undefined || y === '') return -1;
+      const r = typeof x === 'number' && typeof y === 'number'
+        ? x - y
+        : String(x).localeCompare(String(y), 'vi', { numeric: true, sensitivity: 'base' });
+      return r * dir;
+    });
+  }, [filtered, sort, columns]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  useEffect(() => { setPage(p => Math.min(p, totalPages)); }, [totalPages]);
+  useEffect(() => { setPage(1); }, [search, filters, sort, pageSize]);
+
+  const first = serverPagination ? (serverPagination.page - 1) * serverPagination.pageSize : (page - 1) * pageSize;
+  const rows = serverPagination ? sorted : sorted.slice(first, first + pageSize);
+
+  /** Giá trị cho menu lọc của một cột, đã trừ các dòng bị cột khác lọc mất. */
+  const valuesFor = (col: Column<T>, get: (i: T) => string) =>
+    [...new Set(searched.filter(i => passes(i, col.key)).map(get))].sort((a, b) =>
+      col.numeric ? Number(a) - Number(b) : a.localeCompare(b, 'vi', { numeric: true }),
+    );
+
+  const applyFilter = (key: string, selected: string[] | null) =>
+    setFilters(prev => {
+      const next = { ...prev };
+      if (selected === null) delete next[key];
+      else next[key] = selected;
+      return next;
+    });
+
+  const serverFiltered = columns.filter(c => c.serverFilter?.selected);
+  const activeFilterCount = Object.keys(filters).length + serverFiltered.length;
+  const hasQuery = !!search.trim() || activeFilterCount > 0;
+
+  /* ── Chọn dòng ── */
+  const pageKeys = rows.map(rowKey);
+  const allOnPage = !!selection && pageKeys.length > 0 && pageKeys.every(k => selection.selected.has(k));
+  const someOnPage = !!selection && pageKeys.some(k => selection.selected.has(k)) && !allOnPage;
+  const togglePage = () => {
+    if (!selection) return;
+    const next = new Set(selection.selected);
+    pageKeys.forEach(k => (allOnPage ? next.delete(k) : next.add(k)));
+    selection.onChange(next);
+  };
+  const toggleRow = (k: string | number) => {
+    if (!selection) return;
+    const next = new Set(selection.selected);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    selection.onChange(next);
+  };
+
+  /* ── Xuất file: xuất đúng những dòng đang thấy sau tìm/lọc/sắp xếp ── */
+  const exportCols: ExportColumn<T>[] = columns
+    .filter(c => c.exportable ?? !!(c.value || c.exportValue))
+    .map(c => ({ header: c.header, value: (c.exportValue ?? c.value)!, numeric: c.numeric }));
+
+  const colCount = columns.length + (showIndex ? 1 : 0) + (selection ? 1 : 0);
+  const widths = useMemo(() => columnPercents(columns), [columns]);
+  const alignOf = (c: Column<T>) => c.align ?? (c.numeric ? 'right' : 'left');
+  const alignClass = { left: 'text-left', right: 'text-right tabular-nums', center: 'text-center' } as const;
+
+  return (
+    <section className={`flex min-w-0 flex-col overflow-hidden bg-white ${flush ? 'min-h-0 flex-1' : 'rounded-md border border-[#7d8d9a]'} ${className}`}>
+      {/* ── Thanh công cụ ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#a3b1bc] px-3 py-2.5">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+          {toolbarTitle}
+          {searchable && (
+            <label className="relative w-full max-w-[340px]">
+              <span className="sr-only">Tìm nhanh</span>
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="h-9 w-full rounded-md border border-gray-300 bg-white pl-8 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+              />
+            </label>
+          )}
+          {!toolbarTitle && showCount && (
+            <span className="whitespace-nowrap text-[13px] font-semibold text-gray-900" aria-live="polite">
+              {loading ? 'Đang tải...' : `${(serverPagination ? serverPagination.total : sorted.length).toLocaleString('vi-VN')} ${itemLabel}`}
+            </span>
+          )}
+          {activeFilterCount > 0 && (
+            <button type="button" onClick={() => { setFilters({}); serverFiltered.forEach(c => c.serverFilter!.onChange(null)); }}
+              className="flex h-7 items-center gap-1 rounded-full border border-blue-600/30 bg-blue-50 px-2.5 text-[12px] font-medium text-blue-600 hover:bg-blue-100">
+              Đang lọc {activeFilterCount} cột <X className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="sr-only">Bỏ tất cả bộ lọc</span>
+            </button>
+          )}
+          {toolbarLeft}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {toolbarActions}
+          {exportOptions !== false && exportOptions && (
+            <ExportMenu
+              disabled={sorted.length === 0}
+              onExcel={() => exportToExcel({ ...exportOptions, columns: exportCols, rows: sorted })}
+              onCsv={() => exportToCsv({ ...exportOptions, columns: exportCols, rows: sorted })}
+            />
+          )}
+          {onImport && (
+            <button type="button" onClick={onImport} className={toolbarBtn}>
+              <Upload className="h-4 w-4" aria-hidden="true" /> {importLabel}
+            </button>
+          )}
+          {onAdd && (
+            <button type="button" onClick={onAdd}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-blue-600 px-3.5 text-sm font-medium text-white hover:bg-blue-700">
+              <Plus className="h-4 w-4" aria-hidden="true" /> {addLabel}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {selection && selection.selected.size > 0 && (
+        <div className="flex items-center gap-3 border-b border-[#a3b1bc] bg-blue-100 px-3 py-1.5 text-[13px] text-blue-600">
+          <span>Đã chọn <strong>{selection.selected.size}</strong> dòng</span>
+          {bulkActions}
+          <button type="button" className="ml-auto text-[13px] underline-offset-2 hover:underline" onClick={() => selection.onChange(new Set())}>
+            Bỏ chọn
+          </button>
+        </div>
+      )}
+
+      {/* ── Bảng ── */}
+      <div className="min-h-0 flex-1 overflow-auto" tabIndex={0} aria-label="Bảng dữ liệu, có thể cuộn ngang">
+        <table className="w-full table-fixed border-collapse text-xs text-gray-900" style={{ minWidth }}>
+          <colgroup>
+            {selection && <col style={{ width: 40 }} />}
+            {showIndex && <col style={{ width: 52 }} />}
+            {columns.map((col, i) => <col key={col.key} style={{ width: widths[i] }} />)}
+          </colgroup>
+          <thead>
+            <tr>
+              {selection && (
+                <th scope="col" className={thClass}>
+                  <input type="checkbox" className="h-4 w-4 accent-blue-600" aria-label="Chọn cả trang"
+                    checked={allOnPage} ref={n => { if (n) n.indeterminate = someOnPage; }} onChange={togglePage} />
+                </th>
+              )}
+              {showIndex && <th scope="col" className={thClass}>STT</th>}
+              {columns.map(col => {
+                const sf = col.serverFilter;
+                const get = sf ? undefined : filterOf(col);
+                const sortable = col.sortable ?? !!col.value;
+                const sorting = sort?.key === col.key ? sort.dir : null;
+                const labelOf = (v: string) => sf?.options.find(o => o.value === v)?.label ?? v;
+                const valueOf = (l: string) => sf?.options.find(o => o.label === l)?.value ?? l;
+                return (
+                  <th key={col.key} scope="col" className={`${thClass} ${get || sf ? 'pr-6' : ''}`}
+                    title={col.headerHint ?? col.header}>
+                    <span className="inline-flex max-w-full items-center justify-center gap-1 break-words">
+                      {col.header}
+                      {sorting === 'asc' && <ArrowUp className="h-3.5 w-3.5 text-blue-600" aria-label="tăng dần" />}
+                      {sorting === 'desc' && <ArrowDown className="h-3.5 w-3.5 text-blue-600" aria-label="giảm dần" />}
+                    </span>
+                    {get && (
+                      <ColumnFilterMenu
+                        label={col.header}
+                        values={valuesFor(col, get)}
+                        selected={filters[col.key] ?? null}
+                        quickFilters={col.quickFilters?.map(q => ({ label: q.label, values: valuesFor(col, get).filter(q.match) }))}
+                        sortable={sortable}
+                        sortDirection={sorting}
+                        onSort={dir => setSort(dir ? { key: col.key, dir } : null)}
+                        onApply={sel => applyFilter(col.key, sel)}
+                      />
+                    )}
+                    {sf && (
+                      <ColumnFilterMenu
+                        label={col.header}
+                        values={sf.options.map(o => o.label)}
+                        selected={sf.selected ? sf.selected.map(labelOf) : null}
+                        sortable={sortable}
+                        sortDirection={sorting}
+                        onSort={dir => setSort(dir ? { key: col.key, dir } : null)}
+                        onApply={sel => sf.onChange(sel ? sel.map(valueOf) : null)}
+                      />
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-14 text-center text-gray-600">
+                  <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-blue-500" aria-hidden="true" />
+                  Đang tải dữ liệu...
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-14 text-center text-red-700">{error}</td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={colCount} className="px-4 py-14 text-center text-gray-600">
+                  <Inbox className="mx-auto mb-2 h-7 w-7 text-gray-400" aria-hidden="true" />
+                  <strong className="block text-sm text-gray-900">{hasQuery ? 'Không tìm thấy kết quả phù hợp' : emptyMessage}</strong>
+                  {hasQuery && <span className="mt-1 block">Thử đổi từ khóa hoặc bỏ bớt bộ lọc.</span>}
+                </td>
+              </tr>
+            ) : (
+              rows.map((item, i) => {
+                const k = rowKey(item);
+                const selected = selection?.selected.has(k);
+                return (
+                  <tr
+                    key={k}
+                    onClick={onRowClick ? e => {
+                      if ((e.target as HTMLElement).closest('button, a, input, select, textarea, label')) return;
+                      onRowClick(item);
+                    } : undefined}
+                    onContextMenu={onRowContextMenu ? e => onRowContextMenu(e, item) : undefined}
+                    className={`${selected ? 'bg-blue-100' : `${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} hover:bg-blue-50/70`} ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(item) ?? ''}`}
+                  >
+                    {selection && (
+                      <td className={`${tdClass} text-center`}>
+                        <input type="checkbox" className="h-4 w-4 accent-blue-600" aria-label="Chọn dòng"
+                          checked={!!selected} onChange={() => toggleRow(k)} />
+                      </td>
+                    )}
+                    {showIndex && <td className={`${tdClass} text-right tabular-nums text-gray-600`}>{first + i + 1}</td>}
+                    {columns.map(col => (
+                      <td key={col.key} className={`${tdClass} ${alignClass[alignOf(col)]} ${col.className ?? ''}`}>
+                        {(col.truncate ?? col.key !== 'actions')
+                          ? <TruncatedText>{col.render ? col.render(item) : str(col.value?.(item))}</TruncatedText>
+                          : (col.render ? col.render(item) : str(col.value?.(item)))}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {serverPagination ? (
+        serverPagination.total > 0 && (
+          <TablePagination
+            page={serverPagination.page}
+            pageSize={serverPagination.pageSize}
+            totalItems={serverPagination.total}
+            onPageChange={serverPagination.onPageChange}
+            pageSizeOptions={pageSizeOptions}
+            onPageSizeChange={serverPagination.onPageSizeChange}
+            itemLabel={itemLabel}
+          />
+        )
+      ) : !loading && sorted.length > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={sorted.length}
+          onPageChange={setPage}
+          pageSizeOptions={pageSizeOptions}
+          onPageSizeChange={setPageSize}
+          itemLabel={itemLabel}
+        />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Quy độ rộng khai ở cột ra %. Cột không khai độ rộng là cột co giãn (tên, mô tả...),
+ * được trọng số lớn hơn cột thường để nhận phần chỗ còn lại.
+ */
+const FLEX_WEIGHT = 260;
+function columnPercents<T>(columns: Column<T>[]): string[] {
+  let fixedPercent = 0;
+  let weightSum = 0;
+  const weights = columns.map(c => {
+    if (typeof c.width === 'string' && c.width.trim().endsWith('%')) { fixedPercent += parseFloat(c.width); return null; }
+    const w = typeof c.width === 'number' ? c.width : typeof c.width === 'string' ? parseFloat(c.width) || FLEX_WEIGHT : FLEX_WEIGHT;
+    weightSum += w;
+    return w;
+  });
+  const free = Math.max(0, 100 - fixedPercent);
+  return columns.map((c, i) => {
+    const w = weights[i];
+    return w === null ? (c.width as string) : `${((w / weightSum) * free).toFixed(3)}%`;
+  });
+}
+
+/**
+ * Ô chữ một dòng: dài hơn cột thì "…"; rê chuột vào hiện toàn bộ nội dung (chỉ khi bị cắt,
+ * để ô ngắn không bật chú thích thừa).
+ */
+const TruncatedText: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    className="truncate"
+    onMouseEnter={e => {
+      const el = e.currentTarget;
+      if (el.scrollWidth > el.clientWidth + 1) el.title = (el.textContent ?? '').trim();
+      else el.removeAttribute('title');
+    }}
+  >
+    {children}
+  </div>
+);
+
+const thClass =
+  'sticky top-0 z-[1] h-10 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc] bg-blue-50 px-2 py-2 overflow-hidden text-center align-middle text-xs font-semibold leading-tight text-gray-600 last:border-r-0';
+const tdClass = 'overflow-hidden border-b border-r border-[#a3b1bc] px-2.5 py-2 align-middle last:border-r-0';
+const toolbarBtn =
+  'inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 hover:bg-blue-50 hover:border-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50';
+
+/** Nút "Xuất dữ liệu" kèm menu chọn định dạng. */
+const ExportMenu: React.FC<{ disabled?: boolean; onExcel: () => void; onCsv: () => void }> = ({ disabled, onExcel, onCsv }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const item = 'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] text-gray-900 hover:bg-blue-50';
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" disabled={disabled} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} className={toolbarBtn}
+        title={disabled ? 'Không có dữ liệu để xuất' : 'Xuất những dòng đang hiển thị (đã tìm/lọc)'}>
+        <Download className="h-4 w-4" aria-hidden="true" /> Xuất dữ liệu <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-[100] mt-1 w-48 rounded-md border border-gray-300 bg-white p-1 shadow-lg">
+          <button type="button" role="menuitem" className={item} onClick={() => { onExcel(); setOpen(false); }}>
+            <FileSpreadsheet className="h-4 w-4 text-emerald-700" aria-hidden="true" /> Excel (.xlsx)
+          </button>
+          <button type="button" role="menuitem" className={item} onClick={() => { onCsv(); setOpen(false); }}>
+            <FileSpreadsheet className="h-4 w-4 text-gray-600" aria-hidden="true" /> CSV (.csv)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};

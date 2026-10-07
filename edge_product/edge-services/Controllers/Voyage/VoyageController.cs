@@ -145,7 +145,7 @@ public class VoyageController : ControllerBase
             if (voyage == null) return NotFound(new { message = "Voyage not found" });
             return Ok(voyage);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -168,7 +168,7 @@ public class VoyageController : ControllerBase
             if (!result) return NotFound(new { message = "Voyage not found" });
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -211,7 +211,7 @@ public class VoyageController : ControllerBase
             var portCall = await _voyageService.CreatePortCallAsync(dto);
             return CreatedAtAction(nameof(GetPortCalls), new { voyageId }, portCall);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -234,7 +234,7 @@ public class VoyageController : ControllerBase
             if (portCall == null) return NotFound(new { message = "Port call not found" });
             return Ok(portCall);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -257,7 +257,7 @@ public class VoyageController : ControllerBase
             if (!result) return NotFound(new { message = "Port call not found" });
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -300,7 +300,7 @@ public class VoyageController : ControllerBase
             var assignment = await _voyageService.AssignCrewAsync(dto);
             return CreatedAtAction(nameof(GetCrewAssignments), new { voyageId }, assignment);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return Conflict(new { error = "An internal error occurred." });
         }
@@ -323,7 +323,7 @@ public class VoyageController : ControllerBase
             var assignments = await _voyageService.BulkAssignCrewAsync(dto);
             return Ok(assignments);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -346,7 +346,7 @@ public class VoyageController : ControllerBase
             if (assignment == null) return NotFound(new { message = "Assignment not found" });
             return Ok(assignment);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -369,7 +369,7 @@ public class VoyageController : ControllerBase
             if (!result) return NotFound(new { message = "Assignment not found" });
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
