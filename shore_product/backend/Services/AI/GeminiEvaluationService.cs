@@ -64,7 +64,7 @@ YÊU CẦU BẮT BUỘC:
 - Tuyệt đối KHÔNG trả lời theo kiểu tổng kết cả tuần.
 Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Critical"", ""contentVi"": ""Nhận xét tiếng Việt khoảng 100 chữ""}}";
 
-            Exception lastException = null;
+            Exception? lastException = null;
 
             for (int attempt = 0; attempt < keys.Length; attempt++)
             {

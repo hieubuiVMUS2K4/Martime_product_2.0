@@ -253,7 +253,7 @@ namespace ProductApi.Services
                     await ProcessFuelData(sensorData);
                     break;
                 case "NAVIGATION":
-                    await ProcessNavigationData(sensorData);
+                    ProcessNavigationData(sensorData);
                     break;
                 default:
                     _logger.LogWarning("Unknown sensor type: {SensorType}", sensorData.SensorType);
@@ -290,7 +290,7 @@ namespace ProductApi.Services
             }
         }
 
-        private async Task ProcessNavigationData(SensorDataDto sensorData)
+        private void ProcessNavigationData(SensorDataDto sensorData)
         {
             if (Guid.TryParse(sensorData.VesselId, out var vesselGuid))
             {

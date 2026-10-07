@@ -1210,7 +1210,7 @@ public class CrewService : ICrewService
             CrewId = crew.CrewId,
             FirstName = firstName,
             LastName = lastName,
-            FullName = crew.FullName,
+            FullName = crew.FullName ?? string.Empty,
             Rank = crew.Rank != null ? new RankDto
             {
                 Id = crew.Rank.Id,
