@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -486,7 +487,7 @@ export function CertificateManagementPage() {
                   <Users className="w-4 h-4" />
                   {t('crew.certMgmt.crewWithCert', { count: crewWithCertificate.length })}
                 </h3>
-                <button 
+                <PermissionGate permission="certificates.create"><button
                   onClick={() => {
                     setModalEditingCert(undefined)
                     setModalIsFlagState(false)
@@ -496,7 +497,7 @@ export function CertificateManagementPage() {
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {t('crew.certMgmt.addCertificate')}
-                </button>
+                </button></PermissionGate>
               </div>
 
               {crewWithCertificate.length === 0 ? (
@@ -638,12 +639,12 @@ export function CertificateManagementPage() {
           className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
           style={{ left: contextMenu.x, top: contextMenu.y, minWidth: '240px' }}
         >
-          <button
+          <PermissionGate permission="certificates.update"><button
             onClick={() => handleEditCertificate(contextMenu.crewCert)}
             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2"
           >
             <Pencil className="w-4 h-4 text-gray-500" /> {t('crew.certMgmt.editCert')}
-          </button>
+          </button></PermissionGate>
           <button
             onClick={() => {
               navigate(`/crew/${contextMenu.crewCert.crewMemberId}`)
@@ -654,12 +655,12 @@ export function CertificateManagementPage() {
             <User className="w-4 h-4 text-gray-500" /> {t('crew.certMgmt.viewProfile')}
           </button>
           <div className="border-t border-gray-200 my-1"></div>
-          <button
+          <PermissionGate permission="certificates.create"><button
             onClick={() => handleCreateFlagStateCertificate(contextMenu.crewCert)}
             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-2"
           >
             <Flag className="w-4 h-4 text-gray-500" /> {t('crew.certMgmt.createFlagState')}
-          </button>
+          </button></PermissionGate>
           <div className="border-t border-gray-200 my-1"></div>
           <button
             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"

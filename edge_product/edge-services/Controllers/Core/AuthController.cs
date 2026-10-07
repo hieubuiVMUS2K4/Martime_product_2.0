@@ -21,7 +21,7 @@ namespace MaritimeEdge.Controllers.Core;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-[Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
+[Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("fixed")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -50,6 +50,7 @@ public class AuthController : ControllerBase
     /// POST /api/auth/login
     /// </summary>
     [HttpPost("login")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var ipAddress = GetClientIpAddress();
@@ -91,7 +92,12 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> RefreshToken([FromBody] TokenRefreshRequest request)
     {
         var ipAddress = GetClientIpAddress();
-        var result = await _authService.RefreshTokenAsync(request.RefreshToken, ipAddress);
+        TokenRefreshResponse result;
+        try { result = await _authService.RefreshTokenAsync(request.RefreshToken, ipAddress); }
+        catch (AuthSessionUnavailableException)
+        {
+            return StatusCode(503, new { success = false, message = "Dịch vụ phiên đăng nhập tạm thời không khả dụng. Vui lòng thử lại." });
+        }
 
         if (!result.Success)
         {
@@ -114,7 +120,12 @@ public class AuthController : ControllerBase
             return Unauthorized(new { isValid = false, message = "Không có access token" });
         }
 
-        var result = await _authService.ValidateSessionAsync(accessToken);
+        ValidateSessionResponse result;
+        try { result = await _authService.ValidateSessionAsync(accessToken); }
+        catch (AuthSessionUnavailableException)
+        {
+            return StatusCode(503, new { isValid = false, message = "Dịch vụ phiên đăng nhập tạm thời không khả dụng. Vui lòng thử lại." });
+        }
 
         if (!result.IsValid)
         {
@@ -413,6 +424,7 @@ public class AuthController : ControllerBase
     /// POST /api/auth/login-legacy
     /// </summary>
     [HttpPost("login-legacy")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
     public async Task<IActionResult> LoginLegacy([FromBody] LegacyLoginRequest request)
     {
         try

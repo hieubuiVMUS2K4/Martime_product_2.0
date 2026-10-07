@@ -40,6 +40,7 @@ public class CreateStockReceiptItemDto
 
 public class UpdateStockReceiptDto
 {
+    public int? MaterialRequestId { get; set; }
     public string? VesselName { get; set; }
     public Guid? VoyageId { get; set; }
     public string? VoyageName { get; set; }
@@ -170,6 +171,8 @@ public class StockReceiptController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> Create([FromBody] CreateStockReceiptDto dto)
     {
+        if (!await HasApprovedRequestAsync(dto.MaterialRequestId))
+            return BadRequest("Chỉ được chọn yêu cầu vật tư đang hoạt động và đã duyệt.");
         if (!await HasValidLocationsAsync(dto.Items))
             return BadRequest("Vị trí kho không tồn tại hoặc đã ngừng sử dụng.");
         // Generate code: NK-YYYYMMDD-XXX
@@ -232,11 +235,13 @@ public class StockReceiptController : ControllerBase
 
         if (dto.Items != null && !await HasValidLocationsAsync(dto.Items))
             return BadRequest("Vị trí kho không tồn tại hoặc đã ngừng sử dụng.");
-        if (receipt.Status == "Completed")
-            return BadRequest("Không thể sửa phiếu nhập đã hoàn tất.");
-        if (dto.Status != null && dto.Status != receipt.Status &&
-            !(receipt.Status == "Draft" && dto.Status == "Approved"))
-            return BadRequest("Chỉ được duyệt phiếu Draft; hoàn tất qua API complete.");
+        if (receipt.Status != "Draft")
+            return BadRequest("Chỉ được chỉnh sửa phiếu nhập ở trạng thái nháp.");
+        if (dto.Status != null && dto.Status != receipt.Status)
+            return BadRequest("Hãy dùng thao tác duyệt hoặc hoàn tất để chuyển trạng thái phiếu nhập.");
+        if (!await HasApprovedRequestAsync(dto.MaterialRequestId ?? receipt.MaterialRequestId))
+            return BadRequest("Chỉ được chọn yêu cầu vật tư đang hoạt động và đã duyệt.");
+        if (dto.MaterialRequestId.HasValue) receipt.MaterialRequestId = dto.MaterialRequestId;
 
         if (dto.VesselName != null) receipt.VesselName = dto.VesselName;
         if (dto.VoyageId.HasValue) receipt.VoyageId = dto.VoyageId;
@@ -279,6 +284,50 @@ public class StockReceiptController : ControllerBase
         return Ok(new { receipt.Id, receipt.ReceiptCode, receipt.Status });
     }
 
+    private Task<bool> HasApprovedRequestAsync(int? id) => id.HasValue
+        ? _context.MaterialRequests.AnyAsync(r => r.Id == id.Value && r.IsActive && r.Status == "Approved")
+        : Task.FromResult(true);
+
+    [HttpPut("{id}/approve")]
+    public async Task<ActionResult> Approve(int id)
+    {
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
+        var receipt = await _context.StockReceipts.Include(r => r.Items)
+            .FirstOrDefaultAsync(r => r.Id == id && r.IsActive);
+        if (receipt == null) return NotFound();
+        if (receipt.Status != "Submitted") return BadRequest("Chỉ được duyệt phiếu nhập đang chờ duyệt.");
+        if (!await HasApprovedRequestAsync(receipt.MaterialRequestId))
+            return BadRequest("Yêu cầu vật tư liên kết phải được duyệt trước khi duyệt phiếu nhập.");
+        if (!receipt.Items.Any(i => i.QuantityReceived > 0) ||
+            receipt.Items.Any(i => i.QuantityReceived < 0 || i.UnitCost < 0))
+            return BadRequest("Phiếu phải có số lượng thực nhập dương và không chứa số âm.");
+        receipt.Status = "Approved";
+        receipt.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
+        return Ok(new { receipt.Id, receipt.ReceiptCode, receipt.Status });
+    }
+
+    [HttpPut("{id}/submit")]
+    public async Task<ActionResult> Submit(int id)
+    {
+        await using var transaction = await InventoryWriteScope.BeginAsync(_context);
+        var receipt = await _context.StockReceipts.Include(r => r.Items)
+            .FirstOrDefaultAsync(r => r.Id == id && r.IsActive);
+        if (receipt == null) return NotFound();
+        if (receipt.Status != "Draft") return BadRequest("Chỉ được gửi duyệt phiếu nhập ở trạng thái nháp.");
+        if (!await HasApprovedRequestAsync(receipt.MaterialRequestId))
+            return BadRequest("Yêu cầu vật tư liên kết phải được duyệt trước khi gửi phiếu nhập.");
+        if (!receipt.Items.Any(i => i.QuantityReceived > 0) ||
+            receipt.Items.Any(i => i.QuantityReceived < 0 || i.UnitCost < 0))
+            return BadRequest("Phiếu phải có số lượng thực nhập dương và không chứa số âm.");
+        receipt.Status = "Submitted";
+        receipt.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        if (transaction != null) await transaction.CommitAsync();
+        return Ok(new { receipt.Id, receipt.ReceiptCode, receipt.Status });
+    }
+
     /// <summary>PUT complete receipt → update inventory_stock</summary>
     [HttpPut("{id}/complete")]
     public async Task<ActionResult> Complete(int id)
@@ -290,8 +339,10 @@ public class StockReceiptController : ControllerBase
 
         if (receipt == null) return NotFound();
         if (receipt.Status == "Completed") return BadRequest("Already completed.");
-        if (receipt.Status != "Draft" && receipt.Status != "Approved")
+        if (receipt.Status != "Approved")
             return BadRequest("Trạng thái phiếu không cho phép hoàn tất.");
+        if (!await HasApprovedRequestAsync(receipt.MaterialRequestId))
+            return BadRequest("Yêu cầu vật tư liên kết phải đang hoạt động và đã duyệt.");
         if (receipt.Items.Any(i => i.QuantityReceived < 0 || i.UnitCost < 0) ||
             !receipt.Items.Any(i => i.QuantityReceived > 0))
             return BadRequest("Phiếu phải có số lượng thực nhập dương và không chứa số âm.");
@@ -434,8 +485,8 @@ public class StockReceiptController : ControllerBase
         await using var transaction = await InventoryWriteScope.BeginAsync(_context);
         var receipt = await _context.StockReceipts.FindAsync(id);
         if (receipt == null || !receipt.IsActive) return NotFound();
-        if (receipt.Status == "Completed")
-            return BadRequest("Không thể xóa phiếu nhập đã hoàn tất.");
+        if (receipt.Status != "Draft")
+            return BadRequest("Chỉ được xóa phiếu nhập ở trạng thái nháp.");
 
         receipt.IsActive = false;
         receipt.UpdatedAt = DateTime.UtcNow;

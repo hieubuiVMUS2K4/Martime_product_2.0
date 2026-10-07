@@ -9,6 +9,8 @@ import type {
   VesselVoyageSummary,
 } from '../../types/voyage.types';
 import './VoyageManagement.css';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
 
 function formatDateTime(value?: string) {
   if (!value) return '—';
@@ -31,6 +33,7 @@ function getStatusClass(status?: string) {
 }
 
 export const VoyageListPage: React.FC = () => {
+  const ask = useConfirm();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const vesselFilter = searchParams.get('vessel') || '';
@@ -93,14 +96,14 @@ export const VoyageListPage: React.FC = () => {
   }
 
   async function handleDelete(id: string, voyageNumber: string) {
-    if (!window.confirm(`Xóa hải trình ${voyageNumber}?`)) return;
+    if (!await ask(`Xóa hải trình ${voyageNumber}?`)) return;
     try {
       await voyageApi.deleteVoyage(id);
       if (vesselFilter) {
         const data = await voyageApi.getVoyages({ search: vesselFilter, page: 1, pageSize: 50 });
         setPayload(data);
       }
-    } catch { alert('Lỗi khi xóa'); }
+    } catch { toast.error('Lỗi khi xóa'); }
   }
 
   // ═══════════ VESSEL CARDS VIEW ═══════════

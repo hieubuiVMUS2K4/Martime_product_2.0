@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import type { DocumentAttachment } from '@/types/drill.types';
 import { uploadDrillDocument } from '@/services/drill.service';
 import { API_CONFIG } from '@/config/app.config';
+import { usePermission } from '@/stores/permissions.store';
 
 // Server root URL (strip trailing /api if present)
 const SERVER_ROOT = API_CONFIG.BASE_URL.replace(/\/api\/?$/, '');
@@ -27,6 +28,8 @@ export function DocumentUploadZone({
   maxFileSize = 10 * 1024 * 1024, // 10MB
   acceptedFileTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']
 }: DocumentUploadZoneProps) {
+  const canUpload = usePermission('drills.create');
+  const canUpdate = usePermission('drills.update');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<{ name: string; progress: number }[]>([]);
 
@@ -71,6 +74,7 @@ export function DocumentUploadZone({
    * Handle file selection (from dropzone or file input)
    */
   const handleFiles = useCallback(async (files: FileList | File[]) => {
+    if (!canUpload) return;
     const fileArray = Array.from(files);
     
     // Validate all files first
@@ -93,7 +97,7 @@ export function DocumentUploadZone({
       console.error('Upload failed:', error);
       toast.error('Upload failed. Please try again.');
     }
-  }, [documents, onChange]);
+  }, [documents, onChange, canUpload]);
 
   /**
    * Handle drag events
@@ -142,6 +146,7 @@ export function DocumentUploadZone({
    * Remove document
    */
   const handleRemove = (index: number) => {
+    if (!canUpload && !canUpdate) return;
     const newDocs = documents.filter((_, i) => i !== index);
     onChange(newDocs);
     toast.success('Document removed');
@@ -170,7 +175,7 @@ export function DocumentUploadZone({
   return (
     <div className="space-y-4">
       {/* Dropzone */}
-      <div
+      {canUpload && <div
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -201,7 +206,7 @@ export function DocumentUploadZone({
             Hỗ trợ: PDF, JPEG, PNG, WEBP, GIF (tối đa {(maxFileSize / 1024 / 1024).toFixed(0)}MB)
           </p>
         </div>
-      </div>
+      </div>}
 
       {/* Uploading Progress */}
       {uploadingFiles.length > 0 && (
@@ -270,14 +275,14 @@ export function DocumentUploadZone({
                 >
                   View
                 </a>
-                <button
+                {(canUpload || canUpdate) && <button
                   type="button"
                   onClick={() => handleRemove(index)}
                   className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
                   title="Remove document"
                 >
                   <X className="w-4 h-4" />
-                </button>
+                </button>}
               </div>
             </div>
           ))}

@@ -2,6 +2,9 @@ using ProductApi.Data;
 using ProductApi.Models;
 using ProductApi.DTOs;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using Maritime.Shared.Models.Sync;
+using ProductApi.Services.Sync;
 
 namespace ProductApi.Services
 {
@@ -13,6 +16,10 @@ namespace ProductApi.Services
         Task<VesselDto> CreateVesselAsync(CreateVesselDto vesselDto);
         Task<VesselDto?> UpdateVesselAsync(Guid id, UpdateVesselDto vesselDto);
         Task<VesselDto?> UpdateCommercialDataAsync(Guid id, UpdateCommercialDataDto commercialDto);
+        /// <summary>Toàn bộ thông số tàu (khóa camelCase) cho màn "Thông số tàu".</summary>
+        Task<Dictionary<string, object?>?> GetParticularsAsync(Guid id);
+        /// <summary>Sửa thông số tàu (mọi trường) và đẩy các trường đổi xuống tàu. ArgumentException khi dữ liệu sai.</summary>
+        Task<Dictionary<string, object?>?> UpdateParticularsAsync(Guid id, JsonElement payload);
         Task<bool> DeleteVesselAsync(Guid id);
         Task<VesselPositionDto> AddPositionAsync(Guid vesselId, CreateVesselPositionDto positionDto);
         Task<IEnumerable<VesselPositionDto>> GetVesselPositionsAsync(Guid vesselId, DateTime? fromDate = null);
@@ -24,11 +31,47 @@ namespace ProductApi.Services
     {
         private readonly AppDbContext _context;
         private readonly ILogger<VesselService> _logger;
+        private readonly ISyncOutboxService _outbox;
 
-        public VesselService(AppDbContext context, ILogger<VesselService> logger)
+        public VesselService(AppDbContext context, ILogger<VesselService> logger, ISyncOutboxService outbox)
         {
             _context = context;
             _logger = logger;
+            _outbox = outbox;
+        }
+
+        public async Task<Dictionary<string, object?>?> GetParticularsAsync(Guid id)
+        {
+            var vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id);
+            return vessel == null ? null : VesselParticulars.Read(vessel);
+        }
+
+        public async Task<Dictionary<string, object?>?> UpdateParticularsAsync(Guid id, JsonElement payload)
+        {
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            var vessel = await _context.Vessels.AsTracking().FirstOrDefaultAsync(v => v.Id == id);
+            if (vessel == null) return null;
+
+            var changes = VesselParticulars.Apply(vessel, payload);
+            if (changes.Count == 0)
+            {
+                await tx.RollbackAsync();
+                return VesselParticulars.Read(vessel);
+            }
+
+            vessel.UpdatedAt = DateTime.UtcNow;
+            vessel.LastShoreSyncAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            // Bờ → tàu: chỉ gửi các trường vừa đổi, tàu áp lên ShipData của nó.
+            var patch = VesselParticulars.BuildEdgePatch(vessel, changes);
+            if (patch.Count > 0)
+                await _outbox.EnqueueAsync(vessel.IMO, VesselParticulars.SyncTable, vessel.Id.ToString(), SyncActionType.UPDATE, patch);
+
+            await tx.CommitAsync();
+            _logger.LogInformation("Vessel particulars updated on shore: id={VesselId}, imo={IMO}, fields=[{Fields}], queuedToEdge={Queued}",
+                vessel.Id, vessel.IMO, string.Join(", ", changes.Keys), patch.Count > 0);
+            return VesselParticulars.Read(vessel);
         }
 
         public async Task<IEnumerable<VesselDto>> GetAllVesselsAsync()

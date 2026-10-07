@@ -5,6 +5,10 @@ import { voyageMgmtService } from '@/services/voyage.service'
 import type { Port, PortSearchQuery } from '@/types/voyage.types'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 
+/**
+ * Danh mục cảng — CHỈ ĐỌC tại tàu. Bờ làm chủ danh mục (thêm/sửa/ngừng dùng trên Shore)
+ * và phát xuống tàu qua đồng bộ; API tạo/sửa/xoá cảng của Edge đã bị khoá.
+ */
 export function PortManagementPage() {
   const { t } = useTranslationSafe()
   const [ports, setPorts] = useState<Port[]>([])

@@ -17,26 +17,6 @@ export interface Port {
   isActive: boolean
 }
 
-export interface CreatePortDto {
-  portCode: string
-  portName: string
-  country?: string
-  countryCode?: string
-  latitude?: number
-  longitude?: number
-  timeZone?: string
-}
-
-export interface UpdatePortDto {
-  portName?: string
-  country?: string
-  countryCode?: string
-  latitude?: number
-  longitude?: number
-  timeZone?: string
-  isActive?: boolean
-}
-
 export interface PortSearchQuery {
   search?: string
   countryCode?: string

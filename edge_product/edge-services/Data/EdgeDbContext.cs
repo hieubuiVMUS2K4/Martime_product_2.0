@@ -105,6 +105,7 @@ public class EdgeDbContext : DbContext
 
     // Authentication & Authorization
     public DbSet<Role> Roles { get; set; } = null!;
+    public DbSet<RankPermissionConfig> RankPermissionConfigs { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<UserSession> UserSessions { get; set; } = null!;
     public DbSet<LoginAttempt> LoginAttempts { get; set; } = null!;
@@ -199,6 +200,14 @@ public class EdgeDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<RankPermissionConfig>(entity =>
+        {
+            entity.ToTable("rank_permission_configs");
+            entity.Property(e => e.GrantsJson).HasColumnType("text");
+            entity.Property(e => e.Version).IsConcurrencyToken();
+            entity.HasOne<Maritime.Shared.Models.Crew.Rank>().WithMany()
+                .HasForeignKey(e => e.RankId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         // PostgreSQL specific configurations
         modelBuilder.HasDefaultSchema("public");
@@ -3060,6 +3069,12 @@ public class EdgeDbContext : DbContext
             //    sms_filled_records và sms_procedure_acknowledgements KHÔNG nằm ở đây: tàu
             //    sở hữu chúng và vẫn phải đẩy lên bờ (xem SmsSyncEnqueuerService).
             if (entry.Entity is IsmElement || entry.Entity is SmsProcedure || entry.Entity is SmsFormTemplate)
+                continue;
+
+            // 5. Danh mục cảng cũng do BỜ làm chủ, đi một chiều Bờ → Tàu, cùng lý do như trên:
+            //    ghi cảng nhận từ bờ không được vọng ngược lên. Endpoint tạo/sửa/xoá cảng của
+            //    tàu (PortController) đã bị khoá.
+            if (entry.Entity is Port)
                 continue;
 
             // 2. Check if entity is syncable (has IsSynced property)

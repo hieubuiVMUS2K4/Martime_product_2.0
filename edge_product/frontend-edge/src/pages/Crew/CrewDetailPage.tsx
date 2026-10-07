@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -1330,13 +1331,13 @@ export function CrewDetailPage() {
               <FileDown className="w-4 h-4" />
               <span>Excel</span>
             </button>
-            <button
+            <PermissionGate permission="crew.update"><button
               onClick={handleSave}
               disabled={saving}
               className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium disabled:opacity-50"
             >
               {saving ? t('crew.edDetail.messages.updateSuccess').replace('!','...') : t('common.save')}
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -1348,7 +1349,7 @@ export function CrewDetailPage() {
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 11 }}>{Object.keys(shoreChangeMap).length}</span>
             <span>Bờ đã chỉnh sửa <strong>{Object.keys(shoreChangeMap).length}</strong> trường. Các trường thay đổi được đánh dấu <span style={{ color: '#ef4444', fontWeight: 700 }}>MÀU ĐỎ</span> bên dưới.</span>
           </div>
-          <button onClick={handleMarkShoreChangesViewed} style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, color: '#fff', background: '#0d7377', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button>
+          <PermissionGate permission="crew.update"><button onClick={handleMarkShoreChangesViewed} style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, color: '#fff', background: '#0d7377', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button></PermissionGate>
         </div>
       )}
 
@@ -1374,13 +1375,13 @@ export function CrewDetailPage() {
                     placeholder={t('crew.edDetail.review.notesPlaceholder')}
                     className="px-3 py-1.5 border border-amber-300 rounded text-sm w-72 focus:ring-2 focus:ring-amber-500"
                   />
-                  <button
+                  <PermissionGate permission="crew.reject"><button
                     onClick={handleHoldReview}
                     disabled={reviewProcessing}
                     className="px-4 py-1.5 bg-amber-600 text-white text-sm font-medium rounded hover:bg-amber-700 disabled:opacity-50"
                   >
                     {t('crew.edDetail.review.confirmHold')}
-                  </button>
+                  </button></PermissionGate>
                   <button
                     onClick={() => { setShowHoldNotesInput(false); setHoldNotes('') }}
                     className="px-3 py-1.5 text-gray-600 text-sm rounded hover:bg-gray-100"
@@ -1390,21 +1391,21 @@ export function CrewDetailPage() {
                 </div>
               ) : (
                 <>
-                  <button
+                  <PermissionGate permission="crew.reject"><button
                     onClick={() => setShowHoldNotesInput(true)}
                     disabled={reviewProcessing || allSectionsChecked}
                     className="px-4 py-1.5 bg-amber-500 text-white text-sm font-medium rounded hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     title={allSectionsChecked ? 'All sections verified - no need to hold' : 'Put on hold and notify shore of missing information'}
                   >
                     ⏸ {t('crew.edDetail.review.holdNotify')}
-                  </button>
-                  <button
+                  </button></PermissionGate>
+                  <PermissionGate permission="crew.approve"><button
                     onClick={handleApproveReview}
                     disabled={reviewProcessing}
                     className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50"
                   >
                     ✓ {t('crew.edDetail.review.approveOnboard')}
-                  </button>
+                  </button></PermissionGate>
                 </>
               )}
             </div>
@@ -1662,7 +1663,7 @@ export function CrewDetailPage() {
                   <div className="flex gap-2">
                     {pendingAvatarFile ? (
                       <>
-                        <button 
+                        <PermissionGate permission="crew.update"><button
                           onClick={handleAvatarSave}
                           disabled={uploadingAvatar}
                           className={`px-4 py-2 text-white text-sm rounded flex items-center gap-1 ${
@@ -1670,7 +1671,7 @@ export function CrewDetailPage() {
                           }`}
                         >
                           <Upload className="w-4 h-4" /> Save
-                        </button>
+                        </button></PermissionGate>
                         <button 
                           onClick={handleCancelAvatarChange}
                           disabled={uploadingAvatar}
@@ -1681,7 +1682,7 @@ export function CrewDetailPage() {
                       </>
                     ) : (
                       <>
-                        <button 
+                        <PermissionGate permission="crew.update"><button
                           onClick={handleAvatarUpload}
                           disabled={uploadingAvatar}
                           className={`px-4 py-2 text-white text-sm rounded flex items-center gap-1 ${
@@ -1689,8 +1690,8 @@ export function CrewDetailPage() {
                           }`}
                         >
                           <Upload className="w-4 h-4" /> {t('crew.edDetail.avatar.choose')}
-                        </button>
-                        <button 
+                        </button></PermissionGate>
+                        <PermissionGate permission="crew.update"><button
                           onClick={handleDeleteAvatar}
                           disabled={uploadingAvatar || !editedCrew.photoUrl}
                           className={`px-4 py-2 text-white text-sm rounded ${
@@ -1701,7 +1702,7 @@ export function CrewDetailPage() {
                           title={t('crew.edDetail.messages.deleteAvatarConfirm')}
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </button></PermissionGate>
                       </>
                     )}
                   </div>
@@ -2005,13 +2006,13 @@ export function CrewDetailPage() {
                   {t('crew.edDetail.docs.identityDocs')} ({travelDocuments.length + seafarerDocuments.length + employmentDocuments.length})
                 </h3>
                 <div className="flex items-center gap-2">
-                  <button
+                  <PermissionGate permission="crew.update"><button
                     onClick={() => setIsAddDocumentModalOpen(true)}
                     className="w-6 h-6 rounded bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-lg font-bold transition-colors"
                     title={t('crew.edDetail.docs.addIdentityDoc')}
                   >
                     +
-                  </button>
+                  </button></PermissionGate>
                   <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all">
                     <span className="text-white text-xs transition-transform" style={{ transform: isIdentityExpanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>
                       ▼
@@ -2083,10 +2084,10 @@ export function CrewDetailPage() {
                             </td>
                             <td className="px-4 py-3 text-center" style={{width: '12%'}}>
                               <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => openEditDoc(doc, 'travel_documents')} title={t('crew.edDetail.docs.edit')}
+                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'travel_documents')} title={t('crew.edDetail.docs.edit')}
                                   className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
                                   <Pencil className="w-4 h-4 text-gray-500" />
-                                </button>
+                                </button></PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -2136,10 +2137,10 @@ export function CrewDetailPage() {
                             </td>
                             <td className="px-4 py-3 text-center" style={{width: '12%'}}>
                               <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => openEditDoc(doc, 'seafarer_documents')} title={t('crew.edDetail.docs.edit')}
+                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'seafarer_documents')} title={t('crew.edDetail.docs.edit')}
                                   className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
                                   <Pencil className="w-4 h-4 text-gray-500" />
-                                </button>
+                                </button></PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -2189,10 +2190,10 @@ export function CrewDetailPage() {
                             </td>
                             <td className="px-4 py-3 text-center" style={{width: '12%'}}>
                               <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => openEditDoc(doc, 'employment_documents')} title={t('crew.edDetail.docs.edit')}
+                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'employment_documents')} title={t('crew.edDetail.docs.edit')}
                                   className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
                                   <Pencil className="w-4 h-4 text-gray-500" />
-                                </button>
+                                </button></PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -2217,13 +2218,13 @@ export function CrewDetailPage() {
               <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-700 uppercase">{t('crew.edDetail.docs.healthDocs')} ({healthDocuments.length})</h3>
                 <div className="flex items-center gap-2">
-                  <button
+                  <PermissionGate permission="crew.update"><button
                     onClick={() => setIsAddHealthDocumentModalOpen(true)}
                     className="w-6 h-6 rounded bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-lg font-bold transition-colors"
                     title={t('crew.edDetail.docs.addHealthDoc')}
                   >
                     +
-                  </button>
+                  </button></PermissionGate>
                   <button onClick={() => setIsHealthExpanded(!isHealthExpanded)} className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all">
                     <span className="text-white text-xs transition-transform" style={{ transform: isHealthExpanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>
                       ▼
@@ -2290,10 +2291,10 @@ export function CrewDetailPage() {
                             </td>
                             <td className="px-4 py-3 text-center" style={{width: '12%'}}>
                               <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => openEditDoc(doc, 'health_documents')} title={t('crew.edDetail.docs.edit')}
+                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'health_documents')} title={t('crew.edDetail.docs.edit')}
                                   className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
                                   <Pencil className="w-4 h-4 text-gray-500" />
-                                </button>
+                                </button></PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -2318,13 +2319,13 @@ export function CrewDetailPage() {
               <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-700 uppercase">{t('crew.edDetail.docs.certificates')} ({certificates.length})</h3>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <PermissionGate permission={'certificates.create'}><button
                     onClick={() => setShowAddCertModal(true)}
                     className="w-6 h-6 rounded bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-lg font-bold transition-colors"
                     title={t('crew.edDetail.docs.addCertificate')}
                   >
                     +
-                  </button>
+                  </button></PermissionGate>
                   <button onClick={() => setIsCertificatesExpanded(!isCertificatesExpanded)} className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all">
                     <span className="text-white text-xs transition-transform" style={{ transform: isCertificatesExpanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>
                       ▼
@@ -2451,10 +2452,10 @@ export function CrewDetailPage() {
                               </td>
                               <td className="px-4 py-3 text-center" style={{width: '10%'}}>
                                 <div className="flex items-center justify-center gap-1">
-                                  <button onClick={() => openEditCert(cert)} title={t('crew.edDetail.docs.edit')}
+                                  <PermissionGate permission={'certificates.update'}><button onClick={() => openEditCert(cert)} title={t('crew.edDetail.docs.edit')}
                                     className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
                                     <Pencil className="w-4 h-4 text-gray-500" />
-                                  </button>
+                                  </button></PermissionGate>
                                 </div>
                               </td>
                             </tr>

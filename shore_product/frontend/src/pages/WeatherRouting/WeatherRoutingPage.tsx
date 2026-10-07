@@ -649,7 +649,7 @@ export const WeatherRoutingPage: React.FC = () => {
               <button
                 type="button"
                 disabled={loading || !canRun}
-                className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-50"
+                className="px-3 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-50"
                 onClick={() => void run()}
               >
                 {loading ? 'Đang tính…' : '▶ Chạy tuyến'}
@@ -691,7 +691,7 @@ export const WeatherRoutingPage: React.FC = () => {
           {catalogError && (
             <p className="text-xs text-red-600">Không tải được danh mục: {catalogError}</p>
           )}
-          {loading && <p className="text-sm text-blue-600">Đang tính tuyến…</p>}
+          {loading && <p className="text-sm text-accent">Đang tính tuyến…</p>}
           {error && <p className="text-sm text-red-600 whitespace-pre-wrap">{error}</p>}
 
           {job && (
@@ -817,7 +817,7 @@ export const WeatherRoutingPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/80 flex flex-wrap items-center gap-3">
             <span className="font-semibold">Kế hoạch {plan.legCount} chặng — tiếp nhiên liệu</span>
-            <span className="text-xs rounded-full bg-blue-100 text-blue-800 px-2 py-0.5">
+            <span className="text-xs rounded-full bg-accent-soft text-primary px-2 py-0.5">
               {plan.bunkerStopCount} điểm tiếp nhiên liệu
             </span>
             <span className="text-xs rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-slate-600 dark:text-slate-300">

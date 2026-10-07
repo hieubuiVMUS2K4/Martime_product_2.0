@@ -36,23 +36,30 @@ public class CertificateExpiryMonitorService : BackgroundService
     {
         _logger.LogInformation("Certificate Expiry Monitor started.");
 
-        // Run once after startup delay
-        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
-            {
-                await CheckAndBroadcastExpiryStatusAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in Certificate Expiry Monitor cycle");
-            }
+            // Run once after startup delay
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
-            // Run every 6 hours (configurable)
-            var interval = _configuration.GetValue("Sync:CertExpiryCheckIntervalHours", 6);
-            await Task.Delay(TimeSpan.FromHours(interval), stoppingToken);
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await CheckAndBroadcastExpiryStatusAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in Certificate Expiry Monitor cycle");
+                }
+
+                // Run every 6 hours (configurable)
+                var interval = _configuration.GetValue("Sync:CertExpiryCheckIntervalHours", 6);
+                await Task.Delay(TimeSpan.FromHours(interval), stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Host is stopping.
         }
     }
 

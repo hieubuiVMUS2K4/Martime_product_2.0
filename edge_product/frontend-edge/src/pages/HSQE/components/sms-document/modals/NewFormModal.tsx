@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import type React from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 
@@ -179,12 +180,12 @@ export function NewFormModal(props: NewFormModalProps) {
             >
               Hủy
             </button>
-            <button
+            <PermissionGate permission="hsqe.create"><button
               onClick={handleCreateFormFromLibrary}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
             >
               Tạo & liên kết biểu mẫu
-            </button>
+            </button></PermissionGate>
           </div>
 
         </div>

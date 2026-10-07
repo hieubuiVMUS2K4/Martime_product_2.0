@@ -23,18 +23,25 @@ namespace ProductApi.Services.Sync
         {
             _logger.LogInformation("SyncQueuePurgeService starting. Retention period: {RetentionDays} days.", RetentionDays);
 
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
-                try
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    await PurgeOldSyncRecordsAsync(stoppingToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred during sync queue purge operation.");
-                }
+                    try
+                    {
+                        await PurgeOldSyncRecordsAsync(stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error occurred during sync queue purge operation.");
+                    }
 
-                await Task.Delay(CheckInterval, stoppingToken);
+                    await Task.Delay(CheckInterval, stoppingToken);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Host is stopping.
             }
         }
 

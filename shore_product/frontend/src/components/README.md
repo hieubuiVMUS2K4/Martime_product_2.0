@@ -9,13 +9,12 @@ Chứa mọi component **không phải là một "trang"** (page) — từ các 
 | Thư mục / file | Vai trò | README riêng |
 |---|---|---|
 | `common/` | Component UI nguyên tử tái dùng khắp app: Button, Card, Input/Select, Modal, StatusBadge, Toast, ConfirmDialog, ProtectedImage, ImageViewerModal, PortSelect. | [`common/README.md`](./common/README.md) |
-| `layout/` | Khung giao diện bao quanh trang: `TopNavLayout` (đang dùng thật), `MainLayout` + `Sidebar` (tàn dư, không dùng), `UserMenu`. | [`layout/README.md`](./layout/README.md) |
+| `layout/` | Khung giao diện bao quanh trang: `TopNavLayout`, `UserMenu`. | [`layout/README.md`](./layout/README.md) |
 | `pms/` | 10 modal CRUD phục vụ các trang PMS (`Assets`, `WorkPlanning`) — thêm/sửa/xem thiết bị, lịch bảo trì, nhóm thiết bị, import Excel, duyệt gia hạn. | [`pms/README.md`](./pms/README.md) |
 | `ui/` | 4 component kiểu shadcn/ui (Radix + `class-variance-authority`): `button`, `card`, `badge`, `input`. | [`ui/README.md`](./ui/README.md) |
 | `vessel/` | `VesselMap` (bản đồ Leaflet nhiều tàu) + `DisasterMapLayer` (lớp cảnh báo thiên tai). | [`vessel/README.md`](./vessel/README.md) |
 | `vessel-detail/` | 12 tab nội dung cho `VesselDetailPage` (Overview, Basic Data, Dimensions, Machinery, Shipowner, Charterer, Class/Flag State, Insurance, Radio/Comm, Tanks/Cargo, Crew, Certificate). | [`vessel-detail/README.md`](./vessel-detail/README.md) |
 | `Reports/` | `AIInsights` + `AIChatWidget` — 2 component gọi API AI phân tích báo cáo tàu. | [`Reports/README.md`](./Reports/README.md) |
-| `MaritimeFleetDashboard.tsx` | Component dashboard fleet độc lập, dùng `components/ui/*` (Card/Badge/Button/Input) + tự fetch `/api/vessels` và `/api/vessels/alerts/all?acknowledged=false`, có nút acknowledge alert. | *(xem ghi chú)* |
 
 ## Luồng hoạt động chính
 
@@ -29,6 +28,5 @@ Không có luồng chung cho cả thư mục — mỗi cụm con có luồng ri�
 
 ## Ghi chú khi đọc/dạy
 
-- **`MaritimeFleetDashboard.tsx` là component mồ côi.** Grep toàn `src/` cho thấy không có `route` hay `page` nào import nó — nó chỉ tồn tại như file độc lập, không thể truy cập được từ UI hiện tại. Đây cũng là **lý do duy nhất** khiến `components/ui/*` (Button/Card/Badge/Input kiểu shadcn) còn tồn tại trong bundle — không file nào khác trong app dùng các component đó.
 - Không có `components/index.ts` gộp tất cả — mỗi thư mục con tự có (hoặc không có) barrel riêng; import phải trỏ đúng đường dẫn con (`@/components/common`, `@/components/vessel/VesselMap`...).
 - Có 2 quy ước đặt tên file thư mục con khác nhau: PascalCase (`Reports/`) vs lowercase (`common/`, `layout/`, `pms/`, `ui/`, `vessel/`, `vessel-detail/`) — trên hệ điều hành phân biệt hoa/thường (Linux, kể cả server build) việc gõ sai hoa/thường sẽ gãy import, cẩn thận khi copy-paste.

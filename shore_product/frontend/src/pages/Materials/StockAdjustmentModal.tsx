@@ -66,7 +66,7 @@ export function StockAdjustmentModal({
   const isValid = newQuantity >= 0
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-modal overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
         {/* Backdrop */}
         <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
@@ -145,7 +145,7 @@ export function StockAdjustmentModal({
                   onClick={() => setAdjustmentType('Set')}
                   className={`flex items-center justify-center gap-2 px-4 py-3 border rounded-lg transition-colors ${
                     adjustmentType === 'Set'
-                      ? 'bg-[#0b2545] text-white border-blue-600'
+                      ? 'bg-[#0b2545] text-white border-accent'
                       : 'bg-white text-gray-700 border-gray-300 hover:border-blue-600'
                   }`}
                 >

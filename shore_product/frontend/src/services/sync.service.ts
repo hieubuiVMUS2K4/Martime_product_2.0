@@ -25,12 +25,17 @@ export interface SyncLogEntry {
 }
 
 export interface SyncLogFilters {
-  nodeId?: string; status?: string; tableName?: string; direction?: string;
+  /** Mỗi bộ lọc nhận một hoặc nhiều giá trị, phân cách bằng dấu phẩy. */
+  nodeId?: string; status?: string; tableName?: string; direction?: string; actionType?: string;
+  /** Ô tìm nhanh: tên bảng / mã node khớp từ khóa tiếng Việt (nối dấu phẩy). */
+  searchTables?: string; searchNodes?: string;
   search?: string; from?: string; to?: string; page?: number; pageSize?: number;
 }
 export interface SyncLogPage {
   items: SyncLogEntry[]; total: number; page: number; pageSize: number; totalPages: number;
   summary: { status: string; count: number }[];
+  /** Giá trị có thật trong nhật ký, làm lựa chọn cho menu lọc theo cột. */
+  facets?: { origins: string[]; tables: string[]; actions: string[]; directions: string[]; statuses: string[] };
 }
 export interface SyncOutboxPage {
   total: number; page: number; pageSize: number; totalPages: number;

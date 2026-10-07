@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Noon Report Creation/Edit Form
  * IMO/SOLAS Compliant Maritime Reporting
@@ -1451,7 +1452,7 @@ export function NoonReportForm() {
             Cancel
           </button>
           
-          <button
+          <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
             type="button"
             onClick={() => handleSubmit(true)}
             className="px-6 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 font-medium"
@@ -1459,9 +1460,9 @@ export function NoonReportForm() {
           >
             <Save className="h-4 w-4" />
             Save as Draft
-          </button>
+          </button></PermissionGate>
           
-          <button
+          <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
             type="button"
             onClick={() => handleSubmit(false)}
             className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md flex items-center gap-2 font-medium"
@@ -1473,7 +1474,7 @@ export function NoonReportForm() {
               <Send className="h-4 w-4" />
             )}
             Submit Report
-          </button>
+          </button></PermissionGate>
         </div>
       </form>
       </div>

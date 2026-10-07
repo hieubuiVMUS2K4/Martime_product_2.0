@@ -123,7 +123,7 @@ export const MasterSchedulePage: React.FC = () => {
   const getMaintenanceTypeColor = (type: string) => {
     switch (type) {
       case 'INSPECTION':
-        return 'bg-[#dce9f8] text-blue-800';
+        return 'bg-[#dce9f8] text-primary';
       case 'SERVICE':
         return 'bg-green-100 text-green-800';
       case 'OVERHAUL':
@@ -304,7 +304,7 @@ export const MasterSchedulePage: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
           </div>
         ) : filteredSchedules.length === 0 ? (
           <div className="text-center py-20">

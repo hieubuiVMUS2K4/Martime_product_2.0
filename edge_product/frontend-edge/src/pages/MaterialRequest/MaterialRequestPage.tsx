@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
@@ -510,12 +511,12 @@ export default function MaterialRequestPage() {
             <button onClick={() => setShowFormModal(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
               <X className="w-3.5 h-3.5" /> Hủy bỏ
             </button>
-            <button disabled={saving} onClick={() => handleSave(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+            <PermissionGate permission={editingId ? 'pms.requests.update' : 'pms.requests.create'}><button disabled={saving} onClick={() => handleSave(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
               Lưu nháp
-            </button>
-            <button disabled={saving} onClick={() => handleSave(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+            </button></PermissionGate>
+            <PermissionGate permission={editingId ? 'pms.requests.update' : 'pms.requests.create'}><button disabled={saving} onClick={() => handleSave(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
               <Send className="w-3.5 h-3.5" /> Lưu và gửi duyệt
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
 
@@ -676,12 +677,12 @@ export default function MaterialRequestPage() {
               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{total}</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <PermissionGate permission="pms.requests.create"><button
                 onClick={openCreate}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 <Plus className="w-3.5 h-3.5" /> {t('materialRequests.addNew')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -793,14 +794,14 @@ export default function MaterialRequestPage() {
                       <button onClick={() => openDetail(r.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Xem"><Eye size={15} /></button>
                       {r.status === 'Draft' && (
                         <>
-                          <button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Sửa"><Edit2 size={15} /></button>
-                          <button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Xóa"><Trash2 size={15} /></button>
+                          <PermissionGate permission="pms.requests.update"><button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Sửa"><Edit2 size={15} /></button></PermissionGate>
+                          <PermissionGate permission="pms.requests.delete"><button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Xóa"><Trash2 size={15} /></button></PermissionGate>
                         </>
                       )}
                       {r.status === 'Submitted' && (
                         <>
-                          <button onClick={() => handleApprove(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Duyệt"><CheckCircle size={15} /></button>
-                          <button onClick={() => handleReject(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Từ chối"><XCircle size={15} /></button>
+                          <PermissionGate permission="pms.requests.approve"><button onClick={() => handleApprove(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Duyệt"><CheckCircle size={15} /></button></PermissionGate>
+                          <PermissionGate permission="pms.requests.reject"><button onClick={() => handleReject(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Từ chối"><XCircle size={15} /></button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -847,35 +848,35 @@ export default function MaterialRequestPage() {
           <div className="flex items-center gap-2">
             {detailData.status === 'Draft' && (
               <>
-                <button onClick={() => openEdit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Edit2 className="w-3.5 h-3.5" /> Sửa</button>
-                <button
+                <PermissionGate permission="pms.requests.update"><button onClick={() => openEdit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Edit2 className="w-3.5 h-3.5" /> Sửa</button></PermissionGate>
+                <PermissionGate permission="pms.requests.update"><button
                   onClick={async () => {
                     await materialRequestService.submit(detailData.id);
                     setView('list');
                     loadList();
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                ><Send className="w-3.5 h-3.5" /> Gửi duyệt</button>
+                ><Send className="w-3.5 h-3.5" /> Gửi duyệt</button></PermissionGate>
               </>
             )}
             {detailData.status === 'Submitted' && (
               <>
-                <button
+                <PermissionGate permission="pms.requests.approve"><button
                   onClick={async () => {
                     await handleApprove(detailData.id);
                     const latest = await materialRequestService.getById(detailData.id);
                     setDetailData(latest);
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                ><CheckCircle className="w-3.5 h-3.5" /> Duyệt</button>
-                <button
+                ><CheckCircle className="w-3.5 h-3.5" /> Duyệt</button></PermissionGate>
+                <PermissionGate permission="pms.requests.reject"><button
                   onClick={async () => {
                     await handleReject(detailData.id);
                     const latest = await materialRequestService.getById(detailData.id);
                     setDetailData(latest);
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                ><XCircle className="w-3.5 h-3.5" /> Từ chối</button>
+                ><XCircle className="w-3.5 h-3.5" /> Từ chối</button></PermissionGate>
               </>
             )}
             <button onClick={() => setView('list')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><X className="w-3.5 h-3.5" /> Đóng</button>

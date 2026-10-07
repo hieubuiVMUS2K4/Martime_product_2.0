@@ -6218,7 +6218,7 @@ public class StockReceipt
     /// <summary>Liên kết yêu cầu vật tư gốc (optional)</summary>
     public int? MaterialRequestId { get; set; }
 
-    /// <summary>Status: Draft, Approved, Completed</summary>
+    /// <summary>Status: Draft, Submitted, Approved, Completed</summary>
     [Required]
     [MaxLength(20)]
     public string Status { get; set; } = "Draft";

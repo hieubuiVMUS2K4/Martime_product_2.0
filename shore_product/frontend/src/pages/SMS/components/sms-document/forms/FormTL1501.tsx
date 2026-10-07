@@ -1,4 +1,4 @@
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 interface FormTL1501Props {
   formValues: Record<string, any>;
@@ -15,8 +15,8 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
         {/* Logo Box */}
         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
-          <div className="w-10 h-10 rounded-full border-2 border-blue-600 flex items-center justify-center mb-1 text-blue-600 text-base font-bold">⚓</div>
-          <span className="text-[9px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+          <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
+          <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
           <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
         </div>
         {/* Document Title Box */}
@@ -24,14 +24,14 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
             KẾ HOẠCH NHẬN NHIÊN LIỆU
           </h3>
-          <div className="w-16 h-0.5 bg-blue-500 my-1"></div>
+          <div className="w-16 h-0.5 bg-accent my-1"></div>
           <span className="italic text-[9px] text-slate-500 font-semibold tracking-wide uppercase leading-tight">
             BUNKERING PLAN
           </span>
         </div>
         {/* Document Meta Box */}
         <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
-          <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-15-01</span></div>
+          <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-15-01</span></div>
           <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
           <div><strong>Trang:</strong> <span className="font-mono">1 / 3</span></div>
@@ -47,7 +47,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             value={formValues['vessel'] || ''}
             onChange={(e) => handleFormFieldChange('vessel', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
           />
         </div>
         <div>
@@ -57,7 +57,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             value={formValues['location'] || ''}
             onChange={(e) => handleFormFieldChange('location', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
           />
         </div>
         <div>
@@ -67,7 +67,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             value={formValues['supplyBarge'] || ''}
             onChange={(e) => handleFormFieldChange('supplyBarge', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
           />
         </div>
         <div>
@@ -77,7 +77,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             value={formValues['bunkerDate'] || ''}
             onChange={(e) => handleFormFieldChange('bunkerDate', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-mono font-semibold"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-mono font-semibold"
           />
         </div>
         <div>
@@ -87,7 +87,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             value={formValues['foreDraft'] || ''}
             onChange={(e) => handleFormFieldChange('foreDraft', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
           />
         </div>
         <div>
@@ -97,14 +97,14 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             value={formValues['aftDraft'] || ''}
             onChange={(e) => handleFormFieldChange('aftDraft', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
           />
         </div>
       </div>
 
       {/* Section 1: Product to be Handled */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
           1. Loại nhiên liệu nhận / Product to be Handled
         </h4>
         <div className="border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -230,7 +230,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               const newArr = [...(formValues['products'] || []), { grade: '', density: '', stemmedQty: '', qtyOnboard: '', duration: '', robCompletion: '' }];
               handleFormFieldChange('products', newArr);
             }}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+            className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
           >
             + Thêm dòng / Add row
           </button>
@@ -239,7 +239,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 2: Personnel Responsibilities */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
           2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
         </h4>
         <div className="border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -323,7 +323,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               const newArr = [...(formValues['personnel'] || []), { rank: '', name: '', duty: '' }];
               handleFormFieldChange('personnel', newArr);
             }}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+            className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
           >
             + Thêm chức danh / Add personnel
           </button>
@@ -479,7 +479,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 7: Distribution of Bunker Oil */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
           7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
         </h4>
         <div className="mb-3">
@@ -490,7 +490,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             onChange={(e) => handleFormFieldChange('line_up_piping', e.target.value)}
             disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
             placeholder="Ví dụ: Mở van tổng nhận mạn phải, đóng van nhận mạn trái. Mở van vào két 1P, 2P..."
-            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+            className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
           />
         </div>
         <div className="border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -602,7 +602,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               const newArr = [...(formValues['distribution'] || []), { recvTank: '', valveOpened: '', valveClosed: '', overflowTank: '', overflowValveOpened: '' }];
               handleFormFieldChange('distribution', newArr);
             }}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+            className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
           >
             + Thêm dòng phân phối / Add row
           </button>
@@ -611,7 +611,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 8: Loading Rates */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
           8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
         </h4>
         <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
@@ -622,7 +622,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               value={formValues['rate_initial'] || ''}
               onChange={(e) => handleFormFieldChange('rate_initial', e.target.value)}
               disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-              className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+              className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
             />
           </div>
           <div>
@@ -632,7 +632,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               value={formValues['rate_max'] || ''}
               onChange={(e) => handleFormFieldChange('rate_max', e.target.value)}
               disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-              className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+              className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
             />
           </div>
           <div>
@@ -642,7 +642,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               value={formValues['rate_topping'] || ''}
               onChange={(e) => handleFormFieldChange('rate_topping', e.target.value)}
               disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-              className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 font-semibold"
+              className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 font-semibold"
             />
           </div>
         </div>
@@ -650,7 +650,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 9: Gauging of Tanks */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
           9. Bảng đo các két trước và sau nhận / Gauging of Tanks (Pre-bunkering & Final Expected)
         </h4>
         <div className="border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
@@ -857,7 +857,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               const newArr = [...(formValues['gauging'] || []), { tank: '', capSound: '', capVol: '', preSound: '', preVol: '', preTemp: '', postSound: '', postVol: '', reduceSound: '', reduceVol: '', seq: '' }];
               handleFormFieldChange('gauging', newArr);
             }}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+            className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
           >
             + Thêm dòng đo két / Add tank row
           </button>
@@ -933,13 +933,13 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           onChange={(e) => handleFormFieldChange('local_contacts', e.target.value)}
           disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
           placeholder="Cảng vụ Hàng hải, Đại lý tàu, Trung tâm ứng phó sự cố tràn dầu địa phương..."
-          className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60 text-xs font-semibold"
+          className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 text-xs font-semibold"
         />
       </div>
 
       {/* Section 13: Crew Sign-off */}
       <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-4">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2">
+        <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2">
           13. Xác nhận hiểu rõ kế hoạch / Crew Sign-off List
         </h4>
         <p className="text-[10px] italic text-slate-500 mb-2">
@@ -989,7 +989,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
                           toast.success(`Đã xác nhận chữ ký cho chức danh ${row.rank}`);
                         }}
                         disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-[10px] font-bold shadow-sm transition"
+                        className="px-3 py-1 bg-accent hover:bg-primary-hover text-white rounded text-[10px] font-bold shadow-sm transition"
                       >
                         Ký tên / Sign
                       </button>
@@ -1022,7 +1022,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               const newArr = [...(formValues['signatures_list'] || []), { rank: 'Thành viên bổ sung / Custom rank', name: '', signed: false }];
               handleFormFieldChange('signatures_list', newArr);
             }}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+            className="mt-2 text-xs text-accent hover:text-primary font-bold flex items-center gap-1"
           >
             + Thêm hàng ký xác nhận / Add sign-off row
           </button>

@@ -9174,6 +9174,36 @@ namespace MaritimeEdge.Data.Migrations
                     b.ToTable("position_reports", "public");
                 });
 
+            modelBuilder.Entity("MaritimeEdge.Models.RankPermissionConfig", b =>
+                {
+                    b.Property<int>("RankId")
+                        .HasColumnType("integer")
+                        .HasColumnName("rank_id");
+
+                    b.Property<string>("GrantsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("grants_json");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long>("UpdatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("RankId")
+                        .HasName("p_k_rank_permission_configs");
+
+                    b.ToTable("rank_permission_configs", "public");
+                });
+
             modelBuilder.Entity("MaritimeEdge.Models.ReportAmendment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -15982,6 +16012,16 @@ namespace MaritimeEdge.Data.Migrations
                         .HasConstraintName("f_k_position_reports_maritime_reports_maritime_report_id");
 
                     b.Navigation("MaritimeReport");
+                });
+
+            modelBuilder.Entity("MaritimeEdge.Models.RankPermissionConfig", b =>
+                {
+                    b.HasOne("Maritime.Shared.Models.Crew.Rank", null)
+                        .WithMany()
+                        .HasForeignKey("RankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("f_k_rank_permission_configs_ranks_rank_id");
                 });
 
             modelBuilder.Entity("MaritimeEdge.Models.ReportAttachment", b =>

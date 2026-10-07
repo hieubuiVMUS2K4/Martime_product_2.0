@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState } from 'react';
 import { Download, Upload, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -93,7 +94,7 @@ export function ImportMaintenanceModal({ onClose, onSuccess }: { onClose: () => 
             <Upload size={16} /> Chọn file Excel
             <input disabled={busy} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => { void selectFile(e.target.files?.[0]); e.target.value = ''; }} />
           </label>
-          <button disabled={busy} onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 hover:bg-slate-50"><Download size={16} /> Tải mẫu</button>
+          <PermissionGate permission="pms.config.import"><button disabled={busy} onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded border border-slate-300 px-3 py-2 hover:bg-slate-50"><Download size={16} /> Tải mẫu</button></PermissionGate>
           <span className="text-slate-500">{filename}</span>
         </div>
         <p className="text-slate-500">Nhập cấu hình gắn với thiết bị đã có. Sau khi nhập, rà soát người phụ trách và checklist trước khi bật tự sinh công việc.</p>
@@ -108,7 +109,7 @@ export function ImportMaintenanceModal({ onClose, onSuccess }: { onClose: () => 
       </div>
       <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
         <button disabled={busy} onClick={onClose} className="rounded border border-slate-300 bg-white px-4 py-2 text-sm">Hủy</button>
-        <button disabled={busy || !validated} onClick={submit} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Import {rows.length > 0 ? `(${rows.length})` : ''}</button>
+        <PermissionGate permission="pms.config.import"><button disabled={busy || !validated} onClick={submit} className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Import {rows.length > 0 ? `(${rows.length})` : ''}</button></PermissionGate>
       </div>
     </div>
   </div>;

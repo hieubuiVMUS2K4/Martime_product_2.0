@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useRef, useState } from 'react';
 import { AlertCircle, CheckCircle, FileSpreadsheet, Upload, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -156,9 +157,9 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
             ) : (
               <>
                 <Upload className="mx-auto mb-4 h-10 w-10 text-gray-400" />
-                <button onClick={() => fileInputRef.current?.click()} className="font-medium text-blue-600 hover:text-blue-800">
+                <PermissionGate permission="pms.assets.import"><button onClick={() => fileInputRef.current?.click()} className="font-medium text-blue-600 hover:text-blue-800">
                   {t('pms.assets.importModal.chooseFile')}
-                </button>
+                </button></PermissionGate>
                 <p className="mt-2 text-sm text-gray-500">{t('pms.assets.importModal.supportedFormats')}</p>
               </>
             )}
@@ -207,13 +208,13 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
             {result ? t('common.close') : t('common.cancel')}
           </button>
           {!result && (
-            <button
+            <PermissionGate permission="pms.assets.import"><button
               onClick={handleImport}
               disabled={loading || assets.length === 0}
               className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {loading ? t('pms.assets.importModal.importing') : t('pms.assets.importModal.importButton')}
-            </button>
+            </button></PermissionGate>
           )}
         </div>
       </div>

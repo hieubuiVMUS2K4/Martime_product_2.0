@@ -51,6 +51,11 @@ public class ProtectedUploadsController : ControllerBase
 
             return File(fileBytes, contentType);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Client aborted the request (navigated away or the image re-rendered).
+            return new EmptyResult();
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to serve protected upload {Path}", normalizedPath);

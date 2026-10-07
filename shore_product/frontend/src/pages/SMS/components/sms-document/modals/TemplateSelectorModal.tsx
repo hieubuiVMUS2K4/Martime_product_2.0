@@ -19,13 +19,13 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
   const handleAssignTemplates = onAssign;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-modal p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col max-h-[85vh]">
         
         {/* Modal Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+            <div className="p-1.5 bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg">
               <Database className="w-4 h-4" />
             </div>
             <div>
@@ -53,7 +53,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
               placeholder="Tìm kiếm mã biểu mẫu hoặc tên biểu mẫu..."
               value={selectorSearch}
               onChange={(e) => setSelectorSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 w-full text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              className="pl-9 pr-4 py-2 w-full text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
@@ -61,7 +61,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
           <div className="flex-1 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-800 min-h-[250px] max-h-[40vh] scrollbar-thin">
             {loadingSelector ? (
               <div className="py-12 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
-                <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
+                <RefreshCw className="w-5 h-5 animate-spin text-accent" />
                 <span>Đang tải danh sách biểu mẫu...</span>
               </div>
             ) : (() => {
@@ -95,7 +95,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
                           setSelectedAssignIds(prev => prev.filter(id => id !== temp.id));
                         }
                       }}
-                      className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      className="mt-0.5 rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                     />
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5">
@@ -130,7 +130,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
           <button
             onClick={handleAssignTemplates}
             disabled={assigningTemplates}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
           >
             {assigningTemplates && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
             Gán {selectedAssignIds.length} biểu mẫu

@@ -1,236 +1,166 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Globe, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
+import { Pencil, Trash2, Globe } from 'lucide-react';
+import { toast } from 'sonner';
 import { countryApi, type CountryPayload } from '../../../services/crew.service';
-import { useToast } from '../../../components/common/Toast';
-import { useConfirmDialog } from '../../../components/common/ConfirmDialog';
+import {
+  Button, DataTable, FormAlert, ImportExcelModal, Input, Modal, PageHeader, TableActions, TableIconButton,
+  useConfirm, type Column, type ImportField,
+} from '../../../components/common';
 import type { Country } from '../../../types/crew.types';
-import '../Crew/CrewListPage.css';
-import '../CertificateTypes/CertificateFormModal.css';
 
 const emptyForm: CountryPayload = { countryCode: '', countryName: '', flagImageUrl: '' };
 
-/* ═══════════════════════════════════════════════════════════════ */
+const IMPORT_FIELDS: ImportField[] = [
+  { key: 'countryCode', header: 'Mã quốc gia', required: true, example: 'VN' },
+  { key: 'countryName', header: 'Tên quốc gia', required: true, example: 'Việt Nam' },
+  { key: 'flagImageUrl', header: 'URL ảnh cờ', example: 'https://flagcdn.com/vn.svg' },
+];
+
+const errorText = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+
 export const CountryPage: React.FC = () => {
-  const toast = useToast();
-  const { confirm } = useConfirmDialog();
+  const ask = useConfirm();
+  const formId = useId();
 
   const [countries, setCountries] = useState<Country[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  /* filters */
-  const [searchCode, setSearchCode] = useState('');
-  const [searchName, setSearchName] = useState('');
-
-  /* form modal */
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<Country | null>(null);
   const [form, setForm] = useState<CountryPayload>(emptyForm);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  /* context menu */
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; country: Country } | null>(null);
-  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
-
-  /* ── data ── */
   const fetchCountries = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try { setCountries(await countryApi.getAll()); }
-    catch { toast.error('Không thể tải danh sách quốc gia'); }
+    catch (err) { setLoadError(errorText(err, 'Không thể tải danh sách quốc gia')); }
     finally { setLoading(false); }
-  }, [toast]);
+  }, []);
 
   useEffect(() => { fetchCountries(); }, [fetchCountries]);
 
-  const [page, setPage] = useState(1);
-
-  const filtered = useMemo(() => countries.filter(c => {
-    if (searchCode && !c.countryCode.toLowerCase().includes(searchCode.toLowerCase())) return false;
-    if (searchName && !c.countryName.toLowerCase().includes(searchName.toLowerCase())) return false;
-    return true;
-  }), [countries, searchCode, searchName]);
-
-  /* ── phân trang phía client, cùng cỡ trang với CrewListPage ── */
-  const PAGE_SIZE = 15;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
-
-  /* ── context menu ── */
-  const handleContextMenu = useCallback((e: React.MouseEvent, country: Country) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, country });
-    setSelectedRowId(country.id);
-  }, []);
-  const closeContextMenu = useCallback(() => { setContextMenu(null); setSelectedRowId(null); }, []);
-  useEffect(() => {
-    const h = () => closeContextMenu();
-    window.addEventListener('click', h);
-    return () => window.removeEventListener('click', h);
-  }, [closeContextMenu]);
-
-  /* ── form actions ── */
-  const openCreate = useCallback(() => { setEditing(null); setForm(emptyForm); setShowForm(true); }, []);
-  const openEdit = useCallback((c: Country) => {
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(''); setShowForm(true); };
+  const openEdit = (c: Country) => {
     setEditing(c);
     setForm({ countryCode: c.countryCode, countryName: c.countryName, flagImageUrl: c.flagImageUrl || '' });
+    setFormError('');
     setShowForm(true);
-  }, []);
+  };
 
-  const handleDelete = useCallback(async (c: Country) => {
-    const { confirmed } = await confirm({
-      title: 'Xóa quốc gia', message: `Bạn có chắc muốn xóa "${c.countryName}"?`,
-      confirmLabel: 'Xóa', cancelLabel: 'Hủy', variant: 'danger',
-    });
-    if (!confirmed) return;
-    try { await countryApi.remove(c.id); toast.success('Đã xóa quốc gia'); fetchCountries(); }
-    catch (err) { toast.error('Lỗi xóa', err instanceof Error ? err.message : 'Không thể xóa'); }
-  }, [confirm, toast, fetchCountries]);
+  const handleDelete = async (c: Country) => {
+    if (!(await ask(`Xóa quốc gia "${c.countryName}"?`))) return;
+    try {
+      await countryApi.remove(c.id);
+      toast.success('Đã xóa quốc gia', { description: `${c.countryCode} — ${c.countryName}` });
+      fetchCountries();
+    } catch (err) {
+      toast.error('Không thể xóa quốc gia', { description: errorText(err, 'Lỗi không xác định') });
+    }
+  };
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.countryCode.trim() || !form.countryName.trim()) { toast.error('Vui lòng nhập mã và tên quốc gia'); return; }
+    if (!form.countryCode.trim() || !form.countryName.trim()) { setFormError('Vui lòng nhập mã và tên quốc gia.'); return; }
     setSaving(true);
     try {
-      if (editing) { await countryApi.update(editing.id, form); toast.success('Đã cập nhật quốc gia'); }
-      else { await countryApi.create(form); toast.success('Đã tạo quốc gia mới'); }
-      setShowForm(false); fetchCountries();
-    } catch (err) { toast.error('Lỗi lưu', err instanceof Error ? err.message : 'Không thể lưu'); }
-    finally { setSaving(false); }
-  }, [editing, form, toast, fetchCountries]);
+      if (editing) await countryApi.update(editing.id, form);
+      else await countryApi.create(form);
+      toast.success(editing ? 'Đã cập nhật quốc gia' : 'Đã thêm quốc gia', { description: `${form.countryCode} — ${form.countryName}` });
+      setShowForm(false);
+      fetchCountries();
+    } catch (err) {
+      setFormError(errorText(err, 'Không thể lưu'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  /* ── loading ── */
-  if (loading) {
-    return <div className="cl-loading"><Loader2 size={28} className="spin" /><p>Đang tải danh sách quốc gia...</p></div>;
-  }
+  const columns: Column<Country>[] = [
+    {
+      key: 'code', header: 'Mã quốc gia', width: 140, value: c => c.countryCode,
+      render: c => <span className="font-mono font-semibold text-primary">{c.countryCode}</span>,
+    },
+    { key: 'name', header: 'Tên quốc gia', value: c => c.countryName },
+    {
+      key: 'flag', header: 'Cờ', width: 90, align: 'center', exportValue: c => c.flagImageUrl ?? '',
+      render: c => c.flagImageUrl
+        ? <img src={c.flagImageUrl} alt={c.countryCode} className="inline-block h-4 w-6 rounded-sm object-cover align-middle" />
+        : <span className="text-ink-light">—</span>,
+    },
+    {
+      key: 'actions', header: 'Thao tác', width: 100, align: 'center',
+      render: c => (
+        <TableActions>
+          <TableIconButton label={`Sửa ${c.countryName}`} icon={<Pencil />} onClick={() => openEdit(c)} />
+          <TableIconButton label={`Xóa ${c.countryName}`} icon={<Trash2 />} variant="danger" onClick={() => handleDelete(c)} />
+        </TableActions>
+      ),
+    },
+  ];
 
-  /* ═══════════════════════ RENDER ═══════════════════════ */
   return (
-    <div className="cl-page" style={{ padding: 0, minHeight: 'auto' }}>
-      {/* Header */}
-      <div className="cl-header">
-        <div className="cl-header-left">
-          <Globe size={16} className="cl-header-icon" />
-          <h1 className="cl-title">Quốc gia</h1>
-          <span className="cl-count-badge">{countries.length}</span>
-        </div>
-        <div className="cl-header-right">
-          <button className="cl-btn cl-btn--primary" onClick={openCreate}><Plus size={13} /> Thêm quốc gia</button>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        icon={<Globe />}
+        title="Danh mục quốc gia"
+        description="Quốc tịch thuyền viên và quốc gia của cảng. Thêm/sửa ở đây sẽ đồng bộ xuống tất cả các tàu."
+      />
 
-      {/* Table */}
-      <div className="cl-table-card">
-        <table className="cl-table">
-          <thead>
-            <tr className="cl-tr-labels">
-              <th style={{ width: 44, textAlign: 'center' }}>STT</th>
-              <th style={{ width: '16%' }}>Mã quốc gia</th>
-              <th>Tên quốc gia</th>
-              <th style={{ width: '12%', textAlign: 'center' }}>Cờ</th>
-              <th style={{ width: '12%', textAlign: 'center' }}>Trạng thái</th>
-            </tr>
-            <tr className="cl-tr-filters">
-              <th></th>
-              <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm mã" value={searchCode} onChange={e => setSearchCode(e.target.value)} /></div></th>
-              <th><div className="cl-search-wrap"><input className="cl-cf" placeholder="Tìm tên" value={searchName} onChange={e => setSearchName(e.target.value)} /></div></th>
-              <th></th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="cl-empty">
-                <Globe size={24} />
-                <p>{countries.length === 0 ? 'Chưa có quốc gia nào' : 'Không tìm thấy quốc gia phù hợp'}</p>
-              </td></tr>
-            ) : paged.map((c, idx) => (
-              <tr key={c.id}
-                className={`cl-tr${idx % 2 === 1 ? ' cl-tr--alt' : ''}${selectedRowId === c.id ? ' cl-tr--selected' : ''}`}
-                onContextMenu={e => handleContextMenu(e, c)}
-              >
-                <td style={{ textAlign: 'center' }}>{idx + 1}</td>
-                <td><span className="cl-code">{c.countryCode}</span></td>
-                <td>{c.countryName}</td>
-                <td style={{ textAlign: 'center' }}>
-                  {c.flagImageUrl ? <img src={c.flagImageUrl} alt={c.countryCode} style={{ height: 16, width: 24, objectFit: 'cover', borderRadius: 2, verticalAlign: 'middle' }} /> : '—'}
-                </td>
-                <td style={{ textAlign: 'center' }}>
-                  <span className="cl-status-badge cl-status-badge--on"><span className="cl-status-badge__dot" /> Hoạt động</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={countries}
+        rowKey={c => c.id}
+        loading={loading}
+        error={loadError}
+        itemLabel="quốc gia"
+        emptyMessage="Chưa có quốc gia nào."
+        searchPlaceholder="Tìm theo mã hoặc tên quốc gia..."
+        exportOptions={{ fileName: 'danh-muc-quoc-gia', title: 'DANH MỤC QUỐC GIA' }}
+        onImport={() => setShowImport(true)}
+        onAdd={openCreate}
+        addLabel="Thêm quốc gia"
+        onRowClick={openEdit}
+        minWidth={600}
+      />
 
-      {/* Chân trang — cùng khuôn với CrewListPage */}
-      <div className="cl-footer">
-        <span className="cl-footer-info">
-          Hiển thị {paged.length} / {filtered.length} quốc gia
-        </span>
-        {totalPages > 1 && (
-          <div className="cl-pagi-btns">
-            <button className="cl-pagi-btn" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}><ChevronLeft size={14} /></button>
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              let p: number;
-              if (totalPages <= 7) p = i + 1;
-              else if (page <= 4) p = i + 1;
-              else if (page >= totalPages - 3) p = totalPages - 6 + i;
-              else p = page - 3 + i;
-              return <button key={p} className={`cl-pagi-btn${p === page ? ' cl-pagi-btn--cur' : ''}`} onClick={() => setPage(p)}>{p}</button>;
-            })}
-            <button className="cl-pagi-btn" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}><ChevronRight size={14} /></button>
-          </div>
-        )}
-      </div>
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        busy={saving}
+        closeOnBackdrop={false}
+        size="sm"
+        icon={<Globe />}
+        title={editing ? 'Chỉnh sửa quốc gia' : 'Thêm quốc gia'}
+        footer={<>
+          <Button onClick={() => setShowForm(false)} disabled={saving}>Hủy</Button>
+          <Button type="submit" form={formId} variant="primary" loading={saving}>{editing ? 'Cập nhật' : 'Thêm mới'}</Button>
+        </>}
+      >
+        <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <FormAlert>{formError}</FormAlert>
+          <Input label="Mã quốc gia" required value={form.countryCode} placeholder="VD: VN" className="font-mono uppercase"
+            onChange={e => setForm(f => ({ ...f, countryCode: e.target.value.toUpperCase() }))} />
+          <Input label="Tên quốc gia" required value={form.countryName} placeholder="VD: Việt Nam"
+            onChange={e => setForm(f => ({ ...f, countryName: e.target.value }))} />
+          <Input label="URL ảnh cờ" value={form.flagImageUrl ?? ''} placeholder="https://..."
+            onChange={e => setForm(f => ({ ...f, flagImageUrl: e.target.value }))} />
+        </form>
+      </Modal>
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <div className="cl-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={e => e.stopPropagation()}>
-          <button className="cl-ctx-item" onClick={() => { openEdit(contextMenu.country); closeContextMenu(); }}>
-            <Pencil size={13} /> Chỉnh sửa
-          </button>
-          <div className="cl-ctx-divider" />
-          <button className="cl-ctx-item cl-ctx-item--danger" onClick={() => { handleDelete(contextMenu.country); closeContextMenu(); }}>
-            <Trash2 size={13} /> Xóa quốc gia
-          </button>
-        </div>
-      )}
-
-      {/* Form Modal */}
-      {showForm && (
-        <div className="modal-backdrop" onClick={() => setShowForm(false)}>
-          <div className="cert-form-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <div className="cfm-header">
-              <span className="cfm-title">{editing ? 'Chỉnh sửa quốc gia' : 'Thêm quốc gia mới'}</span>
-              <button className="cfm-close" onClick={() => setShowForm(false)}><X size={18} /></button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="cfm-body">
-                <div className="cfm-grid">
-                  <div className="cfm-field cfm-field--required">
-                    <label>Mã quốc gia</label>
-                    <input value={form.countryCode} onChange={e => setForm(f => ({ ...f, countryCode: e.target.value }))} placeholder="VD: VN" style={{ fontFamily: 'monospace' }} />
-                  </div>
-                  <div className="cfm-field cfm-field--required">
-                    <label>Tên quốc gia</label>
-                    <input value={form.countryName} onChange={e => setForm(f => ({ ...f, countryName: e.target.value }))} placeholder="VD: Việt Nam" />
-                  </div>
-                  <div className="cfm-field cfm-field--full">
-                    <label>URL ảnh cờ</label>
-                    <input value={form.flagImageUrl} onChange={e => setForm(f => ({ ...f, flagImageUrl: e.target.value }))} placeholder="https://..." />
-                  </div>
-                </div>
-              </div>
-              <div className="cfm-footer">
-                <button type="button" className="cl-btn cl-btn--ghost" onClick={() => setShowForm(false)}>Hủy</button>
-                <button type="submit" className="cl-btn cl-btn--primary" disabled={saving}>
-                  {saving ? <><Loader2 size={14} className="spin" /> Đang lưu...</> : editing ? 'Cập nhật' : 'Tạo mới'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ImportExcelModal
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        title="Import danh mục quốc gia"
+        note="Mã quốc gia đã có sẽ báo lỗi ở dòng đó, các dòng khác vẫn được thêm."
+        templateName="mau-import-quoc-gia"
+        fields={IMPORT_FIELDS}
+        importRow={row => countryApi.create({ countryCode: row.countryCode.toUpperCase(), countryName: row.countryName, flagImageUrl: row.flagImageUrl })}
+        onDone={fetchCountries}
+      />
     </div>
   );
 };

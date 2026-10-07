@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Drill Edit Modal Component
  * Clone of Ảnh 3 - Edit Drill form with rich text editor
@@ -818,7 +819,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
           >
             Cancel
           </button>
-          <button
+          <PermissionGate permission={scheduleId ? 'drills.update' : 'drills.create'}><button
             onClick={handleSave}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
@@ -834,7 +835,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                 Save
               </>
             )}
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>

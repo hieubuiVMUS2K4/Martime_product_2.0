@@ -1,5 +1,7 @@
+import React from 'react';
+import { Cog } from 'lucide-react';
 import type { EquipmentAsset } from '../../types/pms.types';
-import { X } from 'lucide-react';
+import { Button, Modal } from '../common';
 
 interface ViewAssetModalProps {
   isOpen: boolean;
@@ -7,164 +9,136 @@ interface ViewAssetModalProps {
   onClose: () => void;
 }
 
-export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModalProps) {
+const STATUS: Record<string, { label: string; tone: string }> = {
+  ACTIVE: { label: 'Đang hoạt động', tone: 'bg-emerald-50 text-emerald-700' },
+  STANDBY: { label: 'Chờ sẵn', tone: 'bg-sky-50 text-sky-700' },
+  UNDER_MAINTENANCE: { label: 'Đang bảo trì', tone: 'bg-amber-50 text-amber-700' },
+  DECOMMISSIONED: { label: 'Ngừng sử dụng', tone: 'bg-slate-100 text-slate-600' },
+  IN_STORAGE: { label: 'Trong kho', tone: 'bg-violet-50 text-violet-700' },
+};
 
-  if (!isOpen || !asset) return null;
+const CRITICALITY: Record<string, { label: string; tone: string }> = {
+  CRITICAL: { label: 'Rất quan trọng', tone: 'bg-red-50 text-red-700' },
+  HIGH: { label: 'Cao', tone: 'bg-orange-50 text-orange-700' },
+  MEDIUM: { label: 'Trung bình', tone: 'bg-amber-50 text-amber-700' },
+  LOW: { label: 'Thấp', tone: 'bg-slate-100 text-slate-600' },
+};
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Equipment Asset Details</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+const Pill: React.FC<{ map: Record<string, { label: string; tone: string }>; value?: string }> = ({ map, value }) => {
+  if (!value) return <span className="text-ink-light">—</span>;
+  const m = map[value] ?? { label: value, tone: 'bg-slate-100 text-slate-600' };
+  return <span className={`inline-block rounded-full px-3 py-1 text-[13px] font-medium ${m.tone}`}>{m.label}</span>;
+};
 
-        <div className="p-6 space-y-6">
-          {/* Basic Information */}
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 mb-3">Basic Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Asset Code</label>
-                <p className="text-sm text-gray-900">{asset.assetCode}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Asset Name</label>
-                <p className="text-sm text-gray-900">{asset.assetName}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Category</label>
-                <p className="text-sm text-gray-900">{asset.category || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Location</label>
-                <p className="text-sm text-gray-900">{asset.location || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
-                <span className={`inline-flex px-2 py-1 text-xs rounded ${
-                  asset.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                  asset.status === 'STANDBY' ? 'bg-[#dce9f8] text-blue-800' :
-                  asset.status === 'UNDER_MAINTENANCE' ? 'bg-yellow-100 text-yellow-800' :
-                  asset.status === 'DECOMMISSIONED' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {asset.status}
-                </span>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Active</label>
-                <span className={`inline-flex px-2 py-1 text-xs rounded ${
-                  asset.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {asset.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            </div>
-          </div>
+const Item: React.FC<{ label: string; children?: React.ReactNode; mono?: boolean }> = ({ label, children, mono }) => (
+  <div className="min-w-0">
+    <dt className="text-[13px] font-medium text-ink-muted">{label}</dt>
+    <dd className={`mt-1 break-words text-[15px] ${children ? 'text-ink' : 'text-ink-light'} ${mono ? 'font-mono' : ''}`}>{children || '—'}</dd>
+  </div>
+);
 
-          {/* Technical Specifications */}
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 mb-3">Technical Specifications</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Manufacturer</label>
-                <p className="text-sm text-gray-900">{asset.manufacturer || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Model</label>
-                <p className="text-sm text-gray-900">{asset.model || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Serial Number</label>
-                <p className="text-sm text-gray-900">{asset.serialNumber || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Criticality</label>
-                <span className={`inline-flex px-2 py-1 text-xs rounded ${
-                  asset.criticality === 'CRITICAL' ? 'bg-red-100 text-red-800' :
-                  asset.criticality === 'HIGH' ? 'bg-orange-100 text-orange-800' :
-                  asset.criticality === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {asset.criticality}
-                </span>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Installation Date</label>
-                <p className="text-sm text-gray-900">
-                  {asset.installationDate ? new Date(asset.installationDate).toLocaleDateString() : '-'}
-                </p>
-              </div>
-            </div>
-            {asset.technicalSpecs && (
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Technical Specs</label>
-                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border border-gray-200 whitespace-pre-wrap">{asset.technicalSpecs}</p>
-              </div>
-            )}
-          </div>
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <section>
+    <h3 className="mb-3 border-b border-grid pb-2 text-sm font-bold uppercase tracking-wide text-primary">{title}</h3>
+    {children}
+  </section>
+);
 
-          {/* Running Hours */}
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 mb-3">Running Hours</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Current Running Hours</label>
-                <p className="text-sm text-gray-900 font-semibold">{asset.currentRunningHours?.toLocaleString() || '0'} hrs</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Last Update</label>
-                <p className="text-sm text-gray-900">
-                  {asset.lastRunningHoursUpdate ? new Date(asset.lastRunningHoursUpdate).toLocaleString() : '-'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Assignment */}
-          <div>
-            <h3 className="text-base font-semibold text-gray-900 mb-3">Assignment</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Default Executor Role</label>
-                <p className="text-sm text-gray-900">{asset.defaultExecutorRole || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Approver Role</label>
-                <p className="text-sm text-gray-900">{asset.approverRole || '-'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Equipment Group ID</label>
-                <p className="text-sm text-gray-900">{asset.equipmentGroupId || '-'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          {asset.notes && (
-            <div>
-              <h3 className="text-base font-semibold text-gray-900 mb-3">Notes</h3>
-              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border border-gray-200 whitespace-pre-wrap">{asset.notes}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+/** Thông số kỹ thuật lưu dạng JSON → danh sách khóa/giá trị; không phải JSON thì hiện nguyên văn. */
+function parseSpecs(raw?: string): [string, string][] | null {
+  if (!raw) return null;
+  try {
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) return Object.entries(obj).map(([k, v]) => [k, String(v)]);
+  } catch { /* không phải JSON */ }
+  return null;
 }
 
+const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : null);
+
+export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModalProps) {
+  const specs = parseSpecs(asset?.technicalSpecs);
+
+  return (
+    <Modal
+      isOpen={isOpen && !!asset}
+      onClose={onClose}
+      size="xl"
+      icon={<Cog />}
+      title="Chi tiết thiết bị"
+      subtitle={asset ? <><span className="font-mono">{asset.assetCode}</span> — {asset.assetName}</> : undefined}
+      footer={<Button variant="secondary" onClick={onClose}>Đóng</Button>}
+    >
+      {asset && (
+        <div className="space-y-6">
+          <Section title="Thông tin chung">
+            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+              <Item label="Mã thiết bị" mono>{asset.assetCode}</Item>
+              <Item label="Tên thiết bị">{asset.assetName}</Item>
+              <Item label="Nhóm">{asset.category}</Item>
+              <Item label="Vị trí">{asset.location}</Item>
+              <Item label="Trạng thái"><Pill map={STATUS} value={asset.status} /></Item>
+              <Item label="Sử dụng">
+                <span className={`inline-block rounded-full px-3 py-1 text-[13px] font-medium ${asset.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {asset.isActive ? 'Đang dùng' : 'Không dùng'}
+                </span>
+              </Item>
+            </dl>
+          </Section>
+
+          <Section title="Thông số kỹ thuật">
+            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+              <Item label="Hãng sản xuất">{asset.manufacturer && asset.manufacturer !== 'N/A' ? asset.manufacturer : null}</Item>
+              <Item label="Model">{asset.model}</Item>
+              <Item label="Số sê-ri" mono>{asset.serialNumber && asset.serialNumber !== 'N/A' ? asset.serialNumber : null}</Item>
+              <Item label="Mức độ quan trọng"><Pill map={CRITICALITY} value={asset.criticality} /></Item>
+              <Item label="Ngày lắp đặt">{fmtDate(asset.installationDate)}</Item>
+            </dl>
+            {asset.technicalSpecs && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-[13px] font-medium text-ink-muted">Thông số chi tiết</p>
+                {specs ? (
+                  <dl className="divide-y divide-grid rounded-md border border-grid">
+                    {specs.map(([k, v]) => (
+                      <div key={k} className="flex justify-between gap-4 px-3.5 py-2 text-sm">
+                        <dt className="font-mono text-ink-muted">{k}</dt>
+                        <dd className="text-right font-semibold text-ink">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="whitespace-pre-wrap rounded-md border border-grid bg-canvas px-3.5 py-2.5 text-sm text-ink">{asset.technicalSpecs}</p>
+                )}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Giờ chạy máy">
+            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+              <Item label="Giờ chạy hiện tại">
+                <span className="font-semibold tabular-nums">{(asset.currentRunningHours ?? 0).toLocaleString('vi-VN')} giờ</span>
+              </Item>
+              <Item label="Cập nhật lần cuối">
+                {asset.lastRunningHoursUpdate ? new Date(asset.lastRunningHoursUpdate).toLocaleString('vi-VN') : null}
+              </Item>
+            </dl>
+          </Section>
+
+          <Section title="Phân công">
+            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+              <Item label="Người thực hiện mặc định">{asset.defaultExecutorRole}</Item>
+              <Item label="Người duyệt">{asset.approverRole}</Item>
+              <Item label="Nhóm thiết bị" mono>{asset.equipmentGroupId}</Item>
+            </dl>
+          </Section>
+
+          {asset.notes && (
+            <Section title="Ghi chú">
+              <p className="whitespace-pre-wrap text-[15px] text-ink">{asset.notes}</p>
+            </Section>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}

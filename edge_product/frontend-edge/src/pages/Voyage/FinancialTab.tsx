@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react'
 import {
   DollarSign, TrendingUp, TrendingDown, Plus, Check, X,
@@ -439,9 +440,9 @@ function ExpenseSection({ expenses, showForm, setShowForm, voyageId, onRefresh, 
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold text-gray-800">{t('voyage.financial.expenseRequests')} ({expenses.length})</h3>
         {!isClosed && (
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <PermissionGate permission="voyage.create"><button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Plus className="w-4 h-4" /> {t('voyage.financial.newExpense')}
-          </button>
+          </button></PermissionGate>
         )}
       </div>
 
@@ -464,7 +465,7 @@ function ExpenseSection({ expenses, showForm, setShowForm, voyageId, onRefresh, 
             <input value={form.portName || ''} onChange={e => setForm({ ...form, portName: e.target.value })} placeholder="Port" className="border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="flex gap-2">
-            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <PermissionGate permission="voyage.create"><button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button></PermissionGate>
             <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100">Cancel</button>
           </div>
         </div>
@@ -497,22 +498,22 @@ function ExpenseSection({ expenses, showForm, setShowForm, voyageId, onRefresh, 
                     <div className="flex items-center gap-1 justify-end">
                       {!isClosed && e.status === 'DRAFT' && (
                         <>
-                          <button onClick={() => handleTransition(e.id, 'SUBMITTED')} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Submit">
+                          <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(e.id, 'SUBMITTED')} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Submit">
                             <ArrowRight className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDelete(e.id)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Delete">
+                          </button></PermissionGate>
+                          <PermissionGate permission="voyage.delete"><button onClick={() => handleDelete(e.id)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Delete">
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                       {!isClosed && e.status === 'SUBMITTED' && (
                         <>
-                          <button onClick={() => handleTransition(e.id, 'APPROVED', e.requestedAmount)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Approve">
+                          <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(e.id, 'APPROVED', e.requestedAmount)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Approve">
                             <Check className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleTransition(e.id, 'REJECTED')} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Reject">
+                          </button></PermissionGate>
+                          <PermissionGate permission="voyage.reject"><button onClick={() => handleTransition(e.id, 'REJECTED')} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Reject">
                             <X className="w-4 h-4" />
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -568,9 +569,9 @@ function AdvanceSection({ advances, showForm, setShowForm, voyageId, onRefresh, 
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold text-gray-800">{t('voyage.financial.advancePayments')} ({advances.length})</h3>
         {!isClosed && (
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <PermissionGate permission="voyage.create"><button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Plus className="w-4 h-4" /> {t('voyage.financial.newAdvance')}
-          </button>
+          </button></PermissionGate>
         )}
       </div>
 
@@ -586,7 +587,7 @@ function AdvanceSection({ advances, showForm, setShowForm, voyageId, onRefresh, 
           </div>
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description" className="w-full border rounded-lg px-3 py-2 text-sm" />
           <div className="flex gap-2">
-            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <PermissionGate permission="voyage.create"><button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button></PermissionGate>
             <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100">Cancel</button>
           </div>
         </div>
@@ -619,9 +620,9 @@ function AdvanceSection({ advances, showForm, setShowForm, voyageId, onRefresh, 
                   <td className="px-4 py-2"><StatusBadge status={a.status} /></td>
                   <td className="px-4 py-2 text-right">
                     {!isClosed && a.status === 'PENDING' && (
-                      <button onClick={() => handlePay(a.id)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Mark Paid">
+                      <PermissionGate permission="voyage.approve"><button onClick={() => handlePay(a.id)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Mark Paid">
                         <Check className="w-4 h-4" />
-                      </button>
+                      </button></PermissionGate>
                     )}
                   </td>
                 </tr>
@@ -676,9 +677,9 @@ function DisbursementSection({ disbursements, showForm, setShowForm, voyageId, o
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold text-gray-800">{t('voyage.financial.disbursementsTitle')} ({disbursements.length})</h3>
         {!isClosed && (
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <PermissionGate permission="voyage.create"><button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Plus className="w-4 h-4" /> {t('voyage.financial.newDisbursement')}
-          </button>
+          </button></PermissionGate>
         )}
       </div>
 
@@ -701,7 +702,7 @@ function DisbursementSection({ disbursements, showForm, setShowForm, voyageId, o
             <input value={form.portName || ''} onChange={e => setForm({ ...form, portName: e.target.value })} placeholder="Port" className="border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="flex gap-2">
-            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <PermissionGate permission="voyage.create"><button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button></PermissionGate>
             <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100">Cancel</button>
           </div>
         </div>
@@ -735,14 +736,14 @@ function DisbursementSection({ disbursements, showForm, setShowForm, voyageId, o
                   <td className="px-4 py-2 text-right">
                     <div className="flex items-center gap-1 justify-end">
                       {!isClosed && d.status === 'RECORDED' && (
-                        <button onClick={() => handleTransition(d.id, 'VERIFIED')} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Verify">
+                        <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(d.id, 'VERIFIED')} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Verify">
                           <Check className="w-4 h-4" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                       {!isClosed && d.status === 'VERIFIED' && (
-                        <button onClick={() => handleTransition(d.id, 'PAID')} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Mark Paid">
+                        <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(d.id, 'PAID')} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Mark Paid">
                           <DollarSign className="w-4 h-4" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                     </div>
                   </td>
@@ -797,9 +798,9 @@ function RevenueSection({ revenues, showForm, setShowForm, voyageId, onRefresh, 
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold text-gray-800">{t('voyage.financial.actualRevenueTitle')} ({revenues.length})</h3>
         {!isClosed && (
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <PermissionGate permission="voyage.create"><button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Plus className="w-4 h-4" /> {t('voyage.financial.newRevenue')}
-          </button>
+          </button></PermissionGate>
         )}
       </div>
 
@@ -815,7 +816,7 @@ function RevenueSection({ revenues, showForm, setShowForm, voyageId, onRefresh, 
           </div>
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description" className="w-full border rounded-lg px-3 py-2 text-sm" />
           <div className="flex gap-2">
-            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button>
+            <PermissionGate permission="voyage.create"><button onClick={handleCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Create</button></PermissionGate>
             <button onClick={() => setShowForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100">Cancel</button>
           </div>
         </div>
@@ -847,9 +848,9 @@ function RevenueSection({ revenues, showForm, setShowForm, voyageId, onRefresh, 
                   <td className="px-4 py-2 text-right">
                     <div className="flex items-center gap-1 justify-end">
                       {!isClosed && r.status === 'INVOICED' && (
-                        <button onClick={() => handleTransition(r.id, 'RECEIVED')} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Mark Received">
+                        <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(r.id, 'RECEIVED')} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Mark Received">
                           <Check className="w-4 h-4" />
-                        </button>
+                        </button></PermissionGate>
                       )}
                     </div>
                   </td>
@@ -915,9 +916,9 @@ function SettlementSection({ settlements, voyageId, overview, onRefresh, isClose
           <h3 className="font-semibold text-gray-800">{t('voyage.financial.settlementsTitle')} ({settlements.length})</h3>
           <div className="flex gap-2">
             {!isClosed && (
-              <button onClick={handleCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <PermissionGate permission="voyage.create"><button onClick={handleCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 <Plus className="w-4 h-4" /> {t('voyage.financial.createSettlement')}
-              </button>
+              </button></PermissionGate>
             )}
             {!isClosed && overview.financialStatus === 'SETTLED' && (
               <button onClick={handleClose} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
@@ -959,16 +960,16 @@ function SettlementSection({ settlements, voyageId, overview, onRefresh, isClose
                 {!isClosed && (
                   <div className="flex gap-2">
                     {s.status === 'DRAFT' && (
-                      <button onClick={() => handleTransition(s.id, 'SUBMITTED')} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">{t('voyage.financial.submit')}</button>
+                      <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(s.id, 'SUBMITTED')} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">{t('voyage.financial.submit')}</button></PermissionGate>
                     )}
                     {s.status === 'SUBMITTED' && (
-                      <button onClick={() => handleTransition(s.id, 'REVIEWED')} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">{t('voyage.financial.review')}</button>
+                      <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(s.id, 'REVIEWED')} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">{t('voyage.financial.review')}</button></PermissionGate>
                     )}
                     {s.status === 'REVIEWED' && (
-                      <button onClick={() => handleTransition(s.id, 'APPROVED')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">{t('voyage.financial.approve')}</button>
+                      <PermissionGate permission="voyage.approve"><button onClick={() => handleTransition(s.id, 'APPROVED')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">{t('voyage.financial.approve')}</button></PermissionGate>
                     )}
                     {(s.status === 'SUBMITTED' || s.status === 'REVIEWED') && (
-                      <button onClick={() => handleTransition(s.id, 'REJECTED')} className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50">{t('voyage.financial.reject')}</button>
+                      <PermissionGate permission="voyage.reject"><button onClick={() => handleTransition(s.id, 'REJECTED')} className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50">{t('voyage.financial.reject')}</button></PermissionGate>
                     )}
                   </div>
                 )}

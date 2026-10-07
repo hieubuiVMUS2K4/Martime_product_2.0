@@ -111,7 +111,7 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Import Equipment Assets</h2>
@@ -126,8 +126,8 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
         <div className="p-6 space-y-6">
           {/* Instructions */}
           <div className="bg-[#eef2f7] border border-[#d6dee8] rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">Import Instructions</h3>
-            <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+            <h3 className="text-sm font-semibold text-primary mb-2">Import Instructions</h3>
+            <ul className="text-sm text-primary space-y-1 list-disc list-inside">
               <li>Download the CSV template first</li>
               <li>Fill in asset information (AssetCode, AssetName, Category are required)</li>
               <li>Optional: Add EquipmentGroupCode to assign assets to groups</li>
@@ -169,7 +169,7 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-[#0b2545] hover:text-blue-800 font-medium"
+                    className="text-[#0b2545] hover:text-primary font-medium"
                   >
                     Click to select file
                   </button>

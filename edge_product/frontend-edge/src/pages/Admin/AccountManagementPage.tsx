@@ -6,22 +6,18 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/stores/auth.store'
+import { usePermissionsStore } from '@/stores/permissions.store'
 import { useTranslationSafe } from '@/contexts/I18nContext'
-import type { RoleInfo, UserInfo } from '@/types/auth.types'
+import type { UserInfo } from '@/types/auth.types'
 
 const ACCOUNT_CACHE_TTL_MS = 30_000
-let accountCache: { users: UserInfo[]; roles: RoleInfo[]; fetchedAt: number } | null = null
-let accountLoadPromise: Promise<{ users: UserInfo[]; roles: RoleInfo[] }> | null = null
+let accountCache: { users: UserInfo[]; fetchedAt: number } | null = null
+let accountLoadPromise: Promise<{ users: UserInfo[] }> | null = null
 const PAGE_SIZE = 15
-
-function isAdmin(user: UserInfo | null): boolean {
-  return user?.roleCode?.toUpperCase() === 'ADMIN'
-}
 
 function formatDateTime(value?: string | null): string {
   if (!value) return '-'
@@ -34,23 +30,19 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error'
 }
 
-async function fetchAccounts(force = false): Promise<{ users: UserInfo[]; roles: RoleInfo[] }> {
+async function fetchAccounts(force = false): Promise<{ users: UserInfo[] }> {
   const now = Date.now()
   if (!force && accountCache && now - accountCache.fetchedAt < ACCOUNT_CACHE_TTL_MS) {
-    return { users: accountCache.users, roles: accountCache.roles }
+    return { users: accountCache.users }
   }
 
   if (!force && accountLoadPromise) {
     return accountLoadPromise
   }
 
-  accountLoadPromise = Promise.all([
-    authService.getUsers(),
-    authService.getRoles(),
-  ]).then(([users, roles]) => {
-    const activeRoles = roles.filter((role) => role.isActive)
-    accountCache = { users, roles: activeRoles, fetchedAt: Date.now() }
-    return { users, roles: activeRoles }
+  accountLoadPromise = authService.getUsers().then(users => {
+    accountCache = { users, fetchedAt: Date.now() }
+    return { users }
   }).finally(() => {
     accountLoadPromise = null
   })
@@ -62,21 +54,19 @@ export function AccountManagementPage() {
   const { user: currentUser } = useAuthStore()
   const { t } = useTranslationSafe()
   const [users, setUsers] = useState<UserInfo[]>([])
-  const [roles, setRoles] = useState<RoleInfo[]>([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [busyUserId, setBusyUserId] = useState<number | null>(null)
 
-  const canManage = isAdmin(currentUser)
+  const canManage = usePermissionsStore(s => s.isAdmin)
 
   const loadData = useCallback(async (force = false) => {
     if (!canManage) return
     setLoading(true)
     try {
-      const { users: nextUsers, roles: nextRoles } = await fetchAccounts(force)
+      const { users: nextUsers } = await fetchAccounts(force)
       setUsers(nextUsers)
-      setRoles(nextRoles)
     } catch (err) {
       toast.error(t('accountManagement.toast.loadFailed'), {
         description: getErrorMessage(err),
@@ -119,21 +109,6 @@ export function AccountManagementPage() {
   const paginatedUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
   const pageStart = filteredUsers.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1
   const pageEnd = Math.min(safePage * PAGE_SIZE, filteredUsers.length)
-
-  const handleRoleChange = async (targetUser: UserInfo, nextRoleId: number) => {
-    setBusyUserId(targetUser.id)
-    try {
-      await authService.updateUserRole({ userId: targetUser.id, roleId: nextRoleId })
-      toast.success(t('accountManagement.toast.roleUpdated', { username: targetUser.username }))
-      await loadData(true)
-    } catch (err) {
-      toast.error(t('accountManagement.toast.roleUpdateFailed'), {
-        description: getErrorMessage(err),
-      })
-    } finally {
-      setBusyUserId(null)
-    }
-  }
 
   const handleToggleActive = async (targetUser: UserInfo) => {
     setBusyUserId(targetUser.id)
@@ -191,16 +166,14 @@ export function AccountManagementPage() {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-white">
-      <div className="flex flex-col gap-3 border-b border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-slate-900">
-            <Users className="h-5 w-5 text-blue-600" />
-            <h1 className="text-xl font-bold">{t('accountManagement.title')}</h1>
+      <div className="flex min-h-0 flex-1 flex-col bg-white">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-700">{t('accountManagement.listTitle')}</span>
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+              {filteredUsers.length} / {users.length}
+            </span>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
-            {t('accountManagement.subtitle')}
-          </p>
-        </div>
         <button
           type="button"
           onClick={() => void loadData(true)}
@@ -210,16 +183,6 @@ export function AccountManagementPage() {
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           {t('accountManagement.refresh')}
         </button>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col bg-white">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">{t('accountManagement.listTitle')}</span>
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-              {filteredUsers.length} / {users.length}
-            </span>
-          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-sm">
@@ -228,7 +191,7 @@ export function AccountManagementPage() {
                 <th className="w-12 border-b border-r border-gray-200 px-2 py-2 text-center text-xs font-semibold uppercase text-gray-600">#</th>
                 <th className="min-w-[180px] border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.account')}</th>
                 <th className="min-w-[220px] border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.crew')}</th>
-                <th className="w-56 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.role')}</th>
+                <th className="w-56 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">Chức danh</th>
                 <th className="w-44 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.lastLogin')}</th>
                 <th className="w-32 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.status')}</th>
                 <th className="w-52 border-b border-gray-200 px-3 py-2 text-center text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.actions')}</th>
@@ -287,18 +250,9 @@ export function AccountManagementPage() {
                         <div className="text-xs text-gray-500">{item.crewId || item.position || '-'}</div>
                       </td>
                       <td className="border-r border-gray-200 px-3 py-2">
-                        <select
-                          value={item.roleId}
-                          onChange={(event) => void handleRoleChange(item, Number(event.target.value))}
-                          disabled={isBusy}
-                          className="h-8 w-full rounded border border-gray-300 bg-white px-2 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
-                        >
-                          {roles.map((role) => (
-                            <option key={role.id} value={role.id}>
-                              {role.roleName || role.roleCode}
-                            </option>
-                          ))}
-                        </select>
+                        <span className="text-gray-900" title={item.crewId ? 'Chức danh được quản lý trên bờ và đồng bộ xuống tàu' : undefined}>
+                          {item.rankName || (item.crewId ? 'Chưa có chức danh' : '—')}
+                        </span>
                       </td>
                       <td className="border-r border-gray-200 px-3 py-2 text-gray-600">{formatDateTime(item.lastLoginAt)}</td>
                       <td className="border-r border-gray-200 px-3 py-2">

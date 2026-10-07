@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -677,15 +678,15 @@ export function ReportDetailPage() {
             {report.status === 'DRAFT' && (
               <>
                 {editRoute && (
-                  <button
+                  <PermissionGate permission="reporting.update"><button
                     onClick={() => navigate(editRoute)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
                     <FileText className="h-4 w-4" />
                     Edit
-                  </button>
+                  </button></PermissionGate>
                 )}
-                <button
+                <PermissionGate permission="reporting.update"><button
                   onClick={() => {
                     toast('Submit this report for approval?', {
                       action: {
@@ -706,41 +707,41 @@ export function ReportDetailPage() {
                 >
                   <Send className="h-4 w-4" />
                   Submit
-                </button>
+                </button></PermissionGate>
               </>
             )}
 
             {report.status === 'SUBMITTED' && (
               <>
-                <button
+                <PermissionGate permission="reporting.reject"><button
                   onClick={() => setShowRejectModal(true)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
                 >
                   <XCircle className="h-4 w-4" />
                   Reject
-                </button>
-                <button
+                </button></PermissionGate>
+                <PermissionGate permission="reporting.approve"><button
                   onClick={() => setShowApproveModal(true)}
                   className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   <CheckCircle className="h-4 w-4" />
                   Approve
-                </button>
+                </button></PermissionGate>
               </>
             )}
 
             {report.status === 'APPROVED' && !report.isTransmitted && (
-              <button
+              <PermissionGate permission="reporting.update"><button
                 onClick={() => setShowTransmitModal(true)}
                 className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
               >
                 <Send className="h-4 w-4" />
                 Transmit
-              </button>
+              </button></PermissionGate>
             )}
 
             {report.status === 'REJECTED' && (
-              <button
+              <PermissionGate permission="reporting.update"><button
                 onClick={async () => {
                   const corrections = window.prompt('What corrections will be made before resubmission?');
                   if (!corrections) return;
@@ -756,7 +757,7 @@ export function ReportDetailPage() {
               >
                 <RotateCcw className="h-4 w-4" />
                 Reopen
-              </button>
+              </button></PermissionGate>
             )}
           </div>
         </div>
@@ -879,13 +880,13 @@ export function ReportDetailPage() {
               >
                 Cancel
               </button>
-              <button
+              <PermissionGate permission="reporting.approve"><button
                 onClick={handleApprove}
                 disabled={!approvalData.masterSignature.trim()}
                 className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Confirm approval
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -915,13 +916,13 @@ export function ReportDetailPage() {
               >
                 Cancel
               </button>
-              <button
+              <PermissionGate permission="reporting.reject"><button
                 onClick={handleReject}
                 disabled={!rejectionReason.trim()}
                 className="flex-1 rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Confirm rejection
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -967,12 +968,12 @@ export function ReportDetailPage() {
               >
                 Cancel
               </button>
-              <button
+              <PermissionGate permission="reporting.update"><button
                 onClick={handleTransmit}
                 className="flex-1 rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"
               >
                 Send transmission
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>

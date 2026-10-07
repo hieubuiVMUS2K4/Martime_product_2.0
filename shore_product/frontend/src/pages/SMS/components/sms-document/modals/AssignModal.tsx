@@ -12,13 +12,13 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
   const handleAssignFromLibrary = onAssign;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-modal p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col">
         
         {/* Modal Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg">
+            <div className="p-1.5 bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 rounded-lg">
               <ExternalLink className="w-4 h-4" />
             </div>
             <div>
@@ -41,7 +41,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
             <select
               value={assignProcedureId}
               onChange={(e) => setAssignProcedureId(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">-- Chọn quy trình --</option>
               {treeData.flatMap((ch: any) => ch.procedures).filter((p: any) => p.status === 'Active').map((p: any) => (
@@ -61,7 +61,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
           </button>
           <button
             onClick={handleAssignFromLibrary}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+            className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-sm transition"
           >
             Gán biểu mẫu
           </button>

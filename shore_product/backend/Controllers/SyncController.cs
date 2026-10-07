@@ -729,6 +729,8 @@ public class SyncController : ControllerBase
             // Node tracker info
             var nodes = await _context.SyncNodeTrackers
                 .AsNoTracking()
+                // Bỏ node "ma": chưa đăng ký và không gắn tàu nào (sót lại từ lúc thử nghiệm / gói cấu hình cũ).
+                .Where(n => n.IsRegistered || n.VesselId != null)
                 .Select(n => new
                 {
                     n.NodeId,

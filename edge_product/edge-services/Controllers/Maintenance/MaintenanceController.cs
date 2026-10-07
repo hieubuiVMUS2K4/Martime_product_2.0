@@ -314,7 +314,7 @@ public class MaintenanceController : ControllerBase
 
     /// <summary>
     /// Lấy danh sách task được giao cho crew member cụ thể
-    /// Chỉ trả về tasks có AssignedTo chứa crew_id hoặc full_name của crew member
+    /// Returns tasks for the whole vessel; crew parameters only enrich assignment metadata.
     /// OPTIMIZED: Không include ChecklistItems và CompletionPhotos để giảm response size
     /// </summary>
     [HttpGet("tasks/my-tasks")]
@@ -326,54 +326,9 @@ public class MaintenanceController : ControllerBase
             IQueryable<MaintenanceTask> query = _context.MaintenanceTasks
                 .Where(t => !t.IsDeleted);
 
-            // IMPORTANT: Chỉ trả về tasks được assign cho crew member này
-            // Nếu không có crewId và assignedTo thì trả về empty list (không trả về tất cả tasks)
-            if (string.IsNullOrWhiteSpace(crewId) && string.IsNullOrWhiteSpace(assignedTo))
-            {
-                _logger.LogWarning("GetMyTasks called without crewId or assignedTo parameter");
-                return Ok(new List<object>()); // Trả về empty list thay vì tất cả tasks
-            }
-
-            // Filter by assignedTo (crew name or ID)
-            // Also include tasks where crew is SUPPORT/RECEIVER via schedule's Instructions (<!--CREW:...-->)
-            CrewMember? matchedCrew = null;
-            if (!string.IsNullOrWhiteSpace(assignedTo))
-            {
-                query = query.Where(t => t.AssignedTo != null && t.AssignedTo.Contains(assignedTo));
-            }
-            else if (!string.IsNullOrWhiteSpace(crewId))
-            {
-                // If crewId is provided, try to find matching crew member
-                matchedCrew = await _context.CrewMembers
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.CrewId == crewId);
-                
-                if (matchedCrew != null)
-                {
-                    var crewGuidStr = matchedCrew.Id.ToString();
-                    
-                    // Find schedules where this crew appears in CREW metadata (SUPPORT/RECEIVER/PIC)
-                    var scheduleIdsWithCrew = await _context.MaintenanceSchedules
-                        .AsNoTracking()
-                        .Where(s => s.Instructions != null && s.Instructions.Contains(crewGuidStr))
-                        .Select(s => s.Id)
-                        .ToListAsync();
-                    
-                    // Match by AssignedTo (PIC) OR by schedule's crew metadata (SUPPORT/RECEIVER)
-                    query = query.Where(t => 
-                        (t.AssignedTo != null && (t.AssignedTo.Contains(matchedCrew.CrewId) || t.AssignedTo.Contains(matchedCrew.FullName))) ||
-                        (t.ScheduleId != null && scheduleIdsWithCrew.Contains(t.ScheduleId.Value)));
-                    
-                    _logger.LogInformation("Filtering tasks for crew: {CrewId} - {FullName} (PIC + {ScheduleCount} schedules with SUPPORT/RECEIVER role)", 
-                        matchedCrew.CrewId, matchedCrew.FullName, scheduleIdsWithCrew.Count);
-                }
-                else
-                {
-                    // Crew member không tồn tại, trả về empty list
-                    _logger.LogWarning("Crew member not found: {CrewId}", crewId);
-                    return Ok(new List<object>());
-                }
-            }
+            // Fleet-wide vessel list. Crew parameters only enrich assignment metadata.
+            CrewMember? matchedCrew = string.IsNullOrWhiteSpace(crewId) ? null : await _context.CrewMembers
+                .AsNoTracking().FirstOrDefaultAsync(c => c.CrewId == crewId);
 
             // Filter by status based on includeCompleted flag
             if (!includeCompleted)
@@ -1049,47 +1004,7 @@ public class MaintenanceController : ControllerBase
                 return BadRequest(new { error = "Approver not found", crewId = request.ApprovedBy });
             }
 
-            // Get equipment group to determine department and required approver rank
-            var equipmentCode = task.EquipmentId;
-            var asset = await _context.EquipmentAssets
-                .FirstOrDefaultAsync(a => a.AssetCode == equipmentCode);
-            
-            var groupMember = asset != null 
-                ? await _context.EquipmentGroupMembers
-                    .Include(egm => egm.Group)
-                    .FirstOrDefaultAsync(egm => egm.AssetId == asset.Id)
-                : null;
-
-            var department = groupMember?.Group?.Department;
-            
-            // Validate approver rank based on department
-            // ENGINE: C/E (Chief Engineer) or Master
-            // DECK: C/O (Chief Officer) or Master
-            // Others: Master only
-            var validApproverRanks = new List<string>();
-            
-            if (department == "ENGINE")
-            {
-                validApproverRanks = new List<string> { "C/E", "Master" };
-            }
-            else if (department == "DECK")
-            {
-                validApproverRanks = new List<string> { "C/O", "Master" };
-            }
-            else
-            {
-                validApproverRanks = new List<string> { "Master" };
-            }
-
-            // Rank column deleted - skip rank validation for now
-            // if (string.IsNullOrEmpty(approver.Rank) || !validApproverRanks.Contains(approver.Rank))
-            // {
-            //     return BadRequest(new { 
-            //         error = $"Approver must be one of: {string.Join(", ", validApproverRanks)}", 
-            //         approverRank = approver.Rank ?? "N/A",
-            //         department = department ?? "UNKNOWN"
-            //     });
-            // }
+            // The global rank permission filter validates current actor and approve/reject grants.
 
             if (request.IsApproved)
             {

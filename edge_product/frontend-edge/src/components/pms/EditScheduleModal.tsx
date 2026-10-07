@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, ClipboardList, Search } from 'lucide-react';
 import { maintenanceScheduleService } from '@/services/maintenance-schedule.service';
@@ -786,13 +787,13 @@ export function EditScheduleModal({ isOpen, schedule, onClose, onSuccess }: Edit
             >
               Cancel
             </button>
-            <button
+            <PermissionGate permission={'pms.config.update'}><button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               disabled={loading}
             >
               {loading ? 'Updating...' : 'Update Schedule'}
-            </button>
+            </button></PermissionGate>
           </div>
         </form>
       </div>

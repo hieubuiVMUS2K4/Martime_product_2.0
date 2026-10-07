@@ -1,7 +1,11 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
+import { ReceiptCompletionButton } from './ReceiptCompletionButton';
+import { usePermission } from '@/stores/permissions.store';
+import axios from 'axios';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Eye, Search, X, CheckCircle, Paperclip, Info, ChevronsUpDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, Search, X, CheckCircle, Send, Paperclip, Info, ChevronsUpDown } from 'lucide-react';
 import { stockReceiptService } from '@/services/stockReceipt.service';
 import { materialService, type MaterialCatalogItem } from '@/services/materialService';
 import { storeLocationService } from '@/services/store-location.service';
@@ -149,11 +153,13 @@ function SearchableSelect({
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: 'bg-gray-100 text-gray-700',
+  Submitted: 'bg-yellow-100 text-yellow-700',
   Approved: 'bg-green-100 text-green-700',
   Completed: 'bg-purple-100 text-purple-700',
 };
 const STATUS_LABELS: Record<string, string> = {
   Draft: 'Bản nháp',
+  Submitted: 'Chờ duyệt',
   Approved: 'Đã duyệt',
   Completed: 'Hoàn thành',
 };
@@ -161,6 +167,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 
 export default function StockReceiptPage() {
+  const canCreate = usePermission('pms.receipts.create');
+  const canUpdate = usePermission('pms.receipts.update');
+  const canSubmit = canCreate || canUpdate;
   const { t } = useTranslationSafe();
   const [view, setView] = useState<ViewMode>('list');
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
@@ -210,7 +219,10 @@ export default function StockReceiptPage() {
       });
       setReceipts(res.items);
       setTotal(res.total);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      toast.error(axios.isAxiosError(e) && typeof e.response?.data === 'string'
+        ? e.response.data : 'Không thể tải danh sách phiếu nhập kho');
+    }
     finally { setLoading(false); }
   }, [currentPage, pageSize, filterStatus, searchQ]);
 
@@ -288,7 +300,7 @@ export default function StockReceiptPage() {
     } catch { /* ignore */ }
   };
 
-  const handleSave = async (andApprove = false) => {
+  const handleSave = async (andSubmit = false) => {
     if (formItems.some(item => !item.storeLocationId)) {
       toast.warning('Vui lòng chọn vị trí kho cho tất cả các dòng vật tư.');
       return;
@@ -311,15 +323,61 @@ export default function StockReceiptPage() {
         items: formItems,
       };
       if (editingId) {
-        await stockReceiptService.update(editingId, { ...payload, status: andApprove ? 'Approved' : undefined });
+        await stockReceiptService.update(editingId, payload);
+        if (andSubmit) await stockReceiptService.submit(editingId);
       } else {
         const res = await stockReceiptService.create(payload);
-        if (andApprove) await stockReceiptService.update(res.id, { status: 'Approved' });
+        setEditingId(res.id);
+        if (andSubmit) await stockReceiptService.submit(res.id);
       }
       setShowFormModal(false);
       loadList();
-    } catch (e) { console.error(e); }
+      toast.success(andSubmit ? 'Đã gửi phiếu nhập kho chờ duyệt' : 'Đã lưu phiếu nhập kho');
+    } catch (e) {
+      toast.error(axios.isAxiosError(e) && typeof e.response?.data === 'string'
+        ? e.response.data : 'Không thể lưu hoặc gửi duyệt phiếu nhập kho');
+    }
     finally { setSaving(false); }
+  };
+
+  const handleSubmit = async (id: number) => {
+    toast('Gửi phiếu nhập kho chờ duyệt?', {
+      action: {
+        label: 'Gửi duyệt',
+        onClick: async () => {
+          try {
+            await stockReceiptService.submit(id);
+            await loadList();
+            if (view === 'detail') await openDetail(id);
+            toast.success('Đã gửi phiếu nhập kho chờ duyệt');
+          } catch (error) {
+            toast.error(axios.isAxiosError(error) && typeof error.response?.data === 'string'
+              ? error.response.data : 'Không thể gửi duyệt phiếu nhập kho');
+          }
+        },
+      },
+      cancel: { label: 'Hủy', onClick: () => {} },
+    });
+  };
+
+  const handleApprove = async (id: number) => {
+    toast('Xác nhận duyệt phiếu nhập kho?', {
+      action: {
+        label: 'Duyệt',
+        onClick: async () => {
+          try {
+            await stockReceiptService.approve(id);
+            await loadList();
+            if (view === 'detail') await openDetail(id);
+            toast.success('Đã duyệt phiếu nhập kho');
+          } catch (error) {
+            toast.error(axios.isAxiosError(error) && typeof error.response?.data === 'string'
+              ? error.response.data : 'Không thể duyệt phiếu nhập kho');
+          }
+        },
+      },
+      cancel: { label: 'Hủy', onClick: () => {} },
+    });
   };
 
   const handleComplete = async (id: number) => {
@@ -327,10 +385,15 @@ export default function StockReceiptPage() {
       action: {
         label: 'Xác nhận',
         onClick: async () => {
-          await stockReceiptService.complete(id);
-          setView('list');
-          loadList();
-          toast.success('Đã hoàn thành nhập kho, tồn kho đã được cập nhật');
+          try {
+            await stockReceiptService.complete(id);
+            setView('list');
+            await loadList();
+            toast.success('Đã hoàn thành nhập kho, tồn kho đã được cập nhật');
+          } catch (error) {
+            toast.error(axios.isAxiosError(error) && typeof error.response?.data === 'string'
+              ? error.response.data : 'Không thể hoàn tất phiếu nhập kho');
+          }
         }
       },
       cancel: { label: 'Hủy', onClick: () => {} },
@@ -387,6 +450,11 @@ export default function StockReceiptPage() {
   const selectRequest = async (req: MaterialRequest) => {
     try {
       const detail = await materialRequestService.getById(req.id);
+      if (detail.status !== 'Approved') {
+        setRequestOptions(options => options.filter(option => option.id !== req.id));
+        toast.warning('Yêu cầu vật tư chưa được duyệt hoặc không còn đủ điều kiện nhập kho.');
+        return;
+      }
       setFormData(p => ({ ...p, materialRequestId: req.id }));
       if (detail.items && detail.items.length > 0) {
         const mapped: StockReceiptItem[] = detail.items.map(item => {
@@ -430,9 +498,9 @@ export default function StockReceiptPage() {
               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{total}</span>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
+              <PermissionGate permission="pms.receipts.create"><button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
                 <Plus className="w-3.5 h-3.5" /> {t('stockReceipts.addNew')}
-              </button>
+              </button></PermissionGate>
             </div>
           </div>
         </div>
@@ -486,7 +554,7 @@ export default function StockReceiptPage() {
                     <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
                   </div>
                 </th>
-                <th className="w-24 px-3 py-2 border-b border-gray-200"></th>
+                <th className="w-32 px-3 py-2 border-b border-gray-200">Hành động</th>
               </tr>
               {/* Row 2: Column filters */}
               <tr className="bg-white border-b border-gray-200">
@@ -536,13 +604,13 @@ export default function StockReceiptPage() {
                       <button onClick={() => openDetail(r.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Eye size={15} /></button>
                       {r.status === 'Draft' && (
                         <>
-                          <button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"><Edit2 size={15} /></button>
-                          <button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={15} /></button>
+                          <PermissionGate permission="pms.receipts.update"><button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"><Edit2 size={15} /></button></PermissionGate>
+                          <PermissionGate permission="pms.receipts.delete"><button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={15} /></button></PermissionGate>
+                          {canSubmit && <button onClick={() => handleSubmit(r.id)} title="Gửi duyệt phiếu nhập" className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Send size={15} /></button>}
                         </>
                       )}
-                      {r.status === 'Approved' && (
-                        <button onClick={() => handleComplete(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Hoàn thành nhập kho"><CheckCircle size={15} /></button>
-                      )}
+                      {r.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleApprove(r.id)} title="Duyệt phiếu nhập" className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"><CheckCircle size={15} /></button></PermissionGate>}
+                      <ReceiptCompletionButton status={r.status} iconOnly onComplete={() => handleComplete(r.id)} />
                     </div>
                   </td>
                 </tr>
@@ -583,12 +651,10 @@ export default function StockReceiptPage() {
             <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[detailData.status]}`}>{STATUS_LABELS[detailData.status]}</span>
           </div>
           <div className="flex items-center gap-2">
-            {detailData.status === 'Draft' && <button onClick={() => openEdit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Edit2 className="w-3.5 h-3.5" /> Sửa</button>}
-            {(detailData.status === 'Draft' || detailData.status === 'Approved') && (
-              <button onClick={() => handleComplete(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                <CheckCircle className="w-3.5 h-3.5" /> Hoàn thành nhập kho
-              </button>
-            )}
+            {detailData.status === 'Draft' && <PermissionGate permission="pms.receipts.update"><button onClick={() => openEdit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Edit2 className="w-3.5 h-3.5" /> Sửa</button></PermissionGate>}
+            {detailData.status === 'Draft' && canSubmit && <button onClick={() => handleSubmit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"><Send className="w-3.5 h-3.5" /> Gửi duyệt</button>}
+            {detailData.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleApprove(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"><CheckCircle className="w-3.5 h-3.5" /> Duyệt phiếu nhập</button></PermissionGate>}
+            <ReceiptCompletionButton status={detailData.status} onComplete={() => handleComplete(detailData.id)} />
             <button onClick={() => setView('list')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><X className="w-3.5 h-3.5" /> Đóng</button>
           </div>
         </div>
@@ -722,10 +788,10 @@ export default function StockReceiptPage() {
           </span>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowFormModal(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><X className="w-3.5 h-3.5" /> Hủy bỏ</button>
-            <button disabled={saving} onClick={() => handleSave(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">Lưu nháp</button>
-            <button disabled={saving} onClick={() => handleSave(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
-              <CheckCircle className="w-3.5 h-3.5" /> Lưu và duyệt
-            </button>
+            <PermissionGate permission={editingId ? 'pms.receipts.update' : 'pms.receipts.create'}><button disabled={saving} onClick={() => handleSave(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">Lưu nháp</button></PermissionGate>
+            <PermissionGate permission={editingId ? 'pms.receipts.update' : 'pms.receipts.create'}><button disabled={saving} onClick={() => handleSave(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+              <Send className="w-3.5 h-3.5" /> Lưu và gửi duyệt
+            </button></PermissionGate>
           </div>
         </div>
 

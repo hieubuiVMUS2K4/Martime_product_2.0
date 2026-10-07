@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Position Report Creation Form
  * SOLAS V Reg 19.2.1.4 - Special Position Reporting
@@ -547,7 +548,7 @@ export function PositionReportForm() {
             >
               Cancel
             </button>
-            <button
+            <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
               type="button"
               onClick={() => handleSubmit(true)}
               className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
@@ -555,8 +556,8 @@ export function PositionReportForm() {
             >
               <Save className="h-5 w-5" />
               {loading ? 'Saving...' : isEditMode ? 'Update Draft' : 'Save Draft'}
-            </button>
-            <button
+            </button></PermissionGate>
+            <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
               type="button"
               onClick={() => handleSubmit(false)}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -564,7 +565,7 @@ export function PositionReportForm() {
             >
               <Send className="h-5 w-5" />
               {loading ? 'Submitting...' : isEditMode ? 'Update & Submit' : 'Submit Report'}
-            </button>
+            </button></PermissionGate>
           </div>
         </form>
       </div>

@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Bunker Report Form
  * MARPOL Annex VI Compliant - Fuel Bunkering Report
@@ -776,7 +777,7 @@ export function BunkerReportForm() {
             Cancel
           </button>
 
-          <button
+          <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
             type="button"
             onClick={() => handleSubmit(true)}
             className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
@@ -784,9 +785,9 @@ export function BunkerReportForm() {
           >
             <Save className="h-4 w-4" />
             {loading ? 'Saving...' : isEditMode ? 'Update Draft' : 'Save as Draft'}
-          </button>
+          </button></PermissionGate>
 
-          <button
+          <PermissionGate permission={id ? 'reporting.update' : 'reporting.create'}><button
             type="button"
             onClick={() => handleSubmit(false)}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -798,7 +799,7 @@ export function BunkerReportForm() {
               <Send className="h-4 w-4" />
             )}
             {loading ? 'Submitting...' : isEditMode ? 'Update & Submit' : 'Submit Report'}
-          </button>
+          </button></PermissionGate>
         </div>
       </form>
     </div>

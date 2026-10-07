@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="permissions.registry.json" LogicalName="permissions.registry.json" />
     <ProjectReference Include="..\shared\Maritime.Shared.csproj" />
   </ItemGroup>
 

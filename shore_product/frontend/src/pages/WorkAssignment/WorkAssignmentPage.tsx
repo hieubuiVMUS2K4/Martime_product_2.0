@@ -332,7 +332,7 @@ export const WorkAssignmentPage: React.FC = () => {
         title={selectedPlan ? 'Chỉnh sửa kế hoạch' : 'Thêm kế hoạch mới'}
         size="lg"
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input
             label="Nội dung"
             value={formData.title || ''}

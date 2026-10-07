@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Document Sidebar - Tree View for SMS Library
  * Shows folder structure: ISM Manual, ISPS, STCW, Garbage, etc.
@@ -270,7 +271,7 @@ export function DocumentSidebar({
 
           {/* Context Menu Trigger */}
           {!node.isVirtual && (
-            <button
+            <PermissionGate permission={'hsqe.create'}><button
               onClick={(e) => {
                 e.stopPropagation();
                 setContextMenuId(contextMenuId === node.id ? null : node.id);
@@ -278,25 +279,25 @@ export function DocumentSidebar({
               className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600 rounded flex-shrink-0 transition-opacity"
             >
               <MoreVertical className="w-3 h-3" />
-            </button>
+            </button></PermissionGate>
           )}
         </div>
 
         {/* Context Menu */}
         {contextMenuId === node.id && (
           <div className="ml-8 mr-2 mb-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
-            <button
+            <PermissionGate permission={'hsqe.create'}><button
               onClick={() => { onCreateDocument(node.code, 'FORM'); setContextMenuId(null); }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <Plus className="w-3 h-3" /> Thêm tài liệu con
-            </button>
-            <button
+            </button></PermissionGate>
+            <PermissionGate permission={'hsqe.create'}><button
               onClick={() => { onCreateDocument(node.code, 'PROCEDURE'); setContextMenuId(null); }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <FolderPlus className="w-3 h-3" /> Thêm Chapter
-            </button>
+            </button></PermissionGate>
           </div>
         )}
 
@@ -325,7 +326,7 @@ export function DocumentSidebar({
 
       {/* Action Bar */}
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-slate-200 dark:border-slate-700">
-        <select
+        <PermissionGate permission={'hsqe.create'}><select
           className="text-xs border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex-1"
           defaultValue=""
           onChange={(e) => {
@@ -342,14 +343,14 @@ export function DocumentSidebar({
           <option value="checklist">Create New Checklist</option>
           <option value="form">Create New Form</option>
           <option value="import">Import Document</option>
-        </select>
-        <button
+        </select></PermissionGate>
+        <PermissionGate permission={'hsqe.create'}><button
           onClick={() => onCreateDocument(undefined, 'PROCEDURE')}
           className="hidden"
           title="Tạo thư mục mới"
         >
           <FolderPlus className="w-3.5 h-3.5" />
-        </button>
+        </button></PermissionGate>
       </div>
 
       {selectedDocumentIds.length > 0 && (
@@ -357,13 +358,13 @@ export function DocumentSidebar({
           <span className="text-xs font-semibold text-red-700 dark:text-red-300">
             {selectedDocumentIds.length} selected
           </span>
-          <button
+          <PermissionGate permission={'hsqe.delete'}><button
             onClick={onBulkDelete}
             className="flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700"
           >
             <Trash2 className="h-3 w-3" />
             Delete
-          </button>
+          </button></PermissionGate>
         </div>
       )}
 

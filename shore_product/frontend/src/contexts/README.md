@@ -21,10 +21,9 @@ BrowserRouter
  └─ AuthProvider          ← phải trong cùng, vì AppRoutes cần useAuth() để guard
      └─ I18nProvider
          └─ VesselProvider
-             └─ ToastProvider (components/common/Toast)
-                 └─ ConfirmDialogProvider (components/common/ConfirmDialog)
-                     └─ AppRoutes
-                     └─ <Toaster/>  (sonner — hệ thống toast THỨ HAI, song song)
+             └─ ConfirmDialogProvider (components/common/ConfirmDialog)
+                 └─ AppRoutes
+                 └─ <AppToaster/>  (sonner — hệ thống thông báo duy nhất)
 ```
 
 Component đọc state qua hook riêng, không đọc `Context` object trực tiếp:
@@ -46,5 +45,5 @@ useTranslationSafe() // I18nContext (an toàn, có fallback)
 
 - **`VesselContext` gần như chưa có ai tiêu thụ.** Grep toàn repo cho thấy `useVessel()` chỉ xuất hiện trong chính file định nghĩa nó và được `Provider` bọc trong `App.tsx` — chưa có component nào gọi `useVessel()` để lấy `selectedVessel`/`selectVessel`. Đừng nhầm với hook **khác tên nhưng giống**: `useVessels()` (số nhiều, trong `hooks/useCrew.ts`) — đó là một cache module-level độc lập phục vụ dropdown chọn tàu khi gán crew, không liên quan gì đến `VesselContext`. Nhiều khả năng `VesselContext` được chuẩn bị cho một tính năng "chọn tàu toàn cục" chưa hoàn thiện.
 - **`I18nContext` chỉ có 1 ngôn ngữ.** Đừng tốn công tìm cơ chế đổi ngôn ngữ (switcher) — không tồn tại ở Shore; khác hẳn Edge/Mobile (có tiếng Việt + tiếng Anh).
-- **Hai hệ thống toast cùng chạy song song**: `ToastProvider/useToast` (tự viết, trong `components/common/Toast`) được hầu hết page dùng, **và** `sonner` (`<Toaster/>` mount ở `App.tsx`, gọi trực tiếp `import { toast } from 'sonner'`) được dùng riêng trong cụm PMS (`WorkPlanningPage` + các modal trong `components/pms/`). Khi sửa lỗi "sao không thấy thông báo", nhớ kiểm tra đúng hệ thống nào đang được gọi.
+- **Thông báo chỉ có một hệ là sonner** (`<AppToaster/>` ở `App.tsx`). `useToast()` trong `components/common/Toast` chỉ chuyển tiếp sang sonner, giữ để trang cũ không phải sửa.
 - Không có `ThemeContext`/dark-mode context nào ở Shore.

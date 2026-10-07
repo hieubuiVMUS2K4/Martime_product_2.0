@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Document Library Page - Main Orchestrator
  * ISM Code / ISO 9001 Document Control System
@@ -165,7 +166,7 @@ function CreateDocumentModal({
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50">
             Hủy bỏ
           </button>
-          <button
+          <PermissionGate permission="hsqe.create"><button
             onClick={async () => {
               if (!code.trim() || !title.trim()) { toast.error('Vui lòng nhập đầy đủ thông tin'); return; }
               setSaving(true);
@@ -179,7 +180,7 @@ function CreateDocumentModal({
           >
             {saving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
             Tạo tài liệu
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>
@@ -333,7 +334,7 @@ function ImportDocumentModal({
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
             Cancel
           </button>
-          <button
+          <PermissionGate permission="hsqe.create"><button
             onClick={async () => {
               if (!code.trim() || !title.trim() || !fileName.trim()) {
                 toast.error('Vui lòng chọn file và nhập đầy đủ thông tin');
@@ -356,7 +357,7 @@ function ImportDocumentModal({
           >
             {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             Import
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>
@@ -702,7 +703,7 @@ function ChecklistTemplateModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-2 dark:border-slate-700">
-          <button
+          <PermissionGate permission="hsqe.create"><button
             onClick={async () => {
               if (!code.trim() || !name.trim()) {
                 toast.error('Vui lòng nhập code và tên checklist');
@@ -735,7 +736,7 @@ function ChecklistTemplateModal({
           >
             {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             Save
-          </button>
+          </button></PermissionGate>
           <button onClick={onClose} disabled={saving} className="rounded border border-slate-200 px-4 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
             Cancel
           </button>
@@ -783,7 +784,7 @@ function BulkDeleteConfirmModal({
           >
             Cancel
           </button>
-          <button
+          <PermissionGate permission="hsqe.delete"><button
             onClick={async () => {
               setDeleting(true);
               try {
@@ -797,7 +798,7 @@ function BulkDeleteConfirmModal({
           >
             {deleting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Delete
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>
@@ -843,12 +844,12 @@ function ApproveModal({
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50">
             Hủy bỏ
           </button>
-          <button
+          <PermissionGate permission="hsqe.approve"><button
             onClick={() => onApprove(approverName)}
             className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
           >
             <Check className="w-3.5 h-3.5" /> Ký và phê duyệt
-          </button>
+          </button></PermissionGate>
         </div>
       </div>
     </div>
@@ -1451,20 +1452,20 @@ export function DocumentLibraryPage() {
           SMS Library chưa chứa tài liệu nào. Hãy khởi tạo dữ liệu mẫu hoặc tạo tài liệu đầu tiên.
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
-          <button
+          <PermissionGate permission="hsqe.create"><button
             onClick={handleSeedData}
             disabled={isSeeding}
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition flex items-center gap-2 shadow-sm disabled:opacity-50"
           >
             {isSeeding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Khởi tạo dữ liệu mẫu
-          </button>
-          <button
+          </button></PermissionGate>
+          <PermissionGate permission="hsqe.create"><button
             onClick={() => openCreateModal()}
             className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-xl font-semibold transition flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Tạo tài liệu đầu tiên
-          </button>
+          </button></PermissionGate>
         </div>
 
         <CreateDocumentModal
@@ -1558,12 +1559,12 @@ export function DocumentLibraryPage() {
             {/* Action buttons on right side of tab bar */}
             <div className="ml-auto flex items-center gap-1.5 pr-3">
               {!isEditing && selectedDoc && !selectedDocUsesSpecialPreview && (
-                <button
+                <PermissionGate permission="hsqe.update"><button
                   onClick={handleStartEditing}
                   className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition flex items-center gap-1"
                 >
                   <FileText className="w-3 h-3" /> Edit
-                </button>
+                </button></PermissionGate>
               )}
             </div>
           </div>
@@ -1671,7 +1672,7 @@ export function DocumentLibraryPage() {
           </label>
 
           {/* Approve Checkbox/Button */}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
+          <PermissionGate permission="hsqe.update"><label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={selectedDoc?.status === 'Pending_DPA' || selectedDoc?.status === 'Published'}
@@ -1682,10 +1683,10 @@ export function DocumentLibraryPage() {
               className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
             />
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Approve</span>
-          </label>
+          </label></PermissionGate>
 
           {/* Release Version */}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
+          <PermissionGate permission="hsqe.approve"><label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={selectedDoc?.status === 'Published'}
@@ -1696,7 +1697,7 @@ export function DocumentLibraryPage() {
               className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
             />
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Release Version</span>
-          </label>
+          </label></PermissionGate>
         </div>
 
         {/* Save / Cancel Buttons */}
@@ -1714,13 +1715,13 @@ export function DocumentLibraryPage() {
             </>
           )}
 
-          <button
+          <PermissionGate permission="hsqe.update"><button
             onClick={isEditing ? handleSaveDocument : handleStartEditing}
             disabled={selectedDocUsesSpecialPreview && !isEditing}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition shadow-sm"
           >
             <Save className="w-3.5 h-3.5" /> Save
-          </button>
+          </button></PermissionGate>
           <button
             onClick={isEditing ? handleCancelEditing : undefined}
             disabled={!isEditing}

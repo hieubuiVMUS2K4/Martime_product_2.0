@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Maritime Reports List Page
  * Operational overview for daily reporting workflows
@@ -318,13 +319,13 @@ export function ReportsPage() {
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <Link
+            <PermissionGate permission={'reporting.create'}><Link
               to="/reporting/noon/new"
               className="inline-flex items-center gap-1.5 rounded border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
               <Plus className="h-4 w-4" />
               New Report
-            </Link>
+            </Link></PermissionGate>
           </div>
         </div>
 
@@ -483,13 +484,13 @@ export function ReportsPage() {
                     <FileText className="mx-auto h-8 w-8 text-slate-300" />
                     <p className="mt-3 font-medium text-slate-700">No reports match the current filters</p>
                     <p className="mt-1 text-xs text-slate-400">Adjust filters or create a new report.</p>
-                    <Link
+                    <PermissionGate permission={'reporting.create'}><Link
                       to="/reporting/noon/new"
                       className="mt-4 inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                     >
                       <Plus className="h-4 w-4" />
                       New report
-                    </Link>
+                    </Link></PermissionGate>
                   </td>
                 </tr>
               ) : (
@@ -549,13 +550,13 @@ export function ReportsPage() {
                             </Link>
                           )}
                           {report.status === 'DRAFT' && (
-                            <button
+                            <PermissionGate permission="reporting.delete"><button
                               onClick={() => void handleDeleteDraft(report)}
                               className="inline-flex items-center gap-1.5 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete
-                            </button>
+                            </button></PermissionGate>
                           )}
                         </div>
                       </td>

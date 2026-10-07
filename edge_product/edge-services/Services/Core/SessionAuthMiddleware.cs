@@ -39,7 +39,6 @@ public class SessionAuthMiddleware
         "/api/health",
         "/swagger",
         "/uploads",
-        "/api/telemetry/navigation", // Sensor data from ESP/MPU6050 (no auth)
     };
 
     // For these paths, resolve Bearer token if present (to allow authenticated users),
@@ -61,7 +60,9 @@ public class SessionAuthMiddleware
         var path = context.Request.Path.Value ?? "";
 
         // Skip entirely for public endpoints (no auth needed)
-        if (SkipPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+        var isSensorUpload = HttpMethods.IsPost(context.Request.Method) &&
+            path.TrimEnd('/').Equals("/api/telemetry/navigation", StringComparison.OrdinalIgnoreCase);
+        if (isSensorUpload || SkipPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
         {
             await _next(context);
             return;
@@ -69,6 +70,15 @@ public class SessionAuthMiddleware
 
         // Skip for OPTIONS preflight requests (CORS)
         if (context.Request.Method == "OPTIONS")
+        {
+            await _next(context);
+            return;
+        }
+
+        // Refresh authenticates with its own refresh token in the controller.
+        // Requiring a live access token here prevents recovery after expiry.
+        if (HttpMethods.IsPost(context.Request.Method) &&
+            path.Equals("/api/auth/refresh", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;
@@ -84,7 +94,17 @@ public class SessionAuthMiddleware
             var token = authHeader["Bearer ".Length..].Trim();
             if (!string.IsNullOrEmpty(token))
             {
-                var resolved = await ResolveUserFromToken(context, dbContext, cache, token);
+                bool resolved;
+                try
+                {
+                    resolved = await ResolveUserFromToken(context, dbContext, cache, token);
+                }
+                catch (AuthSessionUnavailableException)
+                {
+                    context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    await context.Response.WriteAsJsonAsync(new { success = false, message = "Session service temporarily unavailable. Please retry." });
+                    return;
+                }
                 if (resolved)
                 {
                     await _next(context);
@@ -154,7 +174,7 @@ public class SessionAuthMiddleware
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to resolve user from session token");
-            return false;
+            throw new AuthSessionUnavailableException(ex);
         }
     }
 

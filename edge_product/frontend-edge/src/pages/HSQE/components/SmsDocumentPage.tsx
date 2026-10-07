@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Shield, FileText, ChevronRight, ChevronDown, Check, X,
@@ -1527,14 +1528,14 @@ export function SmsDocumentPage() {
             >
               Hủy bỏ
             </button>
-            <button
+            <PermissionGate permission="hsqe.create"><button
               onClick={handlePublishImport}
               disabled={importForm.replaceExisting && !importForm.changeNote.trim()}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all duration-250 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               title={importForm.replaceExisting && !importForm.changeNote.trim() ? 'Yêu cầu điền lý do thay đổi phiên bản' : ''}
             >
               <Check className="w-4 h-4" /> Ban hành & Đồng bộ đội tàu
-            </button>
+            </button></PermissionGate>
           </div>
         </div>
       ) : (
@@ -1731,7 +1732,7 @@ export function SmsDocumentPage() {
               </div>
               {canManageSmsPolicies && (
               <div className="pt-2 px-1 pb-4">
-                <button
+                <PermissionGate permission="hsqe.create"><button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importLoading}
@@ -1748,7 +1749,7 @@ export function SmsDocumentPage() {
                     <Plus className="w-3.5 h-3.5 opacity-55" />
                   )}
                   <span className="text-xs font-semibold">{importLoading ? 'Đang xử lý...' : 'Tải quy trình mới...'}</span>
-                </button>
+                </button></PermissionGate>
               </div>
               )}
             </div>
@@ -1894,12 +1895,12 @@ export function SmsDocumentPage() {
                         </div>
 
                         <div className="flex gap-2">
-                          <button
+                          <PermissionGate permission="hsqe.update"><button
                             onClick={handleBumpSopVersion}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
                           >
                             <Save className="w-3.5 h-3.5" /> Ban hành & Thay thế
-                          </button>
+                          </button></PermissionGate>
                           <button
                             onClick={() => setIsEditingSop(false)}
                             className="px-4 py-2 bg-slate-205 text-slate-650 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 rounded-lg text-xs font-semibold"
@@ -3449,26 +3450,26 @@ export function SmsDocumentPage() {
                             <div className="flex gap-2 justify-end pt-1">
                               {recordStatus !== 'Submitted' ? (
                                 <>
-                                  <button
+                                  <PermissionGate permission="hsqe.update"><button
                                     onClick={handleSaveDraft}
                                     className="px-4 py-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 rounded-lg text-xs font-semibold"
                                   >
                                     Lưu nháp
-                                  </button>
-                                  <button
+                                  </button></PermissionGate>
+                                  <PermissionGate permission="hsqe.approve"><button
                                     onClick={handleECompactSign}
                                     className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
                                   >
                                     <Sparkles className="w-3.5 h-3.5" /> Ký & Đệ trình
-                                  </button>
+                                  </button></PermissionGate>
                                 </>
                               ) : (
-                                <button
+                                <PermissionGate permission="hsqe.approve"><button
                                   onClick={handleCaptainApprove}
                                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
                                 >
                                   <Award className="w-4 h-4" /> Captain Duyệt & Ban hành
-                                </button>
+                                </button></PermissionGate>
                               )}
                             </div>
                           </div>
@@ -4518,14 +4519,14 @@ export function SmsDocumentPage() {
                   >
                     Hủy
                   </button>
-                  <button
+                  <PermissionGate permission="hsqe.update"><button
                     onClick={handleAssignTemplates}
                     disabled={assigningTemplates}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
                   >
                     {assigningTemplates && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                     Gán {selectedAssignIds.length} biểu mẫu
-                  </button>
+                  </button></PermissionGate>
                 </div>
 
               </div>
@@ -4690,12 +4691,12 @@ export function SmsDocumentPage() {
                   >
                     Hủy
                   </button>
-                  <button
+                  <PermissionGate permission="hsqe.create"><button
                     onClick={handleCreateFormFromLibrary}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
                   >
                     Tạo & liên kết biểu mẫu
-                  </button>
+                  </button></PermissionGate>
                 </div>
 
               </div>
@@ -4751,12 +4752,12 @@ export function SmsDocumentPage() {
                   >
                     Hủy
                   </button>
-                  <button
+                  <PermissionGate permission="hsqe.update"><button
                     onClick={handleAssignFromLibrary}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
                   >
                     Gán biểu mẫu
-                  </button>
+                  </button></PermissionGate>
                 </div>
 
               </div>
@@ -4817,7 +4818,7 @@ export function SmsDocumentPage() {
           {canManageSmsPolicies && contextMenu.procedure.status === 'Obsolete' && (
             <>
               <div className="border-t border-slate-150 dark:border-slate-700 my-1" />
-              <button
+              <PermissionGate permission="hsqe.delete"><button
                 onClick={() => {
                   const proc = contextMenu.procedure;
                   setContextMenu(null);
@@ -4827,7 +4828,7 @@ export function SmsDocumentPage() {
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                 <span>Xóa quy trình khỏi DB</span>
-              </button>
+              </button></PermissionGate>
             </>
           )}
         </div>

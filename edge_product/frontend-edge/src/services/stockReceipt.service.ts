@@ -24,6 +24,16 @@ export const stockReceiptService = {
     return response.data;
   },
 
+  async submit(id: number) {
+    const response = await axios.put(`${API}/${id}/submit`);
+    return response.data;
+  },
+
+  async approve(id: number) {
+    const response = await axios.put(`${API}/${id}/approve`);
+    return response.data;
+  },
+
   async complete(id: number) {
     const response = await axios.put(`${API}/${id}/complete`);
     return response.data;

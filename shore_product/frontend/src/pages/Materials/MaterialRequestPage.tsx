@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Send, Eye, ArrowLeft, ChevronRight, Search, X, Paperclip, Info, ChevronsUpDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Send, Eye, ArrowLeft, ChevronRight, X, Paperclip, Info } from 'lucide-react';
 import { materialRequestService } from '@/services/materialRequest.service';
 import { materialService } from '@/services/materialService';
 import { maritimeService } from '@/services/maritime.service';
@@ -9,21 +9,25 @@ import { useTranslationSafe } from '@/contexts/I18nContext';
 import type { MaterialRequest, MaterialRequestItem } from '@/types/pms.types';
 import type { MaterialItem, VoyageRecord } from '@/types/maritime.types';
 import type { EquipmentAsset } from '@/types/pms.types';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/common/ConfirmDialog';
+import { DataTable, TableActions, TableIconButton, type Column } from '@/components/common';
+import { formatDateVi } from '@/utils/date';
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
 const URGENCY_OPTIONS = [
-  { value: 'Normal', label: 'Không khẩn cấp', color: 'bg-gray-100 text-gray-700' },
-  { value: 'Urgent', label: 'Khẩn cấp', color: 'bg-orange-100 text-orange-700' },
-  { value: 'Critical', label: 'Rất khẩn cấp', color: 'bg-red-100 text-red-700' },
+  { value: 'Normal', label: 'Không khẩn cấp', color: 'bg-slate-100 text-slate-600' },
+  { value: 'Urgent', label: 'Khẩn cấp', color: 'bg-amber-50 text-amber-700' },
+  { value: 'Critical', label: 'Rất khẩn cấp', color: 'bg-red-50 text-red-700' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  Draft: 'bg-gray-100 text-gray-700',
-  Submitted: 'bg-[#dce9f8] text-[#16375f]',
-  Approved: 'bg-green-100 text-green-700',
-  Rejected: 'bg-red-100 text-red-700',
-  Completed: 'bg-purple-100 text-purple-700',
+  Draft: 'bg-slate-100 text-slate-600',
+  Submitted: 'bg-sky-50 text-sky-700',
+  Approved: 'bg-emerald-50 text-emerald-700',
+  Rejected: 'bg-red-50 text-red-700',
+  Completed: 'bg-violet-50 text-violet-700',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,19 +38,17 @@ const STATUS_LABELS: Record<string, string> = {
   Completed: 'Hoàn thành',
 };
 
-const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50];
+/** Tải hết theo lô để bảng tự tìm/lọc/phân trang. */
+const FETCH_PAGE = 100;
 
 /** Nhúng trong màn chi tiết tàu: vesselId lọc theo tàu, readOnly để bờ chỉ xem. */
 export default function MaterialRequestPage({ vesselId, readOnly = false }: { vesselId?: string; readOnly?: boolean } = {}) {
+  const ask = useConfirm();
   const { t } = useTranslationSafe();
   const [view, setView] = useState<ViewMode>('list');
   const [requests, setRequests] = useState<MaterialRequest[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [searchQ, setSearchQ] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // Form state
@@ -83,23 +85,23 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
   const [detailData, setDetailData] = useState<MaterialRequest | null>(null);
 
   const loadList = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      setLoading(true);
-      const res = await materialRequestService.getAll({
-        page: currentPage,
-        pageSize,
-        status: filterStatus || undefined,
-        q: searchQ || undefined,
-        vesselId,
-      });
-      setRequests(res.items);
-      setTotal(res.total);
+      const all: MaterialRequest[] = [];
+      for (let page = 1; ; page++) {
+        const res = await materialRequestService.getAll({ page, pageSize: FETCH_PAGE, vesselId });
+        all.push(...res.items);
+        if (all.length >= res.total || res.items.length === 0) break;
+      }
+      setRequests(all);
     } catch (e) {
       console.error('Failed to load requests', e);
+      setLoadError('Không tải được danh sách yêu cầu vật tư');
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, filterStatus, searchQ, vesselId]);
+  }, [vesselId]);
 
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -168,7 +170,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
   };
 
   const handleSave = async (andSubmit = false) => {
-    if (formItems.length === 0) return alert('Vui lòng thêm ít nhất 1 dòng vật tư.');
+    if (formItems.length === 0) return void toast.warning('Vui lòng thêm ít nhất 1 dòng vật tư.');
     try {
       setSaving(true);
       const payload = {
@@ -202,7 +204,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
   const handleDelete = async (id: number) => {
     if (readOnly) return;
 
-    if (!confirm('Xác nhận xóa yêu cầu này?')) return;
+    if (!await ask('Xác nhận xóa yêu cầu này?')) return;
     await materialRequestService.delete(id);
     loadList();
   };
@@ -249,174 +251,63 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
     }));
   };
 
-  const totalPages = Math.ceil(total / pageSize);
+  const urgencyOf = (u: string) => URGENCY_OPTIONS.find(o => o.value === u);
+
+  const columns: Column<MaterialRequest>[] = [
+    {
+      key: 'code', header: t('materialRequests.code'), width: 190, filter: false, value: r => r.requestCode,
+      render: r => <span className="font-mono text-xs font-semibold text-primary">{r.requestCode}</span>,
+    },
+    {
+      key: 'urgency', header: t('materialRequests.urgency'), width: 130, align: 'center', value: r => urgencyOf(r.urgency)?.label ?? r.urgency,
+      render: r => <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${urgencyOf(r.urgency)?.color ?? ''}`}>{urgencyOf(r.urgency)?.label ?? r.urgency}</span>,
+    },
+    { key: 'requestDate', header: t('materialRequests.requestDate'), width: 120, align: 'center', filter: false, value: r => r.requestDate ?? '',
+      exportValue: r => formatDateVi(r.requestDate), render: r => formatDateVi(r.requestDate) || '—' },
+    { key: 'neededDate', header: t('materialRequests.neededDate'), width: 120, align: 'center', filter: false, value: r => r.neededDate ?? '',
+      exportValue: r => formatDateVi(r.neededDate), render: r => formatDateVi(r.neededDate) || '—' },
+    { key: 'requestedBy', header: t('materialRequests.requestedBy'), value: r => r.requestedBy ?? '' },
+    {
+      key: 'status', header: t('materialRequests.status'), width: 140, align: 'center', value: r => STATUS_LABELS[r.status] ?? r.status,
+      render: r => <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[r.status] ?? ''}`}>{STATUS_LABELS[r.status] ?? r.status}</span>,
+    },
+    { key: 'items', header: t('materialRequests.items'), width: 100, numeric: true, filter: false, value: r => r.itemCount ?? 0 },
+    {
+      key: 'actions', header: 'Thao tác', width: readOnly ? 80 : 120, align: 'center', exportable: false,
+      render: r => (
+        <TableActions>
+          <TableIconButton label={`Xem ${r.requestCode}`} icon={<Eye />} onClick={() => openDetail(r.id)} />
+          {!readOnly && r.status === 'Draft' && (
+            <>
+              <TableIconButton label={`Sửa ${r.requestCode}`} icon={<Edit2 />} onClick={() => openEdit(r.id)} />
+              <TableIconButton label={`Xóa ${r.requestCode}`} icon={<Trash2 />} variant="danger" onClick={() => handleDelete(r.id)} />
+            </>
+          )}
+        </TableActions>
+      ),
+    },
+  ];
 
   // ─────── LIST VIEW ───────
   if (view === 'list') {
     return (
-      <div className="h-full w-full flex flex-col overflow-hidden bg-white">
-        {/* ── HEADER ROW ── */}
-        <div className="flex flex-shrink-0 border-b border-gray-200">
-          <div className="flex-1 flex items-center justify-between px-4 py-3 bg-white">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-700">
-                ≡ {t('materialRequests.title')}
-              </span>
-              <span className="text-xs bg-[#dce9f8] text-[#16375f] px-2 py-0.5 rounded-full font-semibold">{total}</span>
-            </div>
-            <div className="flex items-center gap-2">
-            </div>
-          </div>
-        </div>
-
-        {/* ── TABLE ── */}
-        <div className="flex-1 overflow-auto">
-          <table className="min-w-full text-sm border-collapse table-fixed">
-            <thead className="sticky top-0 z-10">
-              {/* Row 1: Column headers + sort icons */}
-              <tr className="bg-[#eef2f7]">
-                <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">TT</th>
-                <th className="w-[200px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.code')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[110px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.urgency')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.requestDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[105px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.neededDate')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[120px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.requestedBy')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-[110px] px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.status')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-14 px-3 py-2 text-left border-b border-r border-gray-200">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600">{t('materialRequests.items')}</span>
-                    <ChevronsUpDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="w-20 px-3 py-2 border-b border-gray-200"></th>
-              </tr>
-              {/* Row 2: Column filters */}
-              <tr className="bg-white border-b border-gray-200">
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                    <span className="text-gray-400 text-xs select-none">→</span>
-                    <input type="text" placeholder={t('common.search')} value={searchQ} onChange={e => { setSearchQ(e.target.value); setCurrentPage(1); }} className="flex-1 text-xs outline-none min-w-0 bg-transparent" />
-                    <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-r border-gray-200"></th>
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white">
-                    <option value="">Tất cả</option>
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </th>
-                <th className="border-r border-gray-200"></th>
-                <th className="border-gray-200"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Đang tải...</td></tr>
-              ) : requests.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">Không có dữ liệu</td></tr>
-              ) : requests.map((r, idx) => (
-                <tr key={r.id} className={`hover:bg-[#eef2f7] ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                  <td className="px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-100">{(currentPage - 1) * pageSize + idx + 1}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <button onClick={() => openDetail(r.id)} className="text-[#0b2545] hover:underline font-medium text-xs">
-                      {r.requestCode}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${URGENCY_OPTIONS.find(u => u.value === r.urgency)?.color || ''}`}>
-                      {URGENCY_OPTIONS.find(u => u.value === r.urgency)?.label || r.urgency}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.requestDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.neededDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.requestedBy}</td>
-                  <td className="px-3 py-2 text-xs border-r border-gray-100">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>
-                      {STATUS_LABELS[r.status] || r.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 border-r border-gray-100">{r.itemCount}</td>
-                  <td className="px-3 py-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => openDetail(r.id)} className="p-1 text-gray-400 hover:text-[#0b2545] hover:bg-[#eef2f7] rounded" title="Xem"><Eye size={15} /></button>
-                      {r.status === 'Draft' && (
-                        <>
-                          {!readOnly && <button onClick={() => openEdit(r.id)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded" title="Sửa"><Edit2 size={15} /></button>}
-                          {!readOnly && <button onClick={() => handleDelete(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Xóa"><Trash2 size={15} /></button>}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── PAGINATION ── */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-          <div>
-            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }} className="border border-gray-300 rounded px-2 py-1 text-xs">
-              {ITEMS_PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n} / trang</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="mr-2">Trang {currentPage} / {totalPages} ({total} bản ghi)</span>
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-            {[...Array(Math.min(5, totalPages))].map((_, i) => {
-              let page: number;
-              if (totalPages <= 5) page = i + 1;
-              else if (currentPage <= 3) page = i + 1;
-              else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-              else page = currentPage - 2 + i;
-              return (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-[#0b2545] text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>
-                  {page}
-                </button>
-              );
-            })}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-          </div>
-          <div className="flex items-center gap-2">
-            <span>Đến trang</span>
-            <input type="number" min={1} max={totalPages} value={currentPage} onChange={e => { const v = Number(e.target.value); if (v >= 1 && v <= totalPages) setCurrentPage(v); }} className="w-12 border border-gray-300 rounded px-1 py-1 text-center text-xs" />
-          </div>
-        </div>
+      <div className="flex h-full min-h-0 w-full flex-col">
+        <DataTable
+          flush
+          columns={columns}
+          data={requests}
+          rowKey={r => r.id}
+          loading={loading}
+          error={loadError}
+          itemLabel="yêu cầu"
+          emptyMessage="Chưa có yêu cầu vật tư nào."
+          searchPlaceholder="Tìm theo mã yêu cầu, người yêu cầu..."
+          exportOptions={{ fileName: 'yeu-cau-vat-tu', title: 'YÊU CẦU VẬT TƯ' }}
+          onRowClick={r => openDetail(r.id)}
+          onAdd={readOnly ? undefined : openCreate}
+          addLabel="Tạo yêu cầu"
+          minWidth={1000}
+        />
       </div>
     );
   }
@@ -707,7 +598,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
             <div className="flex items-center col-span-3">
               <label className="text-sm font-medium text-gray-700 text-right pr-3 shrink-0 whitespace-nowrap" style={{ width: 140 }}>Đính kèm tệp tin</label>
               <div className="flex-1">
-                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-blue-800">
+                <label className="flex items-center gap-1.5 text-[#0b2545] text-sm cursor-pointer hover:text-primary">
                   <Paperclip size={14} /> Đính kèm tệp tin
                   <input
                     type="file"
@@ -821,7 +712,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
           </table>
         </div>
         <div className="px-4 py-2 border-t border-gray-200">
-          <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-blue-800">
+          <button onClick={addFormItem} className="flex items-center gap-1 text-[#0b2545] text-sm hover:text-primary">
             <Plus size={14} /> Thêm dòng
           </button>
         </div>

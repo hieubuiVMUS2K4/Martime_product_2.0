@@ -26,8 +26,15 @@ $compressedFile = "${backupFile}.gz"
 Write-Host "[BACKUP] Starting automated database backup for Shore System ($DbName)..." -ForegroundColor Cyan
 
 try {
-    # Run pg_dump inside docker container
-    docker exec $ContainerName pg_dump -U $DbUser $DbName > $backupFile
+    # pg_dump ghi file NGAY TRONG container rồi docker cp chép nguyên byte ra ngoài.
+    # KHÔNG dùng "> file" hay "| Out-File": PowerShell 5.1 giải mã stdout theo bảng mã
+    # console (CP437) nên tiếng Việt UTF-8 thành rác kiểu "Lß╗ìc", và ghi ra UTF-16.
+    $containerFile = "/tmp/shore_dump_${timestamp}.sql"
+    docker exec $ContainerName pg_dump -U $DbUser -d $DbName -f $containerFile
+    if ($LASTEXITCODE -ne 0) { throw "pg_dump failed (exit $LASTEXITCODE)." }
+    docker cp "${ContainerName}:${containerFile}" $backupFile
+    if ($LASTEXITCODE -ne 0) { throw "docker cp failed (exit $LASTEXITCODE)." }
+    docker exec $ContainerName rm -f $containerFile | Out-Null
 
     if ((Get-Item $backupFile).Length -eq 0) {
         throw "Backup file created is empty. Check database connection and user permissions."

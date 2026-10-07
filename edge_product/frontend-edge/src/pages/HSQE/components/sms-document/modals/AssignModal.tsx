@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { X, ExternalLink } from 'lucide-react';
 
 interface AssignModalProps {
@@ -59,12 +60,12 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
             >
               Hủy
             </button>
-            <button
+            <PermissionGate permission="hsqe.update"><button
               onClick={handleAssignFromLibrary}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition"
             >
               Gán biểu mẫu
-            </button>
+            </button></PermissionGate>
           </div>
 
         </div>

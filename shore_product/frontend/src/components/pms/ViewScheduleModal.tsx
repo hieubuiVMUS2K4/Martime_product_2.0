@@ -17,7 +17,7 @@ const PRIORITY_COLORS = {
   CRITICAL: 'bg-red-100 text-red-800 border-red-200',
   HIGH: 'bg-orange-100 text-orange-800 border-orange-200',
   MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  LOW: 'bg-[#dce9f8] text-blue-800 border-[#d6dee8]'
+  LOW: 'bg-[#dce9f8] text-primary border-[#d6dee8]'
 };
 
 export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleModalProps) {
@@ -35,7 +35,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-modal p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
@@ -83,7 +83,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
                     <p className="text-sm text-gray-900">
                       {schedule.groupName || schedule.groupCode}
                       {schedule.assetCount !== undefined && schedule.assetCount > 0 && (
-                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#dce9f8] text-blue-800">
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#dce9f8] text-primary">
                           {schedule.assetCount} thiết bị
                         </span>
                       )}

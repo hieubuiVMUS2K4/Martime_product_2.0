@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Attached Documents Tab - File attachment management
  * Upload, view, download, delete attachments
@@ -187,13 +188,13 @@ export function AttachedDocumentsTab({
                           <Download className="w-3.5 h-3.5" />
                         </button>
                         {isEditing && (
-                          <button
+                          <PermissionGate permission={'hsqe.update'}><button
                             onClick={() => onDelete(att.id)}
                             className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition"
                             title="Xóa"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </button></PermissionGate>
                         )}
                       </div>
                     </td>

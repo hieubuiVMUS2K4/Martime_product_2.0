@@ -85,7 +85,7 @@ public class PmsRegressionTests(PmsDatabaseFixture database)
 
     private static StockReceipt Receipt(params StockReceiptItem[] items) => new()
     {
-        ReceiptCode = Code(), Status = "Draft", Items = items.ToList()
+        ReceiptCode = Code(), Status = "Approved", Items = items.ToList()
     };
 
     private static StockReceiptItem Line(Guid? material, Guid? location, decimal quantity, string? code = null) => new()
@@ -243,22 +243,97 @@ public class PmsRegressionTests(PmsDatabaseFixture database)
         context.ChangeTracker.Clear();
         Assert.IsType<BadRequestObjectResult>(await new StockReceiptController(context).Complete(receipt.Id));
         await using var verify = database.CreateContext();
-        Assert.Equal("Draft", (await verify.StockReceipts.FindAsync(receipt.Id))!.Status);
+        Assert.Equal("Approved", (await verify.StockReceipts.FindAsync(receipt.Id))!.Status);
         Assert.Equal(10, (await verify.MaterialItems.FindAsync(ship.Id))!.OnHandQuantity);
     }
 
     [Fact]
-    public async Task Update_AllowsApprovalButRejectsCompletedBypass()
+    public async Task Update_RejectsWorkflowStatusBypass()
     {
         await using var context = database.CreateContext();
-        var receipt = Receipt();
+        var receipt = Receipt(Line(null, null, 1));
+        receipt.Status = "Draft";
         context.StockReceipts.Add(receipt);
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
         var controller = new StockReceiptController(context);
         Assert.IsType<BadRequestObjectResult>(await controller.Update(receipt.Id, new() { Status = "Completed" }));
-        Assert.IsType<OkObjectResult>(await controller.Update(receipt.Id, new() { Status = "Approved" }));
+        Assert.IsType<BadRequestObjectResult>(await controller.Update(receipt.Id, new() { Status = "Approved" }));
+        Assert.IsType<BadRequestObjectResult>(await controller.Approve(receipt.Id));
+        Assert.IsType<OkObjectResult>(await controller.Submit(receipt.Id));
+        Assert.Equal("Submitted", (await context.StockReceipts.FindAsync(receipt.Id))!.Status);
+        Assert.IsType<BadRequestObjectResult>(await controller.Complete(receipt.Id));
+        Assert.IsType<BadRequestObjectResult>(await controller.Submit(receipt.Id));
+        Assert.IsType<OkObjectResult>(await controller.Approve(receipt.Id));
         Assert.IsType<BadRequestObjectResult>(await controller.Update(receipt.Id, new() { Status = "Draft" }));
+    }
+
+    [Theory]
+    [InlineData("Draft")]
+    [InlineData("Submitted")]
+    [InlineData("Rejected")]
+    [InlineData("Completed")]
+    public async Task Receipt_RejectsUnapprovedLinkedRequestsThroughoutWorkflow(string status)
+    {
+        await using var context = database.CreateContext();
+        var request = new MaterialRequest { RequestCode = Code(), Status = status };
+        context.MaterialRequests.Add(request);
+        await context.SaveChangesAsync();
+        var controller = new StockReceiptController(context);
+        Assert.IsType<BadRequestObjectResult>(await controller.Create(new() { MaterialRequestId = request.Id }));
+        var receipt = Receipt(Line(null, null, 1));
+        receipt.Status = "Draft";
+        receipt.MaterialRequestId = request.Id;
+        context.StockReceipts.Add(receipt);
+        await context.SaveChangesAsync();
+        Assert.IsType<BadRequestObjectResult>(await controller.Update(receipt.Id, new() { Notes = "edit" }));
+        Assert.IsType<BadRequestObjectResult>(await controller.Submit(receipt.Id));
+        receipt.Status = "Submitted";
+        await context.SaveChangesAsync();
+        Assert.IsType<BadRequestObjectResult>(await controller.Approve(receipt.Id));
+        receipt.Status = "Approved";
+        await context.SaveChangesAsync();
+        Assert.IsType<BadRequestObjectResult>(await controller.Complete(receipt.Id));
+        Assert.Equal("Approved", receipt.Status);
+        Assert.Equal(status, request.Status);
+    }
+
+    [Fact]
+    public async Task RequestPicker_ReturnsOnlyActiveApprovedRequests()
+    {
+        await using var context = database.CreateContext();
+        foreach (var status in new[] { "Draft", "Submitted", "Approved", "Rejected", "Completed" })
+            context.MaterialRequests.Add(new() { RequestCode = Code(), Status = status });
+        context.MaterialRequests.Add(new() { RequestCode = Code(), Status = "Approved", IsActive = false });
+        await context.SaveChangesAsync();
+        var result = Assert.IsType<OkObjectResult>(await new MaterialRequestController(context).GetApproved());
+        var rows = System.Text.Json.JsonSerializer.SerializeToElement(result.Value).EnumerateArray().ToArray();
+        Assert.NotEmpty(rows);
+        Assert.All(rows, row => Assert.Equal("Approved", row.GetProperty("Status").GetString()));
+        foreach (var row in rows)
+            Assert.True((await context.MaterialRequests.FindAsync(row.GetProperty("Id").GetInt32()))!.IsActive);
+    }
+
+    [Fact]
+    public async Task DraftReceipt_CannotPostInventoryBeforeApproval()
+    {
+        await using var context = database.CreateContext();
+        var (_, ship, location) = await SeedMaterialAsync(context, 10);
+        var receipt = Receipt(Line(ship.Id, location.Id, 2));
+        receipt.Status = "Draft";
+        context.StockReceipts.Add(receipt);
+        await context.SaveChangesAsync();
+        var controller = new StockReceiptController(context);
+        Assert.IsType<BadRequestObjectResult>(await controller.Complete(receipt.Id));
+        Assert.Equal(10, (await context.MaterialItems.FindAsync(ship.Id))!.OnHandQuantity);
+        Assert.IsType<BadRequestObjectResult>(await controller.Approve(receipt.Id));
+        Assert.IsType<OkObjectResult>(await controller.Submit(receipt.Id));
+        Assert.Equal("Submitted", (await context.StockReceipts.FindAsync(receipt.Id))!.Status);
+        Assert.IsType<BadRequestObjectResult>(await controller.Complete(receipt.Id));
+        Assert.IsType<BadRequestObjectResult>(await controller.Submit(receipt.Id));
+        Assert.IsType<OkObjectResult>(await controller.Approve(receipt.Id));
+        Assert.IsType<OkObjectResult>(await controller.Complete(receipt.Id));
+        Assert.Equal(12, (await context.MaterialItems.FindAsync(ship.Id))!.OnHandQuantity);
     }
 
     [Fact]
@@ -287,6 +362,7 @@ public class PmsRegressionTests(PmsDatabaseFixture database)
     {
         await using var context = database.CreateContext();
         var receipt = Receipt(Line(null, null, 2));
+        receipt.Status = "Draft";
         context.StockReceipts.Add(receipt);
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
@@ -439,7 +515,7 @@ public class PmsRegressionTests(PmsDatabaseFixture database)
         var beforeQueue = await context.SyncQueue.CountAsync();
         Assert.IsType<BadRequestObjectResult>(await new StockReceiptController(context).Complete(receipt.Id));
         await using var verify = database.CreateContext();
-        Assert.Equal("Draft", (await verify.StockReceipts.FindAsync(receipt.Id))!.Status);
+        Assert.Equal("Approved", (await verify.StockReceipts.FindAsync(receipt.Id))!.Status);
         Assert.False(await verify.MaterialItems.AnyAsync(m => m.ItemCode == catalog.ItemCode));
         Assert.False(await verify.InventoryStocks.AnyAsync(s => s.StoreLocationId == location.Id));
         Assert.Equal(beforeQueue, await verify.SyncQueue.CountAsync());

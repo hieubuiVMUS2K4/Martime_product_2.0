@@ -330,8 +330,8 @@ export const VesselTrackingPage: React.FC = () => {
           <div className="flex-1 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/70 dark:border-gray-700/70 shadow-lg">
             <div className="text-center">
               <div className="relative inline-flex mb-4">
-                <div className="w-10 h-10 border-4 border-blue-200 dark:border-blue-800 rounded-full" />
-                <div className="absolute inset-0 w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-10 h-10 border-4 border-accent/30 dark:border-blue-800 rounded-full" />
+                <div className="absolute inset-0 w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
               </div>
               <div className="text-gray-500 dark:text-gray-400 text-sm font-medium">Loading vessel positions...</div>
               <div className="text-gray-400 dark:text-gray-500 text-xs mt-1">Fetching real-time GPS data</div>
@@ -346,7 +346,7 @@ export const VesselTrackingPage: React.FC = () => {
                 className={`absolute top-2 left-2 z-[1001] w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 shadow-md backdrop-blur-sm border ${
                   sidebarOpen
                     ? 'bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                    : 'bg-blue-600/90 border-blue-500/50 text-white hover:bg-blue-700'
+                    : 'bg-blue-600/90 border-blue-500/50 text-white hover:bg-primary-hover'
                 }`}
                 title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
               >

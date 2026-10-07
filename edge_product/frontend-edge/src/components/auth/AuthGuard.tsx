@@ -19,7 +19,7 @@ function ensureAuthProvider() {
   registerAuthProvider(
     () => useAuthStore.getState().accessToken,
     () => useAuthStore.getState().user?.username?.trim() || useAuthStore.getState().user?.fullName?.trim() || null,
-    () => useAuthStore.getState().clearAuth()
+    token => useAuthStore.getState().recoverSession(token)
   )
 }
 

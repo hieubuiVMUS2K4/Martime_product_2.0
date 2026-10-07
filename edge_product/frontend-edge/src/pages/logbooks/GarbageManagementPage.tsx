@@ -1,4 +1,5 @@
 import '@/styles/OperationalTheme.css';
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { GarbagePartIForm } from '../../components/logbooks/GarbagePartIForm';
 import { GarbagePartIIForm } from '../../components/logbooks/GarbagePartIIForm';
@@ -580,7 +581,7 @@ export const GarbageManagementPage: React.FC = () => {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
-        <button
+        <PermissionGate permission="logbooks.garbage.create"><button
           onClick={() => {
             if (showForm) {
               setShowForm(false);
@@ -598,7 +599,7 @@ export const GarbageManagementPage: React.FC = () => {
         >
               {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
           {showForm ? t('common.cancel') : t('logbooks.garbageRecord.newEntry')}
-        </button>
+        </button></PermissionGate>
           </div>
         </div>
       </div>
@@ -657,25 +658,25 @@ export const GarbageManagementPage: React.FC = () => {
 
       {/* Forms */}
       {showForm && activeTab === 'part-i' && (
-        <GarbagePartIForm
+        <PermissionGate permission={editingId ? 'logbooks.garbage.update' : 'logbooks.garbage.create'}><GarbagePartIForm
           form={partIForm}
           onChange={handlePartIChange}
           onCategorySelect={handlePartICategorySelect}
           categories={PART_I_CATEGORIES}
           onSubmit={handlePartISubmit}
           onCancel={() => setShowForm(false)}
-        />
+        /></PermissionGate>
       )}
 
       {showForm && activeTab === 'part-ii' && (
-        <GarbagePartIIForm
+        <PermissionGate permission={editingId ? 'logbooks.garbage.update' : 'logbooks.garbage.create'}><GarbagePartIIForm
           form={partIIForm}
           onChange={handlePartIIChange}
           onCategorySelect={handlePartIICategorySelect}
           categories={PART_II_CATEGORIES}
           onSubmit={handlePartIISubmit}
           onCancel={() => setShowForm(false)}
-        />
+        /></PermissionGate>
       )}
 
       {/* Entries Table */}
@@ -791,7 +792,7 @@ export const GarbageManagementPage: React.FC = () => {
                     <div className="flex items-center justify-center gap-1">
                       {!isSigned && (
                         <>
-                          <button
+                          <PermissionGate permission="logbooks.garbage.update"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartEditPartI(entry);
@@ -799,8 +800,8 @@ export const GarbageManagementPage: React.FC = () => {
                             className="px-2 py-1 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
                           >
                             {t('common.edit') || 'EDIT'}
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="logbooks.garbage.approve"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSignEntry(entry.id, 'part-i', false);
@@ -808,7 +809,7 @@ export const GarbageManagementPage: React.FC = () => {
                             className="px-2 py-1 text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
                           >
                             {t('common.sign') || 'SIGN'}
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -877,7 +878,7 @@ export const GarbageManagementPage: React.FC = () => {
                     <div className="flex items-center justify-center gap-1">
                       {!isSigned && (
                         <>
-                          <button
+                          <PermissionGate permission="logbooks.garbage.update"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartEditPartII(entry);
@@ -885,8 +886,8 @@ export const GarbageManagementPage: React.FC = () => {
                             className="px-2 py-1 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
                           >
                             {t('common.edit') || 'EDIT'}
-                          </button>
-                          <button
+                          </button></PermissionGate>
+                          <PermissionGate permission="logbooks.garbage.approve"><button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSignEntry(entry.id, 'part-ii', false);
@@ -894,7 +895,7 @@ export const GarbageManagementPage: React.FC = () => {
                             className="px-2 py-1 text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 rounded"
                           >
                             {t('common.sign') || 'SIGN'}
-                          </button>
+                          </button></PermissionGate>
                         </>
                       )}
                     </div>
@@ -945,12 +946,12 @@ export const GarbageManagementPage: React.FC = () => {
               >
                 {t('common.cancel')}
               </button>
-              <button
+              <PermissionGate permission="logbooks.garbage.approve"><button
                 onClick={confirmSign}
                 className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
               >
                 ✓ {t('logbooks.garbageRecord.signEntry')}
-              </button>
+              </button></PermissionGate>
             </div>
             </div>
           </div>

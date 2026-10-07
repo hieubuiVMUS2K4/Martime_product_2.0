@@ -1,39 +1,66 @@
 /* Design Tokens / CSS Variables — Shore Command Center Theme */
 :root {
+  /* Bảng màu gốc, viết dưới dạng kênh RGB.
+     Đây là NGUỒN DUY NHẤT của màu: biến --color-* bên dưới và màu của Tailwind
+     (tailwind.config.js) đều tính ra từ đây. Đổi màu chỉ sửa ở khối này.
+     Dạng kênh để Tailwind giữ được độ trong suốt, ví dụ `bg-primary/10`. */
+  --rgb-primary: 11 37 69; /* #0b2545 */
+  --rgb-primary-hover: 22 55 95; /* #16375f */
+  --rgb-primary-soft: 238 242 247; /* #eef2f7 */
+  --rgb-accent: 27 76 126; /* #1b4c7e */
+  --rgb-accent-soft: 220 233 248; /* #dce9f8 */
+  --rgb-success: 16 185 129; /* #10b981 */
+  --rgb-success-soft: 209 250 229; /* #d1fae5 */
+  --rgb-warning: 245 158 11; /* #f59e0b */
+  --rgb-warning-soft: 254 243 199; /* #fef3c7 */
+  --rgb-danger: 239 68 68; /* #ef4444 */
+  --rgb-danger-soft: 254 226 226; /* #fee2e2 */
+  --rgb-info: 8 145 178; /* #0891b2 */
+  --rgb-info-soft: 207 250 254; /* #cffafe */
+  --rgb-background: 245 247 250; /* #f5f7fa */
+  --rgb-surface: 255 255 255; /* #ffffff */
+  --rgb-border: 214 222 232; /* #d6dee8 */
+  /* Nét kẻ bảng, ba mức đậm dần: kẻ ô bên trong — viền ngoài bảng — nét nhấn (dưới tiêu
+     đề cột). Đủ đậm để dò ngang một dòng dài không lạc ô. Mọi bảng dùng chung. */
+  --rgb-grid: 163 177 188; /* #a3b1bc */
+  --rgb-grid-strong: 125 141 154; /* #7d8d9a */
+  --rgb-text: 20 32 46; /* #14202e */
+  --rgb-text-secondary: 71 85 105; /* #475569 */
+  --rgb-text-light: 148 163 184; /* #94a3b8 */
+
   /* Brand Colors — Navy (Shore identity).
      Bộ biến này chi phối TẤT CẢ hộp thoại thêm/sửa của phân hệ bờ, nên đổi ở đây
-     là các modal ăn theo mà không phải sửa từng file. Trước đây là teal, lệch hẳn
-     với thanh điều hướng và bảng đã chuyển sang navy. */
-  --color-primary: #0b2545;
-  --color-primary-light: #1b4c7e;
-  --color-primary-lighter: #eef2f7;
-  --color-primary-hover: #16375f;
-  --color-accent: #1b4c7e;
-  --color-accent-hover: #16375f;
-  --color-accent-light: #dce9f8;
+     là các modal ăn theo mà không phải sửa từng file. */
+  --color-primary: rgb(var(--rgb-primary));
+  --color-primary-light: rgb(var(--rgb-accent));
+  --color-primary-lighter: rgb(var(--rgb-primary-soft));
+  --color-primary-hover: rgb(var(--rgb-primary-hover));
+  --color-accent: rgb(var(--rgb-accent));
+  --color-accent-hover: rgb(var(--rgb-primary-hover));
+  --color-accent-light: rgb(var(--rgb-accent-soft));
 
   /* Semantic */
-  --color-success: #10b981;
-  --color-success-light: #d1fae5;
-  --color-warning: #f59e0b;
-  --color-warning-light: #fef3c7;
-  --color-danger: #ef4444;
-  --color-danger-light: #fee2e2;
-  --color-info: #0891b2;
-  --color-info-light: #cffafe;
+  --color-success: rgb(var(--rgb-success));
+  --color-success-light: rgb(var(--rgb-success-soft));
+  --color-warning: rgb(var(--rgb-warning));
+  --color-warning-light: rgb(var(--rgb-warning-soft));
+  --color-danger: rgb(var(--rgb-danger));
+  --color-danger-light: rgb(var(--rgb-danger-soft));
+  --color-info: rgb(var(--rgb-info));
+  --color-info-light: rgb(var(--rgb-info-soft));
 
   /* Neutral */
-  --color-background: #f5f7fa;
-  --color-surface: #ffffff;
-  --color-surface-hover: #eef2f7;
-  --color-border: #d6dee8;
-  --color-border-light: #eef2f7;
-  --color-divider: #d6dee8;
+  --color-background: rgb(var(--rgb-background));
+  --color-surface: rgb(var(--rgb-surface));
+  --color-surface-hover: rgb(var(--rgb-primary-soft));
+  --color-border: rgb(var(--rgb-border));
+  --color-border-light: rgb(var(--rgb-primary-soft));
+  --color-divider: rgb(var(--rgb-border));
 
   /* Text */
-  --color-text: #14202e;
-  --color-text-secondary: #475569;
-  --color-text-light: #94a3b8;
+  --color-text: rgb(var(--rgb-text));
+  --color-text-secondary: rgb(var(--rgb-text-secondary));
+  --color-text-light: rgb(var(--rgb-text-light));
   --color-text-inverse: #ffffff;
 
   /* Spacing */
@@ -85,9 +112,10 @@
   /* Z-index layers */
   --z-dropdown: 100;
   --z-sticky: 200;
-  --z-modal-backdrop: 300;
-  --z-modal: 400;
-  --z-toast: 500;
+  /* Thanh điều hướng trên cùng là 1100 (menu thả 1200): hộp thoại phải nằm trên. */
+  --z-modal-backdrop: 1290;
+  --z-modal: 1300;
+  --z-toast: 1500;
 
   /* Layout */
   --topnav-height: 56px;

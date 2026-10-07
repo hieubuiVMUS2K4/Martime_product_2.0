@@ -53,16 +53,16 @@ You must respond ONLY with a valid, well-formed JSON object. No Markdown blocks,
         private class AiAnalysisResult
         {
             [JsonPropertyName("reasoning_log")]
-            public string ReasoningLog { get; set; }
+            public string ReasoningLog { get; set; } = string.Empty;
 
             [JsonPropertyName("severity_level")]
-            public string SeverityLevel { get; set; }
+            public string SeverityLevel { get; set; } = string.Empty;
 
             [JsonPropertyName("identified_anomalies")]
-            public List<string> IdentifiedAnomalies { get; set; }
+            public List<string> IdentifiedAnomalies { get; set; } = new();
 
             [JsonPropertyName("actionable_recommendation_vi")]
-            public string ActionableRecommendationVi { get; set; }
+            public string ActionableRecommendationVi { get; set; } = string.Empty;
         }
 
         public AiChatService(AppDbContext context, IGeminiEvaluationService geminiService, ILogger<AiChatService> logger)

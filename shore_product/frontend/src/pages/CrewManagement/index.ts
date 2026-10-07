@@ -1,7 +1,7 @@
-export { CrewManagementPage } from './CrewManagementPage';
+export { CrewHubPage } from './CrewHubPage';
 export { CrewDetailPage } from './CrewDetailPage';
-export { CertificateMonitorPage } from './CertificateMonitorPage';
+export { RankComplianceTab } from './RankComplianceTab';
 export { PendingSignOffsPage } from './PendingSignOffsPage';
-// CrewListPage, CrewFormModal đã chuyển sang MasterDataManagement/Crew (danh mục thuyền viên).
+// CrewListPage (tab Hồ sơ của CrewHubPage), CrewFormModal nằm ở MasterDataManagement/Crew.
 export { CrewListPage } from '../MasterDataManagement/Crew/CrewListPage';
 export { CrewFormModal } from '../MasterDataManagement/Crew/CrewFormModal';

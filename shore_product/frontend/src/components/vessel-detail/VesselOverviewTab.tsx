@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Ship, Activity, Users, Anchor, Clock, MapPin, Fuel, Gauge,
-  AlertTriangle, Bell, Power, PowerOff, RefreshCw, Loader2,
-  Navigation, Compass, Shield, Droplets, ThermometerSun, Info
+  Activity, Anchor, Bell, ChevronDown, Clock, Compass, Droplets, Gauge, Leaf,
+  MapPin, Power, PowerOff, RefreshCw, AlertTriangle, Users,
 } from 'lucide-react';
 import { ENV } from '../../config/env';
 
@@ -13,9 +12,8 @@ interface Vessel {
   draftMoulded?: number; serviceSpeedKts?: number; yearBuilt?: number;
   portOfRegistry?: string; mmsiNumber?: string; masterName?: string;
   noOfCrewSafeManning?: number; maxPersonsAllowedOB?: number;
-  hfoCbm?: number; mdoCbm?: number; freshWaterCbm?: number;
+  hfoCbm?: number; mdoCbm?: number; freshWaterCbm?: number; lubOilCbm?: number;
   lastEdgeSyncAt?: string; lastShoreSyncAt?: string;
-  lubOilCbm?: number; [key: string]: any;
 }
 
 interface VesselStatus {
@@ -28,7 +26,7 @@ interface Props { vessel: Vessel; vesselStatus: VesselStatus | null; }
 
 const BASE = ENV.API_BASE_URL;
 
-// ── Alert/Event types ──
+// ── Cảnh báo / sự kiện động cơ ──
 interface SafetyAlert {
   id: string; timestamp: string; alarmType: string; alarmCode: string | null;
   severity: string; location: string | null; description: string | null;
@@ -48,8 +46,7 @@ interface AlertsSummary {
 
 // ── Helpers ──
 const timeAgo = (ts: string) => {
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
   if (mins < 1) return 'Vài giây trước';
   if (mins < 60) return `${mins} phút trước`;
   const hours = Math.floor(mins / 60);
@@ -57,72 +54,57 @@ const timeAgo = (ts: string) => {
   return `${Math.floor(hours / 24)} ngày trước`;
 };
 
-const fmtTime = (ts: string) =>
-  new Date(ts).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const fmtDateTime = (ts?: string) => ts
+  ? new Date(ts).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  : null;
 
-const fmt = (n?: number, unit = '') => n != null ? `${n.toLocaleString('en-US')}${unit}` : '—';
+const fmt = (n?: number | null, unit = '') => (n != null && n !== 0 ? `${n.toLocaleString('vi-VN')}${unit}` : null);
+
+const fmtCoord = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(4)}° ${v >= 0 ? pos : neg}`;
 
 // ══════════════════════════════════════════════════
-// Circular Gauge Component (Pure SVG)
+// Khối giao diện dùng chung trong tab
 // ══════════════════════════════════════════════════
-const CircularGauge: React.FC<{
-  value: number; max: number; label: string; unit: string;
-  icon: React.ReactNode; size?: number;
-}> = ({ value, max, label, unit, icon, size = 100 }) => {
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
-  const offset = circumference - (pct / 100) * circumference;
+const Card: React.FC<{
+  title: string; icon: React.ReactNode; actions?: React.ReactNode; className?: string; children: React.ReactNode;
+}> = ({ title, icon, actions, className = '', children }) => (
+  <section className={`flex min-w-0 flex-col overflow-hidden rounded-md border border-grid-strong bg-surface ${className}`}>
+    <header className="flex items-center gap-2 border-b border-grid px-4 py-2.5">
+      <span className="text-primary [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+      <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+    </header>
+    {children}
+  </section>
+);
 
-  // Color thresholds: Green > 50%, Yellow 20-50%, Red < 20%
-  const getColor = (p: number) => {
-    if (p > 50) return { stroke: '#22c55e', bg: 'rgba(34,197,94,0.08)', text: '#16a34a', label: 'Tốt' };
-    if (p > 20) return { stroke: '#f59e0b', bg: 'rgba(245,158,11,0.08)', text: '#d97706', label: 'Trung bình' };
-    return { stroke: '#ef4444', bg: 'rgba(239,68,68,0.08)', text: '#dc2626', label: 'Thấp' };
-  };
-  const color = getColor(pct);
+/** Danh sách nhãn — giá trị, giá trị canh phải. Giá trị trống hiện "—" mờ. */
+const InfoList: React.FC<{ rows: [string, React.ReactNode][] }> = ({ rows }) => (
+  <dl className="divide-y divide-grid">
+    {rows.map(([label, value]) => (
+      <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2 text-[13px]">
+        <dt className="text-ink-muted">{label}</dt>
+        <dd className={`text-right tabular-nums ${value ? 'font-semibold text-ink' : 'text-ink-light'}`}>{value || '—'}</dd>
+      </div>
+    ))}
+  </dl>
+);
 
-  return (
-    <div className="vo-gauge">
-      <div className="vo-gauge-svg-wrap" style={{ width: size, height: size }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          {/* Background circle */}
-          <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-          {/* Progress circle */}
-          <circle
-            cx={size / 2} cy={size / 2} r={radius}
-            fill="none" stroke={color.stroke} strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            className="vo-gauge-progress"
-          />
-        </svg>
-        <div className="vo-gauge-center">
-          <span className="vo-gauge-value" style={{ color: color.text }}>
-            {max > 0 ? `${Math.round(pct)}%` : '—'}
-          </span>
-        </div>
-      </div>
-      <div className="vo-gauge-info">
-        <div className="vo-gauge-icon" style={{ background: color.bg }}>
-          {icon}
-        </div>
-        <span className="vo-gauge-label">{label}</span>
-        <span className="vo-gauge-cap">{max > 0 ? `${max.toLocaleString()} ${unit}` : 'N/A'}</span>
-      </div>
+const StatusItem: React.FC<{
+  icon: React.ReactNode; tone: string; label: string; value: React.ReactNode; sub?: React.ReactNode;
+}> = ({ icon, tone, label, value, sub }) => (
+  <div className="flex min-w-0 items-center gap-3 px-4 py-3">
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md [&>svg]:h-[18px] [&>svg]:w-[18px] ${tone}`}>{icon}</span>
+    <div className="min-w-0">
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className="truncate text-sm font-semibold text-ink">{value}</p>
+      {sub && <p className="truncate text-xs text-ink-muted">{sub}</p>}
     </div>
-  );
-};
+  </div>
+);
 
 // ══════════════════════════════════════════════════
-// Main Overview Component
+// Tab Tổng quan
 // ══════════════════════════════════════════════════
 export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => {
   const eng = vesselStatus?.engineRunning ?? false;
@@ -130,300 +112,139 @@ export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => 
   const lat = vesselStatus?.latitude;
   const lng = vesselStatus?.longitude;
   const course = vesselStatus?.courseOverGround;
+  const crewCount = vesselStatus?.crewCount;
+
+  const tanks: { label: string; value?: number; tone: string }[] = [
+    { label: 'Dầu nặng (HFO)', value: vessel.hfoCbm, tone: 'text-amber-600' },
+    { label: 'Dầu diesel (MDO)', value: vessel.mdoCbm, tone: 'text-sky-600' },
+    { label: 'Nước ngọt', value: vessel.freshWaterCbm, tone: 'text-cyan-600' },
+    { label: 'Dầu bôi trơn', value: vessel.lubOilCbm, tone: 'text-emerald-600' },
+  ];
 
   return (
-    <div className="vo-root">
-
-      {/* ═══ ROW 1: Hero Status Strip ═══ */}
-      <div className="vo-hero-strip">
-        {/* Engine */}
-        <div className="vo-hero-item">
-          <div className={`vo-hero-indicator ${eng ? 'vo-hero-indicator--on' : 'vo-hero-indicator--off'}`}>
-            <Activity size={16} />
-          </div>
-          <div className="vo-hero-text">
-            <span className="vo-hero-label">Máy chính</span>
-            <span className={`vo-hero-value ${eng ? 'vo-hero-value--green' : 'vo-hero-value--gray'}`}>
-              {eng ? 'Đang chạy' : 'Dừng'}
-              {speed != null && <span className="vo-hero-speed"> • {speed.toFixed(1)} kn</span>}
-            </span>
-          </div>
-        </div>
-
-        <div className="vo-hero-divider" />
-
-        {/* Position */}
-        <div className="vo-hero-item">
-          <div className="vo-hero-indicator vo-hero-indicator--blue">
-            <MapPin size={16} />
-          </div>
-          <div className="vo-hero-text">
-            <span className="vo-hero-label">Vị trí hiện tại</span>
-            <span className="vo-hero-value">
-              {lat != null && lng != null
-                ? `${lat.toFixed(4)}°N, ${lng!.toFixed(4)}°E`
-                : 'Chưa có dữ liệu'}
-            </span>
-          </div>
-          {course != null && (
-            <div className="vo-hero-badge">
-              <Compass size={12} /> {course.toFixed(0)}°
-            </div>
-          )}
-        </div>
-
-        <div className="vo-hero-divider" />
-
-        {/* Crew */}
-        <div className="vo-hero-item">
-          <div className="vo-hero-indicator vo-hero-indicator--amber">
-            <Users size={16} />
-          </div>
-          <div className="vo-hero-text">
-            <span className="vo-hero-label">Thuyền viên</span>
-            <span className="vo-hero-value">
-              {vesselStatus?.crewCount != null ? `${vesselStatus.crewCount} người` : fmt(vessel.noOfCrewSafeManning, ' người')}
-              <span className="vo-hero-sub"> • Thuyền trưởng: {vesselStatus?.captainName || vessel.masterName || '—'}</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="vo-hero-divider" />
-
-        {/* Vessel */}
-        <div className="vo-hero-item">
-          <div className="vo-hero-indicator vo-hero-indicator--indigo">
-            <Ship size={16} />
-          </div>
-          <div className="vo-hero-text">
-            <span className="vo-hero-label">{vessel.vesselType || 'Tàu'}</span>
-            <span className="vo-hero-value vo-hero-value--mono">
-              IMO {vessel.imo} • {vessel.flag || '—'}
-            </span>
-          </div>
-        </div>
-
-        {/* Live timestamp */}
-        {vesselStatus?.timestamp && (
-          <div className="vo-hero-timestamp">
-            <Clock size={11} />
-            <span>{timeAgo(vesselStatus.timestamp)}</span>
-          </div>
-        )}
+    <div className="space-y-4">
+      {/* ═══ Hàng trạng thái ═══ */}
+      <div className="grid grid-cols-4 divide-x divide-grid overflow-hidden rounded-md border border-grid-strong bg-surface">
+        <StatusItem
+          icon={<Activity />}
+          tone={eng ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}
+          label="Máy chính"
+          value={<span className={eng ? 'text-emerald-700' : ''}>{eng ? 'Đang chạy' : 'Dừng'}</span>}
+          sub={speed != null ? `Tốc độ ${speed.toFixed(1)} hải lý/giờ` : undefined}
+        />
+        <StatusItem
+          icon={<MapPin />}
+          tone="bg-sky-50 text-sky-600"
+          label="Vị trí hiện tại"
+          value={lat != null && lng != null ? <span className="font-mono">{fmtCoord(lat, 'N', 'S')}, {fmtCoord(lng, 'E', 'W')}</span> : 'Chưa có dữ liệu'}
+          sub={course != null ? <span className="inline-flex items-center gap-1"><Compass className="h-3 w-3" aria-hidden="true" /> Hướng {course.toFixed(0)}°</span> : undefined}
+        />
+        <StatusItem
+          icon={<Users />}
+          tone="bg-amber-50 text-amber-600"
+          label="Thuyền viên trên tàu"
+          value={crewCount != null ? `${crewCount} người` : vessel.noOfCrewSafeManning ? `${vessel.noOfCrewSafeManning} người (định biên)` : '—'}
+          sub={`Thuyền trưởng: ${vesselStatus?.captainName || vessel.masterName || '—'}`}
+        />
+        <StatusItem
+          icon={<Clock />}
+          tone="bg-primary-soft text-primary"
+          label="Báo vị trí gần nhất"
+          value={vesselStatus?.timestamp ? timeAgo(vesselStatus.timestamp) : 'Chưa có'}
+          sub={fmtDateTime(vesselStatus?.timestamp) ?? undefined}
+        />
       </div>
 
-      {/* ═══ ROW 2: Dashboard Grid (2 columns) ═══ */}
-      <div className="vo-dashboard">
+      {/* ═══ Thông số ═══ */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card title="Kích thước & trọng tải" icon={<Gauge />}>
+          <InfoList rows={[
+            ['Chiều dài toàn bộ (LOA)', fmt(vessel.loa, ' m')],
+            ['Chiều dài giữa hai trụ (LBP)', fmt(vessel.lbp, ' m')],
+            ['Chiều rộng', fmt(vessel.breadthMoulded, ' m')],
+            ['Chiều cao mạn', fmt(vessel.depthMoulded, ' m')],
+            ['Mớn nước', fmt(vessel.draftMoulded, ' m')],
+            ['Tổng dung tích (GT)', fmt(vessel.grossTonnage)],
+            ['Trọng tải (DWT)', fmt(vessel.deadWeight, ' t')],
+            ['Tốc độ khai thác', fmt(vessel.serviceSpeedKts, ' hải lý/giờ')],
+          ]} />
+        </Card>
 
-        {/* ── Left Column: Fuel Gauges + Compliance ── */}
-        <div className="vo-dashboard-left">
-          {/* Fuel Gauges */}
-          <div className="vo-section">
-            <div className="vo-section-header">
-              <Fuel size={15} className="vo-section-icon vo-section-icon--amber" />
-              <h3>Dung lượng bồn chứa</h3>
+        <Card title="Đăng ký & quản lý" icon={<Anchor />}>
+          <InfoList rows={[
+            ['Loại tàu', vessel.vesselType],
+            ['Quốc tịch (cờ)', vessel.flag],
+            ['Cảng đăng ký', vessel.portOfRegistry],
+            ['Số MMSI', vessel.mmsiNumber ? <span className="font-mono">{vessel.mmsiNumber}</span> : null],
+            ['Năm đóng', vessel.yearBuilt ?? (vessel.buildDate ? new Date(vessel.buildDate).getFullYear() : null)],
+            ['Ngày đóng', vessel.buildDate ? new Date(vessel.buildDate).toLocaleDateString('vi-VN') : null],
+            ['Định biên an toàn', vessel.noOfCrewSafeManning ? `${vessel.noOfCrewSafeManning} người` : null],
+            ['Số người tối đa', vessel.maxPersonsAllowedOB ? `${vessel.maxPersonsAllowedOB} người` : null],
+          ]} />
+        </Card>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card title="Dung tích két chứa" icon={<Droplets />}>
+            <div className="grid grid-cols-2 gap-px bg-grid">
+              {tanks.map(t => (
+                <div key={t.label} className="bg-surface px-4 py-3">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                    <Droplets className={`h-3.5 w-3.5 ${t.tone}`} aria-hidden="true" />{t.label}
+                  </p>
+                  <p className={`mt-0.5 text-base font-bold tabular-nums ${t.value ? 'text-ink' : 'text-ink-light'}`}>
+                    {t.value ? <>{t.value.toLocaleString('vi-VN')} <span className="text-xs font-medium text-ink-muted">m³</span></> : '—'}
+                  </p>
+                </div>
+              ))}
             </div>
-            <div className="vo-gauges-grid">
-              <CircularGauge
-                value={vessel.hfoCbm ?? 0} max={vessel.hfoCbm ?? 0}
-                label="HFO" unit="m³"
-                icon={<Droplets size={14} className="text-amber-600" />}
-              />
-              <CircularGauge
-                value={vessel.mdoCbm ?? 0} max={vessel.mdoCbm ?? 0}
-                label="MDO" unit="m³"
-                icon={<Droplets size={14} className="text-blue-600" />}
-              />
-              <CircularGauge
-                value={vessel.freshWaterCbm ?? 0} max={vessel.freshWaterCbm ?? 0}
-                label="Nước ngọt" unit="m³"
-                icon={<Droplets size={14} className="text-cyan-600" />}
-              />
-              <CircularGauge
-                value={vessel.lubOilCbm ?? 0} max={vessel.lubOilCbm ?? 0}
-                label="Dầu bôi trơn" unit="m³"
-                icon={<Droplets size={14} className="text-emerald-600" />}
-              />
-            </div>
-            <p className="vo-gauge-note">
-              <Info size={12} />
-              Hiển thị dung lượng tối đa bồn chứa. Khi có dữ liệu ROB (Remaining on Board) sẽ cập nhật tỷ lệ thực tế.
+            <p className="border-t border-grid px-4 py-2 text-xs text-ink-muted">
+              Dung tích tối đa theo thiết kế. Lượng còn trên tàu (ROB) sẽ hiện khi tàu gửi báo cáo.
             </p>
-          </div>
+          </Card>
 
-          {/* Compliance Indicators */}
-          <div className="vo-section">
-            <div className="vo-section-header">
-              <Shield size={15} className="vo-section-icon vo-section-icon--violet" />
-              <h3>Tuân thủ & Phát thải</h3>
-            </div>
-            <div className="vo-compliance-grid">
-              <div className="vo-compliance-card vo-compliance--pending">
-                <span className="vo-compliance-label">CII Rating</span>
-                <span className="vo-compliance-value">—</span>
-                <span className="vo-compliance-status">Chưa cập nhật</span>
-              </div>
-              <div className="vo-compliance-card vo-compliance--pending">
-                <span className="vo-compliance-label">EEXI</span>
-                <span className="vo-compliance-value">—</span>
-                <span className="vo-compliance-status">Chưa cập nhật</span>
-              </div>
-              <div className="vo-compliance-card vo-compliance--pending">
-                <span className="vo-compliance-label">EU MRV</span>
-                <span className="vo-compliance-value">—</span>
-                <span className="vo-compliance-status">Chưa cập nhật</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Right Column: Compact Data ── */}
-        <div className="vo-dashboard-right">
-          {/* Dimensions */}
-          <div className="vo-section">
-            <div className="vo-section-header">
-              <Gauge size={15} className="vo-section-icon vo-section-icon--blue" />
-              <h3>Kích thước & Trọng tải</h3>
-            </div>
-            <div className="vo-compact-table">
-              <div className="vo-compact-row">
-                <span>L.O.A</span><span>{fmt(vessel.loa, ' m')}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>L.B.P</span><span>{fmt(vessel.lbp, ' m')}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Breadth</span><span>{fmt(vessel.breadthMoulded, ' m')}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Depth</span><span>{fmt(vessel.depthMoulded, ' m')}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Draft</span><span>{fmt(vessel.draftMoulded, ' m')}</span>
-              </div>
-              <div className="vo-compact-row vo-compact-row--highlight">
-                <span>Gross Tonnage</span><span>{fmt(vessel.grossTonnage)}</span>
-              </div>
-              <div className="vo-compact-row vo-compact-row--highlight">
-                <span>Deadweight</span><span>{fmt(vessel.deadWeight, ' t')}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Tốc độ khai thác</span><span>{fmt(vessel.serviceSpeedKts, ' kn')}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Năm đóng</span><span>{vessel.yearBuilt ?? '—'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Registry */}
-          <div className="vo-section">
-            <div className="vo-section-header">
-              <Anchor size={15} className="vo-section-icon vo-section-icon--teal" />
-              <h3>Đăng kiểm & Quản lý</h3>
-            </div>
-            <div className="vo-compact-table">
-              <div className="vo-compact-row">
-                <span>Cảng đăng ký</span><span>{vessel.portOfRegistry || '—'}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Quốc kỳ</span><span>{vessel.flag || '—'}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Định biên an toàn</span><span>{vessel.noOfCrewSafeManning ? `${vessel.noOfCrewSafeManning} người` : '—'}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Số người tối đa</span><span>{vessel.maxPersonsAllowedOB ?? '—'}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Loại tàu</span><span>{vessel.vesselType || '—'}</span>
-              </div>
-              <div className="vo-compact-row">
-                <span>Ngày đóng</span>
-                <span>{vessel.buildDate ? new Date(vessel.buildDate).toLocaleDateString('vi-VN') : '—'}</span>
-              </div>
-            </div>
-          </div>
+          <Card title="Đồng bộ dữ liệu" icon={<RefreshCw />}>
+            <InfoList rows={[
+              ['Tàu gửi lên bờ', fmtDateTime(vessel.lastEdgeSyncAt)],
+              ['Bờ gửi xuống tàu', fmtDateTime(vessel.lastShoreSyncAt)],
+            ]} />
+          </Card>
         </div>
       </div>
 
-      {/* ═══ ROW 3: Sync Timeline (compact) ═══ */}
-      <div className="vo-sync-strip">
-        <Clock size={14} className="vo-sync-icon" />
-        <div className="vo-sync-items">
-          {[
-            { label: 'Edge Sync', value: vessel.lastEdgeSyncAt },
-            { label: 'Shore Sync', value: vessel.lastShoreSyncAt },
-            { label: 'Position Report', value: vesselStatus?.timestamp },
-          ].map((item, i) => (
-            <div key={i} className="vo-sync-item">
-              <span className="vo-sync-label">{item.label}:</span>
-              <span className="vo-sync-value">
-                {item.value ? new Date(item.value).toLocaleString('vi-VN') : '—'}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* ═══ Tuân thủ + cảnh báo ═══ */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card title="Tuân thủ & phát thải" icon={<Leaf />}>
+          <InfoList rows={[
+            ['Xếp hạng CII', null],
+            ['Chỉ số EEXI', null],
+            ['Báo cáo EU MRV', null],
+          ]} />
+          <p className="border-t border-grid px-4 py-2 text-xs text-ink-muted">Chưa có dữ liệu phát thải từ tàu.</p>
+        </Card>
 
-      {/* ═══ ROW 4: Alerts & Engine Events ═══ */}
-      <AlertsSection vessel={vessel} />
-    </div>
-  );
-};
-
-// ══════════════════════════════════════════════════
-// Critical Alert Banner (shown at top if critical alerts exist)
-// ══════════════════════════════════════════════════
-const CriticalAlertBanner: React.FC<{ vesselId: string }> = ({ vesselId }) => {
-  const [summary, setSummary] = useState<AlertsSummary | null>(null);
-
-  useEffect(() => {
-    const fetchSummary = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`${BASE}/vessel-telemetry/vessel/${vesselId}/alerts-summary`, { headers });
-        if (res.ok) setSummary(await res.json());
-      } catch { /* silent */ }
-    };
-    fetchSummary();
-    const interval = setInterval(fetchSummary, 30000);
-    return () => clearInterval(interval);
-  }, [vesselId]);
-
-  if (!summary || (summary.activeAlerts === 0 && summary.criticalAlerts === 0)) return null;
-
-  return (
-    <div className={`vo-alert-banner ${summary.criticalAlerts > 0 ? 'vo-alert-banner--critical' : 'vo-alert-banner--warning'}`}>
-      <AlertTriangle size={16} />
-      <span>
-        {summary.criticalAlerts > 0
-          ? `⚠ ${summary.criticalAlerts} cảnh báo nghiêm trọng cần xử lý ngay`
-          : `${summary.activeAlerts} cảnh báo đang hoạt động`}
-      </span>
-      <div className="vo-alert-banner-stats">
-        {summary.engineStartsLast24h + summary.engineStopsLast24h > 0 && (
-          <span>Động cơ: {summary.engineStartsLast24h} start / {summary.engineStopsLast24h} stop (24h)</span>
-        )}
+        <AlertsSection vesselId={vessel.id} className="col-span-2" />
       </div>
     </div>
   );
 };
 
 // ══════════════════════════════════════════════════
-// Alerts & Engine Events Section
+// Cảnh báo & sự kiện động cơ
 // ══════════════════════════════════════════════════
-const AlertsSection: React.FC<{ vessel: Vessel }> = ({ vessel }) => {
+const SEVERITY: Record<string, { label: string; tone: string; rank: number }> = {
+  CRITICAL: { label: 'Nghiêm trọng', tone: 'border-red-200 bg-red-50 text-red-700', rank: 0 },
+  WARNING: { label: 'Cảnh báo', tone: 'border-amber-200 bg-amber-50 text-amber-700', rank: 1 },
+};
+const sevOf = (s: string) => SEVERITY[s.toUpperCase()] ?? { label: 'Thông tin', tone: 'border-sky-200 bg-sky-50 text-sky-700', rank: 2 };
+
+const AlertsSection: React.FC<{ vesselId: string; className?: string }> = ({ vesselId, className = '' }) => {
   const [alerts, setAlerts] = useState<SafetyAlert[]>([]);
   const [events, setEvents] = useState<EngineEventItem[]>([]);
   const [summary, setSummary] = useState<AlertsSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAlerts, setShowAlerts] = useState(true);
+  const [open, setOpen] = useState(true);
 
-  const fetchData = async () => {
-    const vesselId = vessel.id;
+  const fetchData = useCallback(async () => {
     try {
       const token = localStorage.getItem('auth_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -438,124 +259,123 @@ const AlertsSection: React.FC<{ vessel: Vessel }> = ({ vessel }) => {
       if (alertsRes.ok) { const d = await alertsRes.json(); setAlerts(d.data ?? []); }
       if (eventsRes.ok) { const d = await eventsRes.json(); setEvents(d.data ?? []); }
       if (summaryRes.ok) setSummary(await summaryRes.json());
-    } catch { /* silent */ }
+    } catch { /* bỏ qua — thử lại ở chu kỳ sau */ }
     finally { setLoading(false); }
-  };
+  }, [vesselId]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [vessel.id]);
-
-  if (loading && alerts.length === 0 && events.length === 0) return null;
-
-  const severityRank = (severity: string) => {
-    switch (severity.toUpperCase()) {
-      case 'CRITICAL': return 0;
-      case 'WARNING': return 1;
-      default: return 2;
-    }
-  };
+  }, [fetchData]);
 
   const activeAlerts = alerts
     .filter(a => !a.isResolved)
-    .sort((a, b) => severityRank(a.severity) - severityRank(b.severity)
+    .sort((a, b) => sevOf(a.severity).rank - sevOf(b.severity).rank
       || new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  const sevClass = (s: string) => {
-    switch (s.toUpperCase()) { case 'CRITICAL': return 'vo-sev--critical'; case 'WARNING': return 'vo-sev--warning'; default: return 'vo-sev--info'; }
-  };
+  const stats = summary ? [
+    { label: 'Đang hoạt động', value: summary.activeAlerts, tone: summary.activeAlerts ? 'text-red-700' : 'text-ink' },
+    { label: 'Nghiêm trọng', value: summary.criticalAlerts, tone: summary.criticalAlerts ? 'text-red-700' : 'text-ink' },
+    { label: 'Khởi động máy (24h)', value: summary.engineStartsLast24h, tone: 'text-ink' },
+    { label: 'Dừng máy (24h)', value: summary.engineStopsLast24h, tone: 'text-ink' },
+  ] : [];
 
   return (
-    <div className="vo-section vo-alerts-section">
-      {/* Header */}
-      <div className="vo-section-header vo-section-header--clickable" onClick={() => setShowAlerts(v => !v)}>
-        <Bell size={15} className="vo-section-icon vo-section-icon--rose" />
-        <h3>Cảnh báo & Sự kiện động cơ</h3>
-        {summary && summary.activeAlerts > 0 && (
-          <span className="vo-alert-count">
-            <span className="vo-alert-dot" /> {summary.activeAlerts}
-          </span>
-        )}
-        <RefreshCw size={13} className="vo-section-refresh" />
-      </div>
-
-      {showAlerts && (
-        <div className="vo-alerts-body">
-          {/* Summary mini-cards */}
-          {summary && (
-            <div className="vo-alerts-summary">
-              {[
-                { label: 'Đang hoạt động', value: summary.activeAlerts, cls: 'vo-ascard--red' },
-                { label: 'Nghiêm trọng', value: summary.criticalAlerts, cls: 'vo-ascard--rose' },
-                { label: 'Khởi động (24h)', value: summary.engineStartsLast24h, cls: 'vo-ascard--green' },
-                { label: 'Dừng máy (24h)', value: summary.engineStopsLast24h, cls: 'vo-ascard--gray' },
-              ].map((item, i) => (
-                <div key={i} className={`vo-ascard ${item.cls}`}>
-                  <span className="vo-ascard-value">{item.value}</span>
-                  <span className="vo-ascard-label">{item.label}</span>
-                </div>
-              ))}
-            </div>
+    <Card
+      title="Cảnh báo & sự kiện động cơ"
+      icon={<Bell />}
+      className={className}
+      actions={
+        <>
+          {summary && summary.activeAlerts > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+              <i className="h-1.5 w-1.5 rounded-full bg-red-500" /> {summary.activeAlerts} đang hoạt động
+            </span>
           )}
-
-          {/* Active alerts */}
-          {activeAlerts.length > 0 && (
-            <div className="vo-alerts-list">
-              <p className="vo-list-title">Cảnh báo đang hoạt động</p>
-              {activeAlerts.map(alert => (
-                <div key={alert.id} className={`vo-alert-item ${sevClass(alert.severity)}`}>
-                  <AlertTriangle size={14} className="vo-alert-item-icon" />
-                  <div className="vo-alert-item-body">
-                    <div className="vo-alert-item-header">
-                      <span className="vo-alert-sev-badge">{alert.severity}</span>
-                      <span className="vo-alert-type">{alert.alarmType}</span>
-                      <span className="vo-alert-time">{timeAgo(alert.timestamp)}</span>
-                    </div>
-                    {alert.description && <p className="vo-alert-desc">{alert.description}</p>}
-                    <p className="vo-alert-meta">
-                      {fmtTime(alert.timestamp)}{alert.location ? ` · ${alert.location}` : ''}
-                    </p>
+          <button type="button" onClick={fetchData} aria-label="Làm mới cảnh báo" title="Làm mới"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-primary-soft hover:text-primary">
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => setOpen(v => !v)} aria-expanded={open} aria-label={open ? 'Thu gọn' : 'Mở rộng'}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:bg-primary-soft hover:text-primary">
+            <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden="true" />
+          </button>
+        </>
+      }
+    >
+      {open && (
+        loading && !summary ? (
+          <p className="px-4 py-8 text-center text-[13px] text-ink-muted">Đang tải cảnh báo...</p>
+        ) : (
+          <div>
+            {stats.length > 0 && (
+              <div className="grid grid-cols-4 divide-x divide-grid border-b border-grid">
+                {stats.map(s => (
+                  <div key={s.label} className="px-4 py-2.5">
+                    <p className={`text-lg font-bold tabular-nums ${s.tone}`}>{s.value}</p>
+                    <p className="text-xs text-ink-muted">{s.label}</p>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {/* Engine events timeline */}
-          {events.length > 0 && (
-            <div className="vo-engine-events">
-              <p className="vo-list-title">Sự kiện động cơ gần đây</p>
-              {events.slice(0, 8).map(evt => (
-                <div key={evt.id} className="vo-engine-event">
-                  <div className={`vo-engine-dot ${evt.eventType === 'START' ? 'vo-engine-dot--start' : 'vo-engine-dot--stop'}`}>
-                    {evt.eventType === 'START'
-                      ? <Power size={10} />
-                      : <PowerOff size={10} />
-                    }
-                  </div>
-                  <div className="vo-engine-event-text">
-                    <span className={evt.eventType === 'START' ? 'vo-evt-start' : 'vo-evt-stop'}>
-                      {evt.eventType === 'START' ? 'Khởi động' : 'Dừng máy'}
-                    </span>
-                    <span className="vo-evt-id">{evt.engineId}</span>
-                    {evt.rpmAtEvent != null && <span className="vo-evt-rpm">{evt.rpmAtEvent} RPM</span>}
-                    <span className="vo-evt-time">{timeAgo(evt.timestamp)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+            <div className="grid grid-cols-2 divide-x divide-grid">
+              {/* Cảnh báo đang hoạt động */}
+              <div className="min-w-0 p-3">
+                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Cảnh báo đang hoạt động</p>
+                {activeAlerts.length === 0 ? (
+                  <p className="px-1 py-4 text-[13px] text-ink-muted">Không có cảnh báo nào.</p>
+                ) : (
+                  <ul className="max-h-72 space-y-2 overflow-y-auto">
+                    {activeAlerts.map(alert => {
+                      const sev = sevOf(alert.severity);
+                      return (
+                        <li key={alert.id} className={`rounded-md border px-3 py-2 ${sev.tone}`}>
+                          <p className="flex items-center gap-2 text-[13px] font-semibold">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{alert.alarmType}</span>
+                            <span className="ml-auto shrink-0 text-xs font-medium">{sev.label}</span>
+                          </p>
+                          {alert.description && <p className="mt-0.5 text-[13px] text-ink">{alert.description}</p>}
+                          <p className="mt-0.5 text-xs text-ink-muted">
+                            {timeAgo(alert.timestamp)} · {fmtDateTime(alert.timestamp)}{alert.location ? ` · ${alert.location}` : ''}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
 
-          {alerts.length === 0 && events.length === 0 && (
-            <div className="vo-alerts-empty">
-              <Activity size={20} />
-              <span>Không có cảnh báo hoặc sự kiện nào trong 72 giờ qua</span>
+              {/* Sự kiện động cơ */}
+              <div className="min-w-0 p-3">
+                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Sự kiện động cơ (72 giờ)</p>
+                {events.length === 0 ? (
+                  <p className="px-1 py-4 text-[13px] text-ink-muted">Không có sự kiện nào.</p>
+                ) : (
+                  <ul className="divide-y divide-grid">
+                    {events.slice(0, 8).map(evt => {
+                      const start = evt.eventType === 'START';
+                      return (
+                        <li key={evt.id} className="flex items-center gap-2.5 px-1 py-2 text-[13px]">
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${start ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                            {start ? <Power className="h-3.5 w-3.5" aria-hidden="true" /> : <PowerOff className="h-3.5 w-3.5" aria-hidden="true" />}
+                          </span>
+                          <span className={`font-semibold ${start ? 'text-emerald-700' : 'text-ink'}`}>{start ? 'Khởi động' : 'Dừng máy'}</span>
+                          <span className="truncate font-mono text-xs text-ink-muted">{evt.engineId}</span>
+                          {evt.rpmAtEvent != null && <span className="text-xs text-ink-muted">{evt.rpmAtEvent} RPM</span>}
+                          <span className="ml-auto shrink-0 text-xs text-ink-muted">{timeAgo(evt.timestamp)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )
       )}
-    </div>
+    </Card>
   );
 };

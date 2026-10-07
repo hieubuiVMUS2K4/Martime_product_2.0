@@ -24,6 +24,9 @@ return {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Thư viện xuất PDF/Excel (vài MB) chỉ nạp khi bấm xuất hồ sơ: để rollup tự tách thành
+            // chunk tải lười, không gộp vào 'vendor' tải ngay khi mở app.
+            if (id.includes('pdfmake') || id.includes('exceljs')) return undefined;
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
               return 'vendor-react';
             }

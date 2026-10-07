@@ -37,22 +37,29 @@ public class SyncHealthMonitorService : BackgroundService
     {
         _logger.LogInformation("Sync Health Monitor started.");
 
-        // Startup delay
-        await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
-            {
-                await RunHealthCheckAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in Sync Health Monitor cycle");
-            }
+            // Startup delay
+            await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
 
-            var intervalMinutes = _configuration.GetValue("Sync:HealthCheckIntervalMinutes", 5);
-            await Task.Delay(TimeSpan.FromMinutes(intervalMinutes), stoppingToken);
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await RunHealthCheckAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in Sync Health Monitor cycle");
+                }
+
+                var intervalMinutes = _configuration.GetValue("Sync:HealthCheckIntervalMinutes", 5);
+                await Task.Delay(TimeSpan.FromMinutes(intervalMinutes), stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Host is stopping.
         }
     }
 
@@ -85,7 +92,10 @@ public class SyncHealthMonitorService : BackgroundService
         var offlineThresholdMinutes = _configuration.GetValue("Sync:OfflineThresholdMinutes", 30);
         var threshold = DateTime.UtcNow.AddMinutes(-offlineThresholdMinutes);
 
+        // AsTracking: DbContext mặc định NoTracking — thiếu dòng này thì IsOnline = false không bao giờ được lưu,
+        // tàu đã mất liên lạc nhiều tháng vẫn hiện "trực tuyến".
         var nodes = await context.SyncNodeTrackers
+            .AsTracking()
             .Where(n => n.IsOnline)
             .Where(n => n.LastHeartbeatAt == null || n.LastHeartbeatAt < threshold)
             .ToListAsync(token);
@@ -104,7 +114,7 @@ public class SyncHealthMonitorService : BackgroundService
 
     private async Task UpdatePendingCountsAsync(AppDbContext context, CancellationToken token)
     {
-        var nodes = await context.SyncNodeTrackers.ToListAsync(token);
+        var nodes = await context.SyncNodeTrackers.AsTracking().ToListAsync(token);
         if (nodes.Count == 0) return;
 
         var nodeIds = nodes.Select(n => n.NodeId).ToList();

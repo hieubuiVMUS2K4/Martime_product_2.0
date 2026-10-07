@@ -95,7 +95,7 @@ export const PortCombobox: React.FC<Props> = ({
                   Không thấy cảng nào khớp.
                   <button type="button"
                     onClick={() => { onChange(term, ''); setOpen(false); }}
-                    className="ml-1 text-blue-600 hover:underline font-medium">
+                    className="ml-1 text-accent hover:underline font-medium">
                     Dùng "{term}"
                   </button>
                 </>

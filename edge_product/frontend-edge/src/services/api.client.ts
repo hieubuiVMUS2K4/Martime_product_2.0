@@ -4,17 +4,17 @@ import { API_CONFIG } from '@/config/app.config'
 // Lazy import to avoid circular dependency with auth.store
 type TokenProvider = () => string | null
 type AccountNameProvider = () => string | null
-type LogoutHandler = () => void
+type UnauthorizedHandler = (token: string) => Promise<boolean>
 
 let _getToken: TokenProvider | null = null
 let _getAccountName: AccountNameProvider | null = null
-let _onUnauthorized: LogoutHandler | null = null
+let _onUnauthorized: UnauthorizedHandler | null = null
 
 /** Register auth token provider (called from auth store init) */
 export function registerAuthProvider(
   getToken: TokenProvider,
   getAccountName: AccountNameProvider,
-  onUnauthorized: LogoutHandler
+  onUnauthorized: UnauthorizedHandler
 ) {
   _getToken = getToken
   _getAccountName = getAccountName
@@ -43,7 +43,8 @@ export class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryAuth = true
   ): Promise<T> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
@@ -74,15 +75,14 @@ export class ApiClient {
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        // Handle 401 Unauthorized - auto logout
-        // IMPORTANT: Skip 401 handling for auth endpoints to prevent infinite loops
-        // (e.g., /auth/validate returns 401 when session expired, store handles refresh)
+        // Confirm session failure before clearing auth; old responses cannot clear a newer login.
         const isAuthEndpoint = endpoint.startsWith('/auth/')
-        if (response.status === 401 && _onUnauthorized && !isAuthEndpoint) {
-          _onUnauthorized()
-          const error: any = new Error('Session expired. Please log in again.')
-          error.response = { status: 401, data: { error: 'Unauthorized' } }
-          throw error
+        if (response.status === 401 && token && _onUnauthorized && !isAuthEndpoint && retryAuth) {
+          const currentToken = _getToken?.()
+          if ((currentToken && currentToken !== token) ||
+              (currentToken === token && await _onUnauthorized(token))) {
+            return this.request<T>(endpoint, options, false)
+          }
         }
 
         // Try to parse error response body for more details

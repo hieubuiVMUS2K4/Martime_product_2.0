@@ -41,7 +41,7 @@ public class TaskWorkflowController : ControllerBase
         
         try
         {
-            var userId = HttpContext.GetUsername() ?? "SYSTEM";
+            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "MOBILE";
 
             var task = await _context.MaintenanceTasks
@@ -148,7 +148,7 @@ public class TaskWorkflowController : ControllerBase
     {
         try
         {
-            var userId = HttpContext.GetUsername() ?? "SYSTEM";
+            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "MOBILE";
 
             var task = await _context.MaintenanceTasks
@@ -296,7 +296,7 @@ public class TaskWorkflowController : ControllerBase
     {
         try
         {
-            var userId = HttpContext.GetUsername() ?? "SYSTEM";
+            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "WEB";
 
             var task = await _context.MaintenanceTasks
@@ -962,7 +962,7 @@ public class TaskWorkflowController : ControllerBase
     {
         try
         {
-            var userId = HttpContext.GetUsername() ?? "SYSTEM";
+            var userId = HttpContext.Items["ActorCrewId"] as string ?? HttpContext.GetUsername() ?? "SYSTEM";
             var deviceType = Request.Headers["X-Device-Type"].FirstOrDefault() ?? "WEB";
 
             if (dto.TaskIds == null || !dto.TaskIds.Any())

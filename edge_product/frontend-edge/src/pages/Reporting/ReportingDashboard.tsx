@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Maritime Reporting Dashboard
  * Entry point for reporting operations on Edge
@@ -286,7 +287,7 @@ export function ReportingDashboard() {
                     <td><Link to={`/reporting/reports?reportTypeCode=${action.code}`} className="inline-flex items-center gap-2 font-medium text-blue-700 hover:underline">{action.icon}{action.title}</Link></td>
                     <td className="text-gray-500">{action.subtitle}</td>
                     <td className="text-right tabular-nums text-gray-600">{stats.reportsByType[action.code] ?? 0}</td>
-                    <td className="text-right"><Link to={action.to} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-blue-600 bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"><Plus className="h-3.5 w-3.5" />New report</Link></td>
+                    <td className="text-right"><PermissionGate permission={'reporting.create'}><Link to={action.to} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-blue-600 bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"><Plus className="h-3.5 w-3.5" />New report</Link></PermissionGate></td>
                   </tr>
                 ))}</tbody>
               </table>

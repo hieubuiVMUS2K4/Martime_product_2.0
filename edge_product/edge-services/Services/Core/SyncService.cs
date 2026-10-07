@@ -284,6 +284,8 @@ public class SyncService : ISyncService
             //
             // Thứ tự quan trọng: phiếu cha phải lên trước dòng chi tiết, vì bờ nối khoá ngoại
             // của dòng chi tiết bằng cách tra mã phiếu cha.
+            //
+            // Danh mục cảng KHÔNG đối soát ở đây: bờ làm chủ, tàu chỉ nhận.
             var added = 0;
             added += await ReconcileTableAsync(context, "store_location",
                 context.StoreLocations.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);

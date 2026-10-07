@@ -5,6 +5,7 @@ import { useMaritimeStore } from '@/stores/maritime.store'
 import type { MaterialItem, MaintenanceTask, SafetyAlarm } from '@/types/maritime.types'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 import { VesselMap } from '@/components/ship-data/VesselMap'
+import { startPolling } from '@/lib/polling'
 import plannedRouteData from '@/assets/planned-route.json'
 import { 
   AlertTriangle, 
@@ -100,7 +101,6 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [position, setPosition] = useState<any>(null)
   const [navigation, setNavigation] = useState<any>(null)
-  const [engine, setEngine] = useState<any>(null)
   const [activeAlarms, setActiveAlarmsState] = useState<SafetyAlarm[]>([])
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<DashboardAlert[]>([])
   const [stockAlerts, setStockAlerts] = useState<DashboardAlert[]>([])
@@ -128,12 +128,11 @@ export function DashboardPage() {
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [dashStatsRes, alarmsRes, posRes, navRes, engineRes, tasksRes, lowStockRes] = await Promise.allSettled([
+      const [dashStatsRes, alarmsRes, posRes, navRes, tasksRes, lowStockRes] = await Promise.allSettled([
         dashboardService.getStats(),
         alarmService.getActiveAlarms(),
         telemetryService.getLatestPosition(),
         telemetryService.getLatestNavigation(),
-        telemetryService.getEngineStatus(),
         maritimeService.maintenance.getAll({ page: 1, pageSize: 200 }),
         maritimeService.material.getLowStock(),
       ])
@@ -146,7 +145,6 @@ export function DashboardPage() {
         setNavigation(navRes.value)
         setCurrentNavigation(navRes.value)
       }
-      if (engineRes.status === 'fulfilled') setEngine(engineRes.value?.[0] || null)
       if (alarmsRes.status === 'fulfilled') {
         setActiveAlarmsState(alarmsRes.value)
         setActiveAlarms(alarmsRes.value)
@@ -173,19 +171,11 @@ export function DashboardPage() {
   }, [loadDashboardData])
 
   const refreshNavigation = useCallback(async () => {
-    try {
-      const [navData, engineData] = await Promise.all([
-        telemetryService.getLatestNavigation(),
-        telemetryService.getEngineStatus()
-      ]);
-      const currentEngine = engineData?.[0] || null;
+      const navData = await telemetryService.getLatestNavigation()
 
       if (navData) {
         setNavigation(navData)
         setCurrentNavigation(navData)
-        if (currentEngine) {
-          setEngine(currentEngine)
-        }
         
         setHistory(prev => {
           const now = new Date()
@@ -202,13 +192,12 @@ export function DashboardPage() {
           return [...prev.slice(-59), newPoint]
         })
       }
-    } catch (error) {
-    }
-  }, [setCurrentNavigation, engine])
+  }, [setCurrentNavigation])
 
   useEffect(() => {
-    const fastInterval = setInterval(refreshNavigation, 200)
-    return () => clearInterval(fastInterval)
+    return startPolling(async () => {
+      if (document.visibilityState === 'visible') await refreshNavigation()
+    }, 200)
   }, [refreshNavigation])
 
   if (loading) {

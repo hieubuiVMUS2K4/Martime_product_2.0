@@ -1,0 +1,3767 @@
+{
+  "modules": [
+    {
+      "code": "dashboard",
+      "name": "Bảng điều khiển",
+      "group": "Tổng quan",
+      "routes": [
+        "/dashboard"
+      ],
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "code": "navigation",
+      "name": "Hàng hải",
+      "group": "Hàng hải",
+      "routes": [
+        "/navigation"
+      ],
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "code": "ship-data",
+      "name": "Dữ liệu tàu",
+      "group": "Hàng hải",
+      "routes": [
+        "/ship-data"
+      ],
+      "actions": [
+        "view",
+        "update"
+      ]
+    },
+    {
+      "code": "crew",
+      "name": "Thuyền viên",
+      "group": "Thuyền viên",
+      "routes": [
+        "/crew/members",
+        "/crew/"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve",
+        "reject"
+      ]
+    },
+    {
+      "code": "certificates",
+      "name": "Chứng chỉ",
+      "group": "Thuyền viên",
+      "routes": [
+        "/crew/certificates"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update"
+      ]
+    },
+    {
+      "code": "ports",
+      "name": "Cảng",
+      "group": "Khai thác",
+      "routes": [
+        "/ports"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete"
+      ]
+    },
+    {
+      "code": "voyage",
+      "name": "Chuyến đi",
+      "group": "Khai thác",
+      "routes": [
+        "/voyage"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve",
+        "reject",
+        "assign"
+      ]
+    },
+    {
+      "code": "reporting",
+      "name": "Báo cáo",
+      "group": "Khai thác",
+      "routes": [
+        "/reporting"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve",
+        "reject"
+      ]
+    },
+    {
+      "code": "pms.assets",
+      "name": "Thiết bị",
+      "group": "PMS – Danh mục",
+      "routes": [
+        "/pms/catalog/assets"
+      ],
+      "actions": [
+        "view",
+        "assign",
+        "create",
+        "update",
+        "delete",
+        "import"
+      ]
+    },
+    {
+      "code": "pms.materials",
+      "name": "Vật tư công ty",
+      "group": "PMS – Danh mục",
+      "routes": [
+        "/pms/catalog/materials"
+      ],
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "code": "pms.locations",
+      "name": "Kho",
+      "group": "PMS – Danh mục",
+      "routes": [
+        "/pms/catalog/store-locations"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete"
+      ]
+    },
+    {
+      "code": "pms.requests",
+      "name": "Yêu cầu vật tư",
+      "group": "PMS – Kho vận",
+      "routes": [
+        "/pms/logistics/material-requests"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "approve",
+        "reject",
+        "delete"
+      ]
+    },
+    {
+      "code": "pms.receipts",
+      "name": "Phiếu nhập kho",
+      "group": "PMS – Kho vận",
+      "routes": [
+        "/pms/logistics/stock-receipts"
+      ],
+      "actions": [
+        "view",
+        "import",
+        "create",
+        "update",
+        "delete",
+        "approve",
+        "execute"
+      ]
+    },
+    {
+      "code": "pms.inventory",
+      "name": "Tồn kho",
+      "group": "PMS – Kho vận",
+      "routes": [
+        "/pms/logistics/inventory"
+      ],
+      "actions": [
+        "view",
+        "export",
+        "update"
+      ]
+    },
+    {
+      "code": "pms.work",
+      "name": "Danh sách công việc",
+      "group": "PMS – Công việc",
+      "routes": [
+        "/pms/work-planning",
+        "/pms/maintenance",
+        "/pms/work-report",
+        "/pms/unassigned-tasks",
+        "/pms/approval-dashboard",
+        "/pms/maintenance-history"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "approve",
+        "delete",
+        "execute",
+        "reject",
+        "assign"
+      ]
+    },
+    {
+      "code": "pms.config",
+      "name": "Cấu hình công việc",
+      "group": "PMS – Công việc",
+      "routes": [
+        "/pms/master-schedule"
+      ],
+      "actions": [
+        "view",
+        "import",
+        "create",
+        "update",
+        "delete"
+      ]
+    },
+    {
+      "code": "pms.counter",
+      "name": "Counter",
+      "group": "PMS – Công việc",
+      "routes": [],
+      "actions": [
+        "view",
+        "update"
+      ]
+    },
+    {
+      "code": "hsqe",
+      "name": "Tài liệu và tuân thủ",
+      "group": "An toàn",
+      "routes": [
+        "/safety/hsqe"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve",
+        "import",
+        "assign"
+      ]
+    },
+    {
+      "code": "drills",
+      "name": "Diễn tập",
+      "group": "An toàn",
+      "routes": [
+        "/safety/drills"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.deck",
+      "name": "Nhật ký boong",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/deck"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.engine",
+      "name": "Nhật ký máy",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/engine"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.oil",
+      "name": "Nhật ký dầu",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/oil"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.garbage",
+      "name": "Nhật ký rác",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/garbage"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.ballast",
+      "name": "Nhật ký ballast",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/ballast"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.watchkeeping",
+      "name": "Nhật ký trực ca",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/watchkeeping"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.voyage",
+      "name": "Nhật ký chuyến đi",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/voyage"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "approve"
+      ]
+    },
+    {
+      "code": "logbooks.abstract",
+      "name": "Abstract log",
+      "group": "Nhật ký",
+      "routes": [
+        "/logbooks/abstract"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "update",
+        "delete",
+        "export"
+      ]
+    },
+    {
+      "code": "audit",
+      "name": "Audit log",
+      "group": "Quản trị",
+      "routes": [
+        "/audit-log"
+      ],
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "code": "sync",
+      "name": "Trạng thái đồng bộ",
+      "group": "Quản trị",
+      "routes": [
+        "/sync"
+      ],
+      "actions": [
+        "view",
+        "update"
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "controller": "AuditLog",
+      "action": "GetAuditLogs",
+      "grants": [
+        "audit.view"
+      ]
+    },
+    {
+      "controller": "AuditLog",
+      "action": "GetAuditStats",
+      "grants": [
+        "audit.view"
+      ]
+    },
+    {
+      "controller": "AuditLog",
+      "action": "GetEntityTypes",
+      "grants": [
+        "audit.view"
+      ]
+    },
+    {
+      "controller": "AuditLog",
+      "action": "GetAuditLogById",
+      "grants": [
+        "audit.view"
+      ]
+    },
+    {
+      "controller": "AuditLog",
+      "action": "CleanupLogs",
+      "grants": []
+    },
+    {
+      "controller": "Dashboard",
+      "action": "GetStats",
+      "grants": [
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "ShipData",
+      "action": "GetShipData",
+      "grants": [
+        "ship-data.view"
+      ]
+    },
+    {
+      "controller": "ShipData",
+      "action": "SaveShipData",
+      "grants": [
+        "ship-data.update"
+      ]
+    },
+    {
+      "controller": "ShipData",
+      "action": "InitializeFromConfig",
+      "grants": []
+    },
+    {
+      "controller": "Sync",
+      "action": "GetSyncQueue",
+      "grants": [
+        "sync.view"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "GetSyncStatus",
+      "grants": [
+        "sync.view"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "TriggerSync",
+      "grants": [
+        "sync.update"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "ResetErrors",
+      "grants": [
+        "sync.update"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "SnapshotCrew",
+      "grants": [
+        "sync.update"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "Snapshot",
+      "grants": [
+        "sync.update"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "GetSyncNotifications",
+      "grants": [
+        "sync.view"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "GetCrewNotifications",
+      "grants": [
+        "sync.view"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "MarkCrewNotificationsViewed",
+      "grants": [
+        "sync.update"
+      ]
+    },
+    {
+      "controller": "Sync",
+      "action": "GetCrewNotificationSummary",
+      "grants": [
+        "sync.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetAllCertificates",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetCertificatesWithCrewCount",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetCertificateById",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetCertificateCountries",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetCrewCertificates",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetCrewCertificatesByCrewId",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "GetCrewCertificatesBulk",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "AddCrewCertificate",
+      "grants": [
+        "certificates.create"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "UpdateCrewCertificate",
+      "grants": [
+        "certificates.update"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "VerifyDataCleared",
+      "grants": [
+        "certificates.view"
+      ]
+    },
+    {
+      "controller": "Certificates",
+      "action": "UploadCertificateFile",
+      "grants": [
+        "certificates.update"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetAllCrew",
+      "grants": [
+        "crew.view",
+        "pms.assets.view",
+        "pms.config.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetOnboardCrew",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetCrewById",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetServiceRecords",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetMyProfile",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetMyCertificates",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "AddCrew",
+      "grants": [
+        "crew.create"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "UpdateCrew",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "DeleteCrew",
+      "grants": [
+        "crew.delete"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "UploadCrewAvatar",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetExpiringCertificates",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "SyncUsersForAllCrew",
+      "grants": []
+    },
+    {
+      "controller": "Crew",
+      "action": "GetCrewWithoutUsers",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "CreateIdentityDocument",
+      "grants": [
+        "crew.create"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "UpdateIdentityDocument",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "UpdateIdentityDocumentFile",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetTravelDocuments",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetSeafarerDocuments",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetEmploymentDocuments",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetHealthDocuments",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "GetPendingCrew",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "ApproveCrew",
+      "grants": [
+        "crew.approve"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "HoldCrew",
+      "grants": [
+        "crew.reject"
+      ]
+    },
+    {
+      "controller": "Crew",
+      "action": "RejectCrew",
+      "grants": [
+        "crew.reject"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "GetLogbook",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "GetPendingSyncEntries",
+      "grants": [
+        "crew.view"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "TriggerManualSync",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "CreateEntry",
+      "grants": [
+        "crew.create"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "UpdateEntry",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "DeleteEntry",
+      "grants": [
+        "crew.delete"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "RequestSignOff",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Logbook",
+      "action": "SignOffFollowUp",
+      "grants": [
+        "crew.update"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "GetAll",
+      "grants": [
+        "pms.inventory.view",
+        "pms.assets.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "GetSummary",
+      "grants": [
+        "pms.inventory.view",
+        "pms.assets.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "GetByLocation",
+      "grants": [
+        "pms.inventory.view",
+        "pms.assets.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "Export",
+      "grants": [
+        "pms.inventory.export"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "GetHistory",
+      "grants": [
+        "pms.inventory.view",
+        "pms.assets.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "Declare",
+      "grants": [
+        "pms.inventory.update"
+      ]
+    },
+    {
+      "controller": "Inventory",
+      "action": "Adjust",
+      "grants": [
+        "pms.inventory.update"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetCategories",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetCategoriesDetailed",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetCategoryById",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "CreateCategory",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "UpdateCategory",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "DeleteCategory",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "GetItemsByCategory",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetAllItems",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetCatalog",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetAllItemsDetailed",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetLowStockItems",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetItemById",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "CreateItem",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "UpdateItem",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "DeleteItem",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "AdjustStock",
+      "grants": [
+        "pms.inventory.update"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "UploadItemImage",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "DeleteItemImage",
+      "grants": []
+    },
+    {
+      "controller": "Material",
+      "action": "GetItemActivity",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetMaterialsByEquipment",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetAssignedEquipment",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetEquipmentCounts",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "GetItemEquipment",
+      "grants": [
+        "pms.materials.view",
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "AssignEquipment",
+      "grants": [
+        "pms.assets.assign"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "RemoveEquipmentAssignment",
+      "grants": [
+        "pms.assets.assign"
+      ]
+    },
+    {
+      "controller": "Material",
+      "action": "UpdateEquipmentAssignment",
+      "grants": [
+        "pms.assets.assign"
+      ]
+    },
+    {
+      "controller": "MaterialReceipts",
+      "action": "PreviewImport",
+      "grants": [
+        "pms.receipts.import"
+      ]
+    },
+    {
+      "controller": "MaterialReceipts",
+      "action": "ImportReceipt",
+      "grants": [
+        "pms.receipts.import"
+      ]
+    },
+    {
+      "controller": "MaterialReceipts",
+      "action": "GetReceipts",
+      "grants": [
+        "pms.receipts.view"
+      ]
+    },
+    {
+      "controller": "MaterialReceipts",
+      "action": "GetReceiptById",
+      "grants": [
+        "pms.receipts.view"
+      ]
+    },
+    {
+      "controller": "MaterialReceipts",
+      "action": "GetReceiptStats",
+      "grants": [
+        "pms.receipts.view"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "GetAll",
+      "grants": [
+        "pms.requests.view"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "GetById",
+      "grants": [
+        "pms.requests.view"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "Create",
+      "grants": [
+        "pms.requests.create"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "Update",
+      "grants": [
+        "pms.requests.update"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "Submit",
+      "grants": [
+        "pms.requests.update"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "Approve",
+      "grants": [
+        "pms.requests.approve"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "Reject",
+      "grants": [
+        "pms.requests.reject"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "Delete",
+      "grants": [
+        "pms.requests.delete"
+      ]
+    },
+    {
+      "controller": "MaterialRequest",
+      "action": "GetApproved",
+      "grants": [
+        "pms.requests.view"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "GetAll",
+      "grants": [
+        "pms.receipts.view"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "GetById",
+      "grants": [
+        "pms.receipts.view"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Create",
+      "grants": [
+        "pms.receipts.create"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Update",
+      "grants": [
+        "pms.receipts.update"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Complete",
+      "grants": [
+        "pms.receipts.execute"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Delete",
+      "grants": [
+        "pms.receipts.delete"
+      ]
+    },
+    {
+      "controller": "StoreLocation",
+      "action": "GetAll",
+      "grants": [
+        "pms.locations.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "StoreLocation",
+      "action": "GetById",
+      "grants": [
+        "pms.locations.view",
+        "pms.requests.view",
+        "pms.receipts.view",
+        "pms.inventory.view"
+      ]
+    },
+    {
+      "controller": "StoreLocation",
+      "action": "Create",
+      "grants": [
+        "pms.locations.create"
+      ]
+    },
+    {
+      "controller": "StoreLocation",
+      "action": "Update",
+      "grants": [
+        "pms.locations.update"
+      ]
+    },
+    {
+      "controller": "StoreLocation",
+      "action": "Delete",
+      "grants": [
+        "pms.locations.delete"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "GetAll",
+      "grants": [
+        "logbooks.abstract.view"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "GetDetail",
+      "grants": [
+        "logbooks.abstract.view"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "Create",
+      "grants": [
+        "logbooks.abstract.create"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "Update",
+      "grants": [
+        "logbooks.abstract.update"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "Delete",
+      "grants": [
+        "logbooks.abstract.delete"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "AutoFill",
+      "grants": [
+        "logbooks.abstract.update"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "Recalculate",
+      "grants": [
+        "logbooks.abstract.update"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "ExportExcel",
+      "grants": [
+        "logbooks.abstract.export"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "ExportPdf",
+      "grants": [
+        "logbooks.abstract.export"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "CreateLeg",
+      "grants": [
+        "logbooks.abstract.create"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "UpdateLeg",
+      "grants": [
+        "logbooks.abstract.update"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "DeleteLeg",
+      "grants": [
+        "logbooks.abstract.delete"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.abstract.create"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.abstract.update"
+      ]
+    },
+    {
+      "controller": "AbstractLog",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.abstract.delete"
+      ]
+    },
+    {
+      "controller": "BallastWater",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.ballast.create"
+      ]
+    },
+    {
+      "controller": "BallastWater",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.ballast.view"
+      ]
+    },
+    {
+      "controller": "BallastWater",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.ballast.view"
+      ]
+    },
+    {
+      "controller": "BallastWater",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.ballast.update"
+      ]
+    },
+    {
+      "controller": "BallastWater",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.ballast.delete"
+      ]
+    },
+    {
+      "controller": "BallastWater",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.ballast.approve"
+      ]
+    },
+    {
+      "controller": "DeckLogbook",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.deck.create"
+      ]
+    },
+    {
+      "controller": "DeckLogbook",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.deck.view"
+      ]
+    },
+    {
+      "controller": "DeckLogbook",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.deck.view"
+      ]
+    },
+    {
+      "controller": "DeckLogbook",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.deck.update"
+      ]
+    },
+    {
+      "controller": "DeckLogbook",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.deck.delete"
+      ]
+    },
+    {
+      "controller": "DeckLogbook",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.deck.approve"
+      ]
+    },
+    {
+      "controller": "EngineLogbook",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.engine.create"
+      ]
+    },
+    {
+      "controller": "EngineLogbook",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.engine.view"
+      ]
+    },
+    {
+      "controller": "EngineLogbook",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.engine.view"
+      ]
+    },
+    {
+      "controller": "EngineLogbook",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.engine.update"
+      ]
+    },
+    {
+      "controller": "EngineLogbook",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.engine.delete"
+      ]
+    },
+    {
+      "controller": "EngineLogbook",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.engine.approve"
+      ]
+    },
+    {
+      "controller": "GarbagePartI",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.garbage.create"
+      ]
+    },
+    {
+      "controller": "GarbagePartI",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.garbage.view"
+      ]
+    },
+    {
+      "controller": "GarbagePartI",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.garbage.view"
+      ]
+    },
+    {
+      "controller": "GarbagePartI",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.garbage.update"
+      ]
+    },
+    {
+      "controller": "GarbagePartI",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.garbage.delete"
+      ]
+    },
+    {
+      "controller": "GarbagePartI",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.garbage.approve"
+      ]
+    },
+    {
+      "controller": "GarbagePartII",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.garbage.create"
+      ]
+    },
+    {
+      "controller": "GarbagePartII",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.garbage.view"
+      ]
+    },
+    {
+      "controller": "GarbagePartII",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.garbage.view"
+      ]
+    },
+    {
+      "controller": "GarbagePartII",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.garbage.update"
+      ]
+    },
+    {
+      "controller": "GarbagePartII",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.garbage.delete"
+      ]
+    },
+    {
+      "controller": "GarbagePartII",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.garbage.approve"
+      ]
+    },
+    {
+      "controller": "GarbageRecord",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.garbage.create"
+      ]
+    },
+    {
+      "controller": "GarbageRecord",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.garbage.view"
+      ]
+    },
+    {
+      "controller": "GarbageRecord",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.garbage.view"
+      ]
+    },
+    {
+      "controller": "GarbageRecord",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.garbage.update"
+      ]
+    },
+    {
+      "controller": "GarbageRecord",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.garbage.delete"
+      ]
+    },
+    {
+      "controller": "GarbageRecord",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.garbage.approve"
+      ]
+    },
+    {
+      "controller": "OilRecord",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.oil.create"
+      ]
+    },
+    {
+      "controller": "OilRecord",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.oil.view"
+      ]
+    },
+    {
+      "controller": "OilRecord",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.oil.view"
+      ]
+    },
+    {
+      "controller": "OilRecord",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.oil.update"
+      ]
+    },
+    {
+      "controller": "OilRecord",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.oil.delete"
+      ]
+    },
+    {
+      "controller": "OilRecord",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.oil.approve"
+      ]
+    },
+    {
+      "controller": "Watchkeeping",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.watchkeeping.create"
+      ]
+    },
+    {
+      "controller": "Watchkeeping",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.watchkeeping.view"
+      ]
+    },
+    {
+      "controller": "Watchkeeping",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.watchkeeping.view"
+      ]
+    },
+    {
+      "controller": "Watchkeeping",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.watchkeeping.update"
+      ]
+    },
+    {
+      "controller": "Watchkeeping",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.watchkeeping.delete"
+      ]
+    },
+    {
+      "controller": "Watchkeeping",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.watchkeeping.approve"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "GetAll",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view",
+        "pms.counter.view"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "GetById",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view",
+        "pms.counter.view"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "GetByGroupId",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view",
+        "pms.counter.view"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "Create",
+      "grants": [
+        "pms.assets.create"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "Update",
+      "grants": [
+        "pms.assets.update"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "Delete",
+      "grants": [
+        "pms.assets.delete"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "BulkImport",
+      "grants": [
+        "pms.assets.import"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "UpdateRunningHours",
+      "grants": [
+        "pms.counter.update"
+      ]
+    },
+    {
+      "controller": "EquipmentAsset",
+      "action": "GetTree",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view",
+        "pms.counter.view"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "GetAll",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "GetById",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "GetMembers",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "Create",
+      "grants": [
+        "pms.assets.create"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "Update",
+      "grants": [
+        "pms.assets.update"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "Delete",
+      "grants": [
+        "pms.assets.delete"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "AddAsset",
+      "grants": [
+        "pms.assets.assign"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "RemoveAsset",
+      "grants": [
+        "pms.assets.assign"
+      ]
+    },
+    {
+      "controller": "EquipmentGroup",
+      "action": "GetGroupsByAsset",
+      "grants": [
+        "pms.assets.view",
+        "pms.work.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetAllTasks",
+      "grants": [
+        "pms.work.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetPendingTasks",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetOverdueTasks",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetMyTasks",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetTaskById",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "CreateTask",
+      "grants": [
+        "pms.work.create"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "UpdateTask",
+      "grants": [
+        "pms.work.update"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "PatchTask",
+      "grants": [
+        "pms.work.update"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "UpdateTaskStatus",
+      "grants": [
+        "pms.work.update"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "AssignTask",
+      "grants": [
+        "pms.work.assign"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "ApproveTask",
+      "grants": [
+        "pms.work.approve"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "DeleteTask",
+      "grants": [
+        "pms.work.delete"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "StartTask",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "CompleteTask",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetTaskChecklistLegacy",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "CompleteChecklistItemLegacy",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "Maintenance",
+      "action": "GetTaskProgress",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsForms",
+      "action": "GetRiskAssessment",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsForms",
+      "action": "SaveRiskAssessment",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "PmsForms",
+      "action": "GetRiskAssessmentPdf",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsForms",
+      "action": "GetInspectionReport",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsForms",
+      "action": "SaveInspectionReport",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "PmsForms",
+      "action": "GetInspectionReportPdf",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskChecklistItems",
+      "action": "GetChecklistItems",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskChecklistItems",
+      "action": "GetChecklistItem",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskChecklistItems",
+      "action": "UpdateChecklistItem",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskChecklistItems",
+      "action": "CompleteChecklistItem",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskChecklistItems",
+      "action": "GetChecklistSummary",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskRealTimeUpdates",
+      "action": "UpdateSparePartsUsed",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskRealTimeUpdates",
+      "action": "UpdateTaskProgress",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "StartTask",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "SubmitTask",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "VerifyTask",
+      "grants": [
+        "pms.work.approve"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "GetTaskDetails",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "GetPendingApprovalTasks",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "GetRectifyTasks",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "GetApprovalDashboardSummary",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "GetMorningBriefing",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
+      "action": "BulkVerifyTasks",
+      "grants": [
+        "pms.work.approve"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "Import",
+      "grants": [
+        "pms.config.import"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "GetAll",
+      "grants": [
+        "pms.config.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "GetById",
+      "grants": [
+        "pms.config.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "GetByGroupId",
+      "grants": [
+        "pms.config.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "Create",
+      "grants": [
+        "pms.config.create"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "PreviewDueDates",
+      "grants": [
+        "pms.config.view",
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "Update",
+      "grants": [
+        "pms.config.update"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "Delete",
+      "grants": [
+        "pms.config.delete"
+      ]
+    },
+    {
+      "controller": "WorkItemConfig",
+      "action": "FixPastDueDates",
+      "grants": []
+    },
+    {
+      "controller": "WeeklyReport",
+      "action": "GenerateWeeklyReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "WeeklyReport",
+      "action": "GetWeeklyReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "WeeklyReport",
+      "action": "GetWeeklyReports",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "WeeklyReport",
+      "action": "UpdateWeeklyReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "WeeklyReport",
+      "action": "DeleteWeeklyReport",
+      "grants": [
+        "reporting.delete"
+      ]
+    },
+    {
+      "controller": "MonthlyReport",
+      "action": "GenerateMonthlyReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "MonthlyReport",
+      "action": "GetMonthlyReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "MonthlyReport",
+      "action": "GetMonthlyReports",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "MonthlyReport",
+      "action": "UpdateMonthlyReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "MonthlyReport",
+      "action": "DeleteMonthlyReport",
+      "grants": [
+        "reporting.delete"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "CreateNoonReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetNoonReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "CreateDepartureReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetDepartureReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "CreateArrivalReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetArrivalReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "CreateBunkerReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetBunkerReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "CreatePositionReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetPositionReport",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetReportById",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetReports",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "SubmitReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "ApproveReport",
+      "grants": [
+        "reporting.approve"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "RejectReport",
+      "grants": [
+        "reporting.reject"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "ReopenReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "UpdateDraftReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "UpdateFullNoonReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "UpdateFullDepartureReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "UpdateFullArrivalReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "UpdateFullBunkerReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "UpdateFullPositionReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "TransmitReport",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetTransmissionStatus",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetStatistics",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetReportTypes",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "HealthCheck",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetWorkflowHistory",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "DeleteReport",
+      "grants": [
+        "reporting.delete"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetDeletedReports",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "RestoreReport",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "CreateAmendment",
+      "grants": [
+        "reporting.create"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetAmendments",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "GetAmendment",
+      "grants": [
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "ApproveAmendment",
+      "grants": [
+        "reporting.approve"
+      ]
+    },
+    {
+      "controller": "Reporting",
+      "action": "TransmitAmendment",
+      "grants": [
+        "reporting.update"
+      ]
+    },
+    {
+      "controller": "DeferralRequest",
+      "action": "CreateDeferralRequest",
+      "grants": [
+        "pms.work.create"
+      ]
+    },
+    {
+      "controller": "DeferralRequest",
+      "action": "GetDeferralRequests",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "DeferralRequest",
+      "action": "GetDeferralRequest",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "DeferralRequest",
+      "action": "ReviewDeferralRequest",
+      "grants": [
+        "pms.work.approve"
+      ]
+    },
+    {
+      "controller": "DeferralRequest",
+      "action": "CancelDeferralRequest",
+      "grants": [
+        "pms.work.delete"
+      ]
+    },
+    {
+      "controller": "DeferralRequest",
+      "action": "GetPendingCount",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetDrillTypes",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetDrillType",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetTimeline",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetSchedules",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetSchedule",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "CreateSchedule",
+      "grants": [
+        "drills.create"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "UpdateSchedule",
+      "grants": [
+        "drills.update"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "DeleteSchedule",
+      "grants": [
+        "drills.delete"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "BulkDeleteSchedules",
+      "grants": [
+        "drills.delete"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "CreateDrillLog",
+      "grants": [
+        "drills.create"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetDrillLog",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "ApproveDrillLog",
+      "grants": [
+        "drills.approve"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "GetStatistics",
+      "grants": [
+        "drills.view"
+      ]
+    },
+    {
+      "controller": "Drill",
+      "action": "UploadDrillDocument",
+      "grants": [
+        "drills.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "SeedHsqeData",
+      "grants": []
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetDocuments",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetObsoleteDocuments",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetDocumentById",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "CreateDocument",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "UpdateDocument",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "BulkDeleteDocuments",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "DeleteDocument",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "SubmitDocumentForReview",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "ApproveDocument",
+      "grants": [
+        "hsqe.approve"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "AcknowledgeDocumentSync",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetDocumentAttachments",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "UploadDocumentAttachment",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "DeleteDocumentAttachment",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetDocumentReadLogs",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "MarkDocumentAsRead",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetDocumentHistory",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetIncidents",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "CreateIncident",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "InvestigateIncident",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "AddCapa",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "ToggleCapa",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "DeleteIncident",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetRisks",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "CreateRiskAssessment",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "GetWorkPermits",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "CreateWorkPermit",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "PerformGasTest",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "SignPermit",
+      "grants": [
+        "hsqe.approve"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "ClosePermit",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "DeleteRiskAssessment",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "DeletePermit",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "GetSmsTree",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "GetProcedure",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "AcknowledgeProcedure",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "GetFormTemplate",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "GetFilledRecords",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "CreateFilledRecord",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "UpdateFilledRecord",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "SignRecord",
+      "grants": [
+        "hsqe.approve"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "ApproveRecord",
+      "grants": [
+        "hsqe.approve"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "BumpProcedureVersion",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "ImportDocx",
+      "grants": [
+        "hsqe.import"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "CreateProcedure",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "CreateFormTemplate",
+      "grants": [
+        "hsqe.create"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "DeleteProcedure",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "GetAllFormTemplates",
+      "grants": [
+        "hsqe.view"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "AssignTemplates",
+      "grants": [
+        "hsqe.assign"
+      ]
+    },
+    {
+      "controller": "Sms",
+      "action": "DeleteFormTemplate",
+      "grants": [
+        "hsqe.delete"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "GetPorts",
+      "grants": [
+        "ports.view"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "GetByCode",
+      "grants": [
+        "ports.view"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "GetById",
+      "grants": [
+        "ports.view"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "Create",
+      "grants": [
+        "ports.create"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "Update",
+      "grants": [
+        "ports.update"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "Delete",
+      "grants": [
+        "ports.delete"
+      ]
+    },
+    {
+      "controller": "Port",
+      "action": "GetCountries",
+      "grants": [
+        "ports.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetLatestPosition",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetPositionHistory",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetLatestNavigation",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "PostNavigationData",
+      "grants": []
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetNavigationHistory",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetEngineStatus",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetGeneratorStatus",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetTankLevels",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetFuelConsumption",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetLatestEnvironmental",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Telemetry",
+      "action": "GetNearbyVessels",
+      "grants": [
+        "navigation.view",
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "VoyageCockpit",
+      "action": "GetCockpit",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageCockpit",
+      "action": "GetTimeline",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetCurrentVoyage",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetAllVoyages",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetVoyageDetail",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "CreateVoyage",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "UpdateVoyage",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "DeleteVoyage",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetPortCalls",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "CreatePortCall",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "UpdatePortCall",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "DeletePortCall",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetCrewAssignments",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "AssignCrew",
+      "grants": [
+        "voyage.assign"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "BulkAssignCrew",
+      "grants": [
+        "voyage.assign"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "UpdateCrewAssignment",
+      "grants": [
+        "voyage.assign"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "RemoveCrewAssignment",
+      "grants": [
+        "voyage.assign"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetCrewVoyageHistory",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetFalForm5",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetCargoOperations",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetCargoOperation",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "CreateCargoOperation",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "UpdateCargoOperation",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "DeleteCargoOperation",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "Voyage",
+      "action": "GetNextVoyageNumber",
+      "grants": [
+        "voyage.view",
+        "logbooks.deck.view",
+        "logbooks.engine.view",
+        "logbooks.oil.view",
+        "logbooks.garbage.view",
+        "logbooks.ballast.view",
+        "logbooks.watchkeeping.view",
+        "logbooks.voyage.view",
+        "logbooks.abstract.view",
+        "reporting.view"
+      ]
+    },
+    {
+      "controller": "VoyageEfficiency",
+      "action": "GetEfficiencyReport",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetOverview",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetExpenseRequests",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetExpenseRequest",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "CreateExpenseRequest",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "UpdateExpenseRequest",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "TransitionExpenseRequest",
+      "grants": [
+        "voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "DeleteExpenseRequest",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetAdvancePayments",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "CreateAdvancePayment",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "UpdateAdvancePayment",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "MarkAdvancePaid",
+      "grants": [
+        "voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "DeleteAdvancePayment",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetDisbursements",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "CreateDisbursement",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "UpdateDisbursement",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "TransitionDisbursement",
+      "grants": [
+        "voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "DeleteDisbursement",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetActualRevenues",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "CreateActualRevenue",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "UpdateActualRevenue",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "TransitionRevenue",
+      "grants": [
+        "voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "DeleteActualRevenue",
+      "grants": [
+        "voyage.delete"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "GetSettlements",
+      "grants": [
+        "voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "CreateSettlement",
+      "grants": [
+        "voyage.create"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "UpdateSettlement",
+      "grants": [
+        "voyage.update"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "TransitionSettlement",
+      "grants": [
+        "voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageFinancial",
+      "action": "CloseVoyageFinancials",
+      "grants": [
+        "voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "GetEntries",
+      "grants": [
+        "logbooks.voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "GetEntry",
+      "grants": [
+        "logbooks.voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "CreateEntry",
+      "grants": [
+        "logbooks.voyage.create"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "UpdateEntry",
+      "grants": [
+        "logbooks.voyage.update"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "DeleteEntry",
+      "grants": [
+        "logbooks.voyage.delete"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "SignEntry",
+      "grants": [
+        "logbooks.voyage.approve"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "GetTimeline",
+      "grants": [
+        "logbooks.voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "GetLastEntry",
+      "grants": [
+        "logbooks.voyage.view"
+      ]
+    },
+    {
+      "controller": "VoyageLog",
+      "action": "GetEventTypes",
+      "grants": [
+        "logbooks.voyage.view"
+      ]
+    },
+    {
+      "controller": "Alarms",
+      "action": "GetActiveAlarms",
+      "grants": [
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Alarms",
+      "action": "GetAlarmHistory",
+      "grants": [
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Alarms",
+      "action": "AcknowledgeAlarm",
+      "grants": []
+    },
+    {
+      "controller": "Alarms",
+      "action": "ResolveAlarm",
+      "grants": []
+    },
+    {
+      "controller": "Alarms",
+      "action": "CreateAlarm",
+      "grants": []
+    },
+    {
+      "controller": "Alarms",
+      "action": "GetAlarmStatistics",
+      "grants": [
+        "dashboard.view"
+      ]
+    },
+    {
+      "controller": "Alarms",
+      "action": "GenerateSampleAlarms",
+      "grants": []
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Approve",
+      "grants": [
+        "pms.receipts.approve"
+      ]
+    },
+    {
+      "controller": "StockReceipt",
+      "action": "Submit",
+      "grants": [
+        "pms.receipts.create",
+        "pms.receipts.update"
+      ]
+    }
+  ]
+}

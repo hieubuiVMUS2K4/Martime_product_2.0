@@ -29,6 +29,14 @@
       "16": "Hướng dẫn kỹ thuật"
     }
   },
+  "map": {
+    "shipPosition": "Vị trí tàu",
+    "lat": "Vĩ độ",
+    "lon": "Kinh độ",
+    "sog": "Tốc độ đối đất",
+    "cog": "Hướng đi đối đất",
+    "time": "Thời gian"
+  },
   "common": {
     "save": "Lưu",
     "cancel": "Hủy",
@@ -1492,7 +1500,8 @@
     "portMgmt": {
       "managedOnShore": "Danh mục cảng được quản lý tại bờ và đồng bộ xuống tàu để tra cứu.",
       "title": "Quản lý cảng",
-      "subtitle": "Quản lý dữ liệu cảng (tiêu chuẩn UN/LOCODE) — {count} cảng",
+      "subtitle": "Danh mục cảng (tiêu chuẩn UN/LOCODE) — {count} cảng",
+      "shoreManaged": "Danh mục cảng do Văn phòng Bờ quản lý và tự động đồng bộ xuống tàu. Muốn thêm, sửa hoặc ngừng dùng cảng, vui lòng liên hệ văn phòng bờ.",
       "addPort": "Thêm cảng",
       "searchPlaceholder": "Tìm theo mã cảng, tên, hoặc quốc gia...",
       "allCountries": "Tất cả quốc gia",
@@ -1505,7 +1514,7 @@
       "timeZone": "Múi giờ",
       "actions": "Thao tác",
       "loading": "Đang tải danh sách cảng...",
-      "noPortsFound": "Không tìm thấy cảng nào. Thêm cảng hoặc chạy seed_ports.sql để khởi tạo.",
+      "noPortsFound": "Không tìm thấy cảng nào. Danh mục cảng sẽ có sau khi tàu đồng bộ với bờ.",
       "editPort": "Sửa cảng — {code}",
       "addNewPort": "Thêm cảng mới",
       "portCodeLabel": "Mã cảng (UN/LOCODE)",
@@ -2781,7 +2790,7 @@
       "approvalDashboardDesc": "Xem xét công việc HIGH/CRITICAL (Chỉ Máy trưởng)",
       "masterSchedule": "Lịch tổng",
       "masterScheduleDesc": "Xem tất cả lịch bảo trì",
-      "myTaskList": "Danh sách công việc của tôi",
+      "myTaskList": "Danh sách công việc",
       "taskHistory": "Lịch sử công việc",
       "archived": "đã lưu trữ",
       "syncing": "Đang đồng bộ...",

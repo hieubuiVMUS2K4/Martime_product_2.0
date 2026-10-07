@@ -1,3 +1,4 @@
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import { Link2, Pencil, Search, Trash2 } from 'lucide-react';
 import type { EquipmentAsset } from '@/types/pms.types';
 import type { EquipmentFilters } from './equipment-assets-filters';
@@ -84,8 +85,8 @@ export function EquipmentAssetsTable(props: Props) {
             <td className={`sticky right-0 z-20 border-b border-l border-gray-100 px-2 py-2 ${background}`}>
               <div className="flex justify-center gap-1">
                 <button type="button" onClick={() => props.onMaterials(asset)} title="Vật tư liên kết" aria-label={`Vật tư liên kết của ${asset.assetName}`} className="rounded p-1 text-blue-600 hover:bg-blue-100"><Link2 className="h-4 w-4" /></button>
-                <button type="button" onClick={() => props.onEdit(asset)} title="Chỉnh sửa thiết bị" aria-label={`Chỉnh sửa ${asset.assetName}`} className="rounded p-1 text-slate-500 hover:bg-slate-100"><Pencil className="h-4 w-4" /></button>
-                <button type="button" onClick={() => props.onDelete(asset)} title="Xóa thiết bị" aria-label={`Xóa ${asset.assetName}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                <PermissionGate permission="pms.assets.update"><button type="button" onClick={() => props.onEdit(asset)} title="Chỉnh sửa thiết bị" aria-label={`Chỉnh sửa ${asset.assetName}`} className="rounded p-1 text-slate-500 hover:bg-slate-100"><Pencil className="h-4 w-4" /></button></PermissionGate>
+                <PermissionGate permission="pms.assets.delete"><button type="button" onClick={() => props.onDelete(asset)} title="Xóa thiết bị" aria-label={`Xóa ${asset.assetName}`} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></PermissionGate>
               </div>
             </td>
           </tr>;

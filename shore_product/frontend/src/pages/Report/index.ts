@@ -1,3 +1,2 @@
-export { ReportPage } from './ReportPage';
-export { VesselReportDetailPage } from './VesselReportDetailPage';
+export { VesselReportsTab } from './VesselReportsTab';
 export { ReportDetailPage } from './ReportDetailPage';

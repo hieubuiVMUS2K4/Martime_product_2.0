@@ -45,6 +45,6 @@ export const materialRequestService = {
 
   async getApproved() {
     const response = await axios.get(`${API}/approved`);
-    return response.data as MaterialRequest[];
+    return (response.data as MaterialRequest[]).filter(request => request.status === 'Approved');
   },
 };

@@ -321,7 +321,9 @@ namespace MaritimeEdge
             }
 
             // Add Controllers
-            builder.Services.AddControllers()
+            builder.Services.AddScoped<RankPermissionService>();
+            builder.Services.AddScoped<RankPermissionFilter>();
+            builder.Services.AddControllers(options => options.Filters.AddService<RankPermissionFilter>())
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -396,7 +398,8 @@ namespace MaritimeEdge
                             QueueLimit = 5
                         }));
                 
-                // Strict limiter for auth endpoints: 10 requests per minute per IP
+                // Strict limiter for login attempts only: 10 per minute per IP.
+                // Session validation/refresh and account management use the fixed policy.
                 options.AddPolicy("auth", httpContext =>
                     RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -492,6 +495,10 @@ namespace MaritimeEdge
                           AND (p.file_path IS NULL OR p.file_path = '')
                           AND m.storage_path IS NOT NULL AND m.storage_path <> '';
                     ");
+
+                    // Danh mục cảng KHÔNG nạp ở tàu: bờ làm chủ và phát xuống qua đồng bộ.
+                    if (await AdminAccountSeed.SeedAsync(dbContext))
+                        logger.LogInformation("Created initial admin account; password change required on first login");
 
                     var crewAccountsCreated = await CrewAccountProvisioning.BackfillApprovedCrewAsync(dbContext);
                     logger.LogInformation("Provisioned {Count} missing crew accounts with CREW role", crewAccountsCreated);
@@ -595,6 +602,5 @@ namespace MaritimeEdge
             app.Run();
 
         }
-
     }
 }
