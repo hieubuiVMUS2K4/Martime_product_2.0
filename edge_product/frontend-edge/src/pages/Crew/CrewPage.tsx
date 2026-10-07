@@ -3,20 +3,18 @@ import { useEffect, useState, useRef } from 'react'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslationSafe } from '@/contexts/I18nContext'
-import { Users, FileText, ExternalLink, ArrowDownCircle, User, Search, Plus, Download, FileSpreadsheet, Clock, UserCheck, ChevronsUpDown } from 'lucide-react'
+import { Users, FileText, ExternalLink, ArrowDownCircle, User, Search, Download, FileSpreadsheet, Clock, UserCheck, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import { CrewMember } from '../../types/maritime.types'
 import { maritimeService } from '../../services/maritime.service'
 import { format, parseISO } from 'date-fns'
-import { AddCrewModal } from '../../components/crew/AddCrewModal'
 
 export function CrewPage() {
   const navigate = useNavigate()
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
 
   // Pending crew review state
   const [pendingCrew, setPendingCrew] = useState<CrewMember[]>([])
@@ -118,22 +116,6 @@ export function CrewPage() {
   const { t } = useTranslationSafe()
   const exportRef = useRef<{ exportExcel: () => void; exportPDF: () => void }>({ exportExcel: () => {}, exportPDF: () => {} })
 
-  const handleAddCrew = async (newCrew: Partial<CrewMember>) => {
-    try {
-      await maritimeService.crew.add(newCrew)
-      // Force reload - directly fetch and update without checking cache
-      setLoading(true)
-      const data = await maritimeService.crew.getOnboard()
-      setCrewOnboardCache(data) // Update cache with new data
-      setCrewMembers(data)
-      setLoading(false)
-      console.log('✅ Crew list reloaded after adding new member')
-    } catch (error) {
-      console.error('Failed to add crew member:', error)
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-white">
       {/* === HEADER ROW: Title + actions === */}
@@ -164,12 +146,6 @@ export function CrewPage() {
               >
                 <Download className="w-3.5 h-3.5" /> {t('crew.actions.exportPdf')}
               </button>
-              <PermissionGate permission="crew.create"><button
-                disabled title="Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu" onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                <Plus className="w-3.5 h-3.5" /> {t('crew.addMember')}
-              </button></PermissionGate>
             </>
           )}
         </div>
@@ -212,7 +188,6 @@ export function CrewPage() {
           <SectionedCrewView
             crewMembers={crewMembers}
             onViewCrew={(id) => navigate(`/crew/${id}`)}
-            onAddCrew={() => setShowAddModal(true)}
             sortType={sortType}
             setSortType={setSortType}
             sortMenu={sortMenu}
@@ -229,11 +204,6 @@ export function CrewPage() {
         )}
       </div>
 
-      <AddCrewModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={handleAddCrew}
-      />
     </div>
   )
 }
@@ -242,7 +212,6 @@ export function CrewPage() {
 function SectionedCrewView({ 
   crewMembers, 
   onViewCrew,
-  onAddCrew: _onAddCrew,
   sortType,
   setSortType,
   sortMenu,
@@ -258,7 +227,6 @@ function SectionedCrewView({
 }: { 
   crewMembers: CrewMember[]; 
   onViewCrew: (id: string) => void;
-  onAddCrew: () => void;
   sortType?: { col: string; dir: 'asc'|'desc' } | null;
   setSortType?: (sortType: { col: string; dir: 'asc'|'desc' } | null) => void;
   sortMenu?: string | null;

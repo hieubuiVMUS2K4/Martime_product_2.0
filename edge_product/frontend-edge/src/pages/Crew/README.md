@@ -26,8 +26,7 @@ còn trạng thái vận hành (IsOnboard, ngày lên/xuống tàu) do **Edge** 
 | `DetailCertificatesModal.tsx` | — | Modal xem/sửa chi tiết một chứng chỉ đã gán |
 | `AddCertificateModal.tsx` | — | Modal thêm loại chứng chỉ mới vào danh mục |
 
-> **Lưu ý:** modal **thêm mới thuyền viên** không nằm ở đây mà ở `components/crew/AddCrewModal.tsx`
-> (`CrewPage` import từ đó). Xem `components/crew/README.md`.
+> Edge không có thao tác thêm thuyền viên. Thuyền viên được tạo trên Shore rồi đồng bộ xuống tàu.
 
 ## Luồng hoạt động chính
 
@@ -53,9 +52,9 @@ Nhánh chứng chỉ đi qua **fetch trực tiếp** (không qua `maritimeServic
 
 ## Liên kết với phần khác
 
-- **`services/maritime.service.ts`** (`maritimeService.crew`): getAll, getOnboard, getPending, getById, add,
+- **`services/maritime.service.ts`** (`maritimeService.crew`): getAll, getOnboard, getPending, getById,
   update, approve, hold, reject, uploadAvatar, updateDocumentFile, get{Travel,Seafarer,Employment,Health}Documents.
-- **`components/crew/`**: `AddCrewModal` và các modal crew khác — xem `components/crew/README.md`.
+- **`components/crew/`**: các modal giấy tờ và hồ sơ thuyền viên — xem `components/crew/README.md`.
 - **`types/maritime.types.ts`**: kiểu `CrewMember`.
 - **Backend Edge** `Controllers/Crew/` (CrewController, CertificatesController, CountriesController,
   RanksController...) — xem `edge-services/Controllers/Crew/README.md` để hiểu phía server.
