@@ -137,7 +137,7 @@ public partial class SyncReliabilityTests
                 (await ranks.CreateRank(new Rank())).Result, await ranks.UpdateRank(rank.Id, rank),
                 await ranks.DeleteRank(rank.Id), await ranks.PermanentDeleteRank(rank.Id),
                 (await countries.PostCountry(new Country())).Result, await countries.PutCountry(country.Id, country), await countries.DeleteCountry(country.Id),
-                await ports.Create(new()), await ports.Update(port.Id, new()), await ports.Delete(port.Id)
+                await ports.Create(), await ports.Update(port.Id), await ports.Delete(port.Id)
             };
             Assert.All(results, result => Assert.Equal(405, Assert.IsType<ObjectResult>(result).StatusCode));
             await sync.ExecuteSyncAsync(default); db.ChangeTracker.Clear();
