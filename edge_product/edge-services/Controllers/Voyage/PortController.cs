@@ -117,7 +117,7 @@ public class PortController : ControllerBase
     /// Reject writes to the Shore-managed port catalog
     /// </summary>
     [HttpPost]
-    public Task<IActionResult> Create([FromBody] CreatePortDto dto)
+    public Task<IActionResult> Create()
     {
         return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
@@ -126,7 +126,7 @@ public class PortController : ControllerBase
     /// Reject port updates on Edge
     /// </summary>
     [HttpPut("{id:int}")]
-    public Task<IActionResult> Update(int id, [FromBody] UpdatePortDto dto)
+    public Task<IActionResult> Update(int id)
     {
         return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
