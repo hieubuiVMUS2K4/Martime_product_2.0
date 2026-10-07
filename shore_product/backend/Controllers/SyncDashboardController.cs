@@ -112,7 +112,8 @@ public class SyncDashboardController : ControllerBase
     {
         try
         {
-            var nodes = await _context.SyncNodeTrackers.AsNoTracking().ToListAsync();
+            // Bỏ node "ma": chưa đăng ký và không gắn tàu nào.
+            var nodes = await _context.SyncNodeTrackers.AsNoTracking().Where(n => n.IsRegistered || n.VesselId != null).ToListAsync();
 
             var pendingOutbox = await PendingOutbox().CountAsync();
 
@@ -184,6 +185,8 @@ public class SyncDashboardController : ControllerBase
         {
             var nodes = await _context.SyncNodeTrackers
                 .AsNoTracking()
+                // Bỏ node "ma": chưa đăng ký và không gắn tàu nào (sót lại từ lúc thử nghiệm / gói cấu hình cũ).
+                .Where(n => n.IsRegistered || n.VesselId != null)
                 .OrderByDescending(n => n.IsOnline)
                 .ThenBy(n => n.ShipName)
                 .ToListAsync();
