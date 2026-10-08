@@ -118,7 +118,7 @@ export const VesselParticularsPanel: React.FC<{
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-[13px] text-ink-muted">
+      <div className="flex flex-col items-center gap-3 py-16 text-xs text-ink-muted">
         <span className="text-red-700">{error}</span>
         <Button variant="secondary" onClick={load}>Thử lại</Button>
       </div>
@@ -126,7 +126,7 @@ export const VesselParticularsPanel: React.FC<{
   }
   if (!data) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
+      <div className="flex items-center justify-center gap-2 py-16 text-xs text-ink-muted">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Đang tải thông số tàu...
       </div>
     );
@@ -143,13 +143,13 @@ export const VesselParticularsPanel: React.FC<{
 
   const renderInput = (f: FieldDef, id: string, dirty: boolean) => {
     const v = edited[f.key];
-    const cls = `${fieldClass} ${dirty ? 'border-amber-400 bg-amber-50' : ''}`;
+    const cls = `${fieldClass} text-base ${dirty ? 'border-amber-400 bg-amber-50' : ''}`;
     switch (f.kind) {
       case 'date':
         return <DateInput id={id} value={isEmpty(v) ? '' : String(v).slice(0, 10)} onChange={iso => set(f.key, iso || null)} />;
       case 'bool':
         return (
-          <label className="flex h-[38px] items-center gap-2 text-sm text-ink">
+          <label className="flex h-[38px] items-center gap-2 text-base text-ink">
             <input id={id} type="checkbox" className="h-4 w-4 accent-primary" checked={!!v} onChange={e => set(f.key, e.target.checked)} />
             {v ? 'Có' : 'Không'}
           </label>
@@ -160,7 +160,7 @@ export const VesselParticularsPanel: React.FC<{
             <input id={id} type="number" step="any" className={`${cls} ${f.unit ? 'pr-20' : ''}`}
               value={isEmpty(v) ? '' : String(v)}
               onChange={e => set(f.key, e.target.value === '' ? null : Number(e.target.value))} />
-            {f.unit && <span className="pointer-events-none absolute right-3 top-2 text-sm text-ink-muted">{f.unit}</span>}
+            {f.unit && <span className="pointer-events-none absolute right-3 top-2 text-base text-ink-muted">{f.unit}</span>}
           </div>
         );
       case 'select': {
@@ -187,18 +187,18 @@ export const VesselParticularsPanel: React.FC<{
     <div className="flex flex-col gap-4">
       {/* Thanh thao tác — dính ở đầu vùng cuộn để luôn bấm được Lưu / Hủy */}
       <div className="sticky -top-5 z-10 -mx-6 -mt-5 flex flex-wrap items-center gap-3 border-b border-line bg-canvas/95 px-6 py-3 backdrop-blur">
-        <span className="inline-flex items-center gap-2 text-[13px] text-ink-muted">
+        <span className="inline-flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-muted">
           <ArrowLeftRight className="h-4 w-4 text-primary" aria-hidden="true" />
           Đồng bộ hai chiều với tàu
           <span className="text-ink-light">·</span>
-          Tàu gửi lên: <strong className="font-medium text-ink">{edgeSync ?? 'chưa có'}</strong>
+          Tàu gửi lên: <strong className="font-bold text-ink">{edgeSync ?? 'chưa có'}</strong>
           <span className="text-ink-light">·</span>
-          Bờ sửa: <strong className="font-medium text-ink">{shoreSync ?? 'chưa có'}</strong>
+          Bờ sửa: <strong className="font-bold text-ink">{shoreSync ?? 'chưa có'}</strong>
         </span>
         <div className="ml-auto flex items-center gap-2">
           {editing ? (
             <>
-              {changed.length > 0 && <span className="text-[13px] font-medium text-amber-700">{changed.length} thay đổi chưa lưu</span>}
+              {changed.length > 0 && <span className="text-xs font-medium text-amber-700">{changed.length} thay đổi chưa lưu</span>}
               <Button variant="secondary" icon={<X className="h-4 w-4" />} onClick={cancel} disabled={saving}>Hủy</Button>
               <Button icon={<Save className="h-4 w-4" />} loading={saving} onClick={save} disabled={changed.length === 0}>Lưu thay đổi</Button>
             </>
@@ -212,8 +212,8 @@ export const VesselParticularsPanel: React.FC<{
         const fill = fillers(section.fields.length);
         return (
           <section key={section.id} className="overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
-            <header className="border-b border-line bg-primary-soft px-4 py-3">
-              <h2 className="text-base font-semibold text-primary">{section.title}</h2>
+            <header className="border-b border-grid-strong bg-accent-soft px-4 py-3">
+              <h2 className="text-base font-bold text-primary">{section.title}</h2>
             </header>
             <dl className="grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
               {section.fields.map(f => {
@@ -223,7 +223,7 @@ export const VesselParticularsPanel: React.FC<{
                 return (
                   <div key={f.key} className={`min-w-0 px-4 py-3 ${dirty ? 'bg-amber-50/60' : 'bg-surface'}`}>
                     <dt>
-                      <label htmlFor={editing && !f.readOnly ? id : undefined} className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-ink-muted">
+                      <label htmlFor={editing && !f.readOnly ? id : undefined} className="mb-1.5 flex items-center gap-1.5 text-base font-semibold text-ink-muted">
                         {f.label}
                         {f.required && editing && <span className="text-red-600">*</span>}
                         {f.readOnly && <Lock className="h-3.5 w-3.5 text-ink-light" aria-label="Không sửa được" />}
@@ -231,7 +231,7 @@ export const VesselParticularsPanel: React.FC<{
                     </dt>
                     <dd>
                       {editing && !f.readOnly ? renderInput(f, id, dirty) : (
-                        <div className={`min-h-[24px] break-words text-[15px] font-medium leading-6 text-ink ${f.key === 'imo' ? 'font-mono' : ''}`}>
+                        <div className={`min-h-[24px] break-words text-base font-bold leading-6 text-ink ${f.key === 'imo' ? 'font-mono' : ''}`}>
                           {shown ?? <span className="font-normal text-ink-light">—</span>}
                         </div>
                       )}

@@ -48,7 +48,7 @@ const VALID_FONT_SIZES: FontSize[] = ['small', 'medium', 'large', 'xlarge'];
 const VALID_LANGUAGES: Language[] = ['en', 'vi'];
 
 const FONT_SCALES: Record<FontSize, number> = {
-  small: 0.875,
+  small: 1, // không thu nhỏ nữa: chữ tối thiểu 14px
   medium: 1,
   large: 1.125,
   xlarge: 1.25,

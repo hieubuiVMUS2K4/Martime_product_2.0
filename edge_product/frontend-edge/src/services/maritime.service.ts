@@ -815,6 +815,15 @@ export interface EdgeProvisioningHistoryItem {
   lastHandshakeError?: string
 }
 
+export interface EdgeVesselSwitchCheck {
+  requiresReset: boolean
+  currentVesselName?: string
+  currentVesselImo?: string
+  newVesselName?: string
+  newVesselImo?: string
+  pendingUploads: number
+}
+
 export const provisioningService = {
   getStatus: () => apiClient.get<EdgeProvisioningStatus>('/edge/provisioning/status'),
 
@@ -830,11 +839,19 @@ export const provisioningService = {
       { profileId }
     ),
 
-  activate: (profileId: number) =>
-    apiClient.post<{ activated: boolean; previousProfileId?: number }>(
+  /** Gói của tàu khác: tàu sẽ xoá toàn bộ dữ liệu tàu hiện tại rồi nhận lại từ bờ. */
+  switchCheck: (profileId: number) =>
+    apiClient.get<EdgeVesselSwitchCheck>(`/edge/provisioning/${profileId}/switch-check`),
+
+  activate: (profileId: number, confirmReset = false) =>
+    apiClient.post<{ activated: boolean; previousProfileId?: number; reset: boolean; wipedRows: number; fullSyncRequested: boolean }>(
       '/edge/provisioning/activate',
-      { profileId }
+      { profileId, confirmReset }
     ),
+
+  /** Làm sạch tàu đang chạy và nhận lại toàn bộ dữ liệu từ bờ. */
+  resetFromShore: (confirmImo: string) =>
+    apiClient.post<{ reset: boolean; wipedRows: number; fullSyncRequested: boolean }>('/edge/provisioning/reset', { confirmImo }),
 
   getHistory: () => apiClient.get<EdgeProvisioningHistoryItem[]>('/edge/provisioning/history'),
 }

@@ -346,7 +346,7 @@ public class CertificateService : ICertificateService
 
         // Broadcast to edge nodes
         if (_syncOutbox != null)
-            await _syncOutbox.BroadcastAsync("crew_certificate", cc.Id.ToString(), SyncActionType.CREATE, cc);
+            await _syncOutbox.EnqueueForCrewAsync(cc.CrewMemberId, "crew_certificate", cc.Id.ToString(), SyncActionType.CREATE, cc);
 
         return MapToCrewCertDto(cc);
     }
@@ -379,7 +379,7 @@ public class CertificateService : ICertificateService
 
         // Broadcast update to edge nodes
         if (_syncOutbox != null)
-            await _syncOutbox.BroadcastAsync("crew_certificate", cc.Id.ToString(), SyncActionType.UPDATE, cc);
+            await _syncOutbox.EnqueueForCrewAsync(cc.CrewMemberId, "crew_certificate", cc.Id.ToString(), SyncActionType.UPDATE, cc);
 
         return MapToCrewCertDto(cc);
     }
@@ -394,7 +394,7 @@ public class CertificateService : ICertificateService
 
         // Broadcast deletion to edge nodes
         if (_syncOutbox != null)
-            await _syncOutbox.BroadcastAsync("crew_certificate", id.ToString(), SyncActionType.DELETE, new { Id = id });
+            await _syncOutbox.EnqueueForCrewAsync(cc.CrewMemberId, "crew_certificate", id.ToString(), SyncActionType.DELETE, new { Id = id });
 
         return true;
     }

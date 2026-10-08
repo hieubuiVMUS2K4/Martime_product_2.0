@@ -107,7 +107,7 @@ export default function AddHealthDocumentModal({ isOpen, crewMemberId, onClose, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">{isEditing ? 'Edit Health Document' : 'Add Health Document'}</h3>
           <button

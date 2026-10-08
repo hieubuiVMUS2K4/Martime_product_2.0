@@ -1043,13 +1043,10 @@ public class VoyageManagementService : IVoyageManagementService
                         .ThenInclude(cc => cc.Certificate)
             .Include(v => v.CrewAssignments)
                 .ThenInclude(a => a.CrewMember)
-                    .ThenInclude(c => c!.TravelDocuments)
+                    .ThenInclude(c => c!.Documents)
             .Include(v => v.CrewAssignments)
                 .ThenInclude(a => a.CrewMember)
                     .ThenInclude(c => c!.Country)
-            .Include(v => v.CrewAssignments)
-                .ThenInclude(a => a.CrewMember)
-                    .ThenInclude(c => c!.SeafarerDocuments)
             .Include(v => v.CrewAssignments)
                 .ThenInclude(a => a.Rank)
             .FirstOrDefaultAsync(v => v.Id == voyageId);
@@ -1090,11 +1087,11 @@ public class VoyageManagementService : IVoyageManagementService
         return falForm;
     }
 
-    private static BaseDocument? SelectFalDocument(CrewMember? crewMember)
+    private static CrewMemberDocument? SelectFalDocument(CrewMember? crewMember)
     {
         if (crewMember == null) return null;
 
-        static int Priority(BaseDocument document)
+        static int Priority(CrewMemberDocument document)
         {
             var type = document.DocumentType?.Trim().ToUpperInvariant() ?? string.Empty;
             return type switch
@@ -1107,9 +1104,9 @@ public class VoyageManagementService : IVoyageManagementService
             };
         }
 
-        return crewMember.TravelDocuments
-            .Cast<BaseDocument>()
-            .Concat(crewMember.SeafarerDocuments)
+        // Giấy tờ đi lại cho FAL Form 5: hộ chiếu (travel) và sổ thuyền viên (seafarer)
+        return crewMember.Documents
+            .Where(d => d.Category == CrewDocumentCategory.Travel || d.Category == CrewDocumentCategory.Seafarer)
             .OrderBy(d => d.ExpiryDate.HasValue && d.ExpiryDate.Value < DateTime.UtcNow ? 1 : 0)
             .ThenBy(Priority)
             .ThenByDescending(d => d.IssueDate)

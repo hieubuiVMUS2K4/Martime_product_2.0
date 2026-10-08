@@ -85,6 +85,22 @@ export interface SyncHealthCheck {
   }>;
 }
 
+/** Nhóm dữ liệu bờ gửi xuống tàu (khớp enum SyncScope ở backend). */
+export type SyncScope = 'Catalog' | 'Crew' | 'Vessel' | 'Equipment' | 'Voyages' | 'Reports' | 'Sms';
+
+export interface SyncPushNodeResult {
+  nodeId: string;
+  shipName?: string;
+  imo?: string;
+  queued: Partial<Record<SyncScope, number>>;
+  total: number;
+}
+
+export interface SyncPushResult {
+  nodes: SyncPushNodeResult[];
+  total: number;
+}
+
 export interface ForcePushResponse {
   message: string;
   nodeId?: string;
@@ -146,6 +162,10 @@ export const syncApi = {
       return null;
     }
   },
+
+  /** Gửi các nhóm dữ liệu cho một tàu (nodeId) hoặc mọi tàu ('ALL'). Mỗi tàu chỉ nhận dữ liệu của chính nó. */
+  push: (target: string, scopes: SyncScope[]): Promise<SyncPushResult> =>
+    request(`${BASE}/sync/push`, { method: 'POST', body: JSON.stringify({ target, scopes }) }),
 
   /** Force push to specific ship node */
   forcePush: (nodeId: string): Promise<ForcePushResponse> =>

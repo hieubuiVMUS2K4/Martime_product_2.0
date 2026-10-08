@@ -94,7 +94,7 @@ export function CustomKanbanCard({ task, onClick, isDragging = false }: CustomKa
     >
       {/* Tag Badge */}
       <div className="mb-2">
-        <span className={`inline-flex items-center gap-1 ${tagConfig.bg} ${tagConfig.text} px-2 py-0.5 rounded text-[10px] font-medium`}>
+        <span className={`inline-flex items-center gap-1 ${tagConfig.bg} ${tagConfig.text} px-2 py-0.5 rounded text-xs font-medium`}>
           <div className={`w-1 h-1 rounded-full ${tagConfig.dot}`} />
           {tagConfig.label}
         </span>
@@ -118,12 +118,12 @@ export function CustomKanbanCard({ task, onClick, isDragging = false }: CustomKa
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-[11px] font-medium">
+          <span className="text-xs font-medium">
             {format(parseISO(task.createdAt), 'dd MMM yyyy')}
           </span>
         </div>
         
-        <span className="text-[9px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded">
+        <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded">
           CUSTOM
         </span>
       </div>

@@ -1,9 +1,10 @@
 import { PermissionGate } from '@/components/auth/PermissionGate'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslationSafe } from '@/contexts/I18nContext'
-import { Users, FileText, ExternalLink, ArrowDownCircle, User, Search, Plus, Download, FileSpreadsheet, Clock, UserCheck, ChevronsUpDown } from 'lucide-react'
+import { Users, FileText, ExternalLink, ArrowDownCircle, User, Plus, Download, FileSpreadsheet, Clock, UserCheck } from 'lucide-react'
+import { DataTable, toolbarButtonClass, type Column } from '@/components/common/DataTable'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -24,10 +25,6 @@ export function CrewPage() {
 
   // Cache for crew data to avoid reloading
   const [crewOnboardCache, setCrewOnboardCache] = useState<CrewMember[] | null>(null)
-
-  // Sorting states
-  const [sortType, setSortType] = useState<{ col: string; dir: 'asc'|'desc' } | null>({ col: 'crewId', dir: 'asc' })
-  const [sortMenu, setSortMenu] = useState<string | null>(null)
 
   // Shore notification summary: crewId → changed field count
   const [shoreChangeSummary, setShoreChangeSummary] = useState<Record<string, number>>({})
@@ -116,7 +113,6 @@ export function CrewPage() {
   // Tab state
   const [activeTab, setActiveTab] = useState<'onboard' | 'pending'>('onboard')
   const { t } = useTranslationSafe()
-  const exportRef = useRef<{ exportExcel: () => void; exportPDF: () => void }>({ exportExcel: () => {}, exportPDF: () => {} })
 
   const handleAddCrew = async (newCrew: Partial<CrewMember>) => {
     try {
@@ -149,30 +145,9 @@ export function CrewPage() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 min-h-[32px]">
-          {activeTab === 'onboard' && (
-            <>
-              <button
-                onClick={() => exportRef.current.exportExcel()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" /> {t('crew.actions.exportExcel')}
-              </button>
-              <button
-                onClick={() => exportRef.current.exportPDF()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-300 rounded text-red-600 hover:bg-red-50"
-              >
-                <Download className="w-3.5 h-3.5" /> {t('crew.actions.exportPdf')}
-              </button>
-              <PermissionGate permission="crew.create"><button
-                disabled title="Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu" onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                <Plus className="w-3.5 h-3.5" /> {t('crew.addMember')}
-              </button></PermissionGate>
-            </>
-          )}
-        </div>
+        <span className="text-xs italic text-gray-500">
+          Thuyền viên được tạo và gán chức danh trên bờ, sau đó đồng bộ xuống tàu
+        </span>
       </div>
 
       {/* === TAB BAR === */}
@@ -202,7 +177,7 @@ export function CrewPage() {
       </div>
 
       {/* === TAB CONTENT === */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col">
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -213,17 +188,12 @@ export function CrewPage() {
             crewMembers={crewMembers}
             onViewCrew={(id) => navigate(`/crew/${id}`)}
             onAddCrew={() => setShowAddModal(true)}
-            sortType={sortType}
-            setSortType={setSortType}
-            sortMenu={sortMenu}
-            setSortMenu={setSortMenu}
             pendingCrew={pendingCrew}
             pendingLoading={pendingLoading}
             onApproveCrew={handleApproveCrew}
             onRejectCrew={handleRejectCrew}
             onPendingChanged={() => { loadPendingCrew(); setCrewOnboardCache(null); loadCrewData() }}
             activeTab={activeTab}
-            exportRef={exportRef}
             shoreChangeSummary={shoreChangeSummary}
           />
         )}
@@ -242,49 +212,29 @@ export function CrewPage() {
 function SectionedCrewView({ 
   crewMembers, 
   onViewCrew,
-  onAddCrew: _onAddCrew,
-  sortType,
-  setSortType,
-  sortMenu,
-  setSortMenu,
+  onAddCrew,
   pendingCrew,
   pendingLoading,
   onApproveCrew,
   onRejectCrew,
   onPendingChanged,
   activeTab,
-  exportRef,
   shoreChangeSummary
 }: { 
   crewMembers: CrewMember[]; 
   onViewCrew: (id: string) => void;
   onAddCrew: () => void;
-  sortType?: { col: string; dir: 'asc'|'desc' } | null;
-  setSortType?: (sortType: { col: string; dir: 'asc'|'desc' } | null) => void;
-  sortMenu?: string | null;
-  setSortMenu?: (sortMenu: string | null) => void;
   pendingCrew: CrewMember[];
   pendingLoading: boolean;
   onApproveCrew: (id: string) => Promise<void>;
   onRejectCrew: (id: string, reason?: string) => Promise<void>;
   onPendingChanged: () => void;
   activeTab: 'onboard' | 'pending';
-  exportRef: React.MutableRefObject<{ exportExcel: () => void; exportPDF: () => void }>;
   shoreChangeSummary: Record<string, number>;
 }) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; crew: CrewMember } | null>(null)
   const [selectedCrew, setSelectedCrew] = useState<string | null>(null)
   const { t } = useTranslationSafe()
-
-  // Pagination state
-  const [onboardPage, setOnboardPage] = useState(1)
-  const ITEMS_PER_PAGE = 15
-
-  // Search / filter states
-  const [searchCrewId, setSearchCrewId] = useState('')
-  const [searchName, setSearchName] = useState('')
-  const [filterRankVal, setFilterRankVal] = useState('')
-  const [filterNationality, setFilterNationality] = useState('')
 
   // Helper: get sorted onboard crew by crewId
   const getSortedOnboardCrew = () => {
@@ -577,97 +527,45 @@ function SectionedCrewView({
     }
   }
 
-  // Get only onboard crew
-  let crewOnBoard = crewMembers.filter(c => c.isOnboard)
+  const crewOnBoard = crewMembers
+    .filter(c => c.isOnboard)
+    .sort((a, b) => a.crewId.localeCompare(b.crewId))
 
-  // Apply sorting
-  const applySorting = (crews: CrewMember[]) => {
-    if (!sortType) return crews
-    const sorted = [...crews]
-    switch (sortType.col) {
-      case 'crewId':
-        sorted.sort((a, b) => sortType.dir === 'asc'
-          ? a.crewId.localeCompare(b.crewId)
-          : b.crewId.localeCompare(a.crewId))
-        break
-      case 'fullName':
-        sorted.sort((a, b) => sortType.dir === 'asc' 
-          ? a.fullName.localeCompare(b.fullName) 
-          : b.fullName.localeCompare(a.fullName))
-        break
-      case 'position':
-        sorted.sort((a, b) => sortType.dir === 'asc'
-          ? (a.rank?.rankName || '').localeCompare(b.rank?.rankName || '')
-          : (b.rank?.rankName || '').localeCompare(a.rank?.rankName || ''))
-        break
-      case 'rank':
-        sorted.sort((a, b) => {
-          const aRank = a.rank?.rankName || ''
-          const bRank = b.rank?.rankName || ''
-          return sortType.dir === 'asc' ? aRank.localeCompare(bRank) : bRank.localeCompare(aRank)
-        })
-        break
-      case 'nationality':
-        sorted.sort((a, b) => {
-          const aNat = a.countryName || ''
-          const bNat = b.countryName || ''
-          return sortType.dir === 'asc' ? aNat.localeCompare(bNat) : bNat.localeCompare(aNat)
-        })
-        break
-      case 'embarkDate':
-        sorted.sort((a, b) => {
-          const aDate = a.embarkDate ? new Date(a.embarkDate).getTime() : 0
-          const bDate = b.embarkDate ? new Date(b.embarkDate).getTime() : 0
-          return sortType.dir === 'asc' ? aDate - bDate : bDate - aDate
-        })
-        break
-    }
-    return sorted
-  }
-
-  crewOnBoard = applySorting(crewOnBoard)
-
-  // Expose export functions to parent via ref
-  exportRef.current = { exportExcel: exportCrewListToExcel, exportPDF: exportCrewListToPDF }
-
-  // SortDropdown component
-  function SortDropdown({ col, options }: {
-    col: string;
-    options: Array<{ label: string; dir: 'asc'|'desc' }>;
-  }) {
-    if (!setSortType || !setSortMenu) return null
-    return (
-      <div className="relative flex-shrink-0">
-        <button
-          className="text-gray-400 hover:text-blue-600"
-          onClick={e => { e.stopPropagation(); setSortMenu(sortMenu === col ? null : col) }}
-        >
-          <ChevronsUpDown className="w-3 h-3" />
-        </button>
-        {sortMenu === col && (
-          <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded shadow-lg z-50">
-            {options.map(opt => (
-              <button
-                key={opt.label}
-                className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
-                  sortType?.col === col && sortType?.dir === opt.dir
-                    ? 'text-blue-600 font-bold'
-                    : 'text-gray-700'
-                }`}
-                onClick={e => {
-                  e.stopPropagation();
-                  setSortType({col, dir: opt.dir});
-                  setSortMenu(null)
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
+  const columns: Column<CrewMember>[] = [
+    { key: 'crewId', header: t('crew.table.crewId'), width: 130, value: c => c.crewId, className: 'font-medium' },
+    {
+      key: 'fullName', header: t('crew.table.name'), value: c => c.fullName,
+      render: c => <span className="inline-flex items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-gray-400" />{c.fullName}</span>,
+    },
+    { key: 'rank', header: t('crew.table.rank'), width: 200, value: c => c.rank?.rankName || '' },
+    { key: 'nationality', header: t('crew.fields.nationality'), width: 150, value: c => c.countryName || '', render: c => c.countryName || t('crew.page.na') },
+    {
+      key: 'embarkDate', header: t('crew.table.embarkDate'), width: 130, align: 'center',
+      // Giá trị ISO để sắp xếp đúng thứ tự ngày; lọc và xuất theo dd/MM/yyyy
+      value: c => c.embarkDate ? c.embarkDate.slice(0, 10) : '',
+      filter: c => c.embarkDate ? format(parseISO(c.embarkDate), 'dd/MM/yyyy') : '',
+      exportValue: c => c.embarkDate ? format(parseISO(c.embarkDate), 'dd/MM/yyyy') : '',
+      searchable: false,
+      render: c => c.embarkDate ? format(parseISO(c.embarkDate), 'dd/MM/yyyy') : '—',
+    },
+    {
+      key: 'status', header: t('crew.table.status'), width: 130, align: 'center',
+      value: c => c.isOnboard ? t('crew.page.onboard') : t('crew.page.ashore'),
+      render: c => (
+        <span className="inline-flex items-center gap-1.5">
+          {c.isOnboard
+            ? <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-700">{t('crew.page.onboard')}</span>
+            : <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600">{t('crew.page.ashore')}</span>}
+          {shoreChangeSummary[String(c.id)] > 0 && (
+            <span
+              title={`${shoreChangeSummary[String(c.id)]} thay đổi từ bờ`}
+              className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white"
+            >{shoreChangeSummary[String(c.id)]}</span>
+          )}
+        </span>
+      ),
+    },
+  ]
 
   const handleContextMenu = (e: React.MouseEvent, crew: CrewMember) => {
     e.preventDefault()
@@ -686,259 +584,45 @@ function SectionedCrewView({
     return () => window.removeEventListener('click', handleClick)
   }, [])
 
-  const renderCrewTable = () => {
-    // Normalize Vietnamese text for search
-    const removeAccents = (str: string) => str
-      ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Ä‘/g, 'd').replace(/Ä/g, 'D')
-      : ''
-
-    // Apply filters
-    let displayedCrew = [...crewOnBoard]
-    if (searchCrewId) {
-      const q = removeAccents(searchCrewId).toLowerCase()
-      displayedCrew = displayedCrew.filter(c => removeAccents(c.crewId || '').toLowerCase().includes(q))
-    }
-    if (searchName) {
-      const q = removeAccents(searchName).toLowerCase()
-      displayedCrew = displayedCrew.filter(c => removeAccents(c.fullName || '').toLowerCase().includes(q))
-    }
-    if (filterRankVal) {
-      displayedCrew = displayedCrew.filter(c => (c.rank?.rankName || '') === filterRankVal)
-    }
-    if (filterNationality) {
-      displayedCrew = displayedCrew.filter(c => (c.countryName || '') === filterNationality)
-    }
-
-    const uniqueRanks = [...new Set(crewOnBoard.map(c => c.rank?.rankName || '').filter(Boolean))].sort()
-    const uniqueNationalities = [...new Set(crewOnBoard.map(c => c.countryName || '').filter(Boolean))].sort()
-
-    const totalPages = Math.max(1, Math.ceil(displayedCrew.length / ITEMS_PER_PAGE))
-    const startIndex = (onboardPage - 1) * ITEMS_PER_PAGE
-    const paginatedCrews = displayedCrew.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-
-    return (
-      <div className="bg-white">
-        {/* ── TABLE ── */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm border-collapse">
-            <thead className="sticky top-0 z-10">
-              {/* Row 1: Column headers */}
-              <tr className="bg-blue-50 dark:bg-gray-800">
-                <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-700">{t('crew.table.no')}</th>
-                <th className="w-32 px-3 py-2 text-left border-b border-r border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{t('crew.table.crewId')}</span>
-                    <SortDropdown col="crewId" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                  </div>
-                </th>
-                <th className="min-w-[200px] px-3 py-2 text-left border-b border-r border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{t('crew.table.name')}</span>
-                    <SortDropdown col="fullName" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                  </div>
-                </th>
-                <th className="w-96  px-3 py-2 text-left border-b border-r border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{t('crew.table.rank')}</span>
-                    <SortDropdown col="position" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                  </div>
-                </th>
-                <th className="w-36 px-3 py-2 text-left border-b border-r border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{t('crew.fields.nationality')}</span>
-                    <SortDropdown col="nationality" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                  </div>
-                </th>
-                <th className="w-32 px-3 py-2 text-left border-b border-r border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{t('crew.table.embarkDate')}</span>
-                    <SortDropdown col="embarkDate" options={[{label:t('crew.page.newest'), dir:'desc'},{label:t('crew.page.oldest'), dir:'asc'}]} />
-                  </div>
-                </th>
-                <th className="w-24 px-3 py-2 text-left border-b border-gray-200 dark:border-gray-700">
-                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{t('crew.table.status')}</span>
-                </th>
-              </tr>
-
-              {/* Row 2: Search inputs */}
-              <tr className="bg-white border-b border-gray-200">
-                <th className="border-r border-gray-200"></th>
-                {/* Crew ID search */}
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                    <input
-                      type="text"
-                      placeholder={t('crew.page.searchPlaceholder')}
-                      value={searchCrewId}
-                      onChange={e => { setSearchCrewId(e.target.value); setOnboardPage(1) }}
-                      className="flex-1 text-xs outline-none min-w-0 bg-transparent"
-                    />
-                    <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                {/* Name search */}
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <div className="flex items-center gap-0.5 border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                    <input
-                      type="text"
-                      placeholder={t('crew.page.searchPlaceholder')}
-                      value={searchName}
-                      onChange={e => { setSearchName(e.target.value); setOnboardPage(1) }}
-                      className="flex-1 text-xs outline-none min-w-0 bg-transparent"
-                    />
-                    <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                  </div>
-                </th>
-                {/* Rank filter */}
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <select
-                    value={filterRankVal}
-                    onChange={e => { setFilterRankVal(e.target.value); setOnboardPage(1) }}
-                    className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white"
-                  >
-                    <option value="">{t('crew.allRanks')}</option>
-                    {uniqueRanks.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </th>
-                {/* Nationality filter */}
-                <th className="px-2 py-1 border-r border-gray-200">
-                  <select
-                    value={filterNationality}
-                    onChange={e => { setFilterNationality(e.target.value); setOnboardPage(1) }}
-                    className="w-full py-0.5 text-xs border border-gray-200 rounded outline-none bg-white"
-                  >
-                    <option value="">{t('crew.allNationalities')}</option>
-                    {uniqueNationalities.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </th>
-                {/* Embark Date - no filter */}
-                <th className="border-r border-gray-200"></th>
-                {/* Status - no filter */}
-                <th className="border-gray-200"></th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {paginatedCrews.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
-                    <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                    <p>{t('crew.page.noCrewMembers')}</p>
-                  </td>
-                </tr>
-              ) : (
-                paginatedCrews.map((crew, idx) => {
-                  const globalIndex = startIndex + idx + 1
-                  return (
-                    <tr
-                      key={crew.id}
-                      onContextMenu={(e) => handleContextMenu(e, crew)}
-                      onClick={() => onViewCrew(crew.id)}
-                      className={`cursor-pointer hover:bg-yellow-50 ${
-                        selectedCrew === crew.id ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
-                      }`}
-                    >
-                      <td className="w-10 px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-200">{globalIndex}</td>
-                      <td className="w-32 px-3 py-2 text-xs font-medium text-gray-900 border-r border-gray-200">
-                        <div className="truncate">{crew.crewId}</div>
-                      </td>
-                      <td className="min-w-[200px] px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                        <div className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="truncate">{crew.fullName}</span>
-                        </div>
-                      </td>
-                      <td className="w-44 px-3 py-2 text-xs text-gray-700 border-r border-gray-200">
-                        <div className="truncate">{crew.rank?.rankName || '-'}</div>
-                      </td>
-                      <td className="w-36 px-3 py-2 text-xs text-gray-700 border-r border-gray-200">
-                        <div className="truncate">{crew.countryName || t('crew.page.na')}</div>
-                      </td>
-                      <td className="w-32 px-3 py-2 text-xs text-gray-700 border-r border-gray-200">
-                        {crew.embarkDate ? format(parseISO(crew.embarkDate), 'dd/MM/yyyy') : '-'}
-                      </td>
-                      <td className="w-24 px-3 py-2">
-                        <div className="flex items-center gap-1.5">
-                          {crew.isOnboard ? (
-                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">{t('crew.page.onboard')}</span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">{t('crew.page.ashore')}</span>
-                          )}
-                          {shoreChangeSummary[String(crew.id)] > 0 && (
-                            <span
-                              title={`${shoreChangeSummary[String(crew.id)]} thay đổi từ bờ`}
-                              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, padding: '0 4px', background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9 }}
-                            >{shoreChangeSummary[String(crew.id)]}</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* a */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-          <div>
-            <span className="border border-gray-300 rounded px-2 py-1 text-xs">{ITEMS_PER_PAGE} / {t('crew.page.perPage')}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="mr-2">
-              {t('crew.page.pageInfo', { current: onboardPage, total: totalPages, count: displayedCrew.length })}
-            </span>
-            <button
-              onClick={() => setOnboardPage(p => Math.max(1, p - 1))}
-              disabled={onboardPage === 1}
-              className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40"
-            >&lsaquo;</button>
-            {[...Array(Math.min(5, totalPages))].map((_, i) => {
-              let page: number
-              if (totalPages <= 5) page = i + 1
-              else if (onboardPage <= 3) page = i + 1
-              else if (onboardPage >= totalPages - 2) page = totalPages - 4 + i
-              else page = onboardPage - 2 + i
-              return (
-                <button
-                  key={page}
-                  onClick={() => setOnboardPage(page)}
-                  className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${
-                    onboardPage === page
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-300 hover:bg-gray-50'
-                  }`}
-                >{page}</button>
-              )
-            })}
-            <button
-              onClick={() => setOnboardPage(p => Math.min(totalPages, p + 1))}
-              disabled={onboardPage === totalPages}
-              className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40"
-            >&rsaquo;</button>
-          </div>
-          <div className="flex items-center gap-2">
-            <span>{t('crew.page.pagination')}</span>
-            <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={onboardPage}
-              onChange={e => {
-                const v = Number(e.target.value)
-                if (v >= 1 && v <= totalPages) setOnboardPage(v)
-              }}
-              className="w-12 border border-gray-300 rounded px-1 py-1 text-center text-xs"
-            />
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const renderCrewTable = () => (
+    <DataTable
+      flush
+      columns={columns}
+      data={crewOnBoard}
+      rowKey={c => c.id}
+      itemLabel="thuyền viên"
+      pageSize={15}
+      emptyMessage={t('crew.page.noCrewMembers')}
+      searchPlaceholder={t('crew.searchPlaceholder')}
+      exportOptions={false}
+      onRowClick={c => onViewCrew(c.id)}
+      onRowContextMenu={handleContextMenu}
+      rowClassName={c => selectedCrew === c.id ? '!bg-blue-100' : undefined}
+      minWidth={860}
+      toolbarActions={
+        <>
+          <button type="button" onClick={exportCrewListToExcel} disabled={crewOnBoard.length === 0} className={toolbarButtonClass}>
+            <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> {t('crew.actions.exportExcel')}
+          </button>
+          <button type="button" onClick={exportCrewListToPDF} disabled={crewOnBoard.length === 0} className={toolbarButtonClass}>
+            <Download className="h-4 w-4 text-red-600" /> {t('crew.actions.exportPdf')}
+          </button>
+          <PermissionGate permission="crew.create"><button
+            type="button"
+            disabled
+            title="Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu"
+            onClick={onAddCrew}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-blue-600 px-3.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" /> {t('crew.addMember')}
+          </button></PermissionGate>
+        </>
+      }
+    />
+  )
 
   return (
-    <div className="relative">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {/* Crew On Board Tab */}
       {activeTab === 'onboard' && renderCrewTable()}
 
@@ -1018,86 +702,57 @@ function InlinePendingReviewSection({
     try { await onApprove(id) } finally { setProcessingId(null) }
   }
 
-  if (pendingCrew.length === 0 && !pendingLoading) return (
-    <div className="text-center py-12 bg-white">
-      <Clock className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-      <p className="text-gray-400 text-sm">{t('crew.pendingSection')}: 0</p>
-    </div>
-  )
+  const columns: Column<CrewMember>[] = [
+    { key: 'crewId', header: t('crew.table.crewId'), width: 130, value: c => c.crewId, className: 'font-medium' },
+    {
+      key: 'fullName', header: t('crew.table.name'), value: c => c.fullName,
+      render: c => <span className="inline-flex items-center gap-1.5"><User className="h-3.5 w-3.5 shrink-0 text-amber-500" />{c.fullName}</span>,
+    },
+    { key: 'rank', header: t('crew.table.rank'), width: 180, value: c => c.rank?.rankName || '' },
+    { key: 'nationality', header: t('crew.fields.nationality'), width: 150, value: c => c.countryName || '' },
+    {
+      key: 'status', header: t('crew.table.status'), width: 130, align: 'center',
+      value: c => c.onboardStatus === 'OnHold' ? t('crew.page.onHold') : t('crew.page.pending'),
+      render: c => c.onboardStatus === 'OnHold'
+        ? <span className="rounded-full bg-orange-100 px-2 py-0.5 font-semibold text-orange-700">{t('crew.page.onHold')}</span>
+        : <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">{t('crew.page.pending')}</span>,
+    },
+    {
+      key: 'actions', header: t('crew.page.actions'), width: 190, align: 'center',
+      render: c => (
+        <div className="flex items-center justify-center gap-2">
+          <PermissionGate permission="crew.approve"><button
+            type="button"
+            onClick={() => handleApprove(c.id)}
+            disabled={processingId === c.id}
+            className="inline-flex items-center gap-1 rounded bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            <UserCheck className="h-3 w-3" /> {t('crew.page.approve')}
+          </button></PermissionGate>
+          <button
+            type="button"
+            onClick={() => onViewCrew(c.id)}
+            className="inline-flex items-center gap-1 rounded bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
+          >
+            <ExternalLink className="h-3 w-3" /> {t('crew.page.review')}
+          </button>
+        </div>
+      ),
+    },
+  ]
 
   return (
-    <div className="bg-white">
-      {pendingLoading ? (
-        <div className="text-center py-6 bg-white">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto"></div>
-          <p className="text-gray-500 mt-2 text-sm">{t('crew.page.loadingPending')}</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm border-collapse">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-blue-50">
-                <th className="w-10 px-2 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('crew.table.no')}</th>
-                <th className="w-32 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('crew.table.crewId')}</th>
-                <th className="min-w-[200px] px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('crew.table.name')}</th>
-                <th className="w-44 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('crew.table.rank')}</th>
-                <th className="w-36 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('crew.fields.nationality')}</th>
-                <th className="w-24 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200">{t('crew.table.status')}</th>
-                <th className="w-40 px-3 py-2 text-center text-xs font-semibold text-gray-600 border-b border-gray-200">{t('crew.page.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pendingCrew.map((crew, idx) => (
-                <tr key={crew.id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                  <td className="w-10 px-2 py-2 text-center text-xs text-gray-500 border-r border-gray-200">{idx + 1}</td>
-                  <td className="w-32 px-3 py-2 text-xs font-medium text-gray-900 border-r border-gray-200">
-                    <div className="truncate">{crew.crewId}</div>
-                  </td>
-                  <td className="min-w-[200px] px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                      <span className="truncate">{crew.fullName}</span>
-                    </div>
-                  </td>
-                  <td className="w-44 px-3 py-2 text-xs text-gray-700 border-r border-gray-200">
-                    <div className="truncate">{crew.rank?.rankName || '-'}</div>
-                  </td>
-                  <td className="w-36 px-3 py-2 text-xs text-gray-700 border-r border-gray-200">
-                    <div className="truncate">{crew.countryName || t('crew.page.na')}</div>
-                  </td>
-                  <td className="w-24 px-3 py-2 text-xs border-r border-gray-200">
-                    {crew.onboardStatus === 'OnHold' ? (
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">{t('crew.page.onHold')}</span>
-                    ) : (
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700">{t('crew.page.pending')}</span>
-                    )}
-                  </td>
-                  <td className="w-40 px-3 py-2 text-xs">
-                    <div className="flex items-center justify-center gap-2">
-                      <PermissionGate permission="crew.approve"><button
-                        onClick={() => handleApprove(crew.id)}
-                        disabled={processingId === crew.id}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
-                      >
-                        <UserCheck className="w-3 h-3" />
-                        {t('crew.page.approve')}
-                      </button></PermissionGate>
-                      <button
-                        onClick={() => onViewCrew(crew.id)}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded hover:bg-blue-100 transition-colors"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        {t('crew.page.review')}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <DataTable
+      flush
+      loading={pendingLoading}
+      columns={columns}
+      data={pendingCrew}
+      rowKey={c => c.id}
+      itemLabel="thuyền viên"
+      emptyMessage={`${t('crew.pendingSection')}: 0`}
+      searchPlaceholder={t('crew.searchPlaceholder')}
+      exportOptions={{ fileName: 'thuyen-vien-cho-duyet', title: 'THUYỀN VIÊN CHỜ DUYỆT' }}
+      minWidth={860}
+    />
   )
 }
-

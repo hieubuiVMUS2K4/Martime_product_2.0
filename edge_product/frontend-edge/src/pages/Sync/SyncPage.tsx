@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   RefreshCw, Cloud, Clock, AlertTriangle,
   CheckCircle2, XCircle, Loader2, Database, ArrowUpDown,
-  Wifi, WifiOff, Send, ChevronDown, ChevronUp, RotateCcw, Users, ArrowRight,
+  Wifi, WifiOff, Send, RotateCcw, Users, ArrowRight,
   Ship, FileText, Navigation, Calendar, Package, Settings
 } from 'lucide-react'
 import { ShoreConfigModal } from './ShoreConfigModal'
@@ -13,6 +13,7 @@ import { syncService } from '@/services/maritime.service'
 import type { SnapshotResponse } from '@/services/maritime.service'
 import type { SyncQueue } from '@/types/maritime.types'
 import { SYNC_CONFIG } from '@/config/app.config'
+import { DataTable, type Column } from '@/components/common/DataTable'
 
 type SyncStatus = {
   pendingRecords: number
@@ -34,6 +35,8 @@ const TABLE_TO_KEY: Record<string, string> = {
   country:              'sync.tables.country',
   country_certificate:  'sync.tables.countryCertificate',
   service_record:       'sync.tables.serviceRecord',
+  crew_member_document: 'sync.tables.crewMemberDocument',
+  crew_roster:          'sync.tables.crewRoster',
   travel_document:      'sync.tables.travelDocument',
   seafarer_document:    'sync.tables.seafarerDocument',
   employment_document:  'sync.tables.employmentDocument',
@@ -91,20 +94,20 @@ function SyncConfirmModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!syncing ? onClose : undefined} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden">
+      <div className="relative flex max-h-[90vh] w-full max-w-4xl mx-3 flex-col overflow-y-auto rounded-lg bg-white shadow-xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700">
-          <div className="flex items-center gap-3 text-white">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2 text-gray-900">
             <Send className="w-5 h-5" />
-            <span className="font-semibold text-lg">{t('sync.confirmTitle')}</span>
+            <span className="text-sm font-semibold">{t('sync.confirmTitle')}</span>
             {total > 0 && (
-              <span className="bg-white/20 text-white text-xs px-2.5 py-1 rounded-full">
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                 {t('sync.confirmRecordCount', { count: total })}
               </span>
             )}
           </div>
-          <button onClick={!syncing ? onClose : undefined} className="text-white/70 hover:text-white transition-colors disabled:opacity-40">
+          <button onClick={!syncing ? onClose : undefined} className="text-gray-400 transition-colors hover:text-gray-600 disabled:opacity-40">
             <XCircle className="w-5 h-5" />
           </button>
         </div>
@@ -351,15 +354,15 @@ function SnapshotModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!loading ? onClose : undefined} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="relative flex max-h-[90vh] w-full max-w-xl mx-3 flex-col overflow-y-auto rounded-lg bg-white shadow-xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-700 to-slate-800">
-          <div className="flex items-center gap-3 text-white">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2 text-gray-900">
             <Database className="w-5 h-5" />
-            <span className="font-semibold text-lg">{t('sync.snapshotTitle')}</span>
+            <span className="text-sm font-semibold">{t('sync.snapshotTitle')}</span>
           </div>
-          <button onClick={!loading ? onClose : undefined} className="text-white/70 hover:text-white transition-colors">
+          <button onClick={!loading ? onClose : undefined} className="text-gray-400 transition-colors hover:text-gray-600">
             <XCircle className="w-5 h-5" />
           </button>
         </div>
@@ -471,7 +474,6 @@ export function SyncPage() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [autoSync, setAutoSync] = useState(SYNC_CONFIG.AUTO_SYNC_ENABLED)
-  const [showQueue, setShowQueue] = useState(true)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [resetting, setResetting] = useState(false)
   const [showSyncModal, setShowSyncModal] = useState(false)
@@ -601,13 +603,9 @@ export function SyncPage() {
 
   if (loading) {
     return (
-      <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-        <div className="max-w-7xl mx-auto p-6">
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-            <span className="ml-3 text-gray-500 text-lg">{t('sync.loading')}</span>
-          </div>
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-white">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <span className="ml-3 text-sm text-gray-500">{t('sync.loading')}</span>
       </div>
     )
   }
@@ -615,315 +613,210 @@ export function SyncPage() {
   const pendingCount = status?.pendingRecords ?? 0
   const isOnline = status?.isOnline ?? false
   const failedItems = queue.filter(q => q.retryCount > 0)
+  const exhausted = failedItems.filter(q => q.retryCount >= q.maxRetries).length
+
+  const btn = 'inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium disabled:opacity-50'
+  const btnOutline = `${btn} border border-gray-300 bg-white text-gray-700 hover:bg-gray-50`
+
+  const queueColumns: Column<SyncQueue>[] = [
+    { key: 'id', header: 'ID', width: 70, numeric: true, filter: false, value: q => q.id, render: q => <span className="font-mono">#{q.id}</span> },
+    {
+      key: 'table', header: t('sync.table'), width: 180, value: q => getTableDisplayName(q.tableName),
+      render: q => (
+        <span className="block truncate">
+          <span className="font-medium text-gray-900">{getTableDisplayName(q.tableName)}</span>
+          {getTableDisplayName(q.tableName) !== q.tableName && <span className="ml-1.5 font-mono text-xs text-gray-400">{q.tableName}</span>}
+        </span>
+      ),
+    },
+    { key: 'record', header: t('sync.recordId'), width: 150, value: q => String(q.recordId), className: 'font-mono' },
+    {
+      key: 'priority', header: t('sync.priority'), width: 100, align: 'center', value: q => getPriorityLabel(q.priority),
+      render: q => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getPriorityColor(q.priority)}`}>{getPriorityLabel(q.priority)}</span>,
+    },
+    {
+      key: 'retries', header: t('sync.retries'), width: 85, numeric: true, filter: false, value: q => q.retryCount,
+      render: q => <span className={q.retryCount > 0 ? 'font-semibold text-red-600' : 'text-gray-500'}>{q.retryCount}/{q.maxRetries}</span>,
+    },
+    {
+      key: 'created', header: t('sync.createdAt'), width: 150, align: 'center', value: q => q.createdAt,
+      filter: q => formatTime(q.createdAt), exportValue: q => formatTime(q.createdAt), render: q => formatTime(q.createdAt),
+    },
+    {
+      key: 'error', header: t('sync.lastError'), value: q => q.lastError ?? '', truncate: false,
+      render: q => q.lastError
+        ? <span className="block whitespace-pre-line break-words text-xs text-red-600">{q.lastError.split('; ').join('\n')}</span>
+        : <span className="text-gray-400">—</span>,
+    },
+  ]
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-              <ArrowUpDown className="w-7 h-7 text-blue-600" />
-              {t('sync.title')}
-            </h1>
-            <p className="text-gray-500 mt-1">
-              {t('sync.updatedAt', { time: lastRefresh.toLocaleTimeString('vi-VN') })}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Auto-refresh toggle */}
-            <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
-              <input
-                type="checkbox"
-                checked={autoSync}
-                onChange={(e) => setAutoSync(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded"
-              />
-              <span className="text-sm text-gray-600">{t('sync.autoRefresh')}</span>
-            </label>
-
-            {/* Refresh button */}
-            <button
-              onClick={fetchData}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              {t('sync.refresh')}
-            </button>
-
-            {/* Reset Errors button - only show when there are failed items */}
-            {failedItems.length > 0 && (
-              <PermissionGate permission="sync.update"><button
-                onClick={handleResetErrors}
-                disabled={resetting}
-                title={t('sync.resetErrorsTitle')}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors text-sm"
-              >
-                {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-                {t('sync.resetErrors', { count: failedItems.filter(q => q.retryCount >= q.maxRetries).length })}
-              </button></PermissionGate>
-            )}
-
-            {/* Snapshot button — opens group selector modal */}
-            <PermissionGate permission="sync.update"><button
-              onClick={() => setShowSnapshotModal(true)}
-              disabled={syncing}
-              title={t('sync.snapshotDataTitle')}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors text-sm font-medium"
-            >
-              <Database className="w-4 h-4" />
-              {t('sync.snapshotData')}
-            </button></PermissionGate>
-
-            {/* Shore config button — opens ShoreConfigModal */}
-            <PermissionGate permission="sync.update"><button
-              onClick={() => setShowShoreConfigModal(true)}
-              title="Cấu hình kết nối bờ"
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
-            >
-              <Settings className="w-4 h-4" />
-              Cấu hình kết nối bờ
-            </button></PermissionGate>
-
-            {/* Sync trigger */}
-            <PermissionGate permission="sync.update"><button
-              onClick={() => setShowSyncModal(true)}
-              disabled={syncing}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors text-sm font-medium shadow-sm"
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              {syncing ? t('sync.syncing') : t('sync.syncNow')}
-            </button></PermissionGate>
-          </div>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white">
+      {/* Tiêu đề + thao tác */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-gray-200 px-3 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <ArrowUpDown className="h-4 w-4 text-blue-600" aria-hidden="true" />
+            {t('sync.title')}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${isOnline ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+            {isOnline ? t('sync.connected') : t('sync.disconnected')}
+          </span>
+          <span className="text-xs text-gray-500">{t('sync.updatedAt', { time: lastRefresh.toLocaleTimeString('vi-VN') })}</span>
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+            <input type="checkbox" checked={autoSync} onChange={e => setAutoSync(e.target.checked)} className="h-3.5 w-3.5 accent-blue-600" />
+            {t('sync.autoRefresh')}
+          </label>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={fetchData} className={btnOutline}>
+            <RefreshCw className="h-3.5 w-3.5" /> {t('sync.refresh')}
+          </button>
+          {failedItems.length > 0 && (
+            <PermissionGate permission="sync.update">
+              <button type="button" onClick={handleResetErrors} disabled={resetting} title={t('sync.resetErrorsTitle')}
+                className={`${btn} border border-red-200 bg-white text-red-600 hover:bg-red-50`}>
+                {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                {t('sync.resetErrors', { count: exhausted })}
+              </button>
+            </PermissionGate>
+          )}
+          <PermissionGate permission="sync.update">
+            <button type="button" onClick={() => setShowSnapshotModal(true)} disabled={syncing} title={t('sync.snapshotDataTitle')} className={btnOutline}>
+              <Database className="h-3.5 w-3.5" /> {t('sync.snapshotData')}
+            </button>
+          </PermissionGate>
+          <PermissionGate permission="sync.update">
+            <button type="button" onClick={() => setShowShoreConfigModal(true)} className={btnOutline}>
+              <Settings className="h-3.5 w-3.5" /> Cấu hình kết nối bờ
+            </button>
+          </PermissionGate>
+          <PermissionGate permission="sync.update">
+            <button type="button" onClick={() => setShowSyncModal(true)} disabled={syncing}
+              className={`${btn} bg-blue-600 text-white hover:bg-blue-700`}>
+              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              {syncing ? t('sync.syncing') : t('sync.syncNow')}
+            </button>
+          </PermissionGate>
+        </div>
+      </div>
 
-        {/* Snapshot success banner */}
-        {snapshotResult && (
-          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="text-teal-700 text-sm font-medium">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-gray-50 p-3">
+        <div className="flex min-w-0 flex-col gap-3">
+          {/* Thông báo */}
+          {snapshotResult && (
+            <div className="flex items-start gap-2 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm text-teal-800">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="flex-1">
                 {snapshotResult.queued > 0
                   ? t('sync.snapshotQueued', { count: snapshotResult.queued.toLocaleString() })
                   : t('sync.snapshotAllQueued')}
-              </span>
-              {snapshotResult.groups?.length > 0 && snapshotResult.queued > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {snapshotResult.groups.filter(g => g.count > 0).map(g => (
-                    <span key={g.name} className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
-                      {g.label}: {g.count}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={() => setSnapshotResult(null)} className="text-teal-500 hover:text-teal-700 flex-shrink-0">✕</button>
-          </div>
-        )}
-
-        {/* Success banner */}
-        {syncResult && !syncing && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-            <span className="text-emerald-700 text-sm">
-              {t('sync.syncComplete', { synced: syncResult.totalSynced.toLocaleString(), pending: syncResult.pendingRecords.toLocaleString() })}
-            </span>
-            <button onClick={() => setSyncResult(null)} className="ml-auto text-emerald-500 hover:text-emerald-700">
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* Error banner */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-            <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <span className="text-red-700 text-sm">{error}</span>
-            <button onClick={fetchData} className="ml-auto text-sm text-red-600 underline hover:text-red-800">
-              {t('sync.retry')}
-            </button>
-          </div>
-        )}
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Connection Status */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500 font-medium">{t('sync.connection')}</span>
-              {isOnline ? (
-                <Wifi className="w-5 h-5 text-emerald-500" />
-              ) : (
-                <WifiOff className="w-5 h-5 text-red-500" />
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-              <span className={`text-lg font-bold ${isOnline ? 'text-emerald-600' : 'text-red-600'}`}>
-                {isOnline ? t('sync.connected') : t('sync.disconnected')}
-              </span>
-            </div>
-            {!isOnline && status?.lastConnectionError && (
-              <p className="text-xs text-red-500 mt-2 line-clamp-2" title={status.lastConnectionError}>
-                {status.lastConnectionError}
-              </p>
-            )}
-          </div>
-
-          {/* Pending Records */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500 font-medium">{t('sync.pendingChanges')}</span>
-              <Database className="w-5 h-5 text-amber-500" />
-            </div>
-            <span className={`text-3xl font-bold ${pendingCount > 0 ? 'text-amber-600' : 'text-gray-800'}`}>
-              {pendingCount}
-            </span>
-            <p className="text-xs text-gray-400 mt-1">{t('sync.recordsPending')}</p>
-          </div>
-
-          {/* Last Sync */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500 font-medium">{t('sync.lastSync')}</span>
-              <Clock className="w-5 h-5 text-blue-500" />
-            </div>
-            <span className="text-lg font-bold text-gray-800">
-              {formatRelativeTime(status?.lastSyncAt)}
-            </span>
-            <p className="text-xs text-gray-400 mt-1">{formatTime(status?.lastSyncAt)}</p>
-          </div>
-
-          {/* Failed Items */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500 font-medium">{t('sync.syncErrors')}</span>
-              <AlertTriangle className={`w-5 h-5 ${failedItems.length > 0 ? 'text-red-500' : 'text-gray-400'}`} />
-            </div>
-            <span className={`text-3xl font-bold ${failedItems.length > 0 ? 'text-red-600' : 'text-gray-800'}`}>
-              {failedItems.length}
-            </span>
-            <p className="text-xs text-gray-400 mt-1">{t('sync.recordsNeedRetry')}</p>
-          </div>
-        </div>
-
-        {/* Sync Queue */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div
-            className="flex items-center justify-between p-5 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setShowQueue(!showQueue)}
-          >
-            <div className="flex items-center gap-3">
-              <Database className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('sync.queue')}
-              </h2>
-              <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-                {t('sync.queueItems', { count: queue.length })}
-              </span>
-            </div>
-            {showQueue ? (
-              <ChevronUp className="w-5 h-5 text-gray-400" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
-            )}
-          </div>
-
-          {showQueue && (
-            <div className="overflow-x-auto">
-              {queue.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">{t('sync.queueEmpty')}</p>
-                  <p className="text-gray-400 text-sm mt-1">{t('sync.queueEmptyDesc')}</p>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 text-left">
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('sync.table')}</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('sync.recordId')}</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('sync.priority')}</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('sync.retries')}</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('sync.createdAt')}</th>
-                      <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('sync.lastError')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {queue.map((item) => (
-                      <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
-                        <td className="px-5 py-3 text-sm text-gray-600 font-mono">#{item.id}</td>
-                        <td className="px-5 py-3">
-                          <span className="text-sm font-medium text-gray-800">
-                            {getTableDisplayName(item.tableName)}
-                          </span>
-                          <span className="text-xs text-gray-400 block">{item.tableName}</span>
-                        </td>
-                        <td className="px-5 py-3 text-sm text-gray-600 font-mono">{item.recordId}</td>
-                        <td className="px-5 py-3">
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(item.priority)}`}>
-                            {getPriorityLabel(item.priority)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className={`text-sm ${item.retryCount > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                            {item.retryCount}/{item.maxRetries}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-sm text-gray-500">{formatTime(item.createdAt)}</td>
-                        <td className="px-5 py-3 max-w-[360px]">
-                          {item.lastError ? (
-                            <div className="text-xs text-red-600 bg-red-50 border border-red-100 px-2 py-1.5 rounded space-y-0.5">
-                              {item.lastError.split('; ').map((line, i) => (
-                                <p key={i} className="break-words leading-relaxed">{line}</p>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </td>
-                      </tr>
+                {snapshotResult.groups?.length > 0 && snapshotResult.queued > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {snapshotResult.groups.filter(g => g.count > 0).map(g => (
+                      <span key={g.name} className="rounded-full bg-teal-100 px-2 py-0.5 text-xs">{g.label}: {g.count}</span>
                     ))}
-                  </tbody>
-                </table>
-              )}
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={() => setSnapshotResult(null)} className="text-teal-600 hover:text-teal-800" aria-label="Đóng">✕</button>
             </div>
           )}
-        </div>
+          {syncResult && !syncing && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{t('sync.syncComplete', { synced: syncResult.totalSynced.toLocaleString(), pending: syncResult.pendingRecords.toLocaleString() })}</span>
+              <button type="button" onClick={() => setSyncResult(null)} className="text-green-600 hover:text-green-800" aria-label="Đóng">✕</button>
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              <XCircle className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{error}</span>
+              <button type="button" onClick={fetchData} className="text-xs font-medium underline hover:text-red-900">{t('sync.retry')}</button>
+            </div>
+          )}
 
-        {/* Sync Config Info */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <Cloud className="w-4 h-4 text-blue-500" />
-            {t('sync.syncConfig')}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-3">
-              <span className="text-gray-500">{t('sync.autoSync')}</span>
-              <span className={`font-medium ${SYNC_CONFIG.AUTO_SYNC_ENABLED ? 'text-emerald-600' : 'text-gray-600'}`}>
-                {SYNC_CONFIG.AUTO_SYNC_ENABLED ? t('sync.enabled') : t('sync.disabled')}
-              </span>
-            </div>
-            <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-3">
-              <span className="text-gray-500">{t('sync.syncInterval')}</span>
-              <span className="font-medium text-gray-800">
-                {Math.floor(SYNC_CONFIG.SYNC_INTERVAL / 60000)} {t('sync.minutes')}
-              </span>
-            </div>
-            <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-3">
-              <span className="text-gray-500">{t('sync.maxBatch')}</span>
-              <span className="font-medium text-gray-800">{SYNC_CONFIG.MAX_SYNC_BATCH} {t('sync.records')}</span>
-            </div>
-          </div>
-        </div>
+          {/* Chỉ số */}
+          <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <header className="border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+              <h2 className="text-sm font-semibold text-blue-700">Tình trạng đồng bộ</h2>
+            </header>
+            <dl className="grid grid-cols-1 gap-px bg-gray-200 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                  {isOnline ? <Wifi className="h-3.5 w-3.5 text-green-600" /> : <WifiOff className="h-3.5 w-3.5 text-red-600" />}
+                  {t('sync.connection')}
+                </dt>
+                <dd className={`text-lg font-semibold ${isOnline ? 'text-green-700' : 'text-red-700'}`}>
+                  {isOnline ? t('sync.connected') : t('sync.disconnected')}
+                </dd>
+                {!isOnline && status?.lastConnectionError && (
+                  <p className="mt-1 line-clamp-2 text-xs text-red-600" title={status.lastConnectionError}>{status.lastConnectionError}</p>
+                )}
+              </div>
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500"><Database className="h-3.5 w-3.5 text-amber-600" />{t('sync.pendingChanges')}</dt>
+                <dd className={`text-lg font-semibold tabular-nums ${pendingCount > 0 ? 'text-amber-700' : 'text-gray-900'}`}>{pendingCount.toLocaleString('vi-VN')}</dd>
+                <p className="mt-0.5 text-xs text-gray-400">{t('sync.recordsPending')}</p>
+              </div>
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500"><Clock className="h-3.5 w-3.5 text-blue-600" />{t('sync.lastSync')}</dt>
+                <dd className="text-lg font-semibold text-gray-900">{formatRelativeTime(status?.lastSyncAt)}</dd>
+                <p className="mt-0.5 text-xs text-gray-400">{formatTime(status?.lastSyncAt)}</p>
+              </div>
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                  <AlertTriangle className={`h-3.5 w-3.5 ${failedItems.length > 0 ? 'text-red-600' : 'text-gray-400'}`} />{t('sync.syncErrors')}
+                </dt>
+                <dd className={`text-lg font-semibold tabular-nums ${failedItems.length > 0 ? 'text-red-700' : 'text-gray-900'}`}>{failedItems.length.toLocaleString('vi-VN')}</dd>
+                <p className="mt-0.5 text-xs text-gray-400">{t('sync.recordsNeedRetry')}</p>
+              </div>
+            </dl>
+          </section>
 
+          {/* Hàng chờ đồng bộ */}
+          <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <header className="border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+              <h2 className="text-sm font-semibold text-blue-700">{t('sync.queue')} ({queue.length.toLocaleString('vi-VN')})</h2>
+            </header>
+            <DataTable
+              flush
+              columns={queueColumns}
+              data={queue}
+              rowKey={q => q.id}
+              itemLabel="bản ghi"
+              emptyMessage={`${t('sync.queueEmpty')} ${t('sync.queueEmptyDesc')}`}
+              searchPlaceholder="Tìm theo bảng, mã bản ghi, lỗi..."
+              exportOptions={{ fileName: 'hang-cho-dong-bo', title: 'HÀNG CHỜ ĐỒNG BỘ LÊN BỜ' }}
+            />
+          </section>
+
+          {/* Cấu hình */}
+          <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <header className="flex items-center gap-2 border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+              <Cloud className="h-4 w-4 text-blue-700" aria-hidden="true" />
+              <h2 className="text-sm font-semibold text-blue-700">{t('sync.syncConfig')}</h2>
+            </header>
+            <dl className="grid grid-cols-1 gap-px bg-gray-200 sm:grid-cols-3">
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 text-xs font-medium text-gray-500">{t('sync.autoSync')}</dt>
+                <dd className={`text-sm font-medium ${SYNC_CONFIG.AUTO_SYNC_ENABLED ? 'text-green-700' : 'text-gray-700'}`}>
+                  {SYNC_CONFIG.AUTO_SYNC_ENABLED ? t('sync.enabled') : t('sync.disabled')}
+                </dd>
+              </div>
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 text-xs font-medium text-gray-500">{t('sync.syncInterval')}</dt>
+                <dd className="text-sm font-medium text-gray-900">{Math.floor(SYNC_CONFIG.SYNC_INTERVAL / 60000)} {t('sync.minutes')}</dd>
+              </div>
+              <div className="bg-white px-4 py-3">
+                <dt className="mb-1 text-xs font-medium text-gray-500">{t('sync.maxBatch')}</dt>
+                <dd className="text-sm font-medium text-gray-900">{SYNC_CONFIG.MAX_SYNC_BATCH} {t('sync.records')}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
       </div>
 
       {/* Sync Confirm Modal */}

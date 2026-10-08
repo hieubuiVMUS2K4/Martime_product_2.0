@@ -414,7 +414,7 @@ export function IncidentManagement() {
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-blue-500" /> Mô hình Kim tự tháp An toàn (Heinrich Pyramid)
             </h3>
-            <span className="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded">
+            <span className="text-xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded">
               Dữ liệu mô phỏng tàu + hạm đội
             </span>
           </div>
@@ -428,7 +428,7 @@ export function IncidentManagement() {
               title="Tai nạn nghiêm trọng (Major Incident)"
             >
               <span>{pyramidStats.major}</span>
-              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
+              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
                 Tai nạn nghiêm trọng / Tử vong: {pyramidStats.major} vụ
               </div>
             </div>
@@ -439,7 +439,7 @@ export function IncidentManagement() {
               title="Sự cố nhẹ (Minor Incident)"
             >
               <span>{pyramidStats.minor}</span>
-              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
+              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
                 Sự cố thương tật nhẹ / Hư hỏng thiết bị: {pyramidStats.minor} vụ
               </div>
             </div>
@@ -450,7 +450,7 @@ export function IncidentManagement() {
               title="Tình huống cận nguy (Near Miss)"
             >
               <span>{pyramidStats.nearMiss}</span>
-              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
+              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
                 Tình huống cận nguy (Near-Miss TL-04-08): {pyramidStats.nearMiss} lỗi
               </div>
             </div>
@@ -461,13 +461,13 @@ export function IncidentManagement() {
               title="Hành vi không an toàn (Unsafe Acts)"
             >
               <span>{pyramidStats.unsafeAct}</span>
-              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
+              <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition duration-150 z-10 shadow">
                 Hành vi / Điều kiện không an toàn: {pyramidStats.unsafeAct} lần phát hiện
               </div>
             </div>
 
           </div>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center mt-3">
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-3">
             * Nguyên lý Heinrich: Cứ 1 tai nạn nghiêm trọng sẽ có 29 tai nạn nhẹ và 300 tình huống cận nguy. Số hóa giúp tăng cường báo cáo cận nguy để phòng ngừa tai nạn lớn.
           </p>
         </div>
@@ -600,9 +600,9 @@ export function IncidentManagement() {
                   }`}
                 >
                   <div className="flex justify-between items-start gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">{inc.code}</span>
+                    <span className="text-xs font-mono font-bold text-slate-400 dark:text-slate-500">{inc.code}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase ${label.color}`}>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-extrabold uppercase ${label.color}`}>
                         {label.text}
                       </span>
                     </div>
@@ -611,8 +611,8 @@ export function IncidentManagement() {
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{inc.title}</h4>
                   
                   <div className="flex items-center justify-between mt-3">
-                    <span className="text-[10px] text-slate-400">{inc.vessel} • {inc.date}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${statLabel.color}`}>
+                    <span className="text-xs text-slate-400">{inc.vessel} • {inc.date}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${statLabel.color}`}>
                       {statLabel.text}
                     </span>
                   </div>
@@ -664,14 +664,14 @@ export function IncidentManagement() {
           {/* Incident Info */}
           <div className="space-y-4 text-sm text-slate-700 dark:text-slate-300">
             <div>
-              <span className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Mô tả sự việc:</span>
+              <span className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Mô tả sự việc:</span>
               <p className="bg-slate-50 dark:bg-slate-900 p-3.5 rounded-xl text-xs leading-relaxed border border-slate-100 dark:border-slate-800 mt-1">
                 {selectedIncident.description}
               </p>
             </div>
 
             <div>
-              <span className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Hành động khắc phục ngay lập tức:</span>
+              <span className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Hành động khắc phục ngay lập tức:</span>
               <p className="bg-emerald-50/50 dark:bg-emerald-950/10 text-emerald-800 dark:text-emerald-400 p-3.5 rounded-xl text-xs leading-relaxed border border-emerald-100 dark:border-emerald-950/30 mt-1">
                 {selectedIncident.immediateActions}
               </p>
@@ -679,13 +679,13 @@ export function IncidentManagement() {
 
             {/* RCA 5 Whys section */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-              <span className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              <span className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                 Phân tích nguyên nhân gốc rễ (Root Cause Analysis - 5 Whys) - TL-04-04
               </span>
               
               <div className="space-y-2 bg-slate-50 dark:bg-slate-950/30 p-4 rounded-2xl border border-slate-150 dark:border-slate-850">
                 <div className="flex gap-2 items-center">
-                  <span className="text-[10px] font-bold text-slate-400 shrink-0 w-12">Tại sao 1:</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0 w-12">Tại sao 1:</span>
                   <input
                     type="text"
                     value={why1}
@@ -695,7 +695,7 @@ export function IncidentManagement() {
                   />
                 </div>
                 <div className="flex gap-2 items-center">
-                  <span className="text-[10px] font-bold text-slate-400 shrink-0 w-12">Tại sao 2:</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0 w-12">Tại sao 2:</span>
                   <input
                     type="text"
                     value={why2}
@@ -705,7 +705,7 @@ export function IncidentManagement() {
                   />
                 </div>
                 <div className="flex gap-2 items-center">
-                  <span className="text-[10px] font-bold text-slate-400 shrink-0 w-12">Tại sao 3:</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0 w-12">Tại sao 3:</span>
                   <input
                     type="text"
                     value={why3}
@@ -715,7 +715,7 @@ export function IncidentManagement() {
                   />
                 </div>
                 <div className="flex gap-2 items-center">
-                  <span className="text-[10px] font-bold text-slate-400 shrink-0 w-12">Tại sao 4:</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0 w-12">Tại sao 4:</span>
                   <input
                     type="text"
                     value={why4}
@@ -725,7 +725,7 @@ export function IncidentManagement() {
                   />
                 </div>
                 <div className="flex gap-2 items-center">
-                  <span className="text-[10px] font-bold text-slate-400 shrink-0 w-12">Tại sao 5:</span>
+                  <span className="text-xs font-bold text-slate-400 shrink-0 w-12">Tại sao 5:</span>
                   <input
                     type="text"
                     value={why5}
@@ -756,7 +756,7 @@ export function IncidentManagement() {
 
             {/* CAPA action list */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-              <span className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+              <span className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                 Hành động Khắc phục & Phòng ngừa (CAPA) - TL-04-05
               </span>
 
@@ -780,7 +780,7 @@ export function IncidentManagement() {
                       />
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded uppercase ${
                             capa.type === 'Corrective' 
                               ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30' 
                               : 'bg-teal-100 text-teal-800 dark:bg-teal-900/30'
@@ -793,7 +793,7 @@ export function IncidentManagement() {
                       </div>
                     </div>
                     
-                    <span className="text-[10px] text-slate-400 shrink-0">Hạn: {capa.dueDate}</span>
+                    <span className="text-xs text-slate-400 shrink-0">Hạn: {capa.dueDate}</span>
                   </div>
                 ))}
 
@@ -862,7 +862,7 @@ export function IncidentManagement() {
       {/* New Incident Modal */}
       {isNewModalOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
             <div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 Báo cáo Sự cố / Tai nạn / Tình huống cận nguy mới (TL-04)
@@ -985,7 +985,7 @@ export function IncidentManagement() {
       {/* Export Preview Modal */}
       {isPreviewModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-3xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-hidden">
             
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-4">
               <div>
@@ -1007,9 +1007,9 @@ export function IncidentManagement() {
                 <div className="border-b-2 border-slate-950 pb-3 flex justify-between items-start">
                   <div>
                     <h4 className="font-extrabold text-xs text-slate-950 uppercase tracking-wide">MARITIME FLT SYSTEM</h4>
-                    <p className="text-[8px] text-slate-400">HSQE Safety Department</p>
+                    <p className="text-xs text-slate-400">HSQE Safety Department</p>
                   </div>
-                  <div className="text-right text-[8px] text-slate-500 space-y-0.5">
+                  <div className="text-right text-xs text-slate-500 space-y-0.5">
                     <p>Mã mẫu biểu: <strong>{selectedIncident.code}</strong></p>
                     <p>Ngày báo cáo: {selectedIncident.date}</p>
                     <p>Quy trình: <strong>TL-04</strong></p>
@@ -1024,7 +1024,7 @@ export function IncidentManagement() {
                      'BÁO CÁO TAI NẠN, SỰ CỐ AN TOÀN (TL-04-02)'}
                   </h2>
 
-                  <div className="grid grid-cols-2 gap-3 text-[10px] text-slate-800">
+                  <div className="grid grid-cols-2 gap-3 text-xs text-slate-800">
                     <p><strong>Tên tàu báo cáo:</strong> {selectedIncident.vessel}</p>
                     <p><strong>Vị trí xảy ra:</strong> {selectedIncident.location}</p>
                     <p><strong>Mức độ nghiêm trọng:</strong> {selectedIncident.severity}</p>
@@ -1032,23 +1032,23 @@ export function IncidentManagement() {
                   </div>
 
                   <div className="border-t border-slate-100 pt-2 space-y-1">
-                    <p className="font-bold text-[10px]">1. Mô tả chi tiết sự việc:</p>
+                    <p className="font-bold text-xs">1. Mô tả chi tiết sự việc:</p>
                     <p className="text-slate-650 bg-slate-50 p-2 rounded leading-relaxed">{selectedIncident.description}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="font-bold text-[10px]">2. Hành động khắc phục tức thời:</p>
+                    <p className="font-bold text-xs">2. Hành động khắc phục tức thời:</p>
                     <p className="text-slate-650 bg-slate-50 p-2 rounded leading-relaxed">{selectedIncident.immediateActions}</p>
                   </div>
 
                   {selectedIncident.whys && selectedIncident.whys[0] && (
                     <div className="space-y-1">
-                      <p className="font-bold text-[10px]">3. Phân tích nguyên nhân gốc rễ (5 Whys - TL-04-04):</p>
-                      <div className="bg-slate-50 p-2.5 rounded text-[9.5px] space-y-1 font-mono text-slate-700">
+                      <p className="font-bold text-xs">3. Phân tích nguyên nhân gốc rễ (5 Whys - TL-04-04):</p>
+                      <div className="bg-slate-50 p-2.5 rounded text-xs space-y-1 font-mono text-slate-700">
                         {selectedIncident.whys.filter(Boolean).map((w, i) => (
                           <p key={i}>{w}</p>
                         ))}
-                        <p className="mt-2 border-t border-slate-200 pt-1 font-sans text-[10px] text-blue-900 font-bold">
+                        <p className="mt-2 border-t border-slate-200 pt-1 font-sans text-xs text-blue-900 font-bold">
                           👉 Nguyên nhân gốc rễ: {selectedIncident.rootCause}
                         </p>
                       </div>
@@ -1057,9 +1057,9 @@ export function IncidentManagement() {
 
                   {selectedIncident.capas && selectedIncident.capas.length > 0 && (
                     <div className="space-y-1">
-                      <p className="font-bold text-[10px]">4. Kế hoạch hành động CAPA (TL-04-05 / TL-04-07):</p>
+                      <p className="font-bold text-xs">4. Kế hoạch hành động CAPA (TL-04-05 / TL-04-07):</p>
                       <div className="border border-slate-200 rounded overflow-hidden">
-                        <table className="w-full text-left border-collapse text-[9.5px]">
+                        <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-slate-100 border-b border-slate-200 font-bold text-slate-700">
                               <th className="p-1 px-2">Hành động</th>
@@ -1085,19 +1085,19 @@ export function IncidentManagement() {
                 </div>
 
                 {/* Footer signatures */}
-                <div className="border-t border-slate-200 pt-4 flex justify-between items-center text-[9px] text-slate-500">
+                <div className="border-t border-slate-200 pt-4 flex justify-between items-center text-xs text-slate-500">
                   <div className="text-center w-24">
                     <p>Người báo cáo</p>
                     <p className="mt-8 font-bold text-slate-800">Thuyền trưởng</p>
                   </div>
                   <div className="text-center w-24">
                     <p>Người kiểm tra</p>
-                    <div className="text-[10px] text-blue-950 font-serif rotate-6 select-none my-1 font-bold">N.V.Hải</div>
+                    <div className="text-xs text-blue-950 font-serif rotate-6 select-none my-1 font-bold">N.V.Hải</div>
                     <p className="font-bold text-slate-800">DPA Hải</p>
                   </div>
                   <div className="text-center w-24">
                     <p>Phê duyệt đóng HS</p>
-                    <div className="text-[10px] text-red-600 font-serif rotate-6 select-none my-1 font-bold">T.Q.Tuấn</div>
+                    <div className="text-xs text-red-600 font-serif rotate-6 select-none my-1 font-bold">T.Q.Tuấn</div>
                     <p className="font-bold text-slate-800">Giám đốc</p>
                   </div>
                 </div>

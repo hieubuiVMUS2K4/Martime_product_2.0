@@ -121,7 +121,7 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">{t('pms.assets.importModal.title')}</h2>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">

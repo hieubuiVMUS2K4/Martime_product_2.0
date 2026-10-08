@@ -6,7 +6,8 @@ import { useTranslationSafe } from '@/contexts/I18nContext'
 // Pencil, Copy, XCircle, CheckCircle, Trash2 đã bỏ cùng các mục Sửa / Nhân bản /
 // Vô hiệu hoá / Xoá trong menu chuột phải của tab Loại chứng chỉ. Bật lại thì import lại.
 // Plus đã bỏ cùng ô thêm chứng chỉ vào chức danh — danh mục nay do bờ làm chủ.
-import { Users, FileText, Award, User, Search, Download, Shield, ChevronsUpDown, ExternalLink, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { Users, FileText, Award, User, Download, Shield, ChevronRight, Loader2, ExternalLink, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { DataTable, toolbarButtonClass, type Column } from '@/components/common/DataTable'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -22,8 +23,6 @@ export function CrewCertificatePage() {
 
   // ── PAGE STATE ───────────────────────────────────────────────────────────
   const [rawCrewMembers, setRawCrewMembers] = useState<CrewMember[]>([])
-  const [sortType, setSortType] = useState<{ col: string; dir: 'asc'|'desc' } | null>({ col: 'crewId', dir: 'asc' })
-  const [sortMenu, setSortMenu] = useState<string | null>(null)
   const [certificateCache, setCertificateCache] = useState<any[] | null>(null)
   const [certificateLoading, setCertificateLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'crew' | 'certTypes' | 'ranks'>('crew')
@@ -76,15 +75,10 @@ export function CrewCertificatePage() {
     finally { setCertificateLoading(false) }
   }
 
-  const crewMembers = useMemo(() => {
-    if (!sortType) return rawCrewMembers
-    const sorted = [...rawCrewMembers]
-    if (sortType.col === 'fullName')
-      sorted.sort((a, b) => sortType.dir === 'asc' ? a.fullName.localeCompare(b.fullName) : b.fullName.localeCompare(a.fullName))
-    else if (sortType.col === 'crewId')
-      sorted.sort((a, b) => sortType.dir === 'asc' ? a.crewId.localeCompare(b.crewId) : b.crewId.localeCompare(a.crewId))
-    return sorted
-  }, [rawCrewMembers, sortType])
+  const crewMembers = useMemo(
+    () => [...rawCrewMembers].sort((a, b) => a.crewId.localeCompare(b.crewId)),
+    [rawCrewMembers],
+  )
 
   // Helper to inject auth headers into fetch calls
   const authFetch = (url: string, options?: RequestInit): Promise<Response> => {
@@ -98,20 +92,11 @@ export function CrewCertificatePage() {
     return fetch(url, { ...options, headers })
   }
 
-  const [currentPage, setCurrentPage] = useState(1)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; cert: any } | null>(null)
   const [selectedCert, setSelectedCert] = useState<string | null>(null)
   const [expandedCrewId, setExpandedCrewId] = useState<string | null>(null)
   const [crewCertificatesMap, setCrewCertificatesMap] = useState<Map<string, CrewCertificate[]>>(new Map())
   const [loadingCrewCerts, setLoadingCrewCerts] = useState<Record<string, boolean>>({})
-  const ITEMS_PER_PAGE = 15
-  const [crewCertsPage, setCrewCertsPage] = useState(1)
-
-  // Search filters for tables
-  const [crewSearchId, setCrewSearchId] = useState('')
-  const [crewSearchName, setCrewSearchName] = useState('')
-  const [certSearchName, setCertSearchName] = useState('')
-  const [certSearchCode, setCertSearchCode] = useState('')
 
   // Context menu for crew rows (crew certs section & rank section)
   const [crewContextMenu, setCrewContextMenu] = useState<{ x: number; y: number; crew: CrewMember } | null>(null)
@@ -169,117 +154,6 @@ export function CrewCertificatePage() {
       // If no countries array, include in "other" certificates
       return true
     })
-  }
-
-  // Apply sorting
-  const applySorting = (certs: any[]) => {
-    if (!sortType) return certs
-    const sorted = [...certs]
-    switch (sortType.col) {
-      case 'certificateName':
-        sorted.sort((a, b) => sortType.dir === 'asc'
-          ? a.certificateName.localeCompare(b.certificateName)
-          : b.certificateName.localeCompare(a.certificateName))
-        break
-      case 'certificateCode':
-        sorted.sort((a, b) => sortType.dir === 'asc'
-          ? a.certificateCode.localeCompare(b.certificateCode)
-          : b.certificateCode.localeCompare(a.certificateCode))
-        break
-      case 'category':
-        sorted.sort((a, b) => {
-          const aCat = a.category || ''
-          const bCat = b.category || ''
-          return sortType.dir === 'asc' ? aCat.localeCompare(bCat) : bCat.localeCompare(aCat)
-        })
-        break
-      case 'validity':
-        sorted.sort((a, b) => {
-          const aVal = a.validityPeriodMonths || 0
-          const bVal = b.validityPeriodMonths || 0
-          return sortType.dir === 'asc' ? aVal - bVal : bVal - aVal
-        })
-        break
-      case 'totalCrew':
-        sorted.sort((a, b) => {
-          const aTotal = a.totalCrew || 0
-          const bTotal = b.totalCrew || 0
-          return sortType.dir === 'asc' ? aTotal - bTotal : bTotal - aTotal
-        })
-        break
-      case 'crewId':
-        sorted.sort((a, b) => {
-          const aId = a.crewId || ''
-          const bId = b.crewId || ''
-          return sortType.dir === 'asc' ? aId.localeCompare(bId) : bId.localeCompare(aId)
-        })
-        break
-      case 'fullName':
-        sorted.sort((a, b) => {
-          const aName = a.fullName || ''
-          const bName = b.fullName || ''
-          return sortType.dir === 'asc' ? aName.localeCompare(bName) : bName.localeCompare(aName)
-        })
-        break
-      case 'position':
-        sorted.sort((a, b) => {
-          const aPos = a.rank?.rankName || ''
-          const bPos = b.rank?.rankName || ''
-          return sortType.dir === 'asc' ? aPos.localeCompare(bPos) : bPos.localeCompare(aPos)
-        })
-        break
-      case 'totalCerts':
-        sorted.sort((a, b) => {
-          const aTotal = a.totalCerts || 0
-          const bTotal = b.totalCerts || 0
-          return sortType.dir === 'asc' ? aTotal - bTotal : bTotal - aTotal
-        })
-        break
-    }
-    return sorted
-  }
-
-  certificateStats = applySorting(certificateStats)
-  otherCertificateStats = applySorting(otherCertificateStats)
-
-  // SortDropdown component
-  function SortDropdown({ col, options }: {
-    col: string;
-    options: Array<{ label: string; dir: 'asc'|'desc' }>;
-  }) {
-    if (!setSortType || !setSortMenu) return null
-    return (
-      <div className="absolute top-1/2 right-2 -translate-y-1/2" style={{zIndex:10}}>
-        <button
-          className="text-gray-400 hover:text-blue-600 text-xs p-1"
-          onClick={e => { e.stopPropagation(); setSortMenu(sortMenu === col ? null : col) }}
-          style={{lineHeight:0}}
-        >
-          <ChevronsUpDown size={14} />
-        </button>
-        {sortMenu === col && (
-          <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded shadow-lg z-50">
-            {options.map(opt => (
-              <button
-                key={opt.label}
-                className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
-                  sortType?.col === col && sortType?.dir === opt.dir 
-                    ? 'text-blue-600 font-bold' 
-                    : 'text-gray-700'
-                }`}
-                onClick={e => { 
-                  e.stopPropagation(); 
-                  setSortType({col, dir: opt.dir}); 
-                  setSortMenu(null) 
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
   }
 
   const getCategoryBadge = (category?: string) => {
@@ -489,9 +363,10 @@ export function CrewCertificatePage() {
   // Không còn hàm thêm/gỡ chứng chỉ theo chức danh ở tàu: bảng nối rank_certificates
   // do bờ làm chủ và phát xuống. Tàu chỉ xem để biết chức danh nào cần chứng chỉ gì.
 
-  // Load all crew certificates when crew tab is active - BULK load
+  // Tải sẵn chứng chỉ của mọi thuyền viên trên tàu (một lần gọi bulk) — tab Theo chức danh
+  // cũng cần để tính tuân thủ, không chỉ tab Chứng chỉ thuyền viên.
   useEffect(() => {
-    if (activeTab === 'crew' && crewMembers.length > 0) {
+    if ((activeTab === 'crew' || activeTab === 'ranks') && crewMembers.length > 0) {
       const onboardCrew = crewMembers.filter(c => c.isOnboard)
       const unloadedIds = onboardCrew
         .filter(crew => !hasCrewCertificatesLoaded(crew.id))
@@ -614,15 +489,6 @@ export function CrewCertificatePage() {
     Promise.all([reloadCrewCerts(), reloadRankCerts()])
   }, [reloadTrigger])
 
-  const filteredCerts = certificateStats.filter(cert => {
-    if (certSearchName && !cert.certificateName?.toLowerCase().includes(certSearchName.toLowerCase())) return false
-    if (certSearchCode && !cert.certificateCode?.toLowerCase().includes(certSearchCode.toLowerCase())) return false
-    return true
-  })
-  const certTotalPages = Math.ceil(filteredCerts.length / ITEMS_PER_PAGE)
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const endIndex = startIndex + ITEMS_PER_PAGE
-  const paginatedCerts = filteredCerts.slice(startIndex, endIndex)
 
   // Load certificates for a specific crew member
   const loadCrewCertificates = async (crewId: string) => {
@@ -688,15 +554,315 @@ export function CrewCertificatePage() {
       }
     })
 
-  const filteredCrewCerts = crewWithCertStats.filter(crew => {
-    if (crewSearchId && !crew.crewId?.toLowerCase().includes(crewSearchId.toLowerCase())) return false
-    if (crewSearchName && !crew.fullName?.toLowerCase().includes(crewSearchName.toLowerCase())) return false
-    return true
-  })
-  const crewCertsTotalPages = Math.ceil(filteredCrewCerts.length / ITEMS_PER_PAGE)
-  const crewCertsStartIndex = (crewCertsPage - 1) * ITEMS_PER_PAGE
-  const crewCertsEndIndex = crewCertsStartIndex + ITEMS_PER_PAGE
-  const paginatedCrewCerts = filteredCrewCerts.slice(crewCertsStartIndex, crewCertsEndIndex)
+
+  const statusBadges = (valid: number, expiring: number, expired: number) => (
+    <span className="inline-flex gap-1.5">
+      <span className="rounded bg-green-100 px-2 py-0.5 text-green-800">{valid} {t('crew.monitor.valid')}</span>
+      <span className="rounded bg-yellow-100 px-2 py-0.5 text-yellow-800">{expiring} {t('crew.monitor.expiring')}</span>
+      <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">{expired} {t('crew.monitor.expired')}</span>
+    </span>
+  )
+  const expandMark = (open: boolean) => (
+    <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90 text-blue-600' : ''}`} />
+  )
+
+  type CrewCertRow = (typeof crewWithCertStats)[number]
+  const crewColumns: Column<CrewCertRow>[] = [
+    {
+      key: 'crewId', header: t('crew.table.crewId'), width: 150, value: c => c.crewId,
+      render: c => <span className="inline-flex items-center gap-1.5">{expandMark(expandedCrewId === c.id)}{c.crewId}</span>,
+    },
+    { key: 'fullName', header: t('crew.table.name'), value: c => c.fullName },
+    { key: 'rank', header: t('crew.table.rank'), width: 180, value: c => c.rank?.rankName || '' },
+    {
+      key: 'totalCerts', header: t('crew.monitor.totalCerts'), width: 120, numeric: true,
+      value: c => hasCrewCertificatesLoaded(c.id) ? c.totalCerts : null,
+      render: c => hasCrewCertificatesLoaded(c.id) ? c.totalCerts : '—',
+    },
+    {
+      key: 'status', header: t('crew.table.status'), width: 300, align: 'center', filter: false, sortable: false,
+      exportValue: c => hasCrewCertificatesLoaded(c.id) ? `${c.validCount} / ${c.expiringCount} / ${c.expiredCount}` : '',
+      render: c => hasCrewCertificatesLoaded(c.id)
+        ? statusBadges(c.validCount, c.expiringCount, c.expiredCount)
+        : <span className="italic text-gray-400">{t('crew.monitor.clickToLoad')}</span>,
+    },
+  ]
+
+  const renderCrewExpanded = (crew: CrewCertRow) => {
+    const crewCerts = getCrewCertificates(crew.id)
+    const isLoaded = hasCrewCertificatesLoaded(crew.id)
+    return (
+      <>
+                {loadingCrewCerts[crew.id] ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="text-gray-600 text-sm mt-2">{t('crew.monitor.loadingCerts')}</p>
+                  </div>
+                ) : isLoaded && crewCerts.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-[#7d8d9a] bg-white text-xs">
+                      <thead className="bg-blue-50">
+                        <tr>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.certNameHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.cocHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.countryHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.certNumberHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.issueDateHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.expiryDateHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc]">{t('crew.monitor.issuingAuthorityHeader')}</th>
+                          <th className="px-3 py-2 text-center font-semibold text-gray-600 border-b border-b-[#7d8d9a]">{t('crew.monitor.statusHeader')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crewCerts
+                          .slice()
+                          .filter((cert: any) => {
+                            if (selectedCountry === 'all') return true
+                            return cert.countryId?.toString() === selectedCountry || cert.country?.id?.toString() === selectedCountry
+                          })
+                          .sort((a: any, b: any) => {
+                            const getStatusPriority = (cert: any) => {
+                              if (!cert.expiryDate) return 4
+                              const now = new Date()
+                              const expiryDate = new Date(cert.expiryDate)
+                              const threeMonthsFromNow = new Date()
+                              threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3)
+                              if (expiryDate < now) return 1
+                              if (expiryDate < threeMonthsFromNow) return 2
+                              return 3
+                            }
+                            return getStatusPriority(a) - getStatusPriority(b)
+                          })
+                          .map((cert: any, idx: number) => {
+                            const status = getCertificateStatus(cert)
+                            return (
+                              <tr key={idx} className="border-t border-[#a3b1bc] hover:bg-blue-50/70">
+                                <td className="px-3 py-1.5 text-gray-900 border-r border-[#a3b1bc] truncate">{cert.certificate?.certificateName || cert.Certificate?.CertificateName || t('crew.monitor.na')}</td>
+                                <td className="px-3 py-1.5 border-r border-[#a3b1bc]">
+                                  {cert.certificateOfCompetency ? (
+                                    <span className={`px-2 py-0.5 font-medium rounded ${cert.certificateOfCompetency === 'National' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                                      {cert.certificateOfCompetency}
+                                    </span>
+                                  ) : <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="px-3 py-1.5 text-gray-700 border-r border-[#a3b1bc] truncate">{cert.country?.countryName || cert.countryName || t('crew.monitor.na')}</td>
+                                <td className="px-3 py-1.5 text-gray-700 border-r border-[#a3b1bc] truncate">{cert.certificateNumber || t('crew.monitor.na')}</td>
+                                <td className="px-3 py-1.5 text-center tabular-nums text-gray-700 border-r border-[#a3b1bc]">{cert.issueDate ? format(parseISO(cert.issueDate), 'dd MMM yyyy') : 'N/A'}</td>
+                                <td className="px-3 py-1.5 text-center tabular-nums text-gray-700 border-r border-[#a3b1bc]">{cert.expiryDate ? format(parseISO(cert.expiryDate), 'dd MMM yyyy') : 'N/A'}</td>
+                                <td className="px-3 py-1.5 text-gray-700 border-r border-[#a3b1bc] truncate">{cert.issuingAuthority || t('crew.monitor.na')}</td>
+                                <td className="px-3 py-1.5 text-center"><span className={status.color}>{status.label}</span></td>
+                              </tr>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-sm text-gray-500">{t('crew.monitor.noCertsForCrew')}</div>
+                )}
+      </>
+    )
+  }
+
+  const OTHER_GROUP = 'Quốc gia khác'
+  const SELECTED_GROUP = countries.find(c => c.id?.toString() === selectedCountry)?.countryName || 'Quốc gia đã chọn'
+  const certRows: any[] = selectedCountry === 'all'
+    ? certificateStats
+    : [...certificateStats.map(c => ({ ...c, _other: false })), ...otherCertificateStats.map(c => ({ ...c, _other: true }))]
+  const certColumns: Column<any>[] = [
+    { key: 'certificateName', header: t('crew.monitor.certName'), value: c => c.certificateName, className: 'font-medium' },
+    { key: 'certificateCode', header: t('crew.monitor.code'), width: 150, value: c => c.certificateCode },
+    {
+      key: 'category', header: t('crew.monitor.category'), width: 140, align: 'center',
+      value: c => c.category || t('crew.edDetail.other'), render: c => getCategoryBadge(c.category),
+    },
+    ...(selectedCountry !== 'all' ? [{
+      key: 'group', header: 'Phạm vi', width: 140, align: 'center' as const,
+      value: (c: any) => c._other ? OTHER_GROUP : SELECTED_GROUP,
+      render: (c: any) => c._other
+        ? <span className="rounded bg-orange-50 px-2 py-0.5 text-orange-700">{OTHER_GROUP}</span>
+        : <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-700">{SELECTED_GROUP}</span>,
+    }] : []),
+    {
+      key: 'validity', header: `${t('crew.monitor.validity')} (tháng)`, width: 110, numeric: true,
+      value: c => c.validityPeriodMonths || null, render: c => c.validityPeriodMonths || '—',
+    },
+    { key: 'totalCrew', header: t('crew.monitor.totalCrew'), width: 110, numeric: true, value: c => c.totalCrew || 0 },
+    {
+      key: 'status', header: t('crew.table.status'), width: 300, align: 'center', filter: false, sortable: false,
+      exportValue: c => `${c.validCount || 0} / ${c.expiringCount || 0} / ${c.expiredCount || 0}`,
+      render: c => statusBadges(c.validCount || 0, c.expiringCount || 0, c.expiredCount || 0),
+    },
+  ]
+
+  const rankColumns: Column<any>[] = [
+    {
+      key: 'rankCode', header: t('crew.monitor.rankCode'), width: 150, value: r => r.rankCode,
+      render: r => <span className="inline-flex items-center gap-1.5">{expandMark(expandedRankId === r.id)}{r.rankCode}</span>,
+    },
+    { key: 'rankName', header: t('crew.monitor.rankName'), value: r => r.rankName },
+    {
+      key: 'requiredCerts', header: t('crew.monitor.requiredCerts'), width: 140, numeric: true,
+      value: r => rankCertsCache.has(r.id) ? rankCertsCache.get(r.id)!.length : null,
+      render: r => rankCertsCache.has(r.id) ? rankCertsCache.get(r.id)!.length : '—',
+    },
+    {
+      key: 'crewCount', header: t('crew.monitor.crewCount'), width: 120, numeric: true,
+      value: r => crewByRankCache.has(r.id) ? crewByRankCache.get(r.id)!.length : null,
+      render: r => crewByRankCache.has(r.id) ? crewByRankCache.get(r.id)!.length : '—',
+    },
+    {
+      key: 'compliance', header: t('crew.monitor.compliance'), width: 320, align: 'center', filter: false, sortable: false, exportable: false,
+      render: r => {
+        const rCerts = rankCertsCache.get(r.id)
+        const crewList = crewByRankCache.get(r.id)
+        if (!rCerts || !crewList || crewList.some(c => !hasCrewCertificatesLoaded(c.id))) {
+          return <span className="inline-flex items-center gap-1.5 text-gray-400"><Loader2 className="h-3.5 w-3.5 animate-spin" />Đang tải…</span>
+        }
+        if (rCerts.length === 0) return <span className="text-gray-500">Chưa quy định chứng chỉ bắt buộc</span>
+        if (crewList.length === 0) return <span className="text-gray-500">Không có thuyền viên trên tàu</span>
+        const cp = getComplianceSummary(r.id)
+        return (
+          <span className="inline-flex gap-1.5">
+            <span className="rounded bg-green-100 px-2 py-0.5 text-green-800">{cp.fullyCompliant} {t('crew.monitor.compliant')}</span>
+            <span className="rounded bg-yellow-100 px-2 py-0.5 text-yellow-800">{cp.partiallyCompliant} {t('crew.monitor.partial')}</span>
+            <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">{cp.nonCompliant} {t('crew.monitor.missing')}</span>
+          </span>
+        )
+      },
+    },
+  ]
+
+  const renderRankExpanded = () => (
+    <>
+              {loadingRankCerts ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 text-sm mt-2">{t('crew.monitor.loadingRequirements')}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Required Certificates */}
+                  <div className="overflow-hidden rounded border border-[#7d8d9a] bg-white">
+                    <div className="bg-blue-50 px-3 py-2 border-b border-[#7d8d9a]">
+                      <h5 className="text-xs font-semibold text-blue-700">{t('crew.monitor.requiredCertificatesTitle')} ({rankCertificates.length})</h5>
+                    </div>
+                    <div className="p-3">
+                      {rankCertificates.length > 0 ? (
+                        <div className="space-y-2">
+                          {rankCertificates.map((rc) => (
+                            <div key={rc.id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 text-xs">
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{rc.certificate?.certificateName}</div>
+                                <div className="text-gray-500">{rc.certificate?.certificateCode} • {rc.certificate?.category}{rc.certificate?.validityPeriodMonths && ` • ${rc.certificate.validityPeriodMonths}m`}</div>
+                              </div>
+                              {crewByRank.length > 0 && (
+                                <div className="ml-4 text-xs">
+                                  <span className="font-medium text-green-600">
+                                    {crewByRank.filter(c => crewHasCertificate(c.id, rc.certificateId).has && crewHasCertificate(c.id, rc.certificateId).status === 'VALID').length}
+                                  </span>
+                                  <span className="text-gray-500"> / {crewByRank.length}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3 text-gray-500 text-xs">{t('crew.monitor.noCertsRequired')}</div>
+                      )}
+                      {/* Danh sách chứng chỉ bắt buộc theo chức danh do bờ quản lý — tàu chỉ xem. */}
+                    </div>
+                  </div>
+                  {/* Crew Compliance List */}
+                  {crewByRank.length > 0 && rankCertificates.length > 0 && (
+                    <div className="overflow-hidden rounded border border-[#7d8d9a] bg-white">
+                      <div className="bg-blue-50 px-3 py-2 border-b border-[#7d8d9a] flex items-center justify-between">
+                        <h5 className="text-xs font-semibold text-blue-700">{t('crew.monitor.crewMembersTitle')} ({crewByRank.length})</h5>
+                        <span className="text-xs text-gray-500 italic">{t('crew.monitor.clickToViewCerts')}</span>
+                      </div>
+                      <div className="divide-y divide-gray-200">
+                        {crewByRank.map((crew) => {
+                          const requiredCertIds = rankCertificates.map(rc => rc.certificateId)
+                          const crewCrts = getCrewCertificates(crew.id)
+                          const validCertCount = requiredCertIds.filter(certId => crewCrts.find(c => c.certificateId === certId && c.status === 'VALID')).length
+                          const totalRequired = requiredCertIds.length
+                          const isExpanded = expandedRankCrewId === crew.id
+                          return (
+                            <div key={`${crew.id}-${reloadTrigger}`} className="bg-white">
+                              <div
+                                onClick={() => setExpandedRankCrewId(isExpanded ? null : crew.id)}
+                                onContextMenu={(e) => handleCrewContextMenu(e, crew)}
+                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-3 flex-1">
+                                  <span className={`text-xs transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900">{crew.fullName}</div>
+                                    <div className="text-xs text-gray-500">{crew.crewId}</div>
+                                  </div>
+                                </div>
+                                <div className="text-xs">
+                                  {validCertCount === totalRequired ? (
+                                    <span className="px-2 py-1 rounded-full font-medium bg-green-100 text-green-800">{validCertCount}/{totalRequired} {t('crew.monitor.compliant')}</span>
+                                  ) : validCertCount > 0 ? (
+                                    <span className="px-2 py-1 rounded-full font-medium bg-yellow-100 text-yellow-800">{validCertCount}/{totalRequired} {t('crew.monitor.partial')}</span>
+                                  ) : (
+                                    <span className="px-2 py-1 rounded-full font-medium bg-red-100 text-red-800">0/{totalRequired} {t('crew.monitor.missing')}</span>
+                                  )}
+                                </div>
+                              </div>
+                              {isExpanded && (
+                                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
+                                  <div className="space-y-2">
+                                    {rankCertificates.map((rc) => {
+                                      const certStatus = crewHasCertificate(crew.id, rc.certificateId)
+                                      return (
+                                        <div key={rc.id}
+                                          className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 text-xs cursor-context-menu hover:bg-gray-50 transition-colors"
+                                          onContextMenu={(e) => {
+                                            e.preventDefault(); e.stopPropagation()
+                                            setCertIconMenu({ x: e.clientX, y: e.clientY, crewId: crew.id, crewName: crew.fullName, certificateId: rc.certificateId, certName: rc.certificate?.certificateName || '', certCode: rc.certificate?.certificateCode || '', has: certStatus.has })
+                                            setContextMenu(null); setCrewContextMenu(null)
+                                          }}
+                                          title={t('crew.monitor.rightClickHint')}
+                                        >
+                                          <div className="flex-1">
+                                            <div className="font-medium text-gray-900">{rc.certificate?.certificateName}</div>
+                                            <div className="text-gray-500">{rc.certificate?.certificateCode}</div>
+                                          </div>
+                                          <div className="ml-4 flex items-center gap-2">
+                                            {certStatus.has ? (
+                                              certStatus.status === 'VALID' ? (
+                                                <><span className="text-green-600 text-lg">✓</span>{certStatus.expiryDate && <span className="text-gray-500">{t('crew.monitor.expPrefix')} {format(parseISO(certStatus.expiryDate), 'dd/MM/yyyy')}</span>}</>
+                                              ) : certStatus.status === 'EXPIRED' ? (
+                                                <><span className="text-red-600 text-lg">✗</span><span className="text-red-600">{t('crew.monitor.expired')}</span></>
+                                              ) : (
+                                                <><span className="text-yellow-600 text-lg">⚠</span><span className="text-yellow-600">{t('crew.monitor.suspended')}</span></>
+                                              )
+                                            ) : (
+                                              <><span className="text-gray-300 text-lg">—</span><span className="text-gray-500">{t('crew.monitor.notHeld')}</span></>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {crewByRank.length === 0 && (
+                    <div className="text-center py-4 text-gray-500 text-sm">{t('crew.monitor.noCrewWithRank')}</div>
+                  )}
+                </div>
+              )}
+    </>
+  )
+
 
   const getCertificateStatus = (cert: any) => {
     if (!cert.expiryDate) return { label: t('crew.monitor.na'), color: 'text-gray-500' }
@@ -1180,24 +1346,6 @@ export function CrewCertificatePage() {
               <option key={country.id} value={country.id}>{country.countryName}</option>
             ))}
           </select>
-          {activeTab === 'certTypes' && selectedCountry !== 'all' && (
-            <>
-              <button
-                onClick={exportCrewRollToExcel}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                title={t('crew.monitor.exportExcelTitle')}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={exportCrewRollToPDF}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-white text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
-                title={t('crew.monitor.exportPdfTitle')}
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
           {/* Đã bỏ nút "Thêm CC": loại chứng chỉ là danh mục của bờ, tàu chỉ được xem.
               Tạo dưới tàu sẽ lệch với danh mục gốc và bị ghi đè ở lần đồng bộ sau. */}
           <button
@@ -1233,532 +1381,78 @@ export function CrewCertificatePage() {
       </div>
 
       {/* === MAIN CONTENT === */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col">
 
         {/* ============ TAB: CREW CERTIFICATES ============ */}
         {activeTab === 'crew' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto">
-              <table className="min-w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-blue-50">
-                    <th className="w-52 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative">
-                      <div className="flex items-center justify-between">
-                        {t('crew.table.crewId')}
-                        <SortDropdown col="crewId" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="min-w-[200px] px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative">
-                      <div className="flex items-center justify-between">
-                        {t('crew.table.name')}
-                        <SortDropdown col="fullName" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="w-44 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative">
-                      <div className="flex items-center justify-between">
-                        {t('crew.table.rank')}
-                        <SortDropdown col="position" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="w-36 px-3 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative">
-                      <div className="flex items-center justify-center">
-                        {t('crew.monitor.totalCerts')}
-                        <SortDropdown col="totalCerts" options={[{label:t('crew.monitor.ascending'), dir:'asc'},{label:t('crew.monitor.descending'), dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="w-96 px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-gray-200">
-                      {t('crew.table.status')}
-                    </th>
-                  </tr>
-                  {/* Search row */}
-                  <tr className="bg-white border-b border-gray-200">
-                    <th className="px-2 py-1.5 border-r border-gray-200">
-                      <div className="flex items-center border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                        <Search className="w-3 h-3 text-gray-400 mr-1 flex-shrink-0" />
-                        <input type="text" value={crewSearchId} onChange={e => { setCrewSearchId(e.target.value); setCrewCertsPage(1) }} placeholder={t('crew.monitor.search')} className="w-full text-xs outline-none bg-transparent" />
-                      </div>
-                    </th>
-                    <th className="px-2 py-1.5 border-r border-gray-200">
-                      <div className="flex items-center border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                        <Search className="w-3 h-3 text-gray-400 mr-1 flex-shrink-0" />
-                        <input type="text" value={crewSearchName} onChange={e => { setCrewSearchName(e.target.value); setCrewCertsPage(1) }} placeholder={t('crew.monitor.search')} className="w-full text-xs outline-none bg-transparent" />
-                      </div>
-                    </th>
-                    <th className="px-2 py-1.5 border-r border-gray-200"></th>
-                    <th className="px-2 py-1.5 border-r border-gray-200"></th>
-                    <th className="px-2 py-1.5"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {paginatedCrewCerts.map((crew, idx) => {
-                    const crewCerts = getCrewCertificates(crew.id)
-                    const isLoaded = hasCrewCertificatesLoaded(crew.id)
-                    return (
-                      <React.Fragment key={crew.id}>
-                        <tr
-                          onClick={() => loadCrewCertificates(crew.id)}
-                          onContextMenu={(e) => handleCrewContextMenu(e, crew)}
-                          className={`cursor-pointer hover:bg-blue-50 transition-colors ${expandedCrewId === crew.id ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
-                        >
-                          <td className="w-32 px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                            <div className="truncate flex items-center gap-2">
-                              <span className={`text-xs transition-transform ${expandedCrewId === crew.id ? 'rotate-90' : ''}`}>▶</span>
-                              {crew.crewId}
-                            </div>
-                          </td>
-                          <td className="min-w-[200px] px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                            <div className="truncate">{crew.fullName}</div>
-                          </td>
-                          <td className="w-44 px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                            <div className="truncate">{crew.rank?.rankName || '-'}</div>
-                          </td>
-                          <td className="w-20 px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">
-                            {isLoaded ? crew.totalCerts : '-'}
-                          </td>
-                          <td className="px-3 py-2 text-xs">
-                            {isLoaded ? (
-                              <div className="flex gap-2">
-                                <span className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800">{crew.validCount} {t('crew.monitor.valid')}</span>
-                                <span className="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800">{crew.expiringCount} {t('crew.monitor.expiring')}</span>
-                                <span className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800">{crew.expiredCount} {t('crew.monitor.expired')}</span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 italic text-xs">{t('crew.monitor.clickToLoad')}</span>
-                            )}
-                          </td>
-                        </tr>
-                        {/* Expanded row showing crew certificates */}
-                        {expandedCrewId === crew.id && (
-                          <tr>
-                            <td colSpan={5} className="px-4 py-2 bg-gray-50">
-                              {loadingCrewCerts[crew.id] ? (
-                                <div className="text-center py-4">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                                  <p className="text-gray-600 text-sm mt-2">{t('crew.monitor.loadingCerts')}</p>
-                                </div>
-                              ) : isLoaded && crewCerts.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                  <table className="w-full border border-gray-300 rounded text-xs">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.certNameHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.cocHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.countryHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.certNumberHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.issueDateHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.expiryDateHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600 border-r border-gray-300">{t('crew.monitor.issuingAuthorityHeader')}</th>
-                                        <th className="px-3 py-2 text-left font-medium text-gray-600">{t('crew.monitor.statusHeader')}</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {crewCerts
-                                        .slice()
-                                        .filter((cert: any) => {
-                                          if (selectedCountry === 'all') return true
-                                          return cert.countryId?.toString() === selectedCountry || cert.country?.id?.toString() === selectedCountry
-                                        })
-                                        .sort((a: any, b: any) => {
-                                          const getStatusPriority = (cert: any) => {
-                                            if (!cert.expiryDate) return 4
-                                            const now = new Date()
-                                            const expiryDate = new Date(cert.expiryDate)
-                                            const threeMonthsFromNow = new Date()
-                                            threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3)
-                                            if (expiryDate < now) return 1
-                                            if (expiryDate < threeMonthsFromNow) return 2
-                                            return 3
-                                          }
-                                          return getStatusPriority(a) - getStatusPriority(b)
-                                        })
-                                        .map((cert: any, idx: number) => {
-                                          const status = getCertificateStatus(cert)
-                                          return (
-                                            <tr key={idx} className="border-t border-gray-200 hover:bg-white">
-                                              <td className="px-3 py-1.5 text-gray-900 border-r border-gray-200 truncate">{cert.certificate?.certificateName || cert.Certificate?.CertificateName || t('crew.monitor.na')}</td>
-                                              <td className="px-3 py-1.5 border-r border-gray-200">
-                                                {cert.certificateOfCompetency ? (
-                                                  <span className={`px-2 py-0.5 font-medium rounded ${cert.certificateOfCompetency === 'National' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
-                                                    {cert.certificateOfCompetency}
-                                                  </span>
-                                                ) : <span className="text-gray-400">-</span>}
-                                              </td>
-                                              <td className="px-3 py-1.5 text-gray-700 border-r border-gray-200 truncate">{cert.country?.countryName || cert.countryName || t('crew.monitor.na')}</td>
-                                              <td className="px-3 py-1.5 text-gray-700 border-r border-gray-200 truncate">{cert.certificateNumber || t('crew.monitor.na')}</td>
-                                              <td className="px-3 py-1.5 text-gray-700 border-r border-gray-200">{cert.issueDate ? format(parseISO(cert.issueDate), 'dd MMM yyyy') : 'N/A'}</td>
-                                              <td className="px-3 py-1.5 text-gray-700 border-r border-gray-200">{cert.expiryDate ? format(parseISO(cert.expiryDate), 'dd MMM yyyy') : 'N/A'}</td>
-                                              <td className="px-3 py-1.5 text-gray-700 border-r border-gray-200 truncate">{cert.issuingAuthority || t('crew.monitor.na')}</td>
-                                              <td className="px-3 py-1.5"><span className={status.color}>{status.label}</span></td>
-                                            </tr>
-                                          )
-                                        })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              ) : (
-                                <div className="text-center py-4 text-sm text-gray-500">{t('crew.monitor.noCertsForCrew')}</div>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {/* Pagination */}
-            {crewCertsTotalPages > 1 && (
-              <div className="flex-shrink-0 bg-gray-50 px-4 py-2.5 flex items-center justify-between border-t border-gray-200">
-                <div className="text-xs text-gray-600">
-                  {t('crew.monitor.showingRange', { start: crewCertsStartIndex + 1, end: Math.min(crewCertsEndIndex, filteredCrewCerts.length), total: filteredCrewCerts.length })}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setCrewCertsPage(Math.max(1, crewCertsPage - 1))} disabled={crewCertsPage === 1}
-                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">{t('crew.table.previous')}</button>
-                  <span className="text-xs text-gray-600">{t('crew.monitor.pageInfo', { current: crewCertsPage, total: crewCertsTotalPages })}</span>
-                  <button onClick={() => setCrewCertsPage(Math.min(crewCertsTotalPages, crewCertsPage + 1))} disabled={crewCertsPage === crewCertsTotalPages}
-                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">{t('crew.table.next')}</button>
-                </div>
-              </div>
-            )}
-          </div>
+          <DataTable
+            key="crew"
+            flush
+            columns={crewColumns}
+            data={crewWithCertStats}
+            rowKey={c => c.id}
+            itemLabel="thuyền viên"
+            pageSize={15}
+            searchPlaceholder={t('crew.searchPlaceholder')}
+            exportOptions={{ fileName: 'chung-chi-thuyen-vien', title: 'CHỨNG CHỈ THUYỀN VIÊN' }}
+            onRowClick={c => loadCrewCertificates(c.id)}
+            onRowContextMenu={handleCrewContextMenu}
+            expandedKey={expandedCrewId}
+            renderExpanded={renderCrewExpanded}
+            minWidth={900}
+          />
         )}
 
         {/* ============ TAB: CERTIFICATE TYPES ============ */}
         {activeTab === 'certTypes' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto">
-              <table className="min-w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-blue-50">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative" style={{width: '25%'}}>
-                      <div className="flex items-center justify-between">
-                        {t('crew.monitor.certName')}
-                        <SortDropdown col="certificateName" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative" style={{width: '15%'}}>
-                      <div className="flex items-center justify-between">
-                        {t('crew.monitor.code')}
-                        <SortDropdown col="certificateCode" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative" style={{width: '12%'}}>
-                      <div className="flex items-center justify-between">
-                        {t('crew.monitor.category')}
-                        <SortDropdown col="category" options={[{label:'A → Z', dir:'asc'},{label:'Z → A', dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative" style={{width: '10%'}}>
-                      <div className="flex items-center justify-between">
-                        {t('crew.monitor.validity')}
-                        <SortDropdown col="validity" options={[{label:t('crew.monitor.ascending'), dir:'asc'},{label:t('crew.monitor.descending'), dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200 relative" style={{width: '10%'}}>
-                      <div className="flex items-center justify-between">
-                        {t('crew.monitor.totalCrew')}
-                        <SortDropdown col="totalCrew" options={[{label:t('crew.monitor.ascending'), dir:'asc'},{label:t('crew.monitor.descending'), dir:'desc'}]} />
-                      </div>
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-gray-200" style={{width: '28%'}}>
-                      {t('crew.table.status')}
-                    </th>
-                  </tr>
-                  {/* Search row */}
-                  <tr className="bg-white border-b border-gray-200">
-                    <th className="px-2 py-1.5 border-r border-gray-200">
-                      <div className="flex items-center border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                        <Search className="w-3 h-3 text-gray-400 mr-1 flex-shrink-0" />
-                        <input type="text" value={certSearchName} onChange={e => { setCertSearchName(e.target.value); setCurrentPage(1) }} placeholder={t('crew.monitor.search')} className="w-full text-xs outline-none bg-transparent" />
-                      </div>
-                    </th>
-                    <th className="px-2 py-1.5 border-r border-gray-200">
-                      <div className="flex items-center border border-gray-200 rounded px-1.5 py-0.5 bg-white">
-                        <Search className="w-3 h-3 text-gray-400 mr-1 flex-shrink-0" />
-                        <input type="text" value={certSearchCode} onChange={e => { setCertSearchCode(e.target.value); setCurrentPage(1) }} placeholder={t('crew.monitor.search')} className="w-full text-xs outline-none bg-transparent" />
-                      </div>
-                    </th>
-                    <th className="px-2 py-1.5 border-r border-gray-200"></th>
-                    <th className="px-2 py-1.5 border-r border-gray-200"></th>
-                    <th className="px-2 py-1.5 border-r border-gray-200"></th>
-                    <th className="px-2 py-1.5"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {/* Main country certs */}
-                  {paginatedCerts.map((cert, idx) => (
-                    <tr
-                      key={cert.id}
-                      onContextMenu={(e) => handleContextMenu(e, cert)}
-                      className={`cursor-pointer hover:bg-blue-50 transition-colors ${selectedCert === cert.id ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
-                    >
-                      <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"><div className="truncate">{cert.certificateName}</div></td>
-                      <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"><div className="truncate">{cert.certificateCode}</div></td>
-                      <td className="px-3 py-2 text-xs border-r border-gray-200">{getCategoryBadge(cert.category)}</td>
-                      <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200"><div className="truncate">{cert.validityPeriodMonths}m</div></td>
-                      <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200"><div className="truncate">{cert.totalCrew}</div></td>
-                      <td className="px-3 py-2 text-xs">
-                        <div className="flex gap-2">
-                          <span className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800">{cert.validCount || 0} {t('crew.monitor.valid')}</span>
-                          <span className="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800">{cert.expiringCount || 0} {t('crew.monitor.expiring')}</span>
-                          <span className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800">{cert.expiredCount || 0} {t('crew.monitor.expired')}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Other countries separator + certs */}
-                  {selectedCountry !== 'all' && otherCertificateStats.length > 0 && (
-                    <>
-                      <tr>
-                        <td colSpan={6} className="px-4 py-2 bg-orange-50 border-y border-orange-200">
-                          <span className="text-xs font-semibold text-orange-700 uppercase">{t('crew.monitor.otherCountries')} ({otherCertificateStats.length})</span>
-                        </td>
-                      </tr>
-                      {otherCertificateStats.slice(0, ITEMS_PER_PAGE).map((cert, idx) => (
-                        <tr
-                          key={`other-${cert.id}`}
-                          onContextMenu={(e) => handleContextMenu(e, cert)}
-                          className={`cursor-pointer hover:bg-blue-50 transition-colors ${selectedCert === cert.id ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
-                        >
-                          <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"><div className="truncate">{cert.certificateName}</div></td>
-                          <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"><div className="truncate">{cert.certificateCode}</div></td>
-                          <td className="px-3 py-2 text-xs border-r border-gray-200">{getCategoryBadge(cert.category)}</td>
-                          <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200"><div className="truncate">{cert.validityPeriodMonths ? `${cert.validityPeriodMonths}m` : 'N/A'}</div></td>
-                          <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-200"><div className="truncate">{cert.totalCrew || 0}</div></td>
-                          <td className="px-3 py-2 text-xs">
-                            <div className="flex gap-2">
-                              <span className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800">{cert.validCount || 0} {t('crew.monitor.valid')}</span>
-                              <span className="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800">{cert.expiringCount || 0} {t('crew.monitor.expiring')}</span>
-                              <span className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800">{cert.expiredCount || 0} {t('crew.monitor.expired')}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {/* Pagination */}
-            {certTotalPages > 1 && (
-              <div className="flex-shrink-0 bg-gray-50 px-4 py-2.5 flex items-center justify-between border-t border-gray-200">
-                <div className="text-xs text-gray-600">
-                  {t('crew.monitor.showingRange', { start: startIndex + 1, end: Math.min(endIndex, filteredCerts.length), total: filteredCerts.length })}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
-                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">{t('crew.table.previous')}</button>
-                  <span className="text-xs text-gray-600">{t('crew.monitor.pageInfo', { current: currentPage, total: certTotalPages })}</span>
-                  <button onClick={() => setCurrentPage(Math.min(certTotalPages, currentPage + 1))} disabled={currentPage === certTotalPages}
-                    className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">{t('crew.table.next')}</button>
-                </div>
-              </div>
+          <DataTable
+            key="certTypes"
+            flush
+            columns={certColumns}
+            data={certRows}
+            rowKey={c => c.id}
+            itemLabel="loại chứng chỉ"
+            pageSize={15}
+            searchPlaceholder="Tìm theo tên hoặc mã chứng chỉ..."
+            exportOptions={{ fileName: 'loai-chung-chi', title: 'LOẠI CHỨNG CHỈ' }}
+            onRowClick={c => handleCertificateClick(c.id)}
+            onRowContextMenu={handleContextMenu}
+            rowClassName={c => selectedCert === c.id ? '!bg-blue-100' : c._other ? 'text-gray-600' : undefined}
+            minWidth={980}
+            toolbarActions={selectedCountry !== 'all' && (
+              <>
+                <button type="button" onClick={exportCrewRollToExcel} className={toolbarButtonClass} title={t('crew.monitor.exportExcelTitle')}>
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> Crew Roll Excel
+                </button>
+                <button type="button" onClick={exportCrewRollToPDF} className={toolbarButtonClass} title={t('crew.monitor.exportPdfTitle')}>
+                  <Download className="h-4 w-4 text-red-600" /> Crew Roll PDF
+                </button>
+              </>
             )}
-          </div>
+          />
         )}
 
         {/* ============ TAB: RANK CERTIFICATES ============ */}
         {activeTab === 'ranks' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <>
             <div className="flex-shrink-0 px-4 py-2 text-xs text-blue-800 bg-blue-50 border-b border-blue-100">
               {t('crew.monitor.rankRequirementsManagedOnShore')}
             </div>
-            <div className="flex-1 overflow-auto">
-              <table className="min-w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-blue-50">
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '20%'}}>
-                      {t('crew.monitor.rankCode')}
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '25%'}}>
-                      {t('crew.monitor.rankName')}
-                    </th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '15%'}}>
-                      {t('crew.monitor.requiredCerts')}
-                    </th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border-b border-r border-gray-200" style={{width: '10%'}}>
-                      {t('crew.monitor.crewCount')}
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border-b border-gray-200" style={{width: '30%'}}>
-                      {t('crew.monitor.compliance')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {ranks.map((rank, idx) => {
-                    const rCerts = rankCertsCache.get(rank.id) || []
-                    const crewList = crewByRankCache.get(rank.id) || []
-                    const hasData = crewList.length > 0 && rCerts.length > 0
-                    const compliance = hasData ? getComplianceSummary(rank.id) : { fullyCompliant: 0, partiallyCompliant: 0, nonCompliant: 0 }
-
-                    return (
-                      <React.Fragment key={rank.id}>
-                        <tr
-                          onClick={() => handleRankClick(rank.id)}
-                          className={`cursor-pointer hover:bg-blue-50 transition-colors ${expandedRankId === rank.id ? 'bg-blue-50' : idx % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}
-                        >
-                          <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200">
-                            <div className="truncate flex items-center gap-2">
-                              <span className={`text-xs transition-transform ${expandedRankId === rank.id ? 'rotate-90' : ''}`}>▶</span>
-                              {rank.rankCode}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"><div className="truncate">{rank.rankName}</div></td>
-                          <td className="px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">{rCerts.length > 0 ? rCerts.length : '-'}</td>
-                          <td className="px-3 py-2 text-xs text-gray-700 text-center border-r border-gray-200">{crewList.length > 0 ? crewList.length : '-'}</td>
-                          <td className="px-3 py-2 text-xs">
-                            {hasData ? (
-                              <div className="flex gap-2">
-                                <span className="px-2 py-0.5 text-xs rounded bg-green-100 text-green-800">{compliance.fullyCompliant} {t('crew.monitor.compliant')}</span>
-                                <span className="px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-800">{compliance.partiallyCompliant} {t('crew.monitor.partial')}</span>
-                                <span className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-800">{compliance.nonCompliant} {t('crew.monitor.missing')}</span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 italic text-xs">{t('crew.monitor.clickToLoad')}</span>
-                            )}
-                          </td>
-                        </tr>
-                        {/* Expanded row */}
-                        {expandedRankId === rank.id && (
-                          <tr>
-                            <td colSpan={5} className="px-4 py-2 bg-gray-50">
-                              {loadingRankCerts ? (
-                                <div className="text-center py-4">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                                  <p className="text-gray-600 text-sm mt-2">{t('crew.monitor.loadingRequirements')}</p>
-                                </div>
-                              ) : (
-                                <div className="space-y-4">
-                                  {/* Required Certificates */}
-                                  <div className="border border-gray-300 rounded">
-                                    <div className="bg-gray-100 px-3 py-2 border-b border-gray-300">
-                                      <h5 className="text-xs font-semibold text-gray-700 uppercase">{t('crew.monitor.requiredCertificatesTitle')} ({rankCertificates.length})</h5>
-                                    </div>
-                                    <div className="p-3">
-                                      {rankCertificates.length > 0 ? (
-                                        <div className="space-y-2">
-                                          {rankCertificates.map((rc) => (
-                                            <div key={rc.id} className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 text-xs">
-                                              <div className="flex-1">
-                                                <div className="font-medium text-gray-900">{rc.certificate?.certificateName}</div>
-                                                <div className="text-gray-500">{rc.certificate?.certificateCode} • {rc.certificate?.category}{rc.certificate?.validityPeriodMonths && ` • ${rc.certificate.validityPeriodMonths}m`}</div>
-                                              </div>
-                                              {crewByRank.length > 0 && (
-                                                <div className="ml-4 text-xs">
-                                                  <span className="font-medium text-green-600">
-                                                    {crewByRank.filter(c => crewHasCertificate(c.id, rc.certificateId).has && crewHasCertificate(c.id, rc.certificateId).status === 'VALID').length}
-                                                  </span>
-                                                  <span className="text-gray-500"> / {crewByRank.length}</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <div className="text-center py-3 text-gray-500 text-xs">{t('crew.monitor.noCertsRequired')}</div>
-                                      )}
-                                      {/* Danh sách chứng chỉ bắt buộc theo chức danh do bờ quản lý — tàu chỉ xem. */}
-                                    </div>
-                                  </div>
-                                  {/* Crew Compliance List */}
-                                  {crewByRank.length > 0 && rankCertificates.length > 0 && (
-                                    <div className="border border-gray-300 rounded">
-                                      <div className="bg-gray-100 px-3 py-2 border-b border-gray-300 flex items-center justify-between">
-                                        <h5 className="text-xs font-semibold text-gray-700 uppercase">{t('crew.monitor.crewMembersTitle')} ({crewByRank.length})</h5>
-                                        <span className="text-xs text-gray-500 italic">{t('crew.monitor.clickToViewCerts')}</span>
-                                      </div>
-                                      <div className="divide-y divide-gray-200">
-                                        {crewByRank.map((crew) => {
-                                          const requiredCertIds = rankCertificates.map(rc => rc.certificateId)
-                                          const crewCrts = getCrewCertificates(crew.id)
-                                          const validCertCount = requiredCertIds.filter(certId => crewCrts.find(c => c.certificateId === certId && c.status === 'VALID')).length
-                                          const totalRequired = requiredCertIds.length
-                                          const isExpanded = expandedRankCrewId === crew.id
-                                          return (
-                                            <div key={`${crew.id}-${reloadTrigger}`} className="bg-white">
-                                              <div
-                                                onClick={() => setExpandedRankCrewId(isExpanded ? null : crew.id)}
-                                                onContextMenu={(e) => handleCrewContextMenu(e, crew)}
-                                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
-                                              >
-                                                <div className="flex items-center gap-3 flex-1">
-                                                  <span className={`text-xs transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
-                                                  <div>
-                                                    <div className="text-sm font-medium text-gray-900">{crew.fullName}</div>
-                                                    <div className="text-xs text-gray-500">{crew.crewId}</div>
-                                                  </div>
-                                                </div>
-                                                <div className="text-xs">
-                                                  {validCertCount === totalRequired ? (
-                                                    <span className="px-2 py-1 rounded-full font-medium bg-green-100 text-green-800">{validCertCount}/{totalRequired} {t('crew.monitor.compliant')}</span>
-                                                  ) : validCertCount > 0 ? (
-                                                    <span className="px-2 py-1 rounded-full font-medium bg-yellow-100 text-yellow-800">{validCertCount}/{totalRequired} {t('crew.monitor.partial')}</span>
-                                                  ) : (
-                                                    <span className="px-2 py-1 rounded-full font-medium bg-red-100 text-red-800">0/{totalRequired} {t('crew.monitor.missing')}</span>
-                                                  )}
-                                                </div>
-                                              </div>
-                                              {isExpanded && (
-                                                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
-                                                  <div className="space-y-2">
-                                                    {rankCertificates.map((rc) => {
-                                                      const certStatus = crewHasCertificate(crew.id, rc.certificateId)
-                                                      return (
-                                                        <div key={rc.id}
-                                                          className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 text-xs cursor-context-menu hover:bg-gray-50 transition-colors"
-                                                          onContextMenu={(e) => {
-                                                            e.preventDefault(); e.stopPropagation()
-                                                            setCertIconMenu({ x: e.clientX, y: e.clientY, crewId: crew.id, crewName: crew.fullName, certificateId: rc.certificateId, certName: rc.certificate?.certificateName || '', certCode: rc.certificate?.certificateCode || '', has: certStatus.has })
-                                                            setContextMenu(null); setCrewContextMenu(null)
-                                                          }}
-                                                          title={t('crew.monitor.rightClickHint')}
-                                                        >
-                                                          <div className="flex-1">
-                                                            <div className="font-medium text-gray-900">{rc.certificate?.certificateName}</div>
-                                                            <div className="text-gray-500">{rc.certificate?.certificateCode}</div>
-                                                          </div>
-                                                          <div className="ml-4 flex items-center gap-2">
-                                                            {certStatus.has ? (
-                                                              certStatus.status === 'VALID' ? (
-                                                                <><span className="text-green-600 text-lg">✓</span>{certStatus.expiryDate && <span className="text-gray-500">{t('crew.monitor.expPrefix')} {format(parseISO(certStatus.expiryDate), 'dd/MM/yyyy')}</span>}</>
-                                                              ) : certStatus.status === 'EXPIRED' ? (
-                                                                <><span className="text-red-600 text-lg">✗</span><span className="text-red-600">{t('crew.monitor.expired')}</span></>
-                                                              ) : (
-                                                                <><span className="text-yellow-600 text-lg">⚠</span><span className="text-yellow-600">{t('crew.monitor.suspended')}</span></>
-                                                              )
-                                                            ) : (
-                                                              <><span className="text-gray-300 text-lg">—</span><span className="text-gray-500">{t('crew.monitor.notHeld')}</span></>
-                                                            )}
-                                                          </div>
-                                                        </div>
-                                                      )
-                                                    })}
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {crewByRank.length === 0 && (
-                                    <div className="text-center py-4 text-gray-500 text-sm">{t('crew.monitor.noCrewWithRank')}</div>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <DataTable
+              key="ranks"
+              flush
+              columns={rankColumns}
+              data={ranks}
+              rowKey={r => r.id}
+              itemLabel="chức danh"
+              searchPlaceholder="Tìm theo mã hoặc tên chức danh..."
+              exportOptions={{ fileName: 'chung-chi-theo-chuc-danh', title: 'CHỨNG CHỈ THEO CHỨC DANH' }}
+              onRowClick={r => handleRankClick(r.id)}
+              expandedKey={expandedRankId}
+              renderExpanded={renderRankExpanded}
+              minWidth={900}
+            />
+          </>
         )}
       </div>
 

@@ -138,6 +138,7 @@ public class SyncController : ControllerBase
         try
         {
             _logger.LogInformation("Manual sync triggered via API");
+            _syncService.SkipReconnectWarmup();
             
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
 
@@ -353,17 +354,8 @@ public class SyncController : ControllerBase
             var svcRecs = await _context.ServiceRecords.AsNoTracking().ToListAsync();
             foreach (var x in svcRecs) Enqueue("service_record", x.Id.ToString(), x);
 
-            var travelDocs = await _context.TravelDocuments.AsNoTracking().ToListAsync();
-            foreach (var x in travelDocs) Enqueue("travel_document", x.Id.ToString(), x);
-
-            var seafarerDocs = await _context.SeafarerDocuments.AsNoTracking().ToListAsync();
-            foreach (var x in seafarerDocs) Enqueue("seafarer_document", x.Id.ToString(), x);
-
-            var empDocs = await _context.EmploymentDocuments.AsNoTracking().ToListAsync();
-            foreach (var x in empDocs) Enqueue("employment_document", x.Id.ToString(), x);
-
-            var healthDocs = await _context.HealthDocuments.AsNoTracking().ToListAsync();
-            foreach (var x in healthDocs) Enqueue("health_document", x.Id.ToString(), x);
+            var crewDocs = await _context.CrewMemberDocuments.AsNoTracking().ToListAsync();
+            foreach (var x in crewDocs) Enqueue(CrewMemberDocument.SyncTable, x.Id.ToString(), x);
 
             var logbookEntries = await _context.CrewLogbookEntries.AsNoTracking().ToListAsync();
             foreach (var x in logbookEntries) Enqueue("crew_logbook_entry", x.Id.ToString(), x);
@@ -503,17 +495,8 @@ public class SyncController : ControllerBase
                         var svcRecs      = await _context.ServiceRecords.AsNoTracking().ToListAsync();
                         foreach (var x in svcRecs) Enqueue("service_record", x.Id.ToString(), x);
 
-                        var travelDocs   = await _context.TravelDocuments.AsNoTracking().ToListAsync();
-                        foreach (var x in travelDocs) Enqueue("travel_document", x.Id.ToString(), x);
-
-                        var seafarerDocs = await _context.SeafarerDocuments.AsNoTracking().ToListAsync();
-                        foreach (var x in seafarerDocs) Enqueue("seafarer_document", x.Id.ToString(), x);
-
-                        var empDocs      = await _context.EmploymentDocuments.AsNoTracking().ToListAsync();
-                        foreach (var x in empDocs) Enqueue("employment_document", x.Id.ToString(), x);
-
-                        var healthDocs   = await _context.HealthDocuments.AsNoTracking().ToListAsync();
-                        foreach (var x in healthDocs) Enqueue("health_document", x.Id.ToString(), x);
+                        var crewDocs = await _context.CrewMemberDocuments.AsNoTracking().ToListAsync();
+                        foreach (var x in crewDocs) Enqueue(CrewMemberDocument.SyncTable, x.Id.ToString(), x);
 
                         var logbookEntries = await _context.CrewLogbookEntries.AsNoTracking().ToListAsync();
                         foreach (var x in logbookEntries) Enqueue("crew_logbook_entry", x.Id.ToString(), x);

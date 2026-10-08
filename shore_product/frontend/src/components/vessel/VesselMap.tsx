@@ -421,7 +421,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                   })}
                 >
                   <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
-                    <div style={{ fontSize: 12 }}>
+                    <div style={{ fontSize: '0.8125rem' }}>
                       <div style={{ fontWeight: 700, color }}>
                         {h.icon} {h.label || h.hazardType || 'Thiên tai'}
                       </div>
@@ -479,7 +479,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
             pathOptions={{ color: '#ffffff', weight: 1, fillColor: '#0284c7', fillOpacity: 0.9 }}
           >
             <Tooltip direction="top" offset={[0, -4]} opacity={0.95}>
-              <div style={{ fontSize: 12 }}>
+              <div style={{ fontSize: '0.8125rem' }}>
                 <div style={{ fontWeight: 700, color: '#0284c7' }}>
                   {p.name} ({p.code})
                 </div>
@@ -517,7 +517,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                   </span>
                 </Tooltip>
                 <Popup>
-                  <div style={{ fontSize: 12 }}>
+                  <div style={{ fontSize: '0.8125rem' }}>
                     <div style={{ fontWeight: 700, color: style.color }}>
                       {style.icon} {style.label}
                     </div>
@@ -601,7 +601,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                           </svg>
                         </div><div className="flex-1 min-w-0">
                           <h3 className="font-bold text-base text-white truncate">{v.name}</h3>
-                          <div className="flex items-center gap-2 text-white/80 text-[10px]">
+                          <div className="flex items-center gap-2 text-white/80 text-xs">
                             {v.imo && <span>IMO {v.imo}</span>}
                             {v.vesselType && <><span>•</span><span>{v.vesselType}</span></>}
                             {v.flag && <><span>•</span><span>Flag: {v.flag}</span></>}
@@ -617,7 +617,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                         {/* Hàng 1: Trạng thái động cơ + Thuyền trưởng + Hướng đi */}
                         <div className="grid grid-cols-3 gap-2">
                           <div className="bg-gray-50 rounded-lg p-2 text-center">
-                            <div className="flex items-center justify-center gap-1 text-gray-500 text-[9px] uppercase font-semibold mb-1">
+                            <div className="flex items-center justify-center gap-1 text-gray-500 text-xs uppercase font-semibold mb-1">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Engine
                             </div>
                             <span className={`text-xs font-bold ${v.engineRunning ? 'text-green-600' : 'text-gray-500'}`}>
@@ -625,13 +625,13 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                             </span>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-2 text-center">
-                            <div className="flex items-center justify-center gap-1 text-gray-500 text-[9px] uppercase font-semibold mb-1">
+                            <div className="flex items-center justify-center gap-1 text-gray-500 text-xs uppercase font-semibold mb-1">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Captain
                             </div>
                             <span className="text-xs font-bold text-gray-700 truncate block">{v.captainName || '—'}</span>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-2 text-center">
-                            <div className="flex items-center justify-center gap-1 text-gray-500 text-[9px] uppercase font-semibold mb-1">
+                            <div className="flex items-center justify-center gap-1 text-gray-500 text-xs uppercase font-semibold mb-1">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>Course
                             </div>
                             <span className="text-xs font-bold text-gray-700">{v.position.courseOverGround?.toFixed(0) || '—'}°</span>
@@ -641,7 +641,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                         {/* Progress bar hành trình (nếu có destination) */}
                         {v.departurePort && v.arrivalPort && (
                           <div className="space-y-1.5">
-                            <div className="flex justify-between text-[10px] text-gray-500 uppercase font-semibold">
+                            <div className="flex justify-between text-xs text-gray-500 uppercase font-semibold">
                               <span>{v.departurePort}</span>
                               <span>{v.arrivalPort}</span>
                             </div>
@@ -649,7 +649,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                               <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all" style={{ width: v.position.speedOverGround ? `${Math.min(v.position.speedOverGround * 6, 100)}%` : '30%' }} />
                               <div className="absolute -top-2 right-0 w-0 h-0 border-t-[4px] border-b-[4px] border-l-[6px] border-t-transparent border-b-transparent border-l-emerald-500" />
                             </div>
-                            <div className="flex justify-between text-[10px]">
+                            <div className="flex justify-between text-xs">
                               <span className="text-gray-400">ATD: {v.atd || '—'}</span>
                               <span className="text-gray-400">ETA: {v.eta || '—'}</span>
                             </div>
@@ -659,31 +659,31 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                         {/* Hàng 2: Thông số kỹ thuật */}
                         <div className="grid grid-cols-4 gap-2 text-center border-t border-gray-100 pt-3">
                           <div>
-                            <p className="text-[9px] text-gray-400 uppercase">Speed</p>
+                            <p className="text-xs text-gray-400 uppercase">Speed</p>
                             <p className="text-sm font-bold text-gray-800 font-mono">{v.position.speedOverGround?.toFixed(1) || '0.0'}</p>
-                            <p className="text-[9px] text-gray-400">knots</p>
+                            <p className="text-xs text-gray-400">knots</p>
                           </div>
                           <div>
-                            <p className="text-[9px] text-gray-400 uppercase">Lat</p>
+                            <p className="text-xs text-gray-400 uppercase">Lat</p>
                             <p className="text-sm font-bold text-gray-800 font-mono">{v.position.latitude.toFixed(3)}°</p>
-                            <p className="text-[9px] text-gray-400">N</p>
+                            <p className="text-xs text-gray-400">N</p>
                           </div>
                           <div>
-                            <p className="text-[9px] text-gray-400 uppercase">Lon</p>
+                            <p className="text-xs text-gray-400 uppercase">Lon</p>
                             <p className="text-sm font-bold text-gray-800 font-mono">{v.position.longitude.toFixed(3)}°</p>
-                            <p className="text-[9px] text-gray-400">E</p>
+                            <p className="text-xs text-gray-400">E</p>
                           </div>
                           <div>
-                            <p className="text-[9px] text-gray-400 uppercase">Draught</p>
+                            <p className="text-xs text-gray-400 uppercase">Draught</p>
                             <p className="text-sm font-bold text-gray-800 font-mono">{v.draught?.toFixed(1) || '—'}</p>
-                            <p className="text-[9px] text-gray-400">m</p>
+                            <p className="text-xs text-gray-400">m</p>
                           </div>
                         </div>
 
                         {/* Hàng 3: Timestamp */}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
                           <div className="flex items-center gap-1.5">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /><span className="text-[10px] text-gray-500">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /><span className="text-xs text-gray-500">
                               {v.position.timestamp 
                                 ? new Date(v.position.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                                 : 'N/A'}
@@ -691,7 +691,7 @@ export const VesselMap: React.FC<VesselMapProps> = ({
                           </div>
                           <button 
                             onClick={(e) => { e.stopPropagation(); navigate(`/vessels/${v.id}`); }}
-                            className="bg-primary hover:bg-primary-hover text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1.5 shadow-sm"
+                            className="bg-primary hover:bg-primary-hover text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1.5 shadow-sm"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>View Details
                           </button>

@@ -24,7 +24,7 @@ export function TaskDetailModal({ task, isOpen, onClose }: TaskDetailModalProps)
       
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="relative bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
             <h2 className="text-xl font-bold break-words pr-4">

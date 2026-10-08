@@ -9,6 +9,7 @@ using MaritimeEdge.Services.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
@@ -42,6 +43,8 @@ public class EdgeProvisioningControllerTests
             encryption.Object,
             Mock.Of<IEdgeRuntimeConfigService>(),
             factory.Object,
+            new EdgeVesselSwitchService(db, encryption.Object, factory.Object, NullLogger<EdgeVesselSwitchService>.Instance),
+            Mock.Of<IServiceScopeFactory>(),
             NullLogger<EdgeProvisioningController>.Instance);
     }
 
@@ -116,17 +119,18 @@ public class EdgeProvisioningControllerTests
     }
 
     [Fact]
-    public async Task Activate_ProfileWithSuccessfulHandshake_LeavesOnlyOneActiveProfile()
+    public async Task Activate_NewKeyForSameVessel_LeavesOnlyOneActiveProfile_AndKeepsData()
     {
         using var db = CreateContext();
-        var currentProfile = CreateProfile(Guid.NewGuid());
+        var vesselId = Guid.NewGuid();
+        var currentProfile = CreateProfile(vesselId);
         currentProfile.IsActive = true;
         currentProfile.HandshakeStatus = "success";
         currentProfile.LastHandshakeAt = DateTime.UtcNow;
 
-        var replacementProfile = CreateProfile(Guid.NewGuid());
-        replacementProfile.NodeId = "edge-9393939-main";
-        replacementProfile.VesselImo = "9393939";
+        // Cùng tàu (xoay khoá): không xoá dữ liệu.
+        var replacementProfile = CreateProfile(vesselId);
+        replacementProfile.KeyVersion = 2;
         replacementProfile.HandshakeStatus = "success";
         replacementProfile.LastHandshakeAt = DateTime.UtcNow;
 
@@ -141,6 +145,57 @@ public class EdgeProvisioningControllerTests
         Assert.Single(await db.EdgeProvisioningProfiles.Where(profile => profile.IsActive).ToListAsync());
         Assert.True(replacementProfile.IsActive);
         Assert.False(currentProfile.IsActive);
+        Assert.Equal("9292929", (await db.ShipData.SingleAsync()).ImoNumber);
+    }
+
+    [Fact]
+    public async Task Activate_ProfileOfAnotherVessel_WithoutConfirmation_IsRefused_AndChangesNothing()
+    {
+        using var db = CreateContext();
+        var currentProfile = CreateProfile(Guid.NewGuid());
+        currentProfile.IsActive = true;
+        currentProfile.HandshakeStatus = "success";
+        currentProfile.LastHandshakeAt = DateTime.UtcNow;
+        var otherShip = CreateProfile(Guid.NewGuid());
+        otherShip.NodeId = "edge-9393939-main";
+        otherShip.VesselImo = "9393939";
+        otherShip.HandshakeStatus = "success";
+        otherShip.LastHandshakeAt = DateTime.UtcNow;
+        db.EdgeProvisioningProfiles.AddRange(currentProfile, otherShip);
+        await db.SaveChangesAsync();
+
+        var result = await CreateController(db, "{}").Activate(
+            new EdgeProvisioningController.ProfileActionRequest { ProfileId = otherShip.Id });
+
+        Assert.IsType<ConflictObjectResult>(result);
+        Assert.True(currentProfile.IsActive);
+        Assert.False(otherShip.IsActive);
+    }
+
+    [Fact]
+    public async Task Import_DoesNotChangeShipIdentity_UntilActivated()
+    {
+        using var db = CreateContext();
+        db.ShipData.Add(new ShipData { Id = Guid.NewGuid(), ImoNumber = "1111111", ShipName = "MV CURRENT", CallSign = "", Flag = "", PortOfRegistry = "" });
+        await db.SaveChangesAsync();
+        var json = JsonSerializer.Serialize(new
+        {
+            schemaVersion = "1.0",
+            vessel = new { imo = "2222222", name = "MV NEXT", shoreVesselId = Guid.NewGuid().ToString() },
+            shoreConnection = new { baseUrl = "http://localhost:5000" },
+            nodeCredentials = new { nodeId = "edge-2222222-main", nodeApiToken = "t", signingKey = "k", keyVersion = 1, protocolVersion = "2" }
+        });
+        var bytes = Encoding.UTF8.GetBytes(json);
+        var file = new Microsoft.AspNetCore.Http.FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", "edge-provisioning.json");
+
+        var encryption = new Mock<IEdgeDataEncryptionService>();
+        encryption.Setup(e => e.Encrypt(It.IsAny<string?>())).Returns((string? v) => v!);
+        var controller = new EdgeProvisioningController(db, encryption.Object, Mock.Of<IEdgeRuntimeConfigService>(),
+            Mock.Of<IHttpClientFactory>(), Mock.Of<IEdgeVesselSwitchService>(), Mock.Of<IServiceScopeFactory>(),
+            NullLogger<EdgeProvisioningController>.Instance);
+
+        Assert.IsType<OkObjectResult>(await controller.Import(file));
+        Assert.Equal("1111111", (await db.ShipData.SingleAsync()).ImoNumber);
     }
 
     private static EdgeProvisioningProfile CreateProfile(Guid vesselId) => new()

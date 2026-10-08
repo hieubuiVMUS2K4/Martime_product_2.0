@@ -65,10 +65,8 @@ public class EdgeDbContext : DbContext
     public DbSet<Rank> Ranks { get; set; } = null!;
     public DbSet<RankCertificate> RankCertificates { get; set; } = null!;
     public DbSet<CountryCertificate> CountryCertificates { get; set; } = null!;
-    public DbSet<TravelDocument> TravelDocuments { get; set; } = null!;
-    public DbSet<SeafarerDocument> SeafarerDocuments { get; set; } = null!;
-    public DbSet<EmploymentDocument> EmploymentDocuments { get; set; } = null!;
-    public DbSet<HealthDocument> HealthDocuments { get; set; } = null!;
+    /// <summary>Tài liệu định danh + sức khoẻ của thuyền viên (một bảng, phân nhóm theo Category).</summary>
+    public DbSet<CrewMemberDocument> CrewMemberDocuments { get; set; } = null!;
     public DbSet<ServiceRecord> ServiceRecords { get; set; } = null!;
     public DbSet<CrewLogbookEntry> CrewLogbookEntries { get; set; } = null!;
     public DbSet<MaintenanceTask> MaintenanceTasks { get; set; } = null!;
@@ -3432,10 +3430,7 @@ public class EdgeDbContext : DbContext
         if (type == typeof(Maritime.Shared.Models.Crew.CrewMember) ||
             type == typeof(Maritime.Shared.Models.Crew.CrewCertificate) ||
             type == typeof(Maritime.Shared.Models.Crew.ServiceRecord) ||
-            type == typeof(Maritime.Shared.Models.Documents.TravelDocument) ||
-            type == typeof(Maritime.Shared.Models.Documents.SeafarerDocument) ||
-            type == typeof(Maritime.Shared.Models.Documents.EmploymentDocument) ||
-            type == typeof(Maritime.Shared.Models.Documents.HealthDocument))
+            type == typeof(Maritime.Shared.Models.Documents.CrewMemberDocument))
             return SyncPriority.Operational;
 
         // P3: Logs & Inventory (Default)

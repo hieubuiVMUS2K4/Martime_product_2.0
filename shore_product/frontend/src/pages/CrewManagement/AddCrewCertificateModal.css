@@ -5,13 +5,13 @@
 .acm-cert-dropdown { position: relative; }
 .acm-cert-dropdown__trigger {
   width: 100%; padding: 7px 10px; border: 1px solid #d6dee8; border-radius: 6px;
-  background: #fff; font-size: 12px; text-align: left; cursor: pointer;
+  background: #fff; font-size: 0.875rem; text-align: left; cursor: pointer;
   display: flex; justify-content: space-between; align-items: center;
   transition: border-color 0.15s;
 }
 .acm-cert-dropdown__trigger:hover { border-color: #0b2545; }
-.acm-cert-dropdown__placeholder { color: #9ca3af; }
-.acm-cert-dropdown__arrow { font-size: 11px; color: #64748b; transition: transform 0.15s; }
+.acm-cert-dropdown__placeholder { color: #6b7280; }
+.acm-cert-dropdown__arrow { font-size: 0.875rem; color: #334155; transition: transform 0.15s; }
 .acm-cert-dropdown__arrow.open { transform: rotate(180deg); }
 .acm-cert-dropdown__menu {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0;
@@ -20,19 +20,19 @@
   max-height: 260px; overflow-y: auto;
 }
 .acm-cert-dropdown__group-label {
-  padding: 6px 12px; font-size: 11px; font-weight: 700; color: #0b2545;
+  padding: 6px 12px; font-size: 0.875rem; font-weight: 800; color: #0b2545;
   background: #eef2f7; border-bottom: 1px solid #d6dee8;
   text-transform: uppercase; letter-spacing: 0.3px; position: sticky; top: 0;
 }
 .acm-cert-dropdown__item {
-  padding: 8px 12px; font-size: 12px; cursor: pointer;
+  padding: 8px 12px; font-size: 0.875rem; cursor: pointer;
   border-bottom: 1px solid #eef2f7; transition: background 0.1s;
 }
 .acm-cert-dropdown__item:last-child { border-bottom: none; }
 .acm-cert-dropdown__item:hover { background: #eef2f7; }
-.acm-cert-dropdown__item.selected { background: #e0f2fe; font-weight: 600; }
+.acm-cert-dropdown__item.selected { background: #e0f2fe; font-weight: 700; }
 .acm-cert-dropdown__item--required {
-  background: #fffbeb; font-weight: 600; color: #92400e;
+  background: #fffbeb; font-weight: 700; color: #92400e;
   border-left: 3px solid #f59e0b;
 }
 .acm-cert-dropdown__item--required:hover { background: #fef3c7; }

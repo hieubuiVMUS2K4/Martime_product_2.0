@@ -83,7 +83,7 @@ export function ImportMaintenanceModal({ onClose, onSuccess }: { onClose: () => 
     } catch (error) { setValidated(false); showError(error); } finally { setBusy(false); }
   };
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-    <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+    <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
         <h2 className="text-base font-semibold text-slate-900">Import công việc bảo trì</h2>
         <button disabled={busy} onClick={onClose} aria-label="Đóng" className="text-slate-400 hover:text-slate-700"><X size={20} /></button>

@@ -21,7 +21,7 @@ const GRID: Record<1 | 2 | 3, string> = {
 /** Một nhóm trường có tiêu đề, ví dụ "Thông tin kho", "Liên hệ quản lý". */
 export const FormSection: React.FC<FormSectionProps> = ({ title, columns = 2, children }) => (
   <section className="rounded-md border border-line">
-    <h3 className="rounded-t-md border-b border-line bg-primary-soft px-3 py-2 text-[13px] font-semibold text-primary">
+    <h3 className="rounded-t-md border-b border-line bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
       {title}
     </h3>
     <div className={`grid gap-x-4 gap-y-3 p-4 ${GRID[columns]}`}>{children}</div>

@@ -91,7 +91,7 @@ export function UserMenu() {
             {displayName}
           </span>
           {roleLabel && (
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-tight">
+            <span className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-tight">
               {roleLabel}
             </span>
           )}
@@ -133,7 +133,7 @@ export function UserMenu() {
             {roleLabel && (
               <div className="mt-2.5">
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${getRoleBadgeColor(
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider border ${getRoleBadgeColor(
                     user.roleCode
                   )}`}
                 >
@@ -177,7 +177,7 @@ export function UserMenu() {
 
           {/* ISPS Footer */}
           <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-[9px] text-gray-400 dark:text-gray-500 text-center uppercase tracking-wider">
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center uppercase tracking-wider">
               {t('header.ispsSession')}
             </p>
           </div>

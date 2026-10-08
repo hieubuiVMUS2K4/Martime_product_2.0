@@ -107,6 +107,9 @@ export interface DataTableProps<T> {
 
   onRowClick?: (item: T) => void;
   onRowContextMenu?: (event: React.MouseEvent, item: T) => void;
+  /** Dòng đang mở rộng (theo rowKey) — hiện `renderExpanded` ngay dưới dòng đó, trải hết bề ngang bảng. */
+  expandedKey?: string | number | null;
+  renderExpanded?: (item: T) => React.ReactNode;
   rowClassName?: (item: T) => string | undefined;
   /** Chiều rộng tối thiểu của bảng trước khi cuộn ngang. */
   minWidth?: number;
@@ -159,6 +162,8 @@ export function DataTable<T>({
   bulkActions,
   onRowClick,
   onRowContextMenu,
+  expandedKey,
+  renderExpanded,
   rowClassName,
   minWidth = 760,
   className = '',
@@ -305,13 +310,13 @@ export function DataTable<T>({
             </label>
           )}
           {!toolbarTitle && showCount && (
-            <span className="whitespace-nowrap text-[13px] font-semibold text-gray-900" aria-live="polite">
+            <span className="whitespace-nowrap text-xs font-semibold text-gray-900" aria-live="polite">
               {loading ? 'Đang tải...' : `${(serverPagination ? serverPagination.total : sorted.length).toLocaleString('vi-VN')} ${itemLabel}`}
             </span>
           )}
           {activeFilterCount > 0 && (
             <button type="button" onClick={() => { setFilters({}); serverFiltered.forEach(c => c.serverFilter!.onChange(null)); }}
-              className="flex h-7 items-center gap-1 rounded-full border border-blue-600/30 bg-blue-50 px-2.5 text-[12px] font-medium text-blue-600 hover:bg-blue-100">
+              className="flex h-7 items-center gap-1 rounded-full border border-blue-600/30 bg-blue-50 px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-100">
               Đang lọc {activeFilterCount} cột <X className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="sr-only">Bỏ tất cả bộ lọc</span>
             </button>
@@ -329,7 +334,7 @@ export function DataTable<T>({
             />
           )}
           {onImport && (
-            <button type="button" onClick={onImport} className={toolbarBtn}>
+            <button type="button" onClick={onImport} className={toolbarButtonClass}>
               <Upload className="h-4 w-4" aria-hidden="true" /> {importLabel}
             </button>
           )}
@@ -343,10 +348,10 @@ export function DataTable<T>({
       </div>
 
       {selection && selection.selected.size > 0 && (
-        <div className="flex items-center gap-3 border-b border-[#a3b1bc] bg-blue-100 px-3 py-1.5 text-[13px] text-blue-600">
+        <div className="flex items-center gap-3 border-b border-[#a3b1bc] bg-blue-100 px-3 py-1.5 text-xs text-blue-600">
           <span>Đã chọn <strong>{selection.selected.size}</strong> dòng</span>
           {bulkActions}
-          <button type="button" className="ml-auto text-[13px] underline-offset-2 hover:underline" onClick={() => selection.onChange(new Set())}>
+          <button type="button" className="ml-auto text-xs underline-offset-2 hover:underline" onClick={() => selection.onChange(new Set())}>
             Bỏ chọn
           </button>
         </div>
@@ -436,15 +441,16 @@ export function DataTable<T>({
               rows.map((item, i) => {
                 const k = rowKey(item);
                 const selected = selection?.selected.has(k);
+                const expanded = !!renderExpanded && expandedKey != null && expandedKey === k;
                 return (
+                  <React.Fragment key={k}>
                   <tr
-                    key={k}
                     onClick={onRowClick ? e => {
                       if ((e.target as HTMLElement).closest('button, a, input, select, textarea, label')) return;
                       onRowClick(item);
                     } : undefined}
                     onContextMenu={onRowContextMenu ? e => onRowContextMenu(e, item) : undefined}
-                    className={`${selected ? 'bg-blue-100' : `${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} hover:bg-blue-50/70`} ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(item) ?? ''}`}
+                    className={`${selected || expanded ? 'bg-blue-100' : `${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} hover:bg-blue-50/70`} ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(item) ?? ''}`}
                   >
                     {selection && (
                       <td className={`${tdClass} text-center`}>
@@ -461,6 +467,12 @@ export function DataTable<T>({
                       </td>
                     ))}
                   </tr>
+                  {expanded && (
+                    <tr>
+                      <td colSpan={colCount} className="border-b border-[#a3b1bc] bg-gray-50 px-3 py-3">{renderExpanded!(item)}</td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })
             )}
@@ -536,7 +548,8 @@ const TruncatedText: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 const thClass =
   'sticky top-0 z-[1] h-10 border-b border-r border-b-[#7d8d9a] border-r-[#a3b1bc] bg-blue-50 px-2 py-2 overflow-hidden text-center align-middle text-xs font-semibold leading-tight text-gray-600 last:border-r-0';
 const tdClass = 'overflow-hidden border-b border-r border-[#a3b1bc] px-2.5 py-2 align-middle last:border-r-0';
-const toolbarBtn =
+/** Kiểu nút trên thanh công cụ của bảng — trang dùng cho nút riêng đặt trong `toolbarActions`. */
+export const toolbarButtonClass =
   'inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 hover:bg-blue-50 hover:border-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Nút "Xuất dữ liệu" kèm menu chọn định dạng. */
@@ -551,10 +564,10 @@ const ExportMenu: React.FC<{ disabled?: boolean; onExcel: () => void; onCsv: () 
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
   }, [open]);
-  const item = 'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] text-gray-900 hover:bg-blue-50';
+  const item = 'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-xs text-gray-900 hover:bg-blue-50';
   return (
     <div ref={ref} className="relative">
-      <button type="button" disabled={disabled} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} className={toolbarBtn}
+      <button type="button" disabled={disabled} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} className={toolbarButtonClass}
         title={disabled ? 'Không có dữ liệu để xuất' : 'Xuất những dòng đang hiển thị (đã tìm/lọc)'}>
         <Download className="h-4 w-4" aria-hidden="true" /> Xuất dữ liệu <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
       </button>

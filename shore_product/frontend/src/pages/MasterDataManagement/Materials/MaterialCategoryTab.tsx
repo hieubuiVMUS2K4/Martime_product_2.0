@@ -217,7 +217,7 @@ export const MaterialCategoryTab: React.FC = () => {
                 <div className="cfm-grid">
                   <div className="cfm-field cfm-field--required">
                     <label>Mã loại</label>
-                    <input value={form.categoryCode} onChange={e => setForm(f => ({ ...f, categoryCode: e.target.value }))} placeholder="VD: SPARE" style={{ fontFamily: 'monospace' }} />
+                    <input value={form.categoryCode} onChange={e => setForm(f => ({ ...f, categoryCode: e.target.value }))} placeholder="VD: SPARE" style={{ fontVariantNumeric: 'tabular-nums' }} />
                   </div>
                   <div className="cfm-field cfm-field--required">
                     <label>Tên loại</label>

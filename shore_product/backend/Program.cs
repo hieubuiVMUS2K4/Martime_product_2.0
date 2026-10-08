@@ -238,6 +238,7 @@ builder.Services.AddScoped<ProductApi.Services.Sync.ISyncFileTransferService, Pr
 builder.Services.AddScoped<ProductApi.Services.Sync.IConflictResolverService, ProductApi.Services.Sync.ConflictResolverService>();
 builder.Services.AddScoped<ProductApi.Services.INotificationService, ProductApi.Services.NotificationService>();
 builder.Services.AddScoped<ProductApi.Services.Sync.ICrewSyncOrchestrator, ProductApi.Services.Sync.CrewSyncOrchestrator>();
+builder.Services.AddScoped<ProductApi.Services.Sync.IShoreSyncPushService, ProductApi.Services.Sync.ShoreSyncPushService>();
 
 // Register voyage management service
 builder.Services.AddScoped<ProductApi.Services.Voyage.IVoyageService, ProductApi.Services.Voyage.VoyageService>();
@@ -720,10 +721,7 @@ var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsPath);
 Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "certificates"));
 Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "avatars"));
-Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "travel_documents"));
-Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "seafarer_documents"));
-Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "employment_documents"));
-Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "health_documents"));
+Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents"));
 Directory.CreateDirectory(Path.Combine(uploadsPath, "sync-content"));
 Directory.CreateDirectory(Path.Combine(uploadsPath, "sync-staging"));
 Directory.CreateDirectory(Path.Combine(uploadsPath, "sms"));

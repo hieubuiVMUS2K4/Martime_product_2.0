@@ -88,12 +88,80 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
     setActivatingId(id)
     setError(null)
     try {
-      await provisioningService.activate(id)
+      // Gói của tàu khác: máy tàu chỉ giữ dữ liệu của MỘT tàu → xoá sạch dữ liệu tàu cũ, nhận lại từ bờ.
+      const check = await provisioningService.switchCheck(id)
+      let confirmReset = false
+      if (check.requiresReset) {
+        const current = check.currentVesselName
+          ? `${check.currentVesselName} (IMO ${check.currentVesselImo ?? '—'})`
+          : 'dữ liệu hiện có trên máy'
+        const pending = check.pendingUploads > 0
+          ? `
+
+⚠ Còn ${check.pendingUploads} thay đổi CHƯA gửi lên bờ — sẽ mất vĩnh viễn.`
+          : ''
+        const typed = window.prompt(
+          `ĐỔI TÀU: ${current} → ${check.newVesselName} (IMO ${check.newVesselImo}).
+
+` +
+          'Toàn bộ dữ liệu của tàu hiện tại (thuyền viên, chuyến đi, PMS, vật tư, báo cáo, nhật ký...) sẽ bị XOÁ, ' +
+          'sau đó tàu nhận lại toàn bộ dữ liệu của tàu mới từ bờ. Danh mục dùng chung và tài khoản quản trị được giữ.' +
+          pending + `
+
+Gõ IMO của tàu mới (${check.newVesselImo}) để xác nhận:`
+        )
+        if (typed === null) return
+        if (typed.trim() !== (check.newVesselImo ?? '').trim()) {
+          setError('IMO không khớp — chưa kích hoạt, dữ liệu giữ nguyên.')
+          return
+        }
+        confirmReset = true
+      }
+      const result = await provisioningService.activate(id, confirmReset)
+      if (result.reset) {
+        setTestResult({
+          id, success: result.fullSyncRequested,
+          message: result.fullSyncRequested
+            ? `Đã đổi tàu: xoá ${result.wipedRows} dòng dữ liệu cũ, đang nhận dữ liệu tàu mới từ bờ.`
+            : `Đã đổi tàu và xoá ${result.wipedRows} dòng dữ liệu cũ. Bờ chưa trả lời — tàu sẽ tự xin lại dữ liệu khi có kết nối.`,
+        })
+      }
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Activate thất bại')
     } finally {
       setActivatingId(null)
+    }
+  }
+
+  const [resetting, setResetting] = useState(false)
+  const handleReset = async () => {
+    if (!status?.vesselImo) return
+    const typed = window.prompt(
+      `Làm sạch tàu ${status.vesselName} (IMO ${status.vesselImo}).
+
+` +
+      'Toàn bộ dữ liệu trên máy tàu sẽ bị XOÁ (thay đổi chưa gửi lên bờ cũng mất), sau đó nhận lại toàn bộ dữ liệu của tàu từ bờ. ' +
+      `Danh mục dùng chung và tài khoản quản trị được giữ.
+
+Gõ IMO ${status.vesselImo} để xác nhận:`
+    )
+    if (typed === null) return
+    setResetting(true)
+    setError(null)
+    try {
+      const r = await provisioningService.resetFromShore(typed.trim())
+      setTestResult({
+        id: -1, success: r.fullSyncRequested,
+        message: r.fullSyncRequested
+          ? `Đã xoá ${r.wipedRows} dòng, đang nhận lại dữ liệu từ bờ.`
+          : `Đã xoá ${r.wipedRows} dòng. Bờ chưa trả lời — tàu sẽ tự xin lại dữ liệu khi có kết nối.`,
+      })
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Làm sạch thất bại')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -112,14 +180,14 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[85vh] overflow-y-auto">
+      <div className="relative w-full max-w-4xl mx-3 max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-700 to-slate-800 sticky top-0 z-10">
-          <div className="flex items-center gap-3 text-white">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sticky top-0 z-10">
+          <div className="flex min-w-0 items-center gap-2 text-gray-900">
             <Settings className="w-5 h-5" />
-            <span className="font-semibold text-lg">Cấu hình kết nối bờ</span>
+            <span className="text-sm font-semibold">Cấu hình kết nối bờ</span>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-gray-400 transition-colors hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -166,6 +234,16 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                         <div><span className="text-gray-500">Handshake:</span> <span className={`font-medium ${activeProfileNeedsReimport ? 'text-red-600' : ''}`}>{status.handshakeStatus ?? '—'}</span></div>
                         <div><span className="text-gray-500">Lần cuối:</span> <span className="font-medium">{formatTime(status.lastHandshake)}</span></div>
                       </div>
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-3">
+                        <span className="text-xs text-gray-500">Dữ liệu tàu lệch bờ? Xoá dữ liệu tàu và nhận lại toàn bộ từ bờ.</span>
+                        <button type="button" onClick={handleReset} disabled={resetting}
+                          className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50">
+                          {resetting ? 'Đang làm sạch…' : 'Làm sạch & nhận lại từ bờ'}
+                        </button>
+                      </div>
+                      {testResult?.id === -1 && (
+                        <div className={`text-xs ${testResult.success ? 'text-green-700' : 'text-amber-700'}`}>{testResult.message}</div>
+                      )}
                     </div>
                   ) : (
                     <span className="text-amber-600 flex items-center gap-2">
@@ -220,10 +298,10 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                             <span className="font-medium">{item.vesselName}</span>{' '}
                             <span className="text-gray-400">({item.nodeId})</span>
                             {item.isActive && !isFailed(item.handshakeStatus) && (
-                              <span className="ml-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">ĐANG DÙNG</span>
+                              <span className="ml-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">ĐANG DÙNG</span>
                             )}
                             {item.isActive && isFailed(item.handshakeStatus) && (
-                              <span className="ml-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">CẦN IMPORT LẠI</span>
+                              <span className="ml-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">CẦN IMPORT LẠI</span>
                             )}
                           </div>
                           <span className="text-xs text-gray-400">{formatTime(item.importedAt)}</span>

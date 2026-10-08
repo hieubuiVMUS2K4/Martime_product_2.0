@@ -40,19 +40,19 @@
 
 .dash-hero-content h1 {
   margin: 0;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 1.625rem;
+  font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 .dash-hero-content p {
   margin: 6px 0 0;
   color: rgba(255,255,255,0.7);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .dash-hero-time {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: rgba(255,255,255,0.6);
   font-weight: 500;
   text-align: right;
@@ -90,7 +90,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 1.375rem;
   flex-shrink: 0;
 }
 
@@ -102,16 +102,16 @@
 }
 
 .dash-kpi-info span {
-  font-size: 11px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #5ca090;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .dash-kpi-info strong {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 1.375rem;
+  font-weight: 800;
   color: #0c2b29;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -142,15 +142,15 @@
 
 .dash-card-header h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 800;
   color: #103230;
 }
 
 .dash-card-link {
-  font-size: 13px;
+  font-size: 0.875rem;
   color: #146660;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -159,9 +159,9 @@
 }
 
 .dash-card-sub {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #6fb0a0;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Vessel List */
@@ -192,28 +192,28 @@
 }
 
 .dash-vessel-name strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #103230;
 }
 
 .dash-vessel-name span {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #6fb0a0;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family); font-variant-numeric: tabular-nums;
 }
 
 .dash-vessel-stats {
   display: flex;
   gap: 16px;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #4f9488;
 }
 
 .dash-vessel-route {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   color: #146660;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Sync List */
@@ -238,15 +238,15 @@
 }
 
 .dash-sync-header strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #103230;
 }
 
 .dash-sync-badge {
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -269,13 +269,13 @@
 .dash-sync-meta {
   display: flex;
   gap: 16px;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #4f9488;
 }
 
 .dash-sync-meta .is-stale {
   color: #9b2f26;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Financial Grid */
@@ -294,17 +294,17 @@
 
 .dash-fin-item span {
   display: block;
-  font-size: 11px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #5ca090;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
 .dash-fin-item strong {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 1.375rem;
+  font-weight: 800;
   color: #0c2b29;
   letter-spacing: -0.02em;
 }
@@ -343,20 +343,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 1.5rem;
   flex-shrink: 0;
 }
 
 .dash-module-info h4 {
   margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   color: #103230;
 }
 
 .dash-module-info p {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #5ca090;
   line-height: 1.4;
 }
@@ -366,14 +366,14 @@
   padding: 64px;
   text-align: center;
   color: #4f9488;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .dash-empty {
   padding: 24px;
   text-align: center;
   color: #6fb0a0;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-style: italic;
 }
 

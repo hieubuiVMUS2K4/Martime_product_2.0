@@ -316,7 +316,7 @@ export function ShipDataPage() {
                 activeTab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
               }`}>
               {t.label}
-              {count > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">{count}</span>}
+              {count > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">{count}</span>}
             </button>
           );
         })}

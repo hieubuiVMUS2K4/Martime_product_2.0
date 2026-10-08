@@ -15,10 +15,14 @@ public interface ISyncService
 {
     Task ExecuteSyncAsync(CancellationToken cancellationToken);
     Task<NetworkType> GetCurrentNetworkStatusAsync();
-    Task PullFromShoreAsync(CancellationToken cancellationToken);
+    /// <summary>Kéo dữ liệu bờ gửi xuống. Trả về số gói đã áp. <paramref name="maxItems"/> = null dùng giới hạn cấu hình mỗi chu kỳ.</summary>
+    Task<int> PullFromShoreAsync(CancellationToken cancellationToken, int? maxItems = null);
     Task SendHeartbeatAsync(CancellationToken cancellationToken);
     Task ExecuteFileTransfersAsync(CancellationToken cancellationToken);
     SyncConnectivitySnapshot GetConnectivitySnapshot();
+
+    /// <summary>Người dùng bấm Đồng bộ: bỏ khoảng chờ sau khi có lại kết nối (chỉ dành cho chu kỳ tự động).</summary>
+    void SkipReconnectWarmup();
 }
 
 public sealed record SyncConnectivitySnapshot(bool IsReachable, string? LastError, DateTime? LastCheckedAtUtc);
@@ -55,8 +59,7 @@ public class SyncService : ISyncService
     private readonly ISyncFilePreparationService _syncFilePreparationService;
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "maintenance_history", "task_deferral_request", "crew_member", "crew_certificate", "travel_document", "seafarer_document",
-        "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
+        "maintenance_history", "task_deferral_request", "crew_member", "crew_certificate", "crew_member_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
     };
     
     // Tracks upload cooldowns to prevent rapid retry of failed uploads (in-memory, per instance).
@@ -418,16 +421,16 @@ public class SyncService : ISyncService
         return added;
     }
 
-    public async Task PullFromShoreAsync(CancellationToken cancellationToken)
+    public async Task<int> PullFromShoreAsync(CancellationToken cancellationToken, int? maxItems = null)
     {
         var syncConfig = await ResolveSyncConfigAsync();
         var enabled = _configuration.GetValue("ShoreAPI:Enabled", true);
         if (!enabled || syncConfig == null || string.IsNullOrEmpty(syncConfig.ShoreBaseUrl))
         {
             _logger.LogDebug("Shore API pull disabled or not configured.");
-            return;
+            return 0;
         }
-        if (await GetCurrentNetworkStatusAsync() == NetworkType.None) return;
+        if (await GetCurrentNetworkStatusAsync() == NetworkType.None) return 0;
         var baseUrl = syncConfig.ShoreBaseUrl;
 
         using var scope = _serviceProvider.CreateScope();
@@ -437,6 +440,8 @@ public class SyncService : ISyncService
 
         var nodeId = syncConfig.NodeId;
         var retryPolicy = LoadRetryPolicyConfig();
+        var cycleLimit = maxItems ?? _configuration.GetValue("Sync:MaxPullItemsPerCycle", 50);
+        var totalProcessed = 0;
 
         try
         {
@@ -446,7 +451,6 @@ public class SyncService : ISyncService
             // Using 'since' caused items to be missed when ACK failed (items stay undelivered
             // but lastPull advances past their CreatedAt).
             var cursor = (string?)null;
-            var totalProcessed = 0;
 
             do
             {
@@ -537,6 +541,15 @@ public class SyncService : ISyncService
                     }
                 }
 
+                // Không áp được gói nào trong lô (vd. một gói lỗi): KHÔNG gửi ACK rỗng (bờ trả 400 và cả chu kỳ
+                // dừng, các gói sau bị kẹt mãi). Bỏ qua, kéo tiếp trang sau; gói lỗi được thử lại ở chu kỳ tới.
+                if (appliedItemIds.Count == 0)
+                {
+                    cursor = pullResponse.NextCursor;
+                    if (!pullResponse.HasMore || totalProcessed >= cycleLimit) break;
+                    continue;
+                }
+
                 // Acknowledge received items using the real outbox IDs
                 var ack = new Maritime.Shared.DTOs.Sync.SyncAcknowledgeDto
                 {
@@ -558,7 +571,7 @@ public class SyncService : ISyncService
 
                 cursor = pullResponse.NextCursor;
                 
-                if (!pullResponse.HasMore || totalProcessed >= _configuration.GetValue("Sync:MaxPullItemsPerCycle", 50)) break;
+                if (!pullResponse.HasMore || totalProcessed >= cycleLimit) break;
 
             } while (true);
 
@@ -578,6 +591,7 @@ public class SyncService : ISyncService
             _logger.LogError(ex, "Error during shore pull");
             UpdateShoreReachability(false, nodeId, retryPolicy, $"Pull error: {ex.Message}");
         }
+        return totalProcessed;
     }
 
     public async Task SendHeartbeatAsync(CancellationToken cancellationToken)
@@ -1149,6 +1163,11 @@ public class SyncService : ISyncService
         return Math.Round(random + (offset / 10000.0), 3);
     }
 
+    public void SkipReconnectWarmup()
+    {
+        lock (_connectivityLock) _warmupUntilUtc = DateTime.MinValue;
+    }
+
     private static bool ShouldDelayForReconnectWarmup(DateTime nowUtc, string nodeId)
     {
         _ = nodeId;
@@ -1528,10 +1547,7 @@ public class SyncService : ISyncService
     {
         return tableName switch
         {
-            "travel_document" => typeof(TravelDocument),
-            "seafarer_document" => typeof(SeafarerDocument),
-            "employment_document" => typeof(EmploymentDocument),
-            "health_document" => typeof(HealthDocument),
+            "crew_member_document" => typeof(CrewMemberDocument),
             "sms_procedure" or "sms_procedures" => typeof(SmsProcedure),
             _ => null
         };
@@ -1630,10 +1646,7 @@ public class SyncService : ISyncService
         {
             "crew_member" => SyncPriority.Operational,
             "crew_certificate" => SyncPriority.Operational,
-            "travel_document" => SyncPriority.Operational,
-            "seafarer_document" => SyncPriority.Operational,
-            "employment_document" => SyncPriority.Operational,
-            "health_document" => SyncPriority.Operational,
+            "crew_member_document" => SyncPriority.Operational,
             _ => SyncPriority.Low
         };
     }
@@ -2799,10 +2812,7 @@ public class SyncService : ISyncService
         else if (Guid.TryParse(recordKey, out var documentId))
             entity = tableName switch
             {
-                "travel_document" => await context.TravelDocuments.FindAsync(new object[] { documentId }, cancellationToken),
-                "seafarer_document" => await context.SeafarerDocuments.FindAsync(new object[] { documentId }, cancellationToken),
-                "employment_document" => await context.EmploymentDocuments.FindAsync(new object[] { documentId }, cancellationToken),
-                "health_document" => await context.HealthDocuments.FindAsync(new object[] { documentId }, cancellationToken),
+                "crew_member_document" => await context.CrewMemberDocuments.FindAsync(new object[] { documentId }, cancellationToken),
                 "sms_procedure" or "sms_procedures" => await context.SmsProcedures.FindAsync(new object[] { documentId }, cancellationToken),
                 _ => null
             };
@@ -2839,10 +2849,7 @@ public class SyncService : ISyncService
         return tableName switch
         {
             "crew_certificate" => Path.Combine("uploads", "crew", "certificates"),
-            "travel_document" => Path.Combine("uploads", "crew", "documents", "travel_documents"),
-            "seafarer_document" => Path.Combine("uploads", "crew", "documents", "seafarer_documents"),
-            "employment_document" => Path.Combine("uploads", "crew", "documents", "employment_documents"),
-            "health_document" => Path.Combine("uploads", "crew", "documents", "health_documents"),
+            "crew_member_document" => Path.Combine("uploads", "crew", "documents"),
             "sms_procedure" or "sms_procedures" or "sms_filled_record" or "sms_filled_records" => Path.Combine("uploads", "sms"),
             _ => Path.Combine("uploads", "sync-files", tableName)
         };

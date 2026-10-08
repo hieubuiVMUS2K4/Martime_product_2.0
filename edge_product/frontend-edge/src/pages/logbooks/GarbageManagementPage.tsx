@@ -912,7 +912,7 @@ export const GarbageManagementPage: React.FC = () => {
       {/* Sign Confirmation Modal */}
       {signModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden border border-gray-200">
+          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full mx-4 overflow-hidden border border-gray-200">
             <div className="px-5 py-3 bg-blue-50 border-b border-blue-100">
             <h3 className="text-sm font-semibold text-blue-800">
               🖊 {t('logbooks.garbageRecord.signEntry')} {signModal.type === 'part-i' ? 'Part I' : 'Part II'}

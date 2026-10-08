@@ -1761,14 +1761,14 @@ public class VoyageSettlement : ISyncableEntity
 //   - SyncActionType, SyncPriority, NetworkType, SyncQueue
 //   - CrewMember, Certificate, CrewCertificate
 //   - Country, Rank, RankCertificate, CountryCertificate
-//   - TravelDocument, SeafarerDocument, EmploymentDocument, HealthDocument
+//   - CrewMemberDocument (định danh + sức khoẻ, một bảng)
 //   - ServiceRecord
 // ============================================================
 
 // --- REMOVED DUPLICATE DEFINITIONS (formerly lines 791-1493) ---
 // All crew/certificate/document/sync models are now in:
 //   shared/Models/Crew/     → CrewMember, Certificate, CrewCertificate, etc.
-//   shared/Models/Documents/ → TravelDocument, SeafarerDocument, etc.
+//   shared/Models/Documents/ → CrewMemberDocument, CrewDocumentCategory
 //   shared/Models/Sync/     → SyncQueue, SyncActionType, SyncPriority, etc.
 // Re-exported into MaritimeEdge.Models via SharedTypeAliases.cs
 

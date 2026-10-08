@@ -79,7 +79,7 @@ export function CategoryFormModal({
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
 
-        <div className="relative w-full max-w-xl bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]">
+        <div className="relative w-full max-w-2xl bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 shrink-0">
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>

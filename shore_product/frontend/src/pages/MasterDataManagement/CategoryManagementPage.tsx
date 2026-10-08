@@ -4,11 +4,12 @@ import { CertificateTypesTab } from './CertificateTypes/CertificateTypesTab';
 import { RankPage } from './Ranks/RankPage';
 import { CountryPage } from './Countries/CountryPage';
 import { PortPage } from './Ports/PortPage';
+import { MaterialCatalogPage } from './Materials/MaterialCatalogPage';
 import './CategoryManagementPage.css';
 
-type TabId = 'certificate-types' | 'ranks' | 'countries' | 'ports';
+type TabId = 'certificate-types' | 'ranks' | 'countries' | 'ports' | 'materials';
 
-const VALID_TABS: TabId[] = ['certificate-types', 'ranks', 'countries', 'ports'];
+const VALID_TABS: TabId[] = ['certificate-types', 'ranks', 'countries', 'ports', 'materials'];
 
 export const CategoryManagementPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -26,6 +27,7 @@ export const CategoryManagementPage: React.FC = () => {
         {activeTab === 'ranks' && <RankPage />}
         {activeTab === 'countries' && <CountryPage />}
         {activeTab === 'ports' && <PortPage />}
+        {activeTab === 'materials' && <MaterialCatalogPage />}
       </div>
     </div>
   );

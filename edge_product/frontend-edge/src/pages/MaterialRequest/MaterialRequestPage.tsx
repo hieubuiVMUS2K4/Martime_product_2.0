@@ -141,7 +141,7 @@ function SearchableSelect({
                 <CheckCircle size={13} className={`mt-0.5 shrink-0 ${option.value === value ? 'text-blue-600' : 'text-transparent'}`} />
                 <span className="min-w-0">
                   <span className="block truncate text-gray-900">{option.label}</span>
-                  {option.subLabel && <span className="block truncate text-[11px] text-gray-400">{option.subLabel}</span>}
+                  {option.subLabel && <span className="block truncate text-xs text-gray-400">{option.subLabel}</span>}
                 </span>
               </button>
             ))}

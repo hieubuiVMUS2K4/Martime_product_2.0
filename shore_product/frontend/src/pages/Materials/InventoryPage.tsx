@@ -202,7 +202,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
         exportOptions={{ fileName: 'ton-kho', title: 'TỒN KHO VẬT TƯ' }}
         minWidth={1050}
         toolbarLeft={
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-muted">
+          <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
             <DollarSign className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             Tổng giá trị <strong className="tabular-nums text-ink">{fmt(totalValue)} USD</strong>
           </span>
@@ -223,7 +223,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
         icon={<Clock />}
         title="Lịch sử tồn kho"
         footer={historyTotal > 20 ? (
-          <div className="flex w-full items-center justify-center gap-2 text-[13px]">
+          <div className="flex w-full items-center justify-center gap-2 text-xs">
             <Button size="sm" disabled={historyPage <= 1} onClick={() => loadHistory(historyPage - 1)}>← Trước</Button>
             <span>Trang {historyPage} / {Math.ceil(historyTotal / 20)}</span>
             <Button size="sm" disabled={historyPage >= Math.ceil(historyTotal / 20)} onClick={() => loadHistory(historyPage + 1)}>Sau →</Button>
@@ -232,12 +232,12 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       >
             <div>
               {historyLoading ? (
-                <div className="py-8 text-center text-[13px] text-ink-muted">Đang tải...</div>
+                <div className="py-8 text-center text-xs text-ink-muted">Đang tải...</div>
               ) : historyItems.length === 0 ? (
-                <div className="py-8 text-center text-[13px] text-ink-muted">Chưa có lịch sử</div>
+                <div className="py-8 text-center text-xs text-ink-muted">Chưa có lịch sử</div>
               ) : (
                 <table className="min-w-full text-sm">
-                  <thead><tr className="bg-canvas text-[13px] font-semibold text-ink">
+                  <thead><tr className="bg-canvas text-xs font-semibold text-ink">
                     <th className="px-3 py-2 text-left">Ngày</th>
                     <th className="px-3 py-2 text-left">Loại</th>
                     <th className="px-3 py-2 text-left">Mã VT</th>
@@ -248,16 +248,16 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                   <tbody className="divide-y divide-grid">
                     {historyItems.map((h, i) => (
                       <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-[13px]">{formatDateVi(h.date) || '—'}</td>
+                        <td className="px-3 py-2 text-xs">{formatDateVi(h.date) || '—'}</td>
                         <td className="px-3 py-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${h.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {h.type === 'IN' ? 'Nhập' : 'Xuất'}
                           </span>
                         </td>
                         <td className="px-3 py-2 font-mono text-xs">{h.itemCode}</td>
-                        <td className="px-3 py-2 text-[13px]">{h.itemName}</td>
-                        <td className="px-3 py-2 text-right text-[13px] font-semibold tabular-nums">{fmt(h.quantity)}</td>
-                        <td className="max-w-[160px] truncate px-3 py-2 text-[13px] text-ink-muted">{h.note || '—'}</td>
+                        <td className="px-3 py-2 text-xs">{h.itemName}</td>
+                        <td className="px-3 py-2 text-right text-xs font-semibold tabular-nums">{fmt(h.quantity)}</td>
+                        <td className="max-w-[160px] truncate px-3 py-2 text-xs text-ink-muted">{h.note || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -281,7 +281,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
       >
             <div>
               <table className="min-w-full text-sm">
-                <thead><tr className="bg-canvas text-[13px] font-semibold text-ink">
+                <thead><tr className="bg-canvas text-xs font-semibold text-ink">
                   <th className="px-2 py-2 text-left">Vật tư</th>
                   <th className="px-2 py-2 text-left">Vị trí kho</th>
                   <th className="px-2 py-2 text-right w-24">Số lượng</th>
@@ -363,19 +363,19 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
         {adjustItem && (
             <div className="space-y-4">
               <div>
-                <label className="text-[13px] font-medium text-ink-muted">Vật tư</label>
+                <label className="text-xs font-medium text-ink-muted">Vật tư</label>
                 <div className="text-sm font-semibold mt-1">{adjustItem.itemCode} - {adjustItem.itemName}</div>
               </div>
               <div>
-                <label className="text-[13px] font-medium text-ink-muted">Vị trí kho</label>
+                <label className="text-xs font-medium text-ink-muted">Vị trí kho</label>
                 <div className="text-sm mt-1">{locationOf(adjustItem)}</div>
               </div>
               <div>
-                <label className="text-[13px] font-medium text-ink-muted">Tồn hiện tại</label>
+                <label className="text-xs font-medium text-ink-muted">Tồn hiện tại</label>
                 <div className="text-sm font-semibold mt-1">{fmt(adjustItem.quantity)}</div>
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-ink-muted">Điều chỉnh số lượng</label>
+                <label className="mb-1 block text-xs font-medium text-ink-muted">Điều chỉnh số lượng</label>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setAdjustQty(q => q - 1)} className="w-8 h-8 flex items-center justify-center border rounded hover:bg-red-50 text-red-600"><Minus size={14} /></button>
                   <input
@@ -389,7 +389,7 @@ export default function InventoryPage({ vesselId, readOnly = false }: { vesselId
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-ink-muted">Lý do</label>
+                <label className="mb-1 block text-xs font-medium text-ink-muted">Lý do</label>
                 <input
                   type="text" value={adjustReason}
                   onChange={e => setAdjustReason(e.target.value)}

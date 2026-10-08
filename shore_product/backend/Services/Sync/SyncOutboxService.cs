@@ -18,8 +18,17 @@ public interface ISyncOutboxService
     Task EnqueueAsync(string targetNode, string tableName, string recordKey,
         SyncActionType action, object payload);
 
-    /// <summary>Broadcast a change to all edge nodes.</summary>
+    /// <summary>Broadcast a change to all edge nodes. KHÔNG dùng cho dữ liệu thuyền viên (SyncOutboxService.CrewScopedTables).</summary>
     Task BroadcastAsync(string tableName, string recordKey, SyncActionType action, object payload);
+
+    /// <summary>
+    /// Gửi tới đúng con tàu <paramref name="vesselId"/>. Không thuộc tàu nào (null) thì không gửi:
+    /// thuyền viên ở danh bạ chung trên bờ không có mặt ở tàu nào.
+    /// </summary>
+    Task EnqueueForVesselAsync(Guid? vesselId, string tableName, string recordKey, SyncActionType action, object payload);
+
+    /// <summary>Gửi dữ liệu của một thuyền viên tới con tàu người đó ĐANG thuộc (crew_members.VesselId).</summary>
+    Task EnqueueForCrewAsync(Guid crewMemberId, string tableName, string recordKey, SyncActionType action, object payload);
 
     /// <summary>Enqueue multiple items in a single batch (single SaveChanges).</summary>
     Task EnqueueBatchAsync(string targetNode, List<(string TableName, string RecordKey, SyncActionType Action, object Payload)> items);
@@ -38,14 +47,49 @@ public interface ISyncOutboxService
 /// </summary>
 public class SyncOutboxService : ISyncOutboxService
 {
+    /// <summary>
+    /// Dữ liệu gắn với một thuyền viên. Mỗi tàu chỉ được nhận thuyền viên của chính nó, nên các bảng này
+    /// luôn gửi đích danh một tàu — không bao giờ phát "*" cho cả đội tàu, kể cả gói "*" cũ còn trong hàng đợi.
+    /// </summary>
+    private static readonly string[] CrewScopedTableList =
+    [
+        "crew_member", "crew_certificate", "crew_logbook_entry", "crew_assignment", "service_record",
+        "crew_member_document", CrewRosterTable
+    ];
+
+    /// <summary>
+    /// Danh sách thuyền viên của MỘT tàu (payload: crewIds). Tàu nhận sẽ gỡ những thuyền viên đến từ bờ
+    /// nhưng không còn trong danh sách — "đưa về bờ" dữ liệu bị gửi nhầm hoặc đã chuyển tàu.
+    /// </summary>
+    public const string CrewRosterTable = "crew_roster";
+
+    /// <summary>Khoá đóng dấu IMO tàu đích trong payload dữ liệu thuyền viên — tàu đối chiếu và từ chối gói không phải của mình.</summary>
+    public const string TargetVesselImoField = "targetVesselImo";
+
+    public static readonly HashSet<string> CrewScopedTables = new(CrewScopedTableList, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Danh mục dùng chung của công ty — bảng DUY NHẤT được gửi cho mọi tàu ("*"). Mọi bảng khác là dữ liệu
+    /// riêng của một tàu (thuyền viên, chuyến đi, thông số/vật tư/thiết bị của tàu…): phải gửi đích danh và
+    /// đóng dấu IMO tàu đích để tàu từ chối gói không phải của mình.
+    /// </summary>
+    internal static readonly string[] SharedCatalogTableList =
+    [
+        "certificate", "country", "rank", "rank_certificate", "country_certificate", "port",
+        "material_category", "material_item_catalog", "report_type",
+        "ism_element", "ism_elements", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates",
+        ShoreSyncPushService.CatalogRosterTable
+    ];
+
+    public static readonly HashSet<string> SharedCatalogTables = new(SharedCatalogTableList, StringComparer.OrdinalIgnoreCase);
+
     private readonly AppDbContext _context;
     private readonly ILogger<SyncOutboxService> _logger;
     private readonly ISyncFileStorageService _syncFileStorageService;
     private readonly IConfiguration? _configuration;
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "crew_member", "crew_certificate", "travel_document", "seafarer_document",
-        "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
+        "crew_member", "crew_certificate", "crew_member_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
     };
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -80,7 +124,7 @@ public class SyncOutboxService : ISyncOutboxService
             targetNode = await VesselSyncIdentity.CanonicalTargetAsync(_context, targetNode);
             var prepared = await PrepareOutgoingAsync(tableName, recordKey, action, payload);
             action = prepared.Action;
-            var serializedPayload = prepared.Payload;
+            var serializedPayload = await StampTargetVesselAsync(tableName, targetNode, prepared.Payload);
 
             // Only identical pending snapshots can be coalesced. Exposed events are immutable.
             if (await _context.SyncOutbox.AnyAsync(o => o.DeliveredAt == null &&
@@ -118,7 +162,35 @@ public class SyncOutboxService : ISyncOutboxService
     public async Task BroadcastAsync(string tableName, string recordKey,
         SyncActionType action, object payload)
     {
+        if (CrewScopedTables.Contains(tableName))
+            throw new InvalidOperationException(
+                $"{tableName} là dữ liệu thuyền viên, phải gửi đúng tàu (EnqueueForCrewAsync / EnqueueForVesselAsync), không phát cho mọi tàu.");
         await EnqueueAsync("*", tableName, recordKey, action, payload);
+    }
+
+    public async Task EnqueueForVesselAsync(Guid? vesselId, string tableName, string recordKey,
+        SyncActionType action, object payload)
+    {
+        if (!vesselId.HasValue)
+        {
+            _logger.LogDebug("Bỏ qua {Table}/{Key}: không thuộc tàu nào", tableName, recordKey);
+            return;
+        }
+        var imo = await _context.Vessels.AsNoTracking().Where(v => v.Id == vesselId.Value).Select(v => v.IMO).SingleOrDefaultAsync();
+        if (string.IsNullOrWhiteSpace(imo))
+        {
+            _logger.LogWarning("Bỏ qua {Table}/{Key}: tàu {VesselId} không tồn tại hoặc chưa có IMO", tableName, recordKey, vesselId);
+            return;
+        }
+        await EnqueueAsync(imo, tableName, recordKey, action, payload);
+    }
+
+    public async Task EnqueueForCrewAsync(Guid crewMemberId, string tableName, string recordKey,
+        SyncActionType action, object payload)
+    {
+        var vesselId = await _context.CrewMembers.AsNoTracking()
+            .Where(c => c.Id == crewMemberId).Select(c => c.VesselId).SingleOrDefaultAsync();
+        await EnqueueForVesselAsync(vesselId, tableName, recordKey, action, payload);
     }
 
     public async Task EnqueueBatchAsync(string targetNode, List<(string TableName, string RecordKey, SyncActionType Action, object Payload)> items)
@@ -134,7 +206,7 @@ public class SyncOutboxService : ISyncOutboxService
         foreach (var item in items)
         {
             var prepared = await PrepareOutgoingAsync(item.TableName, item.RecordKey, item.Action, item.Payload);
-            var serializedPayload = prepared.Payload;
+            var serializedPayload = await StampTargetVesselAsync(item.TableName, targetNode, prepared.Payload);
             var outboxItem = new SyncOutbox
             {
                 TargetNode = targetNode,
@@ -150,6 +222,31 @@ public class SyncOutboxService : ISyncOutboxService
 
         await _context.SaveChangesAsync();
         _logger.LogDebug("Batch enqueued {Count} outbox items → {Node}", items.Count, targetNode);
+    }
+
+    /// <summary>
+    /// Dữ liệu thuyền viên: ghi IMO của tàu đích vào payload. Không xác định được tàu đích thì không gửi —
+    /// thà không gửi còn hơn gửi nhầm tàu.
+    /// </summary>
+    private async Task<string> StampTargetVesselAsync(string tableName, string targetNode, string payload)
+    {
+        if (SharedCatalogTables.Contains(tableName)) return payload;
+        var imo = await TargetImoAsync(targetNode)
+            ?? throw new InvalidOperationException($"Không xác định được tàu đích cho {tableName} (đích {targetNode}); dữ liệu riêng của tàu phải gửi đúng một tàu.");
+        if (System.Text.Json.Nodes.JsonNode.Parse(payload) is not System.Text.Json.Nodes.JsonObject json) return payload;
+        json[TargetVesselImoField] = imo;
+        return json.ToJsonString();
+    }
+
+    private async Task<string?> TargetImoAsync(string targetNode)
+    {
+        Guid? vesselId = null;
+        if (targetNode.StartsWith("vessel:", StringComparison.Ordinal) && Guid.TryParse(targetNode[7..], out var pending)) vesselId = pending;
+        vesselId ??= await _context.SyncNodeTrackers.AsNoTracking().Where(n => n.NodeId == targetNode).Select(n => n.VesselId).FirstOrDefaultAsync();
+        if (vesselId.HasValue)
+            return await _context.Vessels.AsNoTracking().Where(v => v.Id == vesselId.Value).Select(v => v.IMO).FirstOrDefaultAsync();
+        // Đích là IMO (tàu chưa có node đăng ký): chỉ nhận nếu đúng là IMO của một tàu.
+        return await _context.Vessels.AsNoTracking().Where(v => v.IMO == targetNode).Select(v => v.IMO).FirstOrDefaultAsync();
     }
 
     private async Task<(SyncActionType Action, string Payload)> PrepareOutgoingAsync(string table, string recordKey, SyncActionType action, object payload)
@@ -193,7 +290,7 @@ public class SyncOutboxService : ISyncOutboxService
             await EnsurePendingCrewReferencesAsync(nodeId);
             var query = _context.SyncOutbox
                 .Where(o => (o.TargetNode != nodeId ? !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == nodeId) : o.DeliveredAt == null))
-                .Where(o => o.TargetNode == nodeId || o.TargetNode == "*")
+                .Where(o => o.TargetNode == nodeId || (o.TargetNode == "*" && SharedCatalogTableList.Contains(o.TableName)))
                 .Where(o => o.Id > afterId);
 
             if (since.HasValue)
@@ -203,7 +300,7 @@ public class SyncOutboxService : ISyncOutboxService
             if (allowed.Length == 0) return new SyncPullResponse { ServerTime = DateTime.UtcNow };
             var streamId = await GetStreamIdAsync();
             var criticalTables = new[] { "safety_alarm", "engine_event", "alert" };
-            var operationalTables = new[] { "crew_member", "crew_certificate", "crew_logbook_entry", "maritime_report", "report_type", "ship_data", "rank", "country", "certificate", "rank_certificate", "country_certificate", "port", "ism_element", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates" };
+            var operationalTables = new[] { "crew_member", "crew_certificate", "crew_logbook_entry", "crew_member_document", CrewRosterTable, ShoreSyncPushService.CatalogRosterTable, "maritime_report", "report_type", "ship_data", "rank", "country", "certificate", "rank_certificate", "country_certificate", "port", "ism_element", "sms_procedure", "sms_procedures", "sms_form_template", "sms_form_templates" };
             if (!allowed.Contains(SyncPriority.Low))
                 query = query.Where(o => criticalTables.Contains(o.TableName) || (allowed.Contains(SyncPriority.Operational) && operationalTables.Contains(o.TableName)));
             var items = await query
@@ -499,6 +596,24 @@ public class SyncOutboxService : ISyncOutboxService
         };
     }
 
+    /// <summary>
+    /// Tàu chỉ ACK gói đã ÁP xong. Kỳ phục vụ bờ tạo thì tàu không gửi ngược lại, nên ACK là bằng chứng duy nhất
+    /// để coi bản ghi đã đồng bộ — thiếu bước này, tác vụ đối soát gửi lại mãi. Bản ghi sửa SAU khi gói được tạo
+    /// thì chưa tính (gói mới sẽ mang thay đổi đó).
+    /// </summary>
+    private async Task MarkAppliedLogbookEntriesAsync(List<SyncOutbox> acknowledged)
+    {
+        if (!_context.Database.IsRelational()) return;
+        foreach (var item in acknowledged.Where(i => i.TableName == "crew_logbook_entry"))
+        {
+            if (!Guid.TryParse(item.RecordKey, out var id)) continue;
+            var queuedAt = item.CreatedAt;
+            await _context.CrewLogbookEntries
+                .Where(e => e.Id == id && !e.IsSynced && e.UpdatedAt <= queuedAt)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.IsSynced, true));
+        }
+    }
+
     public async Task AcknowledgeDeliveryAsync(string nodeId, List<long> itemIds)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
@@ -535,6 +650,7 @@ public class SyncOutboxService : ISyncOutboxService
             }
 
             await _context.SaveChangesAsync();
+            await MarkAppliedLogbookEntriesAsync(items);
 
             _logger.LogInformation("Acknowledged {Count} items delivered to {NodeId} (requested: {Requested})",
                 items.Count, nodeId, itemIds.Count);

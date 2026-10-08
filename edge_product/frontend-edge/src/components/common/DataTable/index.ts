@@ -1,4 +1,4 @@
-export { DataTable } from './DataTable';
+export { DataTable, toolbarButtonClass } from './DataTable';
 export type { Column } from './DataTable';
 export { TablePagination } from './TablePagination';
 export { TableIconButton, TableActions } from './TableIconButton';

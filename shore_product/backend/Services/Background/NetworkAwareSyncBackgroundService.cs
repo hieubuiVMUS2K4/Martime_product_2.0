@@ -81,15 +81,24 @@ namespace ProductApi.Services.Background
                     if (!imoByVessel.TryGetValue(entry.VesselId!.Value, out var imo)
                         || string.IsNullOrWhiteSpace(imo)) continue;
 
-                    await outbox.EnqueueAsync(imo, "crew_logbook_entry", entry.Id.ToString(),
+                    // Chỉ thuyền viên CÒN thuộc tàu đó. Người đã rời tàu thì danh sách đối chiếu (crew_roster) đã gỡ
+                    // khỏi tàu — gửi lại hồ sơ sẽ dựng lại người không còn thuộc tàu, còn sổ của họ thì tàu không áp
+                    // được (thiếu thuyền viên) nên không bao giờ xác nhận → gửi lại mãi mỗi 30 giây.
+                    var crew = await db.CrewMembers.AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.Id == entry.CrewMemberId, token);
+                    if (crew == null || crew.VesselId != entry.VesselId) continue;
+
+                    // Gói trước còn chờ tàu nhận (tàu ngoài vùng phủ sóng): không xếp chồng thêm.
+                    var key = entry.Id.ToString();
+                    if (await db.SyncOutbox.AnyAsync(o => o.TableName == "crew_logbook_entry" && o.RecordKey == key && o.DeliveredAt == null, token))
+                        continue;
+
+                    await outbox.EnqueueAsync(imo, "crew_logbook_entry", key,
                         Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, entry);
 
                     // Bản ghi thuyền viên đi kèm: trạng thái lên/xuống tàu nằm ở đó, không nằm trong sổ
-                    var crew = await db.CrewMembers.AsNoTracking()
-                        .FirstOrDefaultAsync(c => c.Id == entry.CrewMemberId, token);
-                    if (crew != null)
-                        await outbox.EnqueueAsync(imo, "crew_member", crew.Id.ToString(),
-                            Maritime.Shared.Models.Sync.SyncActionType.UPDATE, crew);
+                    await outbox.EnqueueAsync(imo, "crew_member", crew.Id.ToString(),
+                        Maritime.Shared.Models.Sync.SyncActionType.UPDATE, crew);
 
                     resent++;
                 }

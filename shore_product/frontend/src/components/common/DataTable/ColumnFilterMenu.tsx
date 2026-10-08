@@ -134,7 +134,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
   };
 
   const itemClass =
-    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] text-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40';
+    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
     <>
@@ -202,23 +202,23 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
               placeholder="Tìm giá trị..."
               onChange={e => changeSearch(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && draft.length > 0) apply(draft); }}
-              className="h-8 w-full rounded border border-line pl-2 pr-7 text-[13px] text-ink focus:border-accent focus:outline-none"
+              className="h-8 w-full rounded border border-line pl-2 pr-7 text-sm text-ink focus:border-accent focus:outline-none"
             />
             <Search className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-ink-light" aria-hidden="true" />
           </label>
 
           <div role="group" aria-label="Giá trị của cột" className="min-h-[80px] flex-1 overflow-y-auto rounded border border-line py-1">
             {visible.length === 0 ? (
-              <p className="px-2 py-3 text-center text-[13px] text-ink-muted">Không có giá trị nào khớp.</p>
+              <p className="px-2 py-3 text-center text-sm text-ink-muted">Không có giá trị nào khớp.</p>
             ) : (
               <>
-                <label className="flex cursor-pointer items-center gap-2 px-2 py-1 text-[13px] font-medium text-ink hover:bg-primary-soft">
+                <label className="flex cursor-pointer items-center gap-2 px-2 py-1 text-sm font-medium text-ink hover:bg-primary-soft">
                   <input type="checkbox" className="h-3.5 w-3.5 accent-primary" checked={allChecked}
                     ref={node => { if (node) node.indeterminate = someChecked; }} onChange={toggleAll} />
                   (Chọn tất cả)
                 </label>
                 {visible.map(value => (
-                  <label key={value} className="flex cursor-pointer items-center gap-2 px-2 py-1 text-[13px] text-ink hover:bg-primary-soft">
+                  <label key={value} className="flex cursor-pointer items-center gap-2 px-2 py-1 text-sm text-ink hover:bg-primary-soft">
                     <input type="checkbox" className="h-3.5 w-3.5 shrink-0 accent-primary" checked={draft.includes(value)}
                       onChange={() => toggle(value)} />
                     <span className="truncate" title={value}>{value === '' ? '(trống)' : value}</span>
@@ -230,12 +230,12 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
 
           <div className="mt-1.5 flex justify-end gap-1.5">
             <button type="button" onClick={() => setOpen(false)}
-              className="h-8 rounded border border-line px-3 text-[13px] text-ink hover:bg-primary-soft">
+              className="h-8 rounded border border-line px-3 text-sm text-ink hover:bg-primary-soft">
               Hủy
             </button>
             <button type="button" disabled={draft.length === 0} onClick={() => apply(draft)}
               title={draft.length === 0 ? 'Phải chọn ít nhất một giá trị' : undefined}
-              className="h-8 rounded bg-primary px-3 text-[13px] font-medium text-white hover:bg-primary-hover disabled:opacity-50">
+              className="h-8 rounded bg-primary px-3 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50">
               Áp dụng
             </button>
           </div>

@@ -148,10 +148,7 @@ public sealed class LocalSyncFileStorageService : ISyncFileStorageService
         return tableName switch
         {
             "crew_certificate" => Path.Combine("uploads", "crew", "certificates"),
-            "travel_document" => Path.Combine("uploads", "crew", "documents", "travel_documents"),
-            "seafarer_document" => Path.Combine("uploads", "crew", "documents", "seafarer_documents"),
-            "employment_document" => Path.Combine("uploads", "crew", "documents", "employment_documents"),
-            "health_document" => Path.Combine("uploads", "crew", "documents", "health_documents"),
+            "crew_member_document" => Path.Combine("uploads", "crew", "documents"),
             "sms_procedure" or "sms_procedures" or "sms_filled_record" or "sms_filled_records" => Path.Combine("uploads", "sms"),
             _ => Path.Combine("uploads", "sync-files", tableName)
         };

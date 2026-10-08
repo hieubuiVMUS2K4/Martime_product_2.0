@@ -16,21 +16,21 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
         {/* Logo Box */}
         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
           <div className="w-10 h-10 rounded-full border-2 border-blue-650 flex items-center justify-center mb-1 text-blue-650 text-base font-bold">⚓</div>
-          <span className="text-[9px] font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
-          <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
+          <span className="text-xs font-extrabold tracking-tight leading-tight text-blue-900 dark:text-blue-300 uppercase">HP SHIPPING</span>
+          <span className="text-xs text-slate-500 font-medium">Hòa Phát Sea Transport</span>
         </div>
         {/* Document Title Box */}
         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3 bg-slate-50/30 dark:bg-slate-900/30">
-          <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+          <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
             KẾ HOẠCH NHẬN NHIÊN LIỆU
           </h3>
           <div className="w-16 h-0.5 bg-blue-500 my-1"></div>
-          <span className="italic text-[9px] text-slate-500 font-semibold tracking-wide uppercase leading-tight">
+          <span className="italic text-xs text-slate-500 font-semibold tracking-wide uppercase leading-tight">
             BUNKERING PLAN
           </span>
         </div>
         {/* Document Meta Box */}
-        <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
+        <div className="col-span-3 flex flex-col justify-center p-3 text-left text-xs space-y-1 bg-slate-50/10">
           <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">TL-15-01</span></div>
           <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -41,7 +41,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
       {/* Metadata Inputs Row */}
       <div className="grid grid-cols-3 gap-4 border-x border-b border-slate-300 dark:border-slate-700 p-4 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tàu / Vessel <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tàu / Vessel <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={formValues['vessel'] || ''}
@@ -51,7 +51,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Vị trí / Location <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Vị trí / Location <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={formValues['location'] || ''}
@@ -61,7 +61,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Xà lan/Cảng / Supply Barge/Terminal <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Xà lan/Cảng / Supply Barge/Terminal <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={formValues['supplyBarge'] || ''}
@@ -71,7 +71,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ngày / Date <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày / Date <span className="text-red-500">*</span></label>
           <input
             type="date"
             value={formValues['bunkerDate'] || ''}
@@ -81,7 +81,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mớn nước mũi / Fore Draft</label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mớn nước mũi / Fore Draft</label>
           <input
             type="text"
             value={formValues['foreDraft'] || ''}
@@ -91,7 +91,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mớn nước lái / Aft Draft</label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mớn nước lái / Aft Draft</label>
           <input
             type="text"
             value={formValues['aftDraft'] || ''}
@@ -104,13 +104,13 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 1: Product to be Handled */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-xs uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
           1. Loại nhiên liệu nhận / Product to be Handled
         </h4>
         <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750 text-center">
+              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px]">STT</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750">Chủng loại / Grade</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750">Tỷ trọng / Density</th>
@@ -239,13 +239,13 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 2: Personnel Responsibilities */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-xs uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
           2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
         </h4>
         <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750">
+              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750">
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px] text-center">STT</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px]">Chức danh / Rank</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[200px]">Họ tên / Name</th>
@@ -333,7 +333,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
       {/* Section 3 to 6: Checklists */}
       <div className="mt-6 grid grid-cols-2 gap-4">
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-xl space-y-3">
-          <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400">
+          <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400">
             3. Thiết bị đo & Độ chính xác / Equipment calibration & Accuracy
           </h5>
           <div className="space-y-2">
@@ -381,7 +381,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
         </div>
 
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-xl space-y-3">
-          <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400">
+          <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400">
             4. Báo động mức cao / High-level alarms
           </h5>
           <div className="space-y-2">
@@ -397,7 +397,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             </label>
           </div>
 
-          <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
             5. Phương pháp đo nhiệt độ / Temperature measuring
           </h5>
           <div className="space-y-2">
@@ -426,7 +426,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
       </div>
 
       <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-xl space-y-3">
-        <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400">
+        <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400">
           6. Kiểm soát hơi thoát và đo khí độc / Vapor control and gas check
         </h5>
         <div className="grid grid-cols-2 gap-4">
@@ -479,11 +479,11 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 7: Distribution of Bunker Oil */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-xs uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
           7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
         </h4>
         <div className="mb-3">
-          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Thiết lập sơ đồ van nhận nhiên liệu / Piping line-up description <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Thiết lập sơ đồ van nhận nhiên liệu / Piping line-up description <span className="text-red-500">*</span></label>
           <textarea
             rows={2}
             value={formValues['line_up_piping'] || ''}
@@ -494,9 +494,9 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
           />
         </div>
         <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750 text-center">
+              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px]">STT</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750">Két nhận / Receiving Tank</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750">Các van mở / Valves opened</th>
@@ -611,12 +611,12 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 8: Loading Rates */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-xs uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
           8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
         </h4>
         <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lưu lượng ban đầu / Initial Rate (Mts/Hr) <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lưu lượng ban đầu / Initial Rate (Mts/Hr) <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={formValues['rate_initial'] || ''}
@@ -626,7 +626,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lưu lượng tối đa / Max Rate (Mts/Hr) <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lưu lượng tối đa / Max Rate (Mts/Hr) <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={formValues['rate_max'] || ''}
@@ -636,7 +636,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lưu lượng khi sắp đầy / Topping-off Rate (Mts/Hr) <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lưu lượng khi sắp đầy / Topping-off Rate (Mts/Hr) <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={formValues['rate_topping'] || ''}
@@ -650,13 +650,13 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 9: Gauging of Tanks */}
       <div className="mt-6">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
+        <h4 className="font-extrabold text-xs uppercase text-blue-900 dark:text-blue-400 mb-2 border-b border-blue-200 dark:border-blue-800 pb-1">
           9. Bảng đo các két trước và sau nhận / Gauging of Tanks (Pre-bunkering & Final Expected)
         </h4>
         <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-[10px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-300 dark:border-slate-750 text-center">
+              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                 <th rowSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 w-[35px]">STT</th>
                 <th rowSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 w-[90px]">Két / Tank</th>
                 <th colSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 border-b">Dung tích 85% / 85% Capacity</th>
@@ -666,7 +666,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
                 <th rowSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 w-[55px]">Thứ tự / Seq</th>
                 {!(recordStatus === 'Approved' || recordStatus === 'Submitted') && <th rowSpan={2} className="p-1.5 w-[45px]">Xóa</th>}
               </tr>
-              <tr className="bg-slate-50 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-[8px] border-b border-slate-300 dark:border-slate-750 text-center">
+              <tr className="bg-slate-50 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                 <th className="p-1 border-r border-slate-300 dark:border-slate-750">Chiều cao / Sound (m)</th>
                 <th className="p-1 border-r border-slate-300 dark:border-slate-750">Thể tích / Vol (m³)</th>
                 <th className="p-1 border-r border-slate-300 dark:border-slate-750">Chiều cao / Sound (m)</th>
@@ -834,7 +834,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
                           newArr.splice(idx, 1);
                           handleFormFieldChange('gauging', newArr);
                         }}
-                        className="text-red-500 hover:text-red-700 text-[10px]"
+                        className="text-red-500 hover:text-red-700 text-xs"
                       >
                         Xóa
                       </button>
@@ -845,7 +845,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
             </tbody>
           </table>
         </div>
-        <div className="mt-2 grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-2.5 rounded-lg text-center font-semibold text-[10px]">
+        <div className="mt-2 grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-2.5 rounded-lg text-center font-semibold text-xs">
           <div className="text-slate-500">Tổng dung tích 85% / Total 85% Cap: <span className="text-slate-800 dark:text-white font-extrabold font-mono ml-1">{formValues['gauging']?.reduce((sum: number, r: any) => sum + (parseFloat(r.capVol) || 0), 0).toFixed(2)} m³</span></div>
           <div className="text-slate-500">Tổng thực tế trước nhận / Total Pre-bunkering: <span className="text-slate-800 dark:text-white font-extrabold font-mono ml-1">{formValues['gauging']?.reduce((sum: number, r: any) => sum + (parseFloat(r.preVol) || 0), 0).toFixed(2)} m³</span></div>
           <div className="text-slate-500">Tổng dự kiến sau nhận / Total Final Expected: <span className="text-slate-800 dark:text-white font-extrabold font-mono ml-1">{formValues['gauging']?.reduce((sum: number, r: any) => sum + (parseFloat(r.postVol) || 0), 0).toFixed(2)} m³</span></div>
@@ -867,12 +867,12 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
       {/* Section 10 to 12: Communication, Emergency Contacts, Spill Equipment */}
       <div className="mt-6 grid grid-cols-2 gap-4">
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 font-sans">
-          <h5 className="font-extrabold text-[10px] uppercase text-slate-650 dark:text-slate-350">
+          <h5 className="font-extrabold text-xs uppercase text-slate-650 dark:text-slate-350">
             10. Thông tin liên lạc & Ngắt khẩn cấp / Communications & Emergency Stop
           </h5>
           <div className="space-y-2 text-xs">
             <div>
-              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Phương thức liên lạc / Communication method (e.g. VHF Ch. 12) <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Phương thức liên lạc / Communication method (e.g. VHF Ch. 12) <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={formValues['comm_ship_barge'] || ''}
@@ -882,7 +882,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Tín hiệu dừng khẩn cấp / Emergency stop signal <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Tín hiệu dừng khẩn cấp / Emergency stop signal <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={formValues['comm_stop_signal'] || ''}
@@ -895,12 +895,12 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
         </div>
 
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 font-sans">
-          <h5 className="font-extrabold text-[10px] uppercase text-slate-650 dark:text-slate-350">
+          <h5 className="font-extrabold text-xs uppercase text-slate-650 dark:text-slate-350">
             12. Thiết bị ứng phó sự cố dầu tràn / Oil Spill Equipment Location
           </h5>
           <div className="space-y-2 text-xs">
             <div>
-              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Vị trí SOPEP Box trên tàu / Ship's SOPEP Box Location <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Vị trí SOPEP Box trên tàu / Ship's SOPEP Box Location <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={formValues['spill_loc1'] || ''}
@@ -910,7 +910,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
               />
             </div>
             <div>
-              <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Vị trí thiết bị trên xà lan / Barge SOPEP Box Location</label>
+              <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Vị trí thiết bị trên xà lan / Barge SOPEP Box Location</label>
               <input
                 type="text"
                 value={formValues['spill_loc2'] || ''}
@@ -924,7 +924,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
       </div>
 
       <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2 font-sans">
-        <h5 className="font-extrabold text-[10px] uppercase text-slate-650 dark:text-slate-350">
+        <h5 className="font-extrabold text-xs uppercase text-slate-650 dark:text-slate-350">
           11. Các địa chỉ liên lạc khẩn cấp tại địa phương / Local Emergency Contacts
         </h5>
         <textarea
@@ -939,16 +939,16 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
 
       {/* Section 13: Crew Sign-off */}
       <div className="mt-6 border-t border-slate-250 dark:border-slate-800 pt-4">
-        <h4 className="font-extrabold text-[11px] uppercase text-blue-900 dark:text-blue-400 mb-2">
+        <h4 className="font-extrabold text-xs uppercase text-blue-900 dark:text-blue-400 mb-2">
           13. Xác nhận hiểu rõ kế hoạch / Crew Sign-off List
         </h4>
-        <p className="text-[10px] italic text-slate-500 mb-2">
+        <p className="text-xs italic text-slate-500 mb-2">
           Chúng tôi xác nhận đã hiểu rõ kế hoạch nhận nhiên liệu và các biện pháp ứng phó sự cố dầu tràn. / We confirm that we understand the bunkering plan and spill response actions.
         </p>
         <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750">
+              <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750">
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px] text-center">STT</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px]">Chức danh / Rank</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[200px]">Họ tên / Name</th>
@@ -976,7 +976,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
                   </td>
                   <td className="p-2 border-r border-slate-200 dark:border-slate-800 text-center">
                     {row.signed ? (
-                      <span className="inline-block bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 font-bold border border-green-200 dark:border-green-900/50 px-3 py-1 rounded text-[10px] tracking-wide shadow-sm">
+                      <span className="inline-block bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 font-bold border border-green-200 dark:border-green-900/50 px-3 py-1 rounded text-xs tracking-wide shadow-sm">
                         ✓ ĐÃ KÝ / SIGNED
                       </span>
                     ) : (
@@ -989,7 +989,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
                           toast.success(`Đã xác nhận chữ ký cho chức danh ${row.rank}`);
                         }}
                         disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-[10px] font-bold shadow-sm transition"
+                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-bold shadow-sm transition"
                       >
                         Ký tên / Sign
                       </button>

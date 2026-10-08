@@ -335,7 +335,7 @@ export default function AssetsPage() {
             {node.assetName}
           </span>
           {childCount > 0 && (
-            <span className="text-gray-400 text-[10px] flex-shrink-0">{childCount}</span>
+            <span className="text-gray-400 text-xs flex-shrink-0">{childCount}</span>
           )}
         </div>
 
@@ -711,7 +711,7 @@ function EditAssetModal({ asset, onDelete, onClose, onSuccess }: EditAssetModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <div>
             <h2 className="text-base font-semibold text-slate-900">{t('pms.assets.edit')} {asset.assetName}</h2>
@@ -883,7 +883,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="create-equipment-title" className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-equipment-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 id="create-equipment-title" className="text-base font-semibold text-slate-900">{title}</h2>
@@ -1215,7 +1215,7 @@ function AssignEquipmentMaterialModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-900">Gán vật tư yêu cầu</h2>

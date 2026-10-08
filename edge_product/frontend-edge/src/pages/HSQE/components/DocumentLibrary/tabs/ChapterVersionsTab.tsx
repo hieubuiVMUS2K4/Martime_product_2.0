@@ -32,13 +32,13 @@ export function ChapterVersionsTab({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Published':
-        return <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-[10px] font-bold">Published</span>;
+        return <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-bold">Published</span>;
       case 'Obsolete':
-        return <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-full text-[10px] font-bold line-through">Obsolete</span>;
+        return <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-full text-xs font-bold line-through">Obsolete</span>;
       case 'Draft':
-        return <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-[10px] font-bold">Draft</span>;
+        return <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-xs font-bold">Draft</span>;
       default:
-        return <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-[10px] font-bold">{status}</span>;
+        return <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-bold">{status}</span>;
     }
   };
 
@@ -51,7 +51,7 @@ export function ChapterVersionsTab({
           <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-blue-500" />
             Lịch sử phiên bản
-            <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold px-2 py-0.5 rounded-full">
               {versions.length}
             </span>
           </h3>
@@ -100,7 +100,7 @@ export function ChapterVersionsTab({
 
                   <div className="flex items-start gap-3">
                     {/* Version circle */}
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold ${
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
                       isCurrent
                         ? 'bg-green-500 text-white'
                         : isSelected
@@ -116,7 +116,7 @@ export function ChapterVersionsTab({
                           {ver.version}
                         </span>
                         {isCurrent && (
-                          <span className="px-1.5 py-0.5 bg-green-600 text-white text-[8px] font-bold rounded uppercase">
+                          <span className="px-1.5 py-0.5 bg-green-600 text-white text-xs font-bold rounded uppercase">
                             Current
                           </span>
                         )}
@@ -127,7 +127,7 @@ export function ChapterVersionsTab({
                         {ver.changeSummary}
                       </p>
 
-                      <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-slate-500">
+                      <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
                         <span className="flex items-center gap-1">
                           <User className="w-3 h-3" /> {ver.modifiedBy}
                         </span>

@@ -38,8 +38,8 @@
   border-bottom: 1px solid #e5e7eb;
 }
 .voyage-form-header h2 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 .voyage-form-icon {
   display: flex;
@@ -51,7 +51,7 @@
 .voyage-form-close {
   padding: 6px;
   border-radius: 6px;
-  color: #64748b;
+  color: #334155;
 }
 .voyage-form-close:hover {
   background: #f1f5f9;
@@ -74,8 +74,8 @@
   background: #fff;
 }
 .voyage-form-section-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   color: #1e293b;
 }
 .voyage-form-grid {
@@ -86,8 +86,8 @@
 .voyage-form-label {
   display: block;
   margin-bottom: 6px;
-  color: #475569;
-  font-size: 13px;
+  color: #27313f;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 .voyage-form-input {
@@ -98,7 +98,7 @@
   border-radius: 4px;
   background: #fff;
   color: #0f172a;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 .voyage-form-input:focus {
   outline: none;
@@ -122,12 +122,12 @@
   gap: 8px;
   padding: 9px 18px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 .voyage-form-cancel {
   border: 1px solid #cbd5e1;
-  color: #475569;
+  color: #27313f;
 }
 .voyage-form-save {
   background: #2563eb;

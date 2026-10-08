@@ -27,6 +27,8 @@ public class EdgeProvisioningController : ControllerBase
     private readonly IEdgeDataEncryptionService _encryption;
     private readonly IEdgeRuntimeConfigService _runtimeConfigService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IEdgeVesselSwitchService _vesselSwitch;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<EdgeProvisioningController> _logger;
 
     public EdgeProvisioningController(
@@ -34,12 +36,16 @@ public class EdgeProvisioningController : ControllerBase
         IEdgeDataEncryptionService encryption,
         IEdgeRuntimeConfigService runtimeConfigService,
         IHttpClientFactory httpClientFactory,
+        IEdgeVesselSwitchService vesselSwitch,
+        IServiceScopeFactory scopeFactory,
         ILogger<EdgeProvisioningController> logger)
     {
         _context = context;
         _encryption = encryption;
         _runtimeConfigService = runtimeConfigService;
         _httpClientFactory = httpClientFactory;
+        _vesselSwitch = vesselSwitch;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -160,8 +166,8 @@ public class EdgeProvisioningController : ControllerBase
 
             try
             {
+                // Chỉ lưu gói. Danh tính tàu (ShipData) đổi lúc KÍCH HOẠT, không phải lúc import.
                 _context.EdgeProvisioningProfiles.Add(profile);
-                await UpsertShipDataFromProvisioningAsync(parsed);
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
@@ -197,6 +203,22 @@ public class EdgeProvisioningController : ControllerBase
     public class ProfileActionRequest
     {
         public int ProfileId { get; set; }
+
+        /// <summary>Kích hoạt gói của TÀU KHÁC: phải xác nhận xoá toàn bộ dữ liệu tàu hiện tại.</summary>
+        public bool ConfirmReset { get; set; }
+    }
+
+    /// <summary>
+    /// GET /api/edge/provisioning/{id}/switch-check — Trước khi kích hoạt: gói này có phải tàu khác không,
+    /// có bao nhiêu thay đổi chưa gửi lên bờ sẽ mất.
+    /// </summary>
+    [HttpGet("{id:int}/switch-check")]
+    public async Task<IActionResult> SwitchCheck(int id)
+    {
+        var profile = await _context.EdgeProvisioningProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
+        if (profile == null)
+            return NotFound(new { error = $"Không tìm thấy profile #{id}." });
+        return Ok(await _vesselSwitch.CheckAsync(profile));
     }
 
     /// <summary>
@@ -213,75 +235,34 @@ public class EdgeProvisioningController : ControllerBase
         if (string.IsNullOrWhiteSpace(profile.ShoreBaseUrl) || string.IsNullOrWhiteSpace(profile.NodeId))
             return BadRequest(new { error = "Profile thiếu ShoreBaseUrl hoặc NodeId." });
 
-        string rawToken;
         try
         {
-            rawToken = _encryption.Decrypt(profile.NodeApiToken) ?? string.Empty;
+            _ = _encryption.Decrypt(profile.NodeApiToken);
         }
         catch (Exception ex)
         {
             return BadRequest(new { error = $"Không giải mã được NodeApiToken: {ex.Message}" });
         }
 
+        ShoreHandshakeResult result;
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            client.BaseAddress = new Uri(profile.ShoreBaseUrl.TrimEnd('/') + "/");
-            client.Timeout = TimeSpan.FromSeconds(15);
-            client.DefaultRequestHeaders.Add("X-Node-Api-Token", rawToken);
-
-            var body = JsonSerializer.Serialize(new
-            {
-                nodeId = profile.NodeId,
-                vesselImo = profile.VesselImo,
-                shoreVesselId = profile.VesselId,
-                edgeVersion = "3.0",
-                networkType = profile.NetworkType ?? "Shore_WiFi"
-            });
-
-            var response = await client.PostAsync(
-                "api/sync/handshake",
-                new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
-
-            var responseBody = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-            {
-                profile.HandshakeStatus = "failed";
-                profile.LastHandshakeError = $"HTTP {(int)response.StatusCode}: {Truncate(responseBody, 500)}";
-                profile.LastHandshakeAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-
-                return Ok(new { success = false, message = profile.LastHandshakeError });
-            }
-
-            var identityError = ValidateHandshakeResponseIdentity(responseBody, profile);
-            if (identityError != null)
-            {
-                profile.HandshakeStatus = "failed";
-                profile.LastHandshakeError = identityError;
-                profile.LastHandshakeAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-                return Ok(new { success = false, message = identityError });
-            }
-
-            profile.HandshakeStatus = "success";
-            profile.LastHandshakeError = null;
-            profile.LastHandshakeAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { success = true, message = "Kết nối thành công.", serverTime = DateTime.UtcNow });
+            result = await _vesselSwitch.HandshakeAsync(profile, requestFullSync: false);
         }
         catch (Exception ex)
         {
-            profile.HandshakeStatus = "failed";
-            profile.LastHandshakeError = Truncate(ex.Message, 500);
-            profile.LastHandshakeAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
             _logger.LogWarning(ex, "Test connection failed for profile #{ProfileId}", profile.Id);
-            return Ok(new { success = false, message = ex.Message });
+            result = new ShoreHandshakeResult(false, Truncate(ex.Message, 500), 0);
         }
+
+        profile.HandshakeStatus = result.Success ? "success" : "failed";
+        profile.LastHandshakeError = result.Error;
+        profile.LastHandshakeAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return result.Success
+            ? Ok(new { success = true, message = "Kết nối thành công.", serverTime = DateTime.UtcNow })
+            : Ok(new { success = false, message = result.Error });
     }
 
     /// <summary>
@@ -308,38 +289,150 @@ public class EdgeProvisioningController : ControllerBase
             return BadRequest(new { error = "Profile is missing its node/vessel identity binding." });
         }
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        // Gói của tàu khác: tàu chỉ chứa dữ liệu của MỘT tàu → xoá sạch dữ liệu tàu cũ rồi nhận lại từ bờ.
+        var check = await _vesselSwitch.CheckAsync(profile);
+        if (check.RequiresReset && !request.ConfirmReset)
         {
-            var previouslyActive = await _context.EdgeProvisioningProfiles
-                .Where(p => p.IsActive)
-                .ToListAsync();
-
-            var previousProfileId = previouslyActive.FirstOrDefault()?.Id;
-
-            foreach (var p in previouslyActive)
-                p.IsActive = false;
-
-            await _context.SaveChangesAsync();
-
-            profile.IsActive = true;
-            profile.ActivatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation(
-                "Activated EdgeProvisioningProfile #{ProfileId} (NodeId={NodeId}); previous active profile: #{PreviousProfileId}",
-                profile.Id, profile.NodeId, previousProfileId);
-
-            return Ok(new { activated = true, previousProfileId });
+            return Conflict(new
+            {
+                error = "Gói cấu hình này thuộc tàu khác. Kích hoạt sẽ XOÁ toàn bộ dữ liệu của tàu hiện tại.",
+                requiresReset = true,
+                check
+            });
         }
-        catch (Exception ex)
+
+        _context.SuppressSyncQueue = true;
+        int? previousProfileId;
+        var wipedRows = 0;
+        await using (var transaction = await _context.Database.BeginTransactionAsync())
         {
-            await transaction.RollbackAsync();
-            _logger.LogError(ex, "Failed to activate EdgeProvisioningProfile #{ProfileId}", request.ProfileId);
-            return StatusCode(500, new { error = "Internal server error" });
+            try
+            {
+                if (check.RequiresReset)
+                    wipedRows = await _vesselSwitch.WipeVesselDataAsync();
+
+                var previouslyActive = await _context.EdgeProvisioningProfiles
+                    .Where(p => p.IsActive)
+                    .ToListAsync();
+
+                previousProfileId = previouslyActive.FirstOrDefault()?.Id;
+
+                foreach (var p in previouslyActive)
+                    p.IsActive = false;
+
+                await _context.SaveChangesAsync();
+
+                profile.IsActive = true;
+                profile.ActivatedAt = DateTime.UtcNow;
+                await UpsertShipDataFromProfileAsync(profile);
+
+                if (check.RequiresReset)
+                {
+                    var flag = await _context.SyncState.AsTracking().SingleOrDefaultAsync(s => s.Key == EdgeVesselSwitchService.FullSyncPendingKey);
+                    if (flag == null)
+                        _context.SyncState.Add(new SyncState { Key = EdgeVesselSwitchService.FullSyncPendingKey, Value = profile.NodeId!, UpdatedAt = DateTime.UtcNow });
+                    else { flag.Value = profile.NodeId!; flag.UpdatedAt = DateTime.UtcNow; }
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Failed to activate EdgeProvisioningProfile #{ProfileId}", request.ProfileId);
+                return StatusCode(500, new { error = $"Kích hoạt thất bại, dữ liệu không thay đổi: {ex.Message}" });
+            }
         }
+
+        _logger.LogInformation(
+            "Activated EdgeProvisioningProfile #{ProfileId} (NodeId={NodeId}); previous active profile: #{PreviousProfileId}; reset={Reset} ({Rows} rows)",
+            profile.Id, profile.NodeId, previousProfileId, check.RequiresReset, wipedRows);
+
+        // Xin bờ gửi lại toàn bộ dữ liệu của tàu mới, rồi kéo về ngay (không chờ chu kỳ đồng bộ).
+        var fullSyncRequested = false;
+        if (check.RequiresReset)
+        {
+            fullSyncRequested = await _vesselSwitch.CompletePendingFullSyncAsync();
+            if (fullSyncRequested)
+                StartInitialPull();
+        }
+
+        return Ok(new { activated = true, previousProfileId, reset = check.RequiresReset, wipedRows, fullSyncRequested });
+    }
+
+    public class ResetRequest
+    {
+        /// <summary>IMO tàu đang chạy — gõ lại để xác nhận.</summary>
+        public string? ConfirmImo { get; set; }
+    }
+
+    /// <summary>
+    /// POST /api/edge/provisioning/reset — Làm sạch tàu đang chạy và nhận lại toàn bộ dữ liệu từ bờ (giữ gói đang
+    /// dùng, danh mục dùng chung, tài khoản quản trị). Dùng khi dữ liệu tàu lệch bờ hoặc cài lại máy.
+    /// </summary>
+    [HttpPost("reset")]
+    public async Task<IActionResult> ResetFromShore([FromBody] ResetRequest request)
+    {
+        var profile = await _context.EdgeProvisioningProfiles.FirstOrDefaultAsync(p => p.IsActive);
+        if (profile == null)
+            return BadRequest(new { error = "Chưa có gói cấu hình nào đang dùng." });
+        if (!string.Equals(request.ConfirmImo?.Trim(), profile.VesselImo, StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { error = "IMO xác nhận không khớp tàu đang chạy." });
+
+        _context.SuppressSyncQueue = true;
+        int wipedRows;
+        await using (var transaction = await _context.Database.BeginTransactionAsync())
+        {
+            try
+            {
+                wipedRows = await _vesselSwitch.WipeVesselDataAsync();
+                await UpsertShipDataFromProfileAsync(profile);
+                _context.SyncState.Add(new SyncState { Key = EdgeVesselSwitchService.FullSyncPendingKey, Value = profile.NodeId!, UpdatedAt = DateTime.UtcNow });
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Reset from shore failed");
+                return StatusCode(500, new { error = $"Làm sạch thất bại, dữ liệu không thay đổi: {ex.Message}" });
+            }
+        }
+
+        var fullSyncRequested = await _vesselSwitch.CompletePendingFullSyncAsync();
+        if (fullSyncRequested)
+            StartInitialPull();
+        _logger.LogWarning("[VESSEL-SWITCH] Reset {NodeId} from shore: wiped {Rows} rows, fullSyncRequested={Requested}", profile.NodeId, wipedRows, fullSyncRequested);
+        return Ok(new { reset = true, wipedRows, fullSyncRequested });
+    }
+
+    /// <summary>Kéo hết dữ liệu bờ vừa xếp hàng cho tàu mới, chạy nền để không giữ request.</summary>
+    private void StartInitialPull()
+    {
+        var scopeFactory = _scopeFactory;
+        var logger = _logger;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var sync = scope.ServiceProvider.GetRequiredService<ISyncService>();
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+                var total = 0;
+                for (var round = 0; round < 200; round++)
+                {
+                    var applied = await sync.PullFromShoreAsync(cts.Token, maxItems: 500);
+                    total += applied;
+                    if (applied == 0) break;
+                }
+                logger.LogInformation("[VESSEL-SWITCH] Đã nhận {Count} gói dữ liệu từ bờ cho tàu mới", total);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[VESSEL-SWITCH] Kéo dữ liệu ban đầu dở dang; chu kỳ đồng bộ sẽ kéo tiếp");
+            }
+        });
     }
 
     /// <summary>GET /api/edge/provisioning/history</summary>
@@ -497,66 +590,24 @@ public class EdgeProvisioningController : ControllerBase
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];
 
-    private static string? ValidateHandshakeResponseIdentity(string responseBody, EdgeProvisioningProfile profile)
+    /// <summary>Danh tính tàu theo gói đang kích hoạt. Thông số chi tiết bờ gửi xuống sau (nhóm Vessel).</summary>
+    private async Task UpsertShipDataFromProfileAsync(EdgeProvisioningProfile profile)
     {
-        try
-        {
-            using var responseJson = JsonDocument.Parse(responseBody);
-            var root = responseJson.RootElement;
-
-            var accepted = root.TryGetProperty("accepted", out var acceptedElement) &&
-                           acceptedElement.ValueKind == JsonValueKind.True;
-            var nodeId = root.TryGetProperty("nodeId", out var nodeElement) ? nodeElement.GetString() : null;
-            var vesselImo = root.TryGetProperty("vesselImo", out var imoElement) ? imoElement.GetString() : null;
-            Guid shoreVesselId = Guid.Empty;
-            var hasVesselId = root.TryGetProperty("shoreVesselId", out var vesselIdElement) &&
-                              vesselIdElement.TryGetGuid(out shoreVesselId);
-
-            if (!accepted ||
-                !string.Equals(nodeId, profile.NodeId, StringComparison.Ordinal) ||
-                !string.Equals(vesselImo, profile.VesselImo, StringComparison.OrdinalIgnoreCase) ||
-                !hasVesselId ||
-                shoreVesselId != profile.VesselId)
-            {
-                return "Shore accepted the request but returned a different node/vessel identity.";
-            }
-
-            return null;
-        }
-        catch (JsonException)
-        {
-            return "Shore handshake response is not valid JSON.";
-        }
-    }
-
-    private async Task UpsertShipDataFromProvisioningAsync(ParsedProvisioningJson parsed)
-    {
-        if (string.IsNullOrWhiteSpace(parsed.VesselImo) || string.IsNullOrWhiteSpace(parsed.VesselName))
-        {
+        if (string.IsNullOrWhiteSpace(profile.VesselImo) || string.IsNullOrWhiteSpace(profile.VesselName))
             return;
-        }
 
         var now = DateTime.UtcNow;
         var shipData = await _context.ShipData.AsTracking().FirstOrDefaultAsync();
         if (shipData == null)
         {
-            shipData = new ShipData
-            {
-                Id = Guid.NewGuid(),
-                CreatedAt = now
-            };
+            shipData = new ShipData { Id = Guid.NewGuid(), CreatedAt = now, CallSign = string.Empty, Flag = string.Empty };
             _context.ShipData.Add(shipData);
         }
 
-        shipData.ImoNumber = parsed.VesselImo.Trim();
-        shipData.ShipName = parsed.VesselName.Trim();
-        shipData.CallSign = parsed.VesselCallSign?.Trim() ?? shipData.CallSign ?? string.Empty;
-        shipData.TypeOfVessel = parsed.VesselType?.Trim() ?? shipData.TypeOfVessel;
-        shipData.Flag = parsed.VesselFlag?.Trim() ?? shipData.Flag ?? string.Empty;
+        shipData.ImoNumber = profile.VesselImo.Trim();
+        shipData.ShipName = profile.VesselName.Trim();
         shipData.PortOfRegistry ??= string.Empty;
-        shipData.GrossTonnageInternational = parsed.GrossTonnage ?? shipData.GrossTonnageInternational;
-        shipData.OriginNode = parsed.NodeId?.Trim() ?? shipData.OriginNode;
-        shipData.IsSynced = false;
+        shipData.OriginNode = profile.NodeId?.Trim() ?? shipData.OriginNode;
         shipData.UpdatedAt = now;
     }
 

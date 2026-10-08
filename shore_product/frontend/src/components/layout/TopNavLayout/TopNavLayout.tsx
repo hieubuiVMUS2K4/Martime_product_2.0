@@ -16,7 +16,7 @@ import './TopNavLayout.css';
 */
 
 const linkBase =
-  'flex h-9 items-center gap-2 rounded-md px-2 text-[13px] font-medium transition-colors whitespace-nowrap xl:px-2.5 xl:text-sm 2xl:px-3';
+  'flex h-9 items-center gap-2 rounded-md px-2 text-xs font-medium transition-colors whitespace-nowrap xl:px-2.5 xl:text-sm 2xl:px-3';
 const linkIdle = 'text-white/75 hover:bg-white/10 hover:text-white';
 const linkActive = 'bg-white/15 text-white shadow-[inset_0_-2px_0_0_#e0b53a]';
 
@@ -101,8 +101,7 @@ export const TopNavLayout: React.FC = () => {
               <Anchor className="h-[18px] w-[18px]" aria-hidden="true" />
             </span>
             <span className="leading-tight">
-              <span className="block text-[15px] font-bold tracking-wide">MARITIME</span>
-              <span className="hidden text-[10px] font-medium uppercase tracking-[0.18em] text-white/55 xl:block">Trung tâm bờ</span>
+              <span className="block text-[0.9375rem] font-bold tracking-wide">MARITIME</span>
             </span>
           </NavLink>
 
@@ -148,7 +147,7 @@ export const TopNavLayout: React.FC = () => {
               return (
                 <div key={entry.label} className="py-1">
                   {entry.kind === 'group' && (
-                    <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-white/50">{entry.label}</div>
+                    <div className="px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-white/50">{entry.label}</div>
                   )}
                   {leaves.map(leaf => {
                     const Icon = leaf.icon;

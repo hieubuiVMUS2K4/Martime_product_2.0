@@ -250,7 +250,7 @@ export const MaterialItemsTab: React.FC = () => {
                 <div className="cfm-grid">
                   <div className="cfm-field cfm-field--required">
                     <label>Mã vật tư</label>
-                    <input value={form.itemCode} onChange={e => setForm(f => ({ ...f, itemCode: e.target.value }))} disabled={!!editing} placeholder="VD: IMPA-370101" style={{ fontFamily: 'monospace' }} />
+                    <input value={form.itemCode} onChange={e => setForm(f => ({ ...f, itemCode: e.target.value }))} disabled={!!editing} placeholder="VD: IMPA-370101" style={{ fontVariantNumeric: 'tabular-nums' }} />
                   </div>
                   <div className="cfm-field cfm-field--required">
                     <label>Tên vật tư</label>

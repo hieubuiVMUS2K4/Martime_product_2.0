@@ -36,7 +36,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Schedule Details</h2>
@@ -70,7 +70,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
                 <label className="block text-sm font-medium text-gray-600 mb-1">Đối tượng bảo trì</label>
                 {schedule.equipmentAssetId ? (
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-5 h-5 bg-teal-100 text-teal-700 rounded text-[10px] font-bold">A</span>
+                    <span className="inline-flex items-center justify-center w-5 h-5 bg-teal-100 text-teal-700 rounded text-xs font-bold">A</span>
                     <p className="text-sm text-gray-900">
                       {schedule.assetCode && <span className="font-medium">{schedule.assetCode}</span>}
                       {schedule.assetName && <span className="ml-1">{schedule.assetName}</span>}
@@ -79,7 +79,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-5 h-5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">G</span>
+                    <span className="inline-flex items-center justify-center w-5 h-5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold">G</span>
                     <p className="text-sm text-gray-900">
                       {schedule.groupName || schedule.groupCode}
                       {schedule.assetCount !== undefined && schedule.assetCount > 0 && (

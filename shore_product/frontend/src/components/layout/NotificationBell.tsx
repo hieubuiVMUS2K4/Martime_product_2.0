@@ -78,7 +78,7 @@ export const NotificationBell: React.FC = () => {
 
   const go = (path: string) => { setOpen(false); navigate(path); };
 
-  const groupTitle = 'sticky top-0 border-b border-line bg-canvas px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted';
+  const groupTitle = 'sticky top-0 border-b border-line bg-canvas px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted';
 
   return (
     <div ref={ref} className="relative">
@@ -92,7 +92,7 @@ export const NotificationBell: React.FC = () => {
       >
         <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-primary">
+          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white ring-2 ring-primary">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -123,9 +123,9 @@ export const NotificationBell: React.FC = () => {
                         <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-semibold text-ink">{n.title}</span>
+                        <span className="block text-xs font-semibold text-ink">{n.title}</span>
                         <span className="mt-0.5 block text-xs text-ink-muted">{n.message}</span>
-                        <span className="mt-1 block text-[11px] text-ink-light">{fmtTime(n.createdAt)}</span>
+                        <span className="mt-1 block text-xs text-ink-light">{fmtTime(n.createdAt)}</span>
                       </span>
                     </button>
                   ))}
@@ -143,15 +143,15 @@ export const NotificationBell: React.FC = () => {
                           <Ship className="h-3.5 w-3.5" aria-hidden="true" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[13px] font-semibold text-ink">
+                          <span className="block text-xs font-semibold text-ink">
                             {n.fullName}
-                            <span className="ml-1.5 rounded bg-orange-100 px-1.5 py-px text-[10px] font-bold text-orange-700">Tạm giữ</span>
+                            <span className="ml-1.5 rounded bg-orange-100 px-1.5 py-px text-xs font-bold text-orange-700">Tạm giữ</span>
                           </span>
                           <span className="mt-0.5 block text-xs text-ink-muted">
                             Tàu <strong className="font-medium text-ink">{n.vesselName}</strong>
                             {n.onboardStatusChangedBy && ` · Bởi ${n.onboardStatusChangedBy}`}
                           </span>
-                          <span className="mt-1 block text-[11px] text-ink-light">{fmtTime(n.onboardStatusChangedAt)}</span>
+                          <span className="mt-1 block text-xs text-ink-light">{fmtTime(n.onboardStatusChangedAt)}</span>
                         </span>
                         {isNew && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-red-500" aria-label="Mới" />}
                       </button>

@@ -1218,7 +1218,7 @@ export function SmsDocumentPage() {
                   <FileText className="w-4 h-4 text-accent" />
                   Workspace: Số hóa Quy trình từ tài liệu (.docx, .doc, .pdf)
                 </h2>
-                <p className="text-[10px] text-slate-500">Nhập, tùy chỉnh và ban hành quy trình mới hoặc cập nhật quy trình hiện tại</p>
+                <p className="text-xs text-slate-500">Nhập, tùy chỉnh và ban hành quy trình mới hoặc cập nhật quy trình hiện tại</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1339,7 +1339,7 @@ export function SmsDocumentPage() {
               {importForm.replaceExisting && (
                 <div className="space-y-3 p-3 bg-slate-100/50 dark:bg-slate-850/50 rounded-xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lọc theo Chương ISM</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lọc theo Chương ISM</label>
                     <select
                       value={replaceChapterFilter}
                       onChange={(e) => {
@@ -1354,7 +1354,7 @@ export function SmsDocumentPage() {
                       ))}
                     </select>
 
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chọn quy trình cần thay thế</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Chọn quy trình cần thay thế</label>
                     <select
                       value={importForm.existingProcedureId}
                       onChange={(e) => {
@@ -1452,7 +1452,7 @@ export function SmsDocumentPage() {
                   <Award className="w-4 h-4 text-accent" />
                   Xem trước nội dung văn bản (Read-only Preview)
                 </span>
-                <span className="text-[10px] bg-blue-55 text-accent dark:bg-blue-950/40 dark:text-blue-400 px-2.5 py-1 rounded-full font-bold border border-accent-soft dark:border-blue-900/50">
+                <span className="text-xs bg-blue-55 text-accent dark:bg-blue-950/40 dark:text-blue-400 px-2.5 py-1 rounded-full font-bold border border-accent-soft dark:border-blue-900/50">
                   Chế độ chỉ đọc bảo mật
                 </span>
               </div>
@@ -1465,7 +1465,7 @@ export function SmsDocumentPage() {
                   />
                 ) : (
                   <div className="flex-1 overflow-y-auto">
-                    <div className="p-8 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 rounded-xl font-serif leading-relaxed text-[15px] space-y-4 md:space-y-6 prose dark:prose-invert max-w-none min-h-[450px] shadow-sm">
+                    <div className="p-8 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 rounded-xl font-serif leading-relaxed text-[0.9375rem] space-y-4 md:space-y-6 prose dark:prose-invert max-w-none min-h-[450px] shadow-sm">
                       <div dangerouslySetInnerHTML={{ __html: importedHtml }} />
                     </div>
                   </div>
@@ -1576,7 +1576,7 @@ export function SmsDocumentPage() {
                 >
                   <History className="w-3.5 h-3.5" />
                 </button>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                <span className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
                   treeTheme === 'dark' ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'
                 }`}>v2.0</span>
               </div>
@@ -1641,7 +1641,7 @@ export function SmsDocumentPage() {
                       treeTheme === 'dark' ? 'border-slate-800' : 'border-slate-200'
                     }`}>
                       {chapter.procedures.filter(p => showObsolete || p.status !== 'Obsolete').length === 0 ? (
-                        <span className="text-[11px] text-slate-500 block py-1 italic">Không có tài liệu</span>
+                        <span className="text-xs text-slate-500 block py-1 italic">Không có tài liệu</span>
                       ) : (
                         chapter.procedures.filter(p => showObsolete || p.status !== 'Obsolete').map(proc => (
                           <div key={proc.id} className="space-y-0.5">
@@ -1662,12 +1662,12 @@ export function SmsDocumentPage() {
                             >
                               <FileText className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                               <div className="truncate flex-1">
-                                <span className={`font-mono text-[9px] opacity-75 mr-1 px-1 py-0.2 rounded ${
+                                <span className={`font-mono text-xs opacity-75 mr-1 px-1 py-0.2 rounded ${
                                   treeTheme === 'dark' ? 'bg-slate-950 text-slate-400' : 'bg-slate-200 text-slate-700'
                                 }`}>{proc.procedureCode}</span>
                                 {proc.title}
                                 {proc.status === 'Obsolete' && (
-                                  <span className="ml-1 text-[9px] bg-rose-500 text-white px-1 rounded font-semibold">Lỗi thời</span>
+                                  <span className="ml-1 text-xs bg-rose-500 text-white px-1 rounded font-semibold">Lỗi thời</span>
                                 )}
                               </div>
                             </button>
@@ -1886,7 +1886,7 @@ export function SmsDocumentPage() {
 
                         {/* Serif text document body */}
                         <div 
-                          className="font-serif text-slate-800 dark:text-slate-200 leading-relaxed text-[15px] space-y-4 md:space-y-6 prose dark:prose-invert max-w-none"
+                          className="font-serif text-slate-800 dark:text-slate-200 leading-relaxed text-[0.9375rem] space-y-4 md:space-y-6 prose dark:prose-invert max-w-none"
                           dangerouslySetInnerHTML={{ __html: selectedProcDetail?.content || '' }}
                         />
 
@@ -1909,7 +1909,7 @@ export function SmsDocumentPage() {
                       <div className="px-6 py-4 bg-slate-55 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
                         <div>
                           <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-[10px] bg-slate-200 dark:bg-slate-800 font-mono font-bold text-slate-700 dark:text-slate-300 px-1.5 py-0.2 rounded">
+                            <span className="text-xs bg-slate-200 dark:bg-slate-800 font-mono font-bold text-slate-700 dark:text-slate-300 px-1.5 py-0.2 rounded">
                               {selectedTemplate.formCode}
                             </span>
                             {recordStatus && getRecordStatusBadge(recordStatus)}
@@ -1956,21 +1956,21 @@ export function SmsDocumentPage() {
                               {/* Logo Box */}
                               <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
                                 <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
-                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
-                                <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
+                                <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                                <span className="text-xs text-slate-500 font-medium">Hòa Phát Sea Transport</span>
                               </div>
                               {/* Document Title Box */}
                               <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3 bg-slate-50/30 dark:bg-slate-900/30">
-                                <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                                <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                                   LỊCH LÀM VỆ SINH BẾP, CÁC KHO THỰC PHẨM,<br/>KHU VỰC SINH HOẠT CHUNG, PHÒNG Ở
                                 </h3>
                                 <div className="w-16 h-0.5 bg-accent my-1"></div>
-                                <span className="italic text-[9px] text-slate-500 font-semibold tracking-wide uppercase leading-tight">
+                                <span className="italic text-xs text-slate-500 font-semibold tracking-wide uppercase leading-tight">
                                   ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE
                                 </span>
                               </div>
                               {/* Document Meta Box */}
-                              <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
+                              <div className="col-span-3 flex flex-col justify-center p-3 text-left text-xs space-y-1 bg-slate-50/10">
                                 <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-26-03</span></div>
                                 <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                                 <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -1981,7 +1981,7 @@ export function SmsDocumentPage() {
                             {/* Metadata Inputs Row */}
                             <div className="grid grid-cols-2 gap-4 border-x border-b border-slate-300 dark:border-slate-700 p-4 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tên tàu / Ship's Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên tàu / Ship's Name <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['shipName'] || ''}
@@ -1991,7 +1991,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tháng / Month-Year <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tháng / Month-Year <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   placeholder="e.g. 06/2026"
@@ -2005,9 +2005,9 @@ export function SmsDocumentPage() {
 
                             {/* Cleaning Schedule Grid Table */}
                             <div className="mt-4 border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-                              <table className="w-full text-left border-collapse text-[11px]">
+                              <table className="w-full text-left border-collapse text-xs">
                                 <thead>
-                                  <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750">
+                                  <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750">
                                     <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[45px] text-center">STT</th>
                                     <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[200px]">Hạng mục / Item</th>
                                     <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[120px]">Chu kỳ / Frequency</th>
@@ -2038,10 +2038,10 @@ export function SmsDocumentPage() {
                                                 value={formValues[key] || ''}
                                                 onChange={(e) => handleFormFieldChange(key, e.target.value)}
                                                 disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                                className="w-full px-2 py-1 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 text-[11px]"
+                                                className="w-full px-2 py-1 rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-850 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent disabled:opacity-60 text-xs"
                                               />
                                             </td>
-                                            <td className="p-2 text-slate-500 italic text-[10px]">{item.note}</td>
+                                            <td className="p-2 text-slate-500 italic text-xs">{item.note}</td>
                                           </tr>
                                         );
                                       })}
@@ -2059,21 +2059,21 @@ export function SmsDocumentPage() {
                               {/* Logo Box */}
                               <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
                                 <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
-                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
-                                <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
+                                <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                                <span className="text-xs text-slate-500 font-medium">Hòa Phát Sea Transport</span>
                               </div>
                               {/* Document Title Box */}
                               <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3 bg-slate-50/30 dark:bg-slate-900/30">
-                                <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                                <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                                   KẾ HOẠCH NHẬN NHIÊN LIỆU
                                 </h3>
                                 <div className="w-16 h-0.5 bg-accent my-1"></div>
-                                <span className="italic text-[9px] text-slate-500 font-semibold tracking-wide uppercase leading-tight">
+                                <span className="italic text-xs text-slate-500 font-semibold tracking-wide uppercase leading-tight">
                                   BUNKERING PLAN
                                 </span>
                               </div>
                               {/* Document Meta Box */}
-                              <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
+                              <div className="col-span-3 flex flex-col justify-center p-3 text-left text-xs space-y-1 bg-slate-50/10">
                                 <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-15-01</span></div>
                                 <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                                 <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -2084,7 +2084,7 @@ export function SmsDocumentPage() {
                             {/* Metadata Inputs Row */}
                             <div className="grid grid-cols-3 gap-4 border-x border-b border-slate-300 dark:border-slate-700 p-4 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tàu / Vessel <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tàu / Vessel <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['vessel'] || ''}
@@ -2094,7 +2094,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Vị trí / Location <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Vị trí / Location <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['location'] || ''}
@@ -2104,7 +2104,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Xà lan/Cảng / Supply Barge/Terminal <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Xà lan/Cảng / Supply Barge/Terminal <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['supplyBarge'] || ''}
@@ -2114,7 +2114,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ngày / Date <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày / Date <span className="text-red-500">*</span></label>
                                 <input
                                   type="date"
                                   value={formValues['bunkerDate'] || ''}
@@ -2124,7 +2124,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mớn nước mũi / Fore Draft</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mớn nước mũi / Fore Draft</label>
                                 <input
                                   type="text"
                                   value={formValues['foreDraft'] || ''}
@@ -2134,7 +2134,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mớn nước lái / Aft Draft</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mớn nước lái / Aft Draft</label>
                                 <input
                                   type="text"
                                   value={formValues['aftDraft'] || ''}
@@ -2147,13 +2147,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 1: Product to be Handled */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 1. Loại nhiên liệu nhận / Product to be Handled
                               </h4>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[11px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750 text-center">
+                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px]">STT</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750">Chủng loại / Grade</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750">Tỷ trọng / Density</th>
@@ -2282,13 +2282,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 2: Personnel Responsibilities */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
                               </h4>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[11px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750">
+                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750">
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px] text-center">STT</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px]">Chức danh / Rank</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[200px]">Họ tên / Name</th>
@@ -2376,7 +2376,7 @@ export function SmsDocumentPage() {
                             {/* Section 3 to 6: Checklists */}
                             <div className="mt-6 grid grid-cols-2 gap-4">
                               <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-xl space-y-3">
-                                <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400">
+                                <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400">
                                   3. Thiết bị đo & Độ chính xác / Equipment calibration & Accuracy
                                 </h5>
                                 <div className="space-y-2">
@@ -2424,7 +2424,7 @@ export function SmsDocumentPage() {
                               </div>
 
                               <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-xl space-y-3">
-                                <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400">
+                                <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400">
                                   4. Báo động mức cao / High-level alarms
                                 </h5>
                                 <div className="space-y-2">
@@ -2440,7 +2440,7 @@ export function SmsDocumentPage() {
                                   </label>
                                 </div>
 
-                                <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
                                   5. Phương pháp đo nhiệt độ / Temperature measuring
                                 </h5>
                                 <div className="space-y-2">
@@ -2469,7 +2469,7 @@ export function SmsDocumentPage() {
                             </div>
 
                             <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-250 dark:border-slate-800 rounded-xl space-y-3">
-                              <h5 className="font-extrabold text-[10px] uppercase text-slate-600 dark:text-slate-400">
+                              <h5 className="font-extrabold text-xs uppercase text-slate-600 dark:text-slate-400">
                                 6. Kiểm soát hơi thoát và đo khí độc / Vapor control and gas check
                               </h5>
                               <div className="grid grid-cols-2 gap-4">
@@ -2522,11 +2522,11 @@ export function SmsDocumentPage() {
 
                             {/* Section 7: Distribution of Bunker Oil */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
                               </h4>
                               <div className="mb-3">
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Thiết lập sơ đồ van nhận nhiên liệu / Piping line-up description <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Thiết lập sơ đồ van nhận nhiên liệu / Piping line-up description <span className="text-red-500">*</span></label>
                                 <textarea
                                   rows={2}
                                   value={formValues['line_up_piping'] || ''}
@@ -2537,9 +2537,9 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[11px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750 text-center">
+                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px]">STT</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750">Két nhận / Receiving Tank</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750">Các van mở / Valves opened</th>
@@ -2654,12 +2654,12 @@ export function SmsDocumentPage() {
 
                             {/* Section 8: Loading Rates */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
                               </h4>
                               <div className="grid grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lưu lượng ban đầu / Initial Rate (Mts/Hr) <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lưu lượng ban đầu / Initial Rate (Mts/Hr) <span className="text-red-500">*</span></label>
                                   <input
                                     type="text"
                                     value={formValues['rate_initial'] || ''}
@@ -2669,7 +2669,7 @@ export function SmsDocumentPage() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lưu lượng tối đa / Max Rate (Mts/Hr) <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lưu lượng tối đa / Max Rate (Mts/Hr) <span className="text-red-500">*</span></label>
                                   <input
                                     type="text"
                                     value={formValues['rate_max'] || ''}
@@ -2679,7 +2679,7 @@ export function SmsDocumentPage() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lưu lượng khi sắp đầy / Topping-off Rate (Mts/Hr) <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lưu lượng khi sắp đầy / Topping-off Rate (Mts/Hr) <span className="text-red-500">*</span></label>
                                   <input
                                     type="text"
                                     value={formValues['rate_topping'] || ''}
@@ -2693,13 +2693,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 9: Gauging of Tanks */}
                             <div className="mt-6">
-                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-2 border-b border-accent/30 dark:border-blue-800 pb-1">
                                 9. Bảng đo các két trước và sau nhận / Gauging of Tanks (Pre-bunkering & Final Expected)
                               </h4>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[10px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-300 dark:border-slate-750 text-center">
+                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                                       <th rowSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 w-[35px]">STT</th>
                                       <th rowSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 w-[90px]">Két / Tank</th>
                                       <th colSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 border-b">Dung tích 85% / 85% Capacity</th>
@@ -2709,7 +2709,7 @@ export function SmsDocumentPage() {
                                       <th rowSpan={2} className="p-1.5 border-r border-slate-300 dark:border-slate-750 w-[55px]">Thứ tự / Seq</th>
                                       {!(recordStatus === 'Approved' || recordStatus === 'Submitted') && <th rowSpan={2} className="p-1.5 w-[45px]">Xóa</th>}
                                     </tr>
-                                    <tr className="bg-slate-50 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-[8px] border-b border-slate-300 dark:border-slate-750 text-center">
+                                    <tr className="bg-slate-50 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-xs border-b border-slate-300 dark:border-slate-750 text-center">
                                       <th className="p-1 border-r border-slate-300 dark:border-slate-750">Chiều cao / Sound (m)</th>
                                       <th className="p-1 border-r border-slate-300 dark:border-slate-750">Thể tích / Vol (m³)</th>
                                       <th className="p-1 border-r border-slate-300 dark:border-slate-750">Chiều cao / Sound (m)</th>
@@ -2877,7 +2877,7 @@ export function SmsDocumentPage() {
                                                 newArr.splice(idx, 1);
                                                 handleFormFieldChange('gauging', newArr);
                                               }}
-                                              className="text-red-500 hover:text-red-700 text-[10px]"
+                                              className="text-red-500 hover:text-red-700 text-xs"
                                             >
                                               Xóa
                                             </button>
@@ -2888,7 +2888,7 @@ export function SmsDocumentPage() {
                                   </tbody>
                                 </table>
                               </div>
-                              <div className="mt-2 grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-2.5 rounded-lg text-center font-semibold text-[10px]">
+                              <div className="mt-2 grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 p-2.5 rounded-lg text-center font-semibold text-xs">
                                 <div className="text-slate-500">Tổng dung tích 85% / Total 85% Cap: <span className="text-slate-800 dark:text-white font-extrabold font-mono ml-1">{formValues['gauging']?.reduce((sum: number, r: any) => sum + (parseFloat(r.capVol) || 0), 0).toFixed(2)} m³</span></div>
                                 <div className="text-slate-500">Tổng thực tế trước nhận / Total Pre-bunkering: <span className="text-slate-800 dark:text-white font-extrabold font-mono ml-1">{formValues['gauging']?.reduce((sum: number, r: any) => sum + (parseFloat(r.preVol) || 0), 0).toFixed(2)} m³</span></div>
                                 <div className="text-slate-500">Tổng dự kiến sau nhận / Total Final Expected: <span className="text-slate-800 dark:text-white font-extrabold font-mono ml-1">{formValues['gauging']?.reduce((sum: number, r: any) => sum + (parseFloat(r.postVol) || 0), 0).toFixed(2)} m³</span></div>
@@ -2910,12 +2910,12 @@ export function SmsDocumentPage() {
                             {/* Section 10 to 12: Communication, Emergency Contacts, Spill Equipment */}
                             <div className="mt-6 grid grid-cols-2 gap-4">
                               <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 font-sans">
-                                <h5 className="font-extrabold text-[10px] uppercase text-slate-650 dark:text-slate-350">
+                                <h5 className="font-extrabold text-xs uppercase text-slate-650 dark:text-slate-350">
                                   10. Thông tin liên lạc & Ngắt khẩn cấp / Communications & Emergency Stop
                                 </h5>
                                 <div className="space-y-2 text-xs">
                                   <div>
-                                    <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Phương thức liên lạc / Communication method (e.g. VHF Ch. 12) <span className="text-red-500">*</span></label>
+                                    <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Phương thức liên lạc / Communication method (e.g. VHF Ch. 12) <span className="text-red-500">*</span></label>
                                     <input
                                       type="text"
                                       value={formValues['comm_ship_barge'] || ''}
@@ -2925,7 +2925,7 @@ export function SmsDocumentPage() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Tín hiệu dừng khẩn cấp / Emergency stop signal <span className="text-red-500">*</span></label>
+                                    <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Tín hiệu dừng khẩn cấp / Emergency stop signal <span className="text-red-500">*</span></label>
                                     <input
                                       type="text"
                                       value={formValues['comm_stop_signal'] || ''}
@@ -2938,12 +2938,12 @@ export function SmsDocumentPage() {
                               </div>
 
                               <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3 font-sans">
-                                <h5 className="font-extrabold text-[10px] uppercase text-slate-650 dark:text-slate-350">
+                                <h5 className="font-extrabold text-xs uppercase text-slate-650 dark:text-slate-350">
                                   12. Thiết bị ứng phó sự cố dầu tràn / Oil Spill Equipment Location
                                 </h5>
                                 <div className="space-y-2 text-xs">
                                   <div>
-                                    <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Vị trí SOPEP Box trên tàu / Ship's SOPEP Box Location <span className="text-red-500">*</span></label>
+                                    <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Vị trí SOPEP Box trên tàu / Ship's SOPEP Box Location <span className="text-red-500">*</span></label>
                                     <input
                                       type="text"
                                       value={formValues['spill_loc1'] || ''}
@@ -2953,7 +2953,7 @@ export function SmsDocumentPage() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[9px] font-bold text-slate-450 uppercase mb-0.5">Vị trí thiết bị trên xà lan / Barge SOPEP Box Location</label>
+                                    <label className="block text-xs font-bold text-slate-450 uppercase mb-0.5">Vị trí thiết bị trên xà lan / Barge SOPEP Box Location</label>
                                     <input
                                       type="text"
                                       value={formValues['spill_loc2'] || ''}
@@ -2967,7 +2967,7 @@ export function SmsDocumentPage() {
                             </div>
 
                             <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2 font-sans">
-                              <h5 className="font-extrabold text-[10px] uppercase text-slate-650 dark:text-slate-350">
+                              <h5 className="font-extrabold text-xs uppercase text-slate-650 dark:text-slate-350">
                                 11. Các địa chỉ liên lạc khẩn cấp tại địa phương / Local Emergency Contacts
                               </h5>
                               <textarea
@@ -2982,16 +2982,16 @@ export function SmsDocumentPage() {
 
                             {/* Section 13: Crew Sign-off */}
                             <div className="mt-6 border-t border-slate-250 dark:border-slate-800 pt-4">
-                              <h4 className="font-extrabold text-[11px] uppercase text-primary dark:text-blue-400 mb-2">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-2">
                                 13. Xác nhận hiểu rõ kế hoạch / Crew Sign-off List
                               </h4>
-                              <p className="text-[10px] italic text-slate-500 mb-2">
+                              <p className="text-xs italic text-slate-500 mb-2">
                                 Chúng tôi xác nhận đã hiểu rõ kế hoạch nhận nhiên liệu và các biện pháp ứng phó sự cố dầu tràn. / We confirm that we understand the bunkering plan and spill response actions.
                               </p>
                               <div className="border border-slate-300 dark:border-slate-750 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[11px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[10px] border-b border-slate-300 dark:border-slate-750">
+                                    <tr className="bg-slate-100 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-750">
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px] text-center">STT</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px]">Chức danh / Rank</th>
                                       <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[200px]">Họ tên / Name</th>
@@ -3019,7 +3019,7 @@ export function SmsDocumentPage() {
                                         </td>
                                         <td className="p-2 border-r border-slate-200 dark:border-slate-800 text-center">
                                           {row.signed ? (
-                                            <span className="inline-block bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 font-bold border border-green-200 dark:border-green-900/50 px-3 py-1 rounded text-[10px] tracking-wide shadow-sm">
+                                            <span className="inline-block bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 font-bold border border-green-200 dark:border-green-900/50 px-3 py-1 rounded text-xs tracking-wide shadow-sm">
                                               ✓ ĐÃ KÝ / SIGNED
                                             </span>
                                           ) : (
@@ -3032,7 +3032,7 @@ export function SmsDocumentPage() {
                                                 toast.success(`Đã xác nhận chữ ký cho chức danh ${row.rank}`);
                                               }}
                                               disabled={recordStatus === 'Approved' || recordStatus === 'Submitted'}
-                                              className="px-3 py-1 bg-accent hover:bg-primary-hover text-white rounded text-[10px] font-bold shadow-sm transition"
+                                              className="px-3 py-1 bg-accent hover:bg-primary-hover text-white rounded text-xs font-bold shadow-sm transition"
                                             >
                                               Ký tên / Sign
                                             </button>
@@ -3081,19 +3081,19 @@ export function SmsDocumentPage() {
                               {/* Logo Box */}
                               <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3">
                                 <div className="w-10 h-10 rounded-full border-2 border-accent flex items-center justify-center mb-1 text-accent text-base font-bold">⚓</div>
-                                <span className="text-[9px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
-                                <span className="text-[7px] text-slate-500 font-medium">Hòa Phát Sea Transport</span>
+                                <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                                <span className="text-xs text-slate-500 font-medium">Hòa Phát Sea Transport</span>
                               </div>
                               {/* Document Title Box */}
                               <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-3 bg-slate-50/30 dark:bg-slate-900/30">
-                                <h3 className="font-extrabold text-[11px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                                <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                                   BIÊN BẢN SOÁT XÉT CÔNG TÁC QUẢN LÝ AN TOÀN,<br/>SỨC KHỎE, BẢO VỆ MÔI TRƯỜNG
                                 </h3>
                                 <div className="w-16 h-0.5 bg-accent my-1"></div>
-                                <span className="italic text-[10px] text-slate-500 font-semibold tracking-wide">Master's Review of the SLMS</span>
+                                <span className="italic text-xs text-slate-500 font-semibold tracking-wide">Master's Review of the SLMS</span>
                               </div>
                               {/* Document Meta Box */}
-                              <div className="col-span-3 flex flex-col justify-center p-3 text-left text-[9px] space-y-1 bg-slate-50/10">
+                              <div className="col-span-3 flex flex-col justify-center p-3 text-left text-xs space-y-1 bg-slate-50/10">
                                 <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-02-01</span></div>
                                 <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                                 <div><strong>Lần sửa đổi:</strong> <span className="font-mono">00</span></div>
@@ -3104,7 +3104,7 @@ export function SmsDocumentPage() {
                             {/* Metadata Inputs Row */}
                             <div className="grid grid-cols-2 gap-4 border-x border-b border-slate-300 dark:border-slate-700 p-4 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tên tàu / Ship's Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên tàu / Ship's Name <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['shipName'] || ''}
@@ -3114,7 +3114,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Loại tàu / Ship Type <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại tàu / Ship Type <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['shipType'] || ''}
@@ -3124,7 +3124,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Thuyền trưởng / Master's Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Thuyền trưởng / Master's Name <span className="text-red-500">*</span></label>
                                 <input
                                   type="text"
                                   value={formValues['masterName'] || ''}
@@ -3134,7 +3134,7 @@ export function SmsDocumentPage() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Ngày lập / Date <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày lập / Date <span className="text-red-500">*</span></label>
                                 <input
                                   type="date"
                                   value={formValues['reviewDate'] || ''}
@@ -3211,10 +3211,10 @@ export function SmsDocumentPage() {
                               ].map((item) => (
                                 <div key={item.id} className="space-y-2 border-b border-slate-150 dark:border-slate-800 pb-4">
                                   <div className="font-sans font-bold text-slate-800 dark:text-white flex items-start gap-2">
-                                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">{item.num}</span>
+                                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">{item.num}</span>
                                     <div className="space-y-0.5">
-                                      <p className="text-[11px] text-slate-700 dark:text-slate-200">{item.en}</p>
-                                      <p className="text-[11px] text-slate-500 italic font-medium">{item.vi}</p>
+                                      <p className="text-xs text-slate-700 dark:text-slate-200">{item.en}</p>
+                                      <p className="text-xs text-slate-500 italic font-medium">{item.vi}</p>
                                     </div>
                                   </div>
                                   <textarea
@@ -3230,7 +3230,7 @@ export function SmsDocumentPage() {
                             </div>
 
                             {/* Footer Note */}
-                            <div className="mt-4 text-[10px] italic text-slate-400 font-sans border-t border-slate-200 dark:border-slate-800 pt-3">
+                            <div className="mt-4 text-xs italic text-slate-400 font-sans border-t border-slate-200 dark:border-slate-800 pt-3">
                               * Review shall be carried out every 6 months or at change of command / Soát xét được tiến hành 6 tháng 1 lần hoặc trước khi Thuyền trưởng rời tàu.
                             </div>
                           </div>
@@ -3340,15 +3340,15 @@ export function SmsDocumentPage() {
                                   <div key={idx} className="border-2 border-dashed border-blue-500/40 dark:border-blue-400/30 bg-blue-50/20 dark:bg-blue-950/10 p-3 rounded-xl relative overflow-hidden flex flex-col justify-between">
                                     <div className="absolute top-1 right-2 text-blue-600/10 dark:text-blue-400/5 select-none font-bold text-5xl">SIG</div>
                                     <div>
-                                      <div className="text-[10px] uppercase font-bold text-accent dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
+                                      <div className="text-xs uppercase font-bold text-accent dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
                                       <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div>
                                     </div>
                                     <div className="mt-3 flex items-end justify-between">
                                       <div>
                                         <div className="text-xs font-extrabold text-slate-800 dark:text-white leading-tight">{name}</div>
-                                        <div className="text-[10px] text-slate-450">{rank}</div>
+                                        <div className="text-xs text-slate-450">{rank}</div>
                                       </div>
-                                      <div className="text-[10px] text-slate-400 font-mono text-right">
+                                      <div className="text-xs text-slate-400 font-mono text-right">
                                         {datePart} <br /> {timePart} UTC
                                       </div>
                                     </div>
@@ -3367,7 +3367,7 @@ export function SmsDocumentPage() {
                               <span>MÃ PIN XÁC THỰC CHỮ KÝ SỐ</span>
                             </div>
 
-                            <p className="text-[10px] text-slate-450 leading-relaxed">
+                            <p className="text-xs text-slate-450 leading-relaxed">
                               Đóng dấu số điện tử trực tiếp lên biểu mẫu. Crew/Officers sử dụng mã PIN cá nhân của mình. <br />
                               <strong>Thuyền trưởng duyệt hồ sơ sử dụng mã PIN: 1111</strong>
                             </p>
@@ -3437,7 +3437,7 @@ export function SmsDocumentPage() {
                       
                       <div className="flex justify-between items-start">
                         <div className="space-y-1">
-                          <span className="text-[10px] bg-accent-soft dark:bg-blue-900/30 text-primary dark:text-blue-400 font-extrabold uppercase px-2 py-0.5 rounded-full">Suggested Checklists</span>
+                          <span className="text-xs bg-accent-soft dark:bg-blue-900/30 text-primary dark:text-blue-400 font-extrabold uppercase px-2 py-0.5 rounded-full">Suggested Checklists</span>
                           <h4 className="text-sm font-bold text-slate-850 dark:text-white pt-1">Biểu mẫu liên kết</h4>
                         </div>
                         <button
@@ -3463,13 +3463,13 @@ export function SmsDocumentPage() {
                                 onClick={() => window.open(`/sms/form/${temp.id}`, '_blank')}
                                 className="flex-1 cursor-pointer space-y-1.5 pr-8"
                               >
-                                <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-bold">
+                                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded font-bold">
                                   {temp.formCode}
                                 </span>
                                 <h5 className="font-bold text-slate-800 dark:text-white text-xs leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                                   {temp.title}
                                 </h5>
-                                <p className="text-[10px] text-slate-450 leading-relaxed">
+                                <p className="text-xs text-slate-450 leading-relaxed">
                                   Digital e-form template. Click to expand input fields and stamp crew digital signatures.
                                 </p>
                               </div>
@@ -3538,7 +3538,7 @@ export function SmsDocumentPage() {
                               {/* Form Code & Title */}
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mã biểu mẫu</label>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mã biểu mẫu</label>
                                   <input
                                     type="text"
                                     placeholder="VD: BM-07-08"
@@ -3548,7 +3548,7 @@ export function SmsDocumentPage() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tiêu đề biểu mẫu</label>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tiêu đề biểu mẫu</label>
                                   <input
                                     type="text"
                                     placeholder="VD: Checklist an toàn cháy nổ"
@@ -3562,17 +3562,17 @@ export function SmsDocumentPage() {
                               {/* Dynamic Fields Builder */}
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase">Các trường dữ liệu ({formBuilderData.fields.length})</span>
+                                  <span className="text-xs font-bold text-slate-500 uppercase">Các trường dữ liệu ({formBuilderData.fields.length})</span>
                                   <button
                                     onClick={addFormField}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-accent hover:text-primary transition"
+                                    className="flex items-center gap-1 text-xs font-bold text-accent hover:text-primary transition"
                                   >
                                     <Plus className="w-3 h-3" /> Thêm trường
                                   </button>
                                 </div>
 
                                 {formBuilderData.fields.length === 0 && (
-                                  <div className="text-[10px] text-slate-400 italic py-2 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                                  <div className="text-xs text-slate-400 italic py-2 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
                                     Chưa có trường nào. Nhấn "Thêm trường" để bắt đầu.
                                   </div>
                                 )}
@@ -3586,12 +3586,12 @@ export function SmsDocumentPage() {
                                           placeholder="Tên trường"
                                           value={field.label}
                                           onChange={(e) => updateFormField(idx, 'label', e.target.value)}
-                                          className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
+                                          className="px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                                         />
                                         <select
                                           value={field.type}
                                           onChange={(e) => updateFormField(idx, 'type', e.target.value)}
-                                          className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
+                                          className="px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                                         >
                                           <option value="text">Văn bản</option>
                                           <option value="textarea">Đoạn văn</option>
@@ -3607,7 +3607,7 @@ export function SmsDocumentPage() {
                                             onChange={(e) => updateFormField(idx, 'required', e.target.checked)}
                                             className="rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                                           />
-                                          <span className="text-[10px] text-slate-500">Bắt buộc</span>
+                                          <span className="text-xs text-slate-500">Bắt buộc</span>
                                         </label>
                                       </div>
                                       <button
@@ -3623,18 +3623,18 @@ export function SmsDocumentPage() {
                                 {/* Options input for select fields */}
                                 {formBuilderData.fields.some(f => f.type === 'select') && (
                                   <div className="space-y-1.5 p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
-                                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Tùy chọn cho trường "Lựa chọn" (phân cách bằng dấu phẩy):</span>
+                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Tùy chọn cho trường "Lựa chọn" (phân cách bằng dấu phẩy):</span>
                                     {formBuilderData.fields.filter(f => f.type === 'select').map((field) => {
                                       const originalIdx = formBuilderData.fields.indexOf(field);
                                       return (
                                         <div key={field.id} className="flex items-center gap-2">
-                                          <span className="text-[10px] text-amber-600 font-mono w-20 truncate">{field.label || 'Chưa đặt tên'}</span>
+                                          <span className="text-xs text-amber-600 font-mono w-20 truncate">{field.label || 'Chưa đặt tên'}</span>
                                           <input
                                             type="text"
                                             placeholder="VD: Đạt, Không đạt, N/A"
                                             value={field.options || ''}
                                             onChange={(e) => updateFormField(originalIdx, 'options', e.target.value)}
-                                            className="flex-1 px-2 py-1 text-[11px] rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-amber-500"
+                                            className="flex-1 px-2 py-1 text-xs rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-amber-500"
                                           />
                                         </div>
                                       );
@@ -3736,7 +3736,7 @@ export function SmsDocumentPage() {
             ) : (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-850 text-slate-400 uppercase tracking-wider font-extrabold text-[10px] border-b border-slate-200 dark:border-slate-800">
+                  <tr className="bg-slate-50 dark:bg-slate-850 text-slate-400 uppercase tracking-wider font-extrabold text-xs border-b border-slate-200 dark:border-slate-800">
                     <th className="p-3.5">Mã số Form</th>
                     <th className="p-3.5">Tên Biểu mẫu / Hồ sơ</th>
                     <th className="p-3.5">Chương ISM</th>
@@ -3836,12 +3836,12 @@ export function SmsDocumentPage() {
                         <div className="flex items-center justify-between mb-2">
                           <span 
                             onClick={() => window.open(`/sms/form/${group.sampleId}`, '_blank')}
-                            className="font-mono text-[10px] font-bold bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 px-2 py-0.5 rounded cursor-pointer hover:bg-accent-soft dark:hover:bg-blue-900 transition-colors"
+                            className="font-mono text-xs font-bold bg-primary-soft dark:bg-blue-900/50 text-accent dark:text-blue-400 px-2 py-0.5 rounded cursor-pointer hover:bg-accent-soft dark:hover:bg-blue-900 transition-colors"
                             title="Bấm để xem chi tiết biểu mẫu"
                           >
                             {group.formCode}
                           </span>
-                          <span className="text-[10px] text-slate-400">Số trường: {group.fieldCount}</span>
+                          <span className="text-xs text-slate-400">Số trường: {group.fieldCount}</span>
                         </div>
                         <h5 
                           onClick={() => window.open(`/sms/form/${group.sampleId}`, '_blank')}
@@ -3951,15 +3951,15 @@ export function SmsDocumentPage() {
                       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
                           <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
-                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                          <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                         </div>
                         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
-                          <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                          <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                             LỊCH LÀM VỆ SINH BẾP, CÁC KHO THỰC PHẨM, KHU VỰC SINH HOẠT CHUNG, PHÒNG Ở
                           </h3>
-                          <span className="italic text-[8px] text-slate-500 font-semibold uppercase">ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE</span>
+                          <span className="italic text-xs text-slate-500 font-semibold uppercase">ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE</span>
                         </div>
-                        <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5 bg-slate-50/10">
+                        <div className="col-span-3 flex flex-col justify-center p-2 text-left text-xs space-y-0.5 bg-slate-50/10">
                           <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-26-03</span></div>
                           <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -3971,16 +3971,16 @@ export function SmsDocumentPage() {
                         const filled = JSON.parse(viewRecordDetail.filledData || '{}');
                         return (
                           <>
-                            <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-[11px]">
+                            <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                               <div><strong>Tên tàu / Ship's Name:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.shipName || viewRecordDetail.vesselName}</span></div>
                               <div><strong>Tháng / Month-Year:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.monthYear || ''}</span></div>
                             </div>
 
                             {/* Cleaning Schedule Grid Table */}
                             <div className="mt-4 border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
-                              <table className="w-full text-left border-collapse text-[10px]">
+                              <table className="w-full text-left border-collapse text-xs">
                                 <thead>
-                                  <tr className="bg-slate-105 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-300 dark:border-slate-700">
+                                  <tr className="bg-slate-105 dark:bg-slate-850 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-700">
                                     <th className="p-1.5 border-r border-slate-300 dark:border-slate-700 w-[40px] text-center">STT</th>
                                     <th className="p-1.5 border-r border-slate-300 dark:border-slate-700 w-[180px]">Hạng mục</th>
                                     <th className="p-1.5 border-r border-slate-300 dark:border-slate-700 w-[100px]">Chu kỳ</th>
@@ -3993,7 +3993,7 @@ export function SmsDocumentPage() {
                                   {cleaningCategories.map((category) => (
                                     <React.Fragment key={category.prefix}>
                                       <tr className="bg-blue-50/30 dark:bg-blue-900/20 text-primary dark:text-blue-300 font-bold border-b border-slate-300 dark:border-slate-700">
-                                        <td colSpan={6} className="p-1.5 text-[10px] uppercase font-bold">{category.title}</td>
+                                        <td colSpan={6} className="p-1.5 text-xs uppercase font-bold">{category.title}</td>
                                       </tr>
                                       {category.items.map((item) => {
                                         const key = `${category.prefix}_perf_${item.num}`;
@@ -4006,7 +4006,7 @@ export function SmsDocumentPage() {
                                             <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 font-medium text-accent dark:text-blue-450">
                                               {filled[key] || <span className="text-slate-400 italic">Chưa nhập</span>}
                                             </td>
-                                            <td className="p-1.5 text-slate-500 italic text-[9px]">{item.note}</td>
+                                            <td className="p-1.5 text-slate-500 italic text-xs">{item.note}</td>
                                           </tr>
                                         );
                                       })}
@@ -4025,15 +4025,15 @@ export function SmsDocumentPage() {
                       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
                           <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
-                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                          <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                         </div>
                         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
-                          <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                          <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                             BIÊN BẢN SOÁT XÉT CÔNG TÁC QUẢN LÝ AN TOÀN,<br/>SỨC KHỎE, BẢO VỆ MÔI TRƯỜNG
                           </h3>
-                          <span className="italic text-[9px] text-slate-500 font-semibold">Master's Review of the SLMS</span>
+                          <span className="italic text-xs text-slate-500 font-semibold">Master's Review of the SLMS</span>
                         </div>
-                        <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5">
+                        <div className="col-span-3 flex flex-col justify-center p-2 text-left text-xs space-y-0.5">
                           <div><strong>Mã:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-02-01</span></div>
                           <div><strong>Ngày BH:</strong> <span className="font-mono">20/10/2016</span></div>
                           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">00</span></div>
@@ -4045,7 +4045,7 @@ export function SmsDocumentPage() {
                         const filled = JSON.parse(viewRecordDetail.filledData || '{}');
                         return (
                           <>
-                            <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-[11px]">
+                            <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                               <div><strong>Tên tàu / Ship's Name:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.shipName || viewRecordDetail.vesselName}</span></div>
                               <div><strong>Loại tàu / Ship Type:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.shipType || 'Bulk Carrier'}</span></div>
                               <div><strong>Thuyền trưởng / Master:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.masterName || viewRecordDetail.filledBy}</span></div>
@@ -4117,13 +4117,13 @@ export function SmsDocumentPage() {
                               ].map((item) => (
                                 <div key={item.id} className="space-y-1.5 border-b border-slate-150 dark:border-slate-800 pb-3">
                                   <div className="font-sans font-bold text-slate-800 dark:text-white flex items-start gap-2">
-                                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-350 w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">{item.num}</span>
+                                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-350 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">{item.num}</span>
                                     <div className="space-y-0.5">
-                                      <p className="text-[11px] text-slate-700 dark:text-slate-200">{item.en}</p>
-                                      <p className="text-[11px] text-slate-500 italic font-medium">{item.vi}</p>
+                                      <p className="text-xs text-slate-700 dark:text-slate-200">{item.en}</p>
+                                      <p className="text-xs text-slate-500 italic font-medium">{item.vi}</p>
                                     </div>
                                   </div>
-                                  <div className="p-2.5 bg-slate-50 dark:bg-slate-850 rounded border border-slate-200 dark:border-slate-750 text-[11px] leading-relaxed text-slate-850 dark:text-white font-sans whitespace-pre-wrap">
+                                  <div className="p-2.5 bg-slate-50 dark:bg-slate-850 rounded border border-slate-200 dark:border-slate-750 text-xs leading-relaxed text-slate-850 dark:text-white font-sans whitespace-pre-wrap">
                                     {filled[item.id] || '--- Không có thông tin / No comment ---'}
                                   </div>
                                 </div>
@@ -4139,15 +4139,15 @@ export function SmsDocumentPage() {
                       <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                         <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
                           <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
-                          <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                          <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                         </div>
                         <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
-                          <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                          <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                             KẾ HOẠCH NHẬN NHIÊN LIỆU / BUNKERING PLAN
                           </h3>
-                          <span className="italic text-[8px] text-slate-500 font-semibold uppercase">SAFETY MANAGEMENT SYSTEM - CHECKLIST</span>
+                          <span className="italic text-xs text-slate-500 font-semibold uppercase">SAFETY MANAGEMENT SYSTEM - CHECKLIST</span>
                         </div>
-                        <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5">
+                        <div className="col-span-3 flex flex-col justify-center p-2 text-left text-xs space-y-0.5">
                           <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-15-01</span></div>
                           <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                           <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -4178,7 +4178,7 @@ export function SmsDocumentPage() {
 
                         return (
                           <>
-                            <div className="grid grid-cols-3 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-[11px] rounded-lg">
+                            <div className="grid grid-cols-3 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs rounded-lg">
                               <div><strong>Tên tàu / Vessel:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.vessel || viewRecordDetail.vesselName}</span></div>
                               <div><strong>Vị trí / Location:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.location || ''}</span></div>
                               <div><strong>Xà lan/Cảng / Supply:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.supplyBarge || ''}</span></div>
@@ -4189,13 +4189,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 1 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 1. Loại nhiên liệu nhận / Product to be Handled
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[10px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Chủng loại / Grade</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center">Tỷ trọng / Density</th>
@@ -4224,13 +4224,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 2 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[10px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-[150px]">Chức danh / Rank</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-[180px]">Họ tên / Name</th>
@@ -4319,17 +4319,17 @@ export function SmsDocumentPage() {
 
                             {/* Section 7 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
                               </h4>
                               <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-lg border border-slate-200 dark:border-slate-700 text-xs mb-2 font-mono leading-relaxed">
-                                <span className="text-slate-400 block font-sans text-[10px] font-bold mb-1">MÔ TẢ THIẾT LẬP VAN / PIPING LINE-UP DESCRIPTION:</span>
+                                <span className="text-slate-400 block font-sans text-xs font-bold mb-1">MÔ TẢ THIẾT LẬP VAN / PIPING LINE-UP DESCRIPTION:</span>
                                 {filled.line_up_piping || 'Chưa thiết lập sơ đồ van'}
                               </div>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[10px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Két nhận / Receiving Tank</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Các van mở / Valves opened</th>
@@ -4356,20 +4356,20 @@ export function SmsDocumentPage() {
 
                             {/* Section 8 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
                               </h4>
                               <div className="grid grid-cols-3 gap-4 border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-lg text-center">
                                 <div>
-                                  <div className="text-[10px] text-slate-450 uppercase">Ban đầu / Initial Rate</div>
+                                  <div className="text-xs text-slate-450 uppercase">Ban đầu / Initial Rate</div>
                                   <div className="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">{filled.rate_initial || 'N/A'} Mts/Hr</div>
                                 </div>
                                 <div>
-                                  <div className="text-[10px] text-slate-455 uppercase">Tối đa / Max Rate</div>
+                                  <div className="text-xs text-slate-455 uppercase">Tối đa / Max Rate</div>
                                   <div className="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">{filled.rate_max || 'N/A'} Mts/Hr</div>
                                 </div>
                                 <div>
-                                  <div className="text-[10px] text-slate-450 uppercase">Topping-off Rate</div>
+                                  <div className="text-xs text-slate-450 uppercase">Topping-off Rate</div>
                                   <div className="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">{filled.rate_topping || 'N/A'} Mts/Hr</div>
                                 </div>
                               </div>
@@ -4377,13 +4377,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 9 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 9. Bảng đo các két trước và sau nhận / Gauging of Tanks
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[9px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-[8px] border-b border-slate-200 dark:border-slate-700">
+                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                                       <th rowSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700 text-center w-[30px]">STT</th>
                                       <th rowSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700">Két / Tank</th>
                                       <th colSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700 text-center">Dung tích 85%</th>
@@ -4392,7 +4392,7 @@ export function SmsDocumentPage() {
                                       <th colSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700 text-center">Mức giảm tốc</th>
                                       <th rowSpan={2} className="p-1 text-center w-[50px]">Seq</th>
                                     </tr>
-                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-550 border-b border-slate-200 dark:border-slate-700 text-[8px]">
+                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-550 border-b border-slate-200 dark:border-slate-700 text-xs">
                                       <th className="p-1 border-r border-slate-200 dark:border-slate-700 text-center font-normal">Sound</th>
                                       <th className="p-1 border-r border-slate-200 dark:border-slate-700 text-center font-normal">Vol</th>
                                       <th className="p-1 border-r border-slate-200 dark:border-slate-700 text-center font-normal">Sound</th>
@@ -4426,7 +4426,7 @@ export function SmsDocumentPage() {
                               </div>
 
                               {/* Sum Calculations */}
-                              <div className="grid grid-cols-3 gap-2 mt-2 bg-slate-50 dark:bg-slate-850 p-2.5 rounded-lg border border-slate-200 dark:border-slate-750 text-[10px] text-center font-bold">
+                              <div className="grid grid-cols-3 gap-2 mt-2 bg-slate-50 dark:bg-slate-850 p-2.5 rounded-lg border border-slate-200 dark:border-slate-750 text-xs text-center font-bold">
                                 <div>Tổng 85% / Total 85% Cap: <span className="text-slate-850 dark:text-white font-mono ml-1">{gauging.reduce((sum: number, r: any) => sum + (parseFloat(r.capVol) || 0), 0).toFixed(2)} m³</span></div>
                                 <div>Tổng trước nhận / Total Pre: <span className="text-slate-850 dark:text-white font-mono ml-1">{gauging.reduce((sum: number, r: any) => sum + (parseFloat(r.preVol) || 0), 0).toFixed(2)} m³</span></div>
                                 <div>Dự kiến sau nhận / Total Post: <span className="text-slate-850 dark:text-white font-mono ml-1">{gauging.reduce((sum: number, r: any) => sum + (parseFloat(r.postVol) || 0), 0).toFixed(2)} m³</span></div>
@@ -4460,13 +4460,13 @@ export function SmsDocumentPage() {
 
                             {/* Section 13 */}
                             <div>
-                              <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                              <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                                 13. Xác nhận hiểu rõ kế hoạch / Crew Sign-off List
                               </h4>
                               <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                <table className="w-full text-left border-collapse text-[10px]">
+                                <table className="w-full text-left border-collapse text-xs">
                                   <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-[150px]">Chức danh / Rank</th>
                                       <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Họ tên / Name</th>
@@ -4481,9 +4481,9 @@ export function SmsDocumentPage() {
                                         <td className="p-1.5 border-r border-slate-150 dark:border-slate-800 font-medium">{row.name}</td>
                                         <td className="p-1.5 text-center">
                                           {row.signed ? (
-                                            <span className="text-emerald-600 font-bold text-[10px]">✓ ĐÃ KÝ / SIGNED</span>
+                                            <span className="text-emerald-600 font-bold text-xs">✓ ĐÃ KÝ / SIGNED</span>
                                           ) : (
-                                            <span className="text-slate-400 italic text-[10px]">Chưa ký</span>
+                                            <span className="text-slate-400 italic text-xs">Chưa ký</span>
                                           )}
                                         </td>
                                       </tr>
@@ -4531,12 +4531,12 @@ export function SmsDocumentPage() {
                               </div>
                               <div>
                                 <div className="text-xs font-extrabold text-slate-800 dark:text-white">{name}</div>
-                                <div className="text-[10px] text-slate-500">{rank}</div>
+                                <div className="text-xs text-slate-500">{rank}</div>
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div>
-                              <div className="text-[9px] text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
+                              <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div>
+                              <div className="text-xs text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
                             </div>
                           </div>
                         );
@@ -4579,7 +4579,7 @@ export function SmsDocumentPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-900 dark:text-white text-sm">Gán biểu mẫu đã có vào quy trình</h3>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-xs text-slate-500">
                         Quy trình hiện tại: <span className="font-semibold text-slate-700 dark:text-slate-350">{selectedProcDetail?.procedureCode} - {selectedProcDetail?.title}</span>
                       </p>
                     </div>
@@ -4648,7 +4648,7 @@ export function SmsDocumentPage() {
                             />
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1.5">
-                                <span className="font-mono text-[9px] font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded">
+                                <span className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded">
                                   {temp.formCode}
                                 </span>
                                 <span className="text-xs font-bold text-slate-800 dark:text-white">
@@ -4656,7 +4656,7 @@ export function SmsDocumentPage() {
                                 </span>
                               </div>
                               {temp.procedureCode && (
-                                <p className="text-[10px] text-slate-450">
+                                <p className="text-xs text-slate-450">
                                   Thuộc quy trình: <span className="font-medium text-slate-500">{temp.procedureCode}</span>
                                 </p>
                               )}
@@ -4703,7 +4703,7 @@ export function SmsDocumentPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-900 dark:text-white text-sm">Tạo biểu mẫu mới vào thư viện</h3>
-                      <p className="text-[10px] text-slate-500">Thiết kế cấu trúc checklist hoặc form báo cáo điện tử</p>
+                      <p className="text-xs text-slate-500">Thiết kế cấu trúc checklist hoặc form báo cáo điện tử</p>
                     </div>
                   </div>
                   <button
@@ -4719,7 +4719,7 @@ export function SmsDocumentPage() {
                   {/* Form Code & Title */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mã biểu mẫu</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mã biểu mẫu</label>
                       <input
                         type="text"
                         placeholder="VD: BM-07-08"
@@ -4729,7 +4729,7 @@ export function SmsDocumentPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tiêu đề biểu mẫu</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tiêu đề biểu mẫu</label>
                       <input
                         type="text"
                         placeholder="VD: Checklist an toàn cháy nổ"
@@ -4742,7 +4742,7 @@ export function SmsDocumentPage() {
 
                   {/* Procedure Association */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Quy trình (SOP) liên kết bắt buộc</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quy trình (SOP) liên kết bắt buộc</label>
                     <select
                       value={newFormProcedureId}
                       onChange={(e) => setNewFormProcedureId(e.target.value)}
@@ -4758,17 +4758,17 @@ export function SmsDocumentPage() {
                   {/* Dynamic Fields Builder */}
                   <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">Cấu trúc các trường ({formBuilderData.fields.length})</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase">Cấu trúc các trường ({formBuilderData.fields.length})</span>
                       <button
                         onClick={addFormField}
-                        className="flex items-center gap-1 text-[10px] font-bold text-accent hover:text-primary transition"
+                        className="flex items-center gap-1 text-xs font-bold text-accent hover:text-primary transition"
                       >
                         <Plus className="w-3 h-3" /> Thêm trường
                       </button>
                     </div>
 
                     {formBuilderData.fields.length === 0 && (
-                      <div className="text-[10px] text-slate-400 italic py-4 text-center border border-dashed border-slate-202 dark:border-slate-700 rounded-xl">
+                      <div className="text-xs text-slate-400 italic py-4 text-center border border-dashed border-slate-202 dark:border-slate-700 rounded-xl">
                         Chưa có trường nào. Nhấn "Thêm trường" để bắt đầu thiết kế form.
                       </div>
                     )}
@@ -4782,12 +4782,12 @@ export function SmsDocumentPage() {
                               placeholder="Tên trường"
                               value={field.label}
                               onChange={(e) => updateFormField(idx, 'label', e.target.value)}
-                              className="px-2 py-1.5 text-[11px] rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
+                              className="px-2 py-1.5 text-xs rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                             />
                             <select
                               value={field.type}
                               onChange={(e) => updateFormField(idx, 'type', e.target.value)}
-                              className="px-2 py-1.5 text-[11px] rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
+                              className="px-2 py-1.5 text-xs rounded border border-slate-202 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                             >
                               <option value="text">Văn bản</option>
                               <option value="textarea">Đoạn văn</option>
@@ -4803,7 +4803,7 @@ export function SmsDocumentPage() {
                                 onChange={(e) => updateFormField(idx, 'required', e.target.checked)}
                                 className="rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                               />
-                              <span className="text-[10px] text-slate-500">Bắt buộc</span>
+                              <span className="text-xs text-slate-500">Bắt buộc</span>
                             </label>
                           </div>
                           <button
@@ -4819,18 +4819,18 @@ export function SmsDocumentPage() {
                     {/* Options for Select field type */}
                     {formBuilderData.fields.some(f => f.type === 'select') && (
                       <div className="space-y-1.5 p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
-                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Các tùy chọn (phân cách bằng dấu phẩy):</span>
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Các tùy chọn (phân cách bằng dấu phẩy):</span>
                         {formBuilderData.fields.filter(f => f.type === 'select').map((field) => {
                           const originalIdx = formBuilderData.fields.indexOf(field);
                           return (
                             <div key={field.id} className="flex items-center gap-2">
-                              <span className="text-[10px] text-amber-600 font-mono w-20 truncate">{field.label || 'Chưa đặt tên'}</span>
+                              <span className="text-xs text-amber-600 font-mono w-20 truncate">{field.label || 'Chưa đặt tên'}</span>
                               <input
                                 type="text"
                                 placeholder="VD: Đạt, Không đạt, N/A"
                                 value={field.options || ''}
                                 onChange={(e) => updateFormField(originalIdx, 'options', e.target.value)}
-                                className="flex-1 px-2 py-1 text-[11px] rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-amber-500"
+                                className="flex-1 px-2 py-1 text-xs rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-amber-500"
                               />
                             </div>
                           );
@@ -4873,7 +4873,7 @@ export function SmsDocumentPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-900 dark:text-white text-sm">Gán biểu mẫu vào quy trình</h3>
-                      <p className="text-[10px] text-slate-500">Sao chép biểu mẫu này sang quy trình hoạt động khác</p>
+                      <p className="text-xs text-slate-500">Sao chép biểu mẫu này sang quy trình hoạt động khác</p>
                     </div>
                   </div>
                   <button
@@ -4887,7 +4887,7 @@ export function SmsDocumentPage() {
                 {/* Modal Body */}
                 <div className="p-5 space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chọn quy trình nhận biểu mẫu</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Chọn quy trình nhận biểu mẫu</label>
                     <select
                       value={assignProcedureId}
                       onChange={(e) => setAssignProcedureId(e.target.value)}
@@ -5025,7 +5025,7 @@ export function SmsDocumentPage() {
                     className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-blue-300 dark:hover:border-blue-800 transition"
                   >
                     <div className="space-y-0.5 flex-1 pr-3">
-                      <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">
+                      <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">
                         {proc.code}
                       </span>
                       <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug mt-1">

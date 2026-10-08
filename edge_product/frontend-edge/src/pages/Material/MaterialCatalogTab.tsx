@@ -79,8 +79,8 @@ export function MaterialCatalogTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-      {loadError && <p role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-[13px] text-red-700">{loadError}</p>}
-      {linkError && <p role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[13px] text-amber-800">{linkError}</p>}
+      {loadError && <p role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{loadError}</p>}
+      {linkError && <p role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">{linkError}</p>}
       <DataTable
         flush
         columns={columns}

@@ -698,7 +698,7 @@ export const BallastWaterPage: React.FC = () => {
       {/* Sign Confirmation Modal */}
       {signModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full mx-4">
             <h3 className="text-xl font-bold text-blue-600 font-sans mb-4">
               🖊 {t('logbooks.deckLog.sign')} {t('logbooks.ballastWater.title')}
             </h3>

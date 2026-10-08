@@ -55,7 +55,7 @@ public class SyncController : ControllerBase
     /// FirstHandshakeAt/LastHandshakeAt and registers the node for enforced sync.
     /// </summary>
     [HttpPost("handshake")]
-    public async Task<IActionResult> Handshake([FromBody] SyncHandshakeDto handshake)
+    public async Task<IActionResult> Handshake([FromBody] SyncHandshakeDto handshake, [FromServices] IShoreSyncPushService push)
     {
         if (string.IsNullOrWhiteSpace(handshake.NodeId) ||
             string.IsNullOrWhiteSpace(handshake.VesselImo) ||
@@ -105,6 +105,18 @@ public class SyncController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        // Tàu vừa xoá sạch dữ liệu (đổi sang tàu/bờ khác, hoặc cài lại): gói cũ còn chờ cho node này thuộc về
+        // dữ liệu đã xoá → bỏ; rồi xếp hàng TOÀN BỘ dữ liệu của tàu này để tàu dựng lại từ bờ.
+        int fullSyncQueued = 0;
+        if (handshake.RequestFullSync)
+        {
+            await _context.SyncOutbox
+                .Where(o => o.TargetNode == trackedNode.NodeId && o.DeliveredAt == null)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(o => o.DeliveredAt, now));
+            fullSyncQueued = (await push.PushAsync(trackedNode.NodeId, Enum.GetValues<SyncScope>())).Total;
+            _logger.LogInformation("Full sync requested by {NodeId}: queued {Count} items", trackedNode.NodeId, fullSyncQueued);
+        }
+
         _logger.LogInformation(
             "Handshake accepted for node {NodeId} (edgeVersion={EdgeVersion}, networkType={NetworkType})",
             trackedNode.NodeId, handshake.EdgeVersion, handshake.NetworkType);
@@ -116,7 +128,8 @@ public class SyncController : ControllerBase
             nodeId = trackedNode.NodeId,
             vesselImo = trackedNode.ImoNumber,
             shoreVesselId = trackedNode.VesselId,
-            provisioningStatus = trackedNode.ProvisioningStatus
+            provisioningStatus = trackedNode.ProvisioningStatus,
+            fullSyncQueued
         });
     }
 
@@ -807,82 +820,50 @@ public class SyncController : ControllerBase
     }
 
     /// <summary>
-    /// POST /api/sync/force-push — Admin trigger: Queue data for specific node to pull.
-    /// Pushes all crew/certificate data to target ship's outbox.
+    /// POST /api/sync/push — Gửi dữ liệu bờ xuống tàu theo nhóm.
+    /// Body: { "target": "&lt;nodeId&gt;" | "ALL", "scopes": ["Catalog","Crew","Vessel","Reports","Sms"] }.
+    /// Mỗi tàu chỉ nhận dữ liệu của chính nó (thuyền viên, thông số, vật tư của tàu); danh mục dùng chung
+    /// thì tàu nào cũng nhận. Thiếu "scopes" = tất cả các nhóm.
     /// </summary>
+    [HttpPost("push")]
+    [Authorize(Policy = "InternalAccess")]
+    public async Task<IActionResult> Push([FromBody] SyncPushRequest request, [FromServices] IShoreSyncPushService push)
+    {
+        try
+        {
+            var scopes = request.Scopes is { Count: > 0 } ? request.Scopes : Enum.GetValues<SyncScope>().ToList();
+            var result = await push.PushAsync(string.IsNullOrWhiteSpace(request.Target) ? ShoreSyncPushService.AllTargets : request.Target, scopes);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sync push failed for {Target}", request.Target);
+            return StatusCode(500, new { error = "Không xếp hàng được dữ liệu đồng bộ" });
+        }
+    }
+
+    /// <summary>POST /api/sync/force-push/{nodeId} — giữ cho tương thích: = push mọi nhóm cho một tàu.</summary>
     [HttpPost("force-push/{nodeId}")]
     [Authorize(Policy = "InternalAccess")]
-    public async Task<IActionResult> ForcePush(string nodeId)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(nodeId))
-                return BadRequest(new { error = "nodeId is required" });
+    public Task<IActionResult> ForcePush(string nodeId, [FromServices] IShoreSyncPushService push) =>
+        Push(new SyncPushRequest { Target = nodeId }, push);
 
-            _logger.LogInformation("Force push initiated for node {NodeId}", nodeId);
-
-            // Queue full snapshot for the target node
-            var count = await _crewSync.QueueFullCrewSnapshotAsync(nodeId);
-
-            _logger.LogInformation("Force push queued {Count} items for node {NodeId}", count, nodeId);
-
-            return Ok(new
-            {
-                message = $"Successfully queued {count} items for sync",
-                nodeId,
-                queuedItems = count,
-                status = "QUEUED",
-                note = "Edge node will pull these items in next sync cycle (typically 5 minutes)"
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during force push for node {NodeId}", nodeId);
-            return StatusCode(500, new { error = "Force push failed" });
-        }
-    }
-
-    /// <summary>
-    /// POST /api/sync/force-push-all — Broadcast push to all connected nodes.
-    /// </summary>
+    /// <summary>POST /api/sync/force-push-all — giữ cho tương thích: = push mọi nhóm cho mọi tàu.</summary>
     [HttpPost("force-push-all")]
     [Authorize(Policy = "InternalAccess")]
-    public async Task<IActionResult> ForcePushAll()
-    {
-        try
-        {
-            var nodes = await _context.SyncNodeTrackers
-                .Where(n => n.IsOnline)
-                .Select(n => n.NodeId)
-                .ToListAsync();
+    public Task<IActionResult> ForcePushAll([FromServices] IShoreSyncPushService push) =>
+        Push(new SyncPushRequest { Target = ShoreSyncPushService.AllTargets }, push);
+}
 
-            if (nodes.Count == 0)
-                return BadRequest(new { error = "No online nodes found" });
-
-            var totalQueued = 0;
-            foreach (var nodeId in nodes)
-            {
-                var count = await _crewSync.QueueFullCrewSnapshotAsync(nodeId);
-                totalQueued += count;
-            }
-
-            _logger.LogInformation("Force push all queued {Total} items for {NodeCount} nodes", totalQueued, nodes.Count);
-
-            return Ok(new
-            {
-                message = $"Queued sync for {nodes.Count} ships",
-                nodeCount = nodes.Count,
-                totalQueuedItems = totalQueued,
-                nodes
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during force push all");
-            return StatusCode(500, new { error = "Force push all failed" });
-        }
-    }
-
+public class SyncPushRequest
+{
+    /// <summary>NodeId của tàu, hoặc "ALL".</summary>
+    public string? Target { get; set; }
+    public List<SyncScope>? Scopes { get; set; }
 }
 
 public class SyncResultDto
@@ -912,4 +893,6 @@ public class SyncHandshakeDto
     public Guid? ShoreVesselId { get; set; }
     public string? EdgeVersion { get; set; }
     public string? NetworkType { get; set; }
+    /// <summary>Tàu vừa xoá dữ liệu cũ: bờ bỏ hàng chờ cũ của node và gửi lại toàn bộ dữ liệu của tàu.</summary>
+    public bool RequestFullSync { get; set; }
 }

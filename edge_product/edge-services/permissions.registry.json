@@ -432,6 +432,13 @@
     },
     {
       "controller": "AuditLog",
+      "action": "GetFilterOptions",
+      "grants": [
+        "audit.view"
+      ]
+    },
+    {
+      "controller": "AuditLog",
       "action": "GetAuditStats",
       "grants": [
         "audit.view"

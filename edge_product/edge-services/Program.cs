@@ -201,6 +201,7 @@ namespace MaritimeEdge
             // Vessel Provisioning v3 — Managed Mode (Phase 3)
             builder.Services.AddSingleton<MaritimeEdge.Security.IEdgeDataEncryptionService, MaritimeEdge.Security.EdgeDataEncryptionService>();
             builder.Services.AddScoped<MaritimeEdge.Services.Core.IEdgeRuntimeConfigService, MaritimeEdge.Services.Core.EdgeRuntimeConfigService>();
+            builder.Services.AddScoped<MaritimeEdge.Services.Core.IEdgeVesselSwitchService, MaritimeEdge.Services.Core.EdgeVesselSwitchService>();
             builder.Services.AddScoped<IWatchkeepingService, WatchkeepingService>();
             builder.Services.AddScoped<IDeckLogbookService, DeckLogbookService>();
             builder.Services.AddScoped<IEngineLogbookService, EngineLogbookService>();
@@ -540,10 +541,7 @@ namespace MaritimeEdge
             Directory.CreateDirectory(uploadsPath);
             
             // Create crew document subdirectories
-            Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "travel_documents"));
-            Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "seafarer_documents"));
-            Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "employment_documents"));
-            Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents", "health_documents"));
+            Directory.CreateDirectory(Path.Combine(uploadsPath, "crew", "documents"));
 
             // Create drill document subdirectories
             Directory.CreateDirectory(Path.Combine(uploadsPath, "drill", "documents"));

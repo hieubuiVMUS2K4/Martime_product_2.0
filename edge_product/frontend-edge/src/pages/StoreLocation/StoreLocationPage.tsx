@@ -61,7 +61,7 @@ export default function StoreLocationPage() {
     return <div key={location.id}>
       <div className={'w-full flex items-center gap-1.5 pr-3 py-1.5 text-xs select-none ' + (selectedLocationId === location.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50')} style={{ paddingLeft: 12 + depth * 14 }}>
         <button type="button" aria-label={collapsed ? 'Mở nhánh kho' : 'Thu gọn nhánh kho'} aria-expanded={children.length ? !collapsed : undefined} disabled={!children.length} onClick={() => setCollapsedLocations(prev => { const next = new Set(prev); next.has(location.id) ? next.delete(location.id) : next.add(location.id); return next; })} className="h-3 w-3 shrink-0 text-blue-500 disabled:opacity-0">{collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}</button>
-        <button type="button" onClick={() => setSelectedLocationId(location.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left"><FolderOpen className="h-3 w-3 shrink-0 text-amber-500" /><span className="flex-1 truncate leading-snug" title={location.name}>{location.name}</span>{children.length > 0 && <span className="shrink-0 text-[10px] font-normal text-gray-400">{children.length}</span>}</button>
+        <button type="button" onClick={() => setSelectedLocationId(location.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left"><FolderOpen className="h-3 w-3 shrink-0 text-amber-500" /><span className="flex-1 truncate leading-snug" title={location.name}>{location.name}</span>{children.length > 0 && <span className="shrink-0 text-xs font-normal text-gray-400">{children.length}</span>}</button>
       </div>
       {!collapsed && children.map(child => renderLocation(child, depth + 1, path))}
     </div>;
@@ -228,7 +228,7 @@ export default function StoreLocationPage() {
           className="flex w-full min-w-0 items-center gap-1.5 text-left font-medium text-blue-600 hover:underline">
           <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
           <span className="truncate">{l.name}</span>
-          {childCount(l.id) > 0 && <span className="shrink-0 text-[11px] font-normal text-gray-400">({childCount(l.id)})</span>}
+          {childCount(l.id) > 0 && <span className="shrink-0 text-xs font-normal text-gray-400">({childCount(l.id)})</span>}
         </button>
       ),
     },
@@ -327,7 +327,7 @@ export default function StoreLocationPage() {
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => { if (e.target === e.currentTarget) closeModal(); }}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-xl mx-4">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <FolderOpen className="w-4 h-4 text-blue-600" />

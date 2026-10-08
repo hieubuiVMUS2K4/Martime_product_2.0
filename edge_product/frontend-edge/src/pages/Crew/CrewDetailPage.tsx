@@ -2,21 +2,18 @@ import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  ArrowLeft, 
-  Trash2,
+import {
   Upload,
   CheckCircle,
   XCircle,
   AlertTriangle,
   Eye,
-  FileDown,
   BookOpen,
   Pencil
 } from 'lucide-react'
 import { CrewMember } from '../../types/maritime.types'
 import { maritimeService } from '../../services/maritime.service'
-import { format, differenceInDays, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import AddDocumentModal from '../../components/crew/AddDocumentModal'
 import AddHealthDocumentModal from '../../components/crew/AddHealthDocumentModal'
 import ImageViewerModal from '../../components/crew/ImageViewerModal'
@@ -25,6 +22,11 @@ import { useTranslationSafe } from '@/contexts/I18nContext'
 import jsPDF from 'jspdf' 
 import 'jspdf-autotable'
 import { CrewLogbookSection } from './CrewLogbookSection'
+import { CrewProfileHeader } from './profile/CrewProfileHeader'
+import { CrewBasicInfo } from './profile/CrewBasicInfo'
+import { ALL_FIELD_KEYS } from './profile/crewProfileFields'
+import { DataTable, TableActions, TableIconButton, type Column } from '@/components/common/DataTable'
+import { usePermission } from '@/stores/permissions.store'
 
 type TabType = 'basic-data' | 'documents' | 'logbook'
 
@@ -37,6 +39,10 @@ export function CrewDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editedCrew, setEditedCrew] = useState<Partial<CrewMember>>({})
   const [saving, setSaving] = useState(false)
+  /** Hồ sơ mở ở chế độ XEM; bấm "Sửa hồ sơ" mới sửa được (giống bờ). */
+  const [editing, setEditing] = useState(false)
+  const [manualOverride, setManualOverride] = useState(false)
+  const canUpdate = usePermission('crew.update')
   const [activeTab, setActiveTab] = useState<TabType>('basic-data')
   const [certificates, setCertificates] = useState<any[]>([])
   const [loadingCertificates, setLoadingCertificates] = useState(false)
@@ -45,9 +51,6 @@ export function CrewDetailPage() {
   const [employmentDocuments, setEmploymentDocuments] = useState<any[]>([])
   const [healthDocuments, setHealthDocuments] = useState<any[]>([])
   const [loadingDocuments, setLoadingDocuments] = useState(false)
-  const [isIdentityExpanded, setIsIdentityExpanded] = useState(true)
-  const [isHealthExpanded, setIsHealthExpanded] = useState(true)
-  const [isCertificatesExpanded, setIsCertificatesExpanded] = useState(true)
   const [isAddDocumentModalOpen, setIsAddDocumentModalOpen] = useState(false)
   const [isAddHealthDocumentModalOpen, setIsAddHealthDocumentModalOpen] = useState(false)
   // Sua tai lieu / chung chi: giu ban ghi dang sua de modal dien san du lieu.
@@ -147,30 +150,6 @@ export function CrewDetailPage() {
       })
       setShoreChanges([])
     } catch { /* silent */ }
-  }
-
-  // Helper: viền đỏ nếu field có diff từ bờ
-  const fieldBorderClass = (fieldKey: string) =>
-    shoreChangeMap[fieldKey]
-      ? 'border-red-400 bg-red-50 focus:border-red-500'
-      : 'border-gray-300 focus:border-blue-500'
-
-  // Helper: indicator nhỏ hiển thị old → new
-  const changeIndicator = (fieldKey: string) => {
-    const c = shoreChangeMap[fieldKey]
-    if (!c) return null
-    return (
-      <div className="flex items-center gap-1 mt-0.5">
-        <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-        <span className="text-xs text-red-600">
-          <s className="text-gray-400 mr-1">{c.old || '(trống)'}</s>→ <strong>{c.new}</strong>
-        </span>
-      </div>
-    )
-  }
-
-  const toggleSectionCheck = (section: string) => {
-    setSectionChecklist(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
   const allSectionsChecked = Object.values(sectionChecklist).every(v => v)
@@ -1233,6 +1212,8 @@ export function CrewDetailPage() {
       const updated = await maritimeService.crew.update(crew.id, editedCrew)
       setCrew(updated)
       setEditedCrew(updated)
+      setEditing(false)
+      setManualOverride(false)
       toast.success(t('crew.edDetail.messages.updateSuccess'))
     } catch (error: any) {
       console.error('❌ Failed to save crew:', error)
@@ -1242,17 +1223,7 @@ export function CrewDetailPage() {
     }
   }
 
-  const calculateAge = (dateOfBirth: string | undefined) => {
-    if (!dateOfBirth) return ''
-    const today = new Date()
-    const birthDate = new Date(dateOfBirth)
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
-    }
-    return age.toString()
-  }
+
 
   if (loading) {
     return (
@@ -1273,83 +1244,148 @@ export function CrewDetailPage() {
     )
   }
 
-  const age = calculateAge(editedCrew.dateOfBirth)
 
-  // Section verification checkbox component for pending review
-  const SectionCheckbox = ({ section, label: _label }: { section: string; label: string }) => {
-    if (!isPendingReview) return null
-    return (
-      <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-100">
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <span className={`text-xs font-medium ${sectionChecklist[section] ? 'text-green-600' : 'text-gray-400'}`}>
-            {sectionChecklist[section] ? '✓ ' + t('crew.edDetail.review.verified') : t('crew.edDetail.review.markVerified')}
-          </span>
-          <input
-            type="checkbox"
-            checked={sectionChecklist[section] || false}
-            onChange={() => toggleSectionCheck(section)}
-            className="w-5 h-5 text-green-600 border-2 border-gray-300 rounded focus:ring-green-500 cursor-pointer"
-          />
-        </label>
-      </div>
-    )
+  const isDirty = ALL_FIELD_KEYS.some(k => String((editedCrew as Record<string, unknown>)[k] ?? '') !== String((crew as unknown as Record<string, unknown>)[k] ?? ''))
+  const cancelEdit = () => {
+    if (isDirty && !window.confirm('Bỏ các thay đổi chưa lưu?')) return
+    setEditedCrew(crew)
+    setEditing(false)
+    setManualOverride(false)
   }
+
+  // ── Bảng tài liệu (cùng cột với bờ) ──
+  type DocRow = { id: string; documentType?: string; documentNumber?: string; issueDate?: string; expiryDate?: string; fileUrl?: string; country?: { countryName?: string }; countryName?: string; _table: string }
+  const tag = (rows: any[], table: string): DocRow[] => rows.map(r => ({ ...r, _table: table }))
+  const identityDocs: DocRow[] = [...tag(travelDocuments, 'travel_documents'), ...tag(seafarerDocuments, 'seafarer_documents'), ...tag(employmentDocuments, 'employment_documents')]
+  const healthRows: DocRow[] = tag(healthDocuments, 'health_documents')
+  const DOC_GROUP: Record<string, string> = { travel_documents: 'Đi lại', seafarer_documents: 'Thuyền viên', employment_documents: 'Lao động', health_documents: 'Y tế' }
+  const daysLeftOf = (d?: string) => (d ? Math.floor((new Date(d).getTime() - Date.now()) / 86400000) : undefined)
+  const dateVi = (d?: string) => (d ? new Date(d).toLocaleDateString('vi-VN') : '')
+  const daysCell = (d?: string) => {
+    const n = daysLeftOf(d)
+    return n === undefined ? '—' : <span className={n < 0 ? 'font-semibold text-red-600' : n < 90 ? 'font-semibold text-amber-600' : ''}>{n}</span>
+  }
+  const dateColumn = <T,>(key: string, header: string, get: (r: T) => string | undefined): Column<T> => ({
+    key, header, width: 105, align: 'center', value: r => get(r) ?? '',
+    filter: r => dateVi(get(r)), exportValue: r => dateVi(get(r)), render: r => dateVi(get(r)) || '—',
+  })
+
+  const docColumns = (identity: boolean): Column<DocRow>[] => [
+    ...(identity ? [{ key: 'group', header: 'Nhóm', width: 100, align: 'center' as const, value: (d: DocRow) => DOC_GROUP[d._table] ?? '' }] : []),
+    { key: 'type', header: 'Loại giấy tờ', width: 190, value: d => d.documentType ?? '', className: 'font-semibold text-gray-900' },
+    { key: 'number', header: 'Số', width: 140, value: d => d.documentNumber ?? '', render: d => d.documentNumber || '—', className: 'font-mono' },
+    dateColumn<DocRow>('issue', 'Ngày cấp', d => d.issueDate),
+    dateColumn<DocRow>('expiry', 'Ngày hết hạn', d => d.expiryDate),
+    { key: 'days', header: 'Còn (ngày)', width: 85, numeric: true, filter: false, value: d => daysLeftOf(d.expiryDate), render: d => daysCell(d.expiryDate) },
+    ...(identity ? [{ key: 'country', header: 'Quốc gia', width: 120, value: (d: DocRow) => d.country?.countryName ?? d.countryName ?? '' }] : []),
+    {
+      key: 'file', header: 'Tệp', width: 60, align: 'center',
+      render: d => (
+        <TableActions>
+          <TableIconButton
+            label={d.fileUrl ? 'Xem tệp' : 'Tải tệp lên'}
+            icon={d.fileUrl ? <Eye /> : <Upload />}
+            disabled={uploadingDocId === d.id || (!d.fileUrl && !canUpdate)}
+            onClick={() => (d.fileUrl ? handleViewImage(d.fileUrl, d.id, d._table) : handleDocumentFileUpload(d.id, d._table))}
+          />
+        </TableActions>
+      ),
+    },
+    ...(canUpdate ? [{
+      key: 'actions', header: 'Thao tác', width: 70, align: 'center' as const,
+      render: (d: DocRow) => (
+        <TableActions>
+          <TableIconButton label={`Sửa ${d.documentType ?? ''}`} icon={<Pencil />} onClick={() => openEditDoc(d, d._table)} />
+        </TableActions>
+      ),
+    }] : []),
+  ]
+
+  const certStatusOf = (expiry?: string) => {
+    const n = daysLeftOf(expiry)
+    if (n === undefined) return { label: 'Không rõ', tone: 'bg-gray-100 text-gray-600', Icon: AlertTriangle }
+    if (n < 0) return { label: 'Hết hạn', tone: 'bg-red-100 text-red-700', Icon: XCircle }
+    if (n < 90) return { label: 'Sắp hết hạn', tone: 'bg-yellow-100 text-yellow-700', Icon: AlertTriangle }
+    return { label: 'Còn hiệu lực', tone: 'bg-green-100 text-green-700', Icon: CheckCircle }
+  }
+  const certColumns: Column<any>[] = [
+    {
+      key: 'name', header: 'Tên chứng chỉ', width: 210, value: c => c.certificate?.certificateName || c.certificateName || '',
+      render: c => (
+        <span className="block truncate">
+          <span className="font-semibold text-gray-900">{c.certificate?.certificateName || c.certificateName || '—'}</span>
+          {(c.certificate?.certificateCode || c.certificateCode) && <span className="ml-1.5 text-xs text-gray-500">· {c.certificate?.certificateCode || c.certificateCode}</span>}
+        </span>
+      ),
+    },
+    { key: 'coc', header: 'Loại', width: 90, align: 'center', value: c => c.certificateOfCompetency ?? '', render: c => c.certificateOfCompetency || '—' },
+    { key: 'number', header: 'Số CC', width: 120, value: c => c.certificateNumber ?? '', render: c => c.certificateNumber || '—', className: 'font-mono' },
+    { key: 'country', header: 'Quốc gia', width: 110, value: c => c.country?.countryName || c.countryName || '' },
+    dateColumn<any>('issue', 'Ngày cấp', c => c.issueDate),
+    dateColumn<any>('expiry', 'Ngày hết hạn', c => c.expiryDate),
+    { key: 'days', header: 'Còn (ngày)', width: 85, numeric: true, filter: false, value: c => daysLeftOf(c.expiryDate), render: c => daysCell(c.expiryDate) },
+    { key: 'authority', header: 'Cơ quan cấp', width: 140, value: c => c.issuingAuthority ?? '', render: c => c.issuingAuthority || '—' },
+    {
+      key: 'status', header: 'Trạng thái', width: 115, align: 'center', value: c => certStatusOf(c.expiryDate).label,
+      render: c => {
+        const st = certStatusOf(c.expiryDate)
+        return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${st.tone}`}><st.Icon className="h-3 w-3" />{st.label}</span>
+      },
+    },
+    {
+      key: 'file', header: 'Tệp', width: 60, align: 'center',
+      render: c => (
+        <TableActions>
+          <TableIconButton
+            label={c.documentFilePath ? 'Xem tệp' : 'Tải tệp lên'}
+            icon={c.documentFilePath ? <Eye /> : <Upload />}
+            disabled={uploadingCertId === c.id || (!c.documentFilePath && !canUpdate)}
+            onClick={() => (c.documentFilePath ? handleViewCertificateImage(c.documentFilePath, c.id) : handleCertificateFileUpload(c.id))}
+          />
+        </TableActions>
+      ),
+    },
+    ...(canUpdate ? [{
+      key: 'actions', header: 'Thao tác', width: 70, align: 'center' as const,
+      render: (c: any) => (
+        <TableActions>
+          <TableIconButton label="Sửa chứng chỉ" icon={<Pencil />} onClick={() => openEditCert(c)} />
+        </TableActions>
+      ),
+    }] : []),
+  ]
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h1 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              EDIT {crew.fullName.toUpperCase()} - {crew.rank?.rankName?.toUpperCase() || t('crew.edDetail.form.rank').toUpperCase()}
-              {hasShoreChanges && (
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" title="Có thay đổi từ bờ chưa xem" />
-              )}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={exportToPDF}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 transition-colors"
-              title={t('crew.edDetail.messages.pdfExported').replace('!','')}
-            >
-              <FileDown className="w-4 h-4" />
-              <span>PDF</span>
-            </button>
-            <button 
-              onClick={exportToExcel}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 transition-colors"
-              title={t('crew.edDetail.messages.excelExported').replace('!','')}
-            >
-              <FileDown className="w-4 h-4" />
-              <span>Excel</span>
-            </button>
-            <PermissionGate permission="crew.update"><button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium disabled:opacity-50"
-            >
-              {saving ? t('crew.edDetail.messages.updateSuccess').replace('!','...') : t('common.save')}
-            </button></PermissionGate>
-          </div>
-        </div>
-      </div>
+      {/* Phần đầu hồ sơ — cùng bố cục với bờ */}
+      <CrewProfileHeader
+        crew={crew}
+        onBack={async () => {
+          if (editing && isDirty && !window.confirm('Rời trang và bỏ các thay đổi chưa lưu?')) return
+          navigate(-1)
+        }}
+        editing={editing}
+        onEdit={() => { setActiveTab('basic-data'); setEditing(true) }}
+        hasShoreChanges={hasShoreChanges}
+        avatarSrc={pendingAvatarPreview || editedCrew.photoUrl || undefined}
+        avatarPending={!!pendingAvatarFile}
+        avatarUploading={uploadingAvatar}
+        onAvatarClick={() => { if (!pendingAvatarPreview && editedCrew.photoUrl) handleViewImage(editedCrew.photoUrl, '', 'avatar') }}
+        onAvatarChoose={handleAvatarUpload}
+        onAvatarSave={handleAvatarSave}
+        onAvatarCancel={handleCancelAvatarChange}
+        onAvatarDelete={handleDeleteAvatar}
+        onExport={format => (format === 'pdf' ? exportToPDF() : exportToExcel())}
+      />
 
       {/* Shore Changes Banner */}
       {hasShoreChanges && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: '#fef2f2', borderBottom: '2px solid #fca5a5' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#991b1b' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 11 }}>{Object.keys(shoreChangeMap).length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.875rem', color: '#991b1b' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', background: '#ef4444', color: '#fff', fontSize: '0.875rem', fontWeight: 700, borderRadius: 11 }}>{Object.keys(shoreChangeMap).length}</span>
             <span>Bờ đã chỉnh sửa <strong>{Object.keys(shoreChangeMap).length}</strong> trường. Các trường thay đổi được đánh dấu <span style={{ color: '#ef4444', fontWeight: 700 }}>MÀU ĐỎ</span> bên dưới.</span>
           </div>
-          <PermissionGate permission="crew.update"><button onClick={handleMarkShoreChangesViewed} style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, color: '#fff', background: '#0d7377', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button></PermissionGate>
+          <PermissionGate permission="crew.update"><button onClick={handleMarkShoreChangesViewed} style={{ padding: '5px 14px', fontSize: '0.875rem', fontWeight: 600, color: '#fff', background: '#0d7377', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button></PermissionGate>
         </div>
       )}
 
@@ -1418,1075 +1454,137 @@ export function CrewDetailPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-gray-300">
-        <div className="px-6">
-          <div className="flex gap-1">
-            <button
-              onClick={() => setActiveTab('basic-data')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'basic-data'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              {t('crew.edDetail.tabs.basicData')}
-            </button>
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'documents'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              {t('crew.edDetail.tabs.documents')}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('logbook')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-                activeTab === 'logbook'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              {t('crew.edDetail.tabs.logbook') || 'Sổ nhật ký'}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Tab — cùng thứ tự với bờ */}
+      <nav className="flex overflow-x-auto border-b border-gray-200 bg-white px-6" aria-label="Hồ sơ thuyền viên">
+        {([
+          { key: 'basic-data', label: 'Thông tin cơ bản', count: Object.keys(shoreChangeMap).filter(k => (ALL_FIELD_KEYS as string[]).includes(k)).length },
+          { key: 'documents', label: 'Tài liệu', count: 0, badge: identityDocs.length + healthDocuments.length + certificates.length },
+          { key: 'logbook', label: 'Sổ nhật ký', count: 0 },
+        ] as { key: TabType; label: string; count: number; badge?: number }[]).map(tab => (
+          <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
+            className={`-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === tab.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}>
+            {tab.key === 'logbook' && <BookOpen className="h-4 w-4" />}
+            {tab.label}
+            {tab.count > 0 && <span className="rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{tab.count}</span>}
+            {!!tab.badge && <span className="rounded-full bg-gray-200 px-1.5 text-xs font-semibold text-gray-600">{tab.badge}</span>}
+          </button>
+        ))}
+      </nav>
 
       {/* Content */}
-      <div className="p-3">
+      <div className="flex flex-col gap-4 bg-gray-50 p-4">
         {activeTab === 'basic-data' && (
-          <div className="space-y-3">
-
-            {/* Main Form */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="grid grid-cols-12 gap-6">
-                {/* Left Column - Name & Position */}
-                <div className="col-span-3 space-y-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.fullName')}</label>
-                    <input
-                      type="text"
-                      value={editedCrew.fullName || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, fullName: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('fullName')}`}
-                    />
-                    {changeIndicator('fullName')}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.rank')}</label>
-                    <select
-                      value={editedCrew.rankId || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, rankId: e.target.value ? Number(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">{t('crew.edDetail.form.selectRank')}</option>
-                      {ranks.map(rank => (
-                        <option key={rank.id} value={rank.id}>
-                          {rank.rankName} ({rank.rankCode})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.department')}</label>
-                    <input
-                      type="text"
-                      value={editedCrew.department || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, department: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('department')}`}
-                    />
-                    {changeIndicator('department')}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.dateOfBirth')}</label>
-                    <input
-                      type="date"
-                      value={editedCrew.dateOfBirth?.split('T')[0] || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, dateOfBirth: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('dateOfBirth')}`}
-                    />
-                    {changeIndicator('dateOfBirth')}
-                  </div>
-                </div>
-
-                {/* Middle-Left Column - Personal Info */}
-                <div className="col-span-3 space-y-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.age')}</label>
-                    <input
-                      type="text"
-                      value={age}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.placeOfBirth')}</label>
-                    <input
-                      type="text"
-                      value={editedCrew.placeOfBirth || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, placeOfBirth: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('placeOfBirth')}`}
-                    />
-                    {changeIndicator('placeOfBirth')}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.country')}</label>
-                    <select
-                      value={editedCrew.countryId || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, countryId: e.target.value ? Number(e.target.value) : undefined })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">{t('crew.edDetail.form.selectCountry')}</option>
-                      {countries.map((country) => (
-                        <option key={country.id} value={country.id}>
-                          {country.countryName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.idCard')}</label>
-                    <input
-                      type="text"
-                      value={editedCrew.idCardNumber || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, idCardNumber: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('idCardNumber')}`}
-                    />
-                    {changeIndicator('idCardNumber')}
-                  </div>
-                </div>
-
-                {/* Middle-Right Column - Contact & Dates */}
-                <div className="col-span-3 space-y-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.phone')}</label>
-                    <input
-                      type="text"
-                      value={editedCrew.phoneNumber || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, phoneNumber: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('phoneNumber')}`}
-                    />
-                    {changeIndicator('phoneNumber')}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.email')}</label>
-                    <input
-                      type="email"
-                      value={editedCrew.emailAddress || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, emailAddress: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('emailAddress')}`}
-                    />
-                    {changeIndicator('emailAddress')}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.maritalStatus')}</label>
-                    <select
-                      value={editedCrew.maritalStatus || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, maritalStatus: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">{t('crew.edDetail.form.selectStatus')}</option>
-                      <option value="Single">Single</option>
-                      <option value="Married">{t('crew.edDetail.form.married')}</option>
-                      <option value="Divorced">{t('crew.edDetail.form.divorced')}</option>
-                      <option value="Widowed">{t('crew.edDetail.form.widowed')}</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.heightCm')}</label>
-                      <input
-                        type="number"
-                        value={editedCrew.height || ''}
-                        onChange={(e) => setEditedCrew({ ...editedCrew, height: e.target.value ? Number(e.target.value) : undefined })}
-                        className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('height')}`}
-                      />
-                      {changeIndicator('height')}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.weightKg')}</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={editedCrew.weight || ''}
-                        onChange={(e) => setEditedCrew({ ...editedCrew, weight: e.target.value ? Number(e.target.value) : undefined })}
-                        className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('weight')}`}
-                      />
-                      {changeIndicator('weight')}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column - Avatar */}
-                <div className="col-span-3 flex flex-col items-center">
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1 text-center">{t('crew.edDetail.form.companyId')}</label>
-                    <input
-                      type="text"
-                      value={editedCrew.crewId || ''}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, crewId: e.target.value })}
-                      className="w-32 px-3 py-2 border border-gray-300 rounded text-center focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div 
-                    className="w-40 h-52 rounded-lg overflow-hidden bg-gray-200 mb-3 relative cursor-pointer hover:opacity-90 transition-opacity shadow-md"
-                    onClick={() => {
-                      if (!pendingAvatarPreview && editedCrew.photoUrl && editedCrew.photoUrl !== "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='100' fill='%23e5e7eb'/%3E%3Ccircle cx='100' cy='80' r='35' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='160' rx='60' ry='45' fill='%239ca3af'/%3E%3C/svg%3E") {
-                        handleViewImage(editedCrew.photoUrl, '', 'avatar')
-                      }
-                    }}
-                    title={pendingAvatarPreview ? "New avatar (click Save to confirm)" : editedCrew.photoUrl ? "Click to view full size" : "Upload avatar"}
-                  >
-                    <img
-                      src={pendingAvatarPreview || editedCrew.photoUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 260'%3E%3Crect width='200' height='260' fill='%23e5e7eb'/%3E%3Ccircle cx='100' cy='70' r='35' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='180' rx='65' ry='50' fill='%239ca3af'/%3E%3C/svg%3E"}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                    {uploadingAvatar && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
-                      </div>
-                    )}
-                    {pendingAvatarPreview && !uploadingAvatar && (
-                      <div className="absolute top-1 right-1 bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded font-medium">
-                        NEW
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {pendingAvatarFile ? (
-                      <>
-                        <PermissionGate permission="crew.update"><button
-                          onClick={handleAvatarSave}
-                          disabled={uploadingAvatar}
-                          className={`px-4 py-2 text-white text-sm rounded flex items-center gap-1 ${
-                            uploadingAvatar ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
-                          }`}
-                        >
-                          <Upload className="w-4 h-4" /> Save
-                        </button></PermissionGate>
-                        <button 
-                          onClick={handleCancelAvatarChange}
-                          disabled={uploadingAvatar}
-                          className="px-4 py-2 text-white text-sm rounded bg-gray-500 hover:bg-gray-600 flex items-center gap-1"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <PermissionGate permission="crew.update"><button
-                          onClick={handleAvatarUpload}
-                          disabled={uploadingAvatar}
-                          className={`px-4 py-2 text-white text-sm rounded flex items-center gap-1 ${
-                            uploadingAvatar ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                          }`}
-                        >
-                          <Upload className="w-4 h-4" /> {t('crew.edDetail.avatar.choose')}
-                        </button></PermissionGate>
-                        <PermissionGate permission="crew.update"><button
-                          onClick={handleDeleteAvatar}
-                          disabled={uploadingAvatar || !editedCrew.photoUrl}
-                          className={`px-4 py-2 text-white text-sm rounded ${
-                            uploadingAvatar || !editedCrew.photoUrl 
-                              ? 'bg-gray-400 cursor-not-allowed' 
-                              : 'bg-red-600 hover:bg-red-700'
-                          }`}
-                          title={t('crew.edDetail.messages.deleteAvatarConfirm')}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button></PermissionGate>
-                      </>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    {uploadingAvatar ? t('crew.edDetail.avatar.uploading') : pendingAvatarFile ? t('crew.edDetail.avatar.clickSave') : t('crew.edDetail.avatar.clickChoose')}
-                  </p>
-                  <div className="mt-4 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={editedCrew.isOnboard}
-                      onChange={(e) => setEditedCrew({ ...editedCrew, isOnboard: e.target.checked })}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <label className="text-sm font-medium text-gray-700">{t('crew.edDetail.form.onBoard')}</label>
-                  </div>
-                </div>
-              </div>
-              <SectionCheckbox section="personalInfo" label="Personal Information" />
-            </div>
-
-            {/* {t('crew.edDetail.sections.physicalDetails')} */}
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">{t('crew.edDetail.sections.physicalDetails')}</h3>
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.bloodGroup')}</label>
-                  <select
-                    value={editedCrew.bloodGroup || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, bloodGroup: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('bloodGroup')}`}
-                  >
-                    <option value="">{t('crew.edDetail.form.select')}</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                  {changeIndicator('bloodGroup')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.clothingSize')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.clothingSize || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, clothingSize: e.target.value })}
-                    placeholder={t('crew.edDetail.form.select')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('clothingSize')}`}
-                  />
-                  {changeIndicator('clothingSize')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.shoeSize')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.shoeSize || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, shoeSize: e.target.value })}
-                    placeholder={t('crew.edDetail.form.select')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('shoeSize')}`}
-                  />
-                  {changeIndicator('shoeSize')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.cateringSize')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.cateringSize || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, cateringSize: e.target.value })}
-                    placeholder={t('crew.edDetail.form.select')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('cateringSize')}`}
-                  />
-                  {changeIndicator('cateringSize')}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={editedCrew.isSmoker || false}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, isSmoker: e.target.checked })}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <label className="text-sm font-medium text-gray-700">{t('crew.edDetail.form.smoker')}</label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={editedCrew.isCovidVaccinated || false}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, isCovidVaccinated: e.target.checked })}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <label className="text-sm font-medium text-gray-700">{t('crew.edDetail.form.covidVaccinated')}</label>
-                </div>
-              </div>
-              <SectionCheckbox section="physicalDetails" label="Physical Details" />
-            </div>
-
-            {/* {t('crew.edDetail.sections.employmentDates')} */}
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">{t('crew.edDetail.sections.employmentDates')}</h3>
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.joinDate')}</label>
-                  <input
-                    type="date"
-                    value={editedCrew.joinDate?.split('T')[0] || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, joinDate: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('joinDate')}`}
-                  />
-                  {changeIndicator('joinDate')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.embarkDate')}</label>
-                  <input
-                    type="date"
-                    value={editedCrew.embarkDate?.split('T')[0] || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, embarkDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.disembarkDate')}</label>
-                  <input
-                    type="date"
-                    value={editedCrew.disembarkDate?.split('T')[0] || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, disembarkDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.contractEnd')}</label>
-                  <input
-                    type="date"
-                    value={editedCrew.contractEnd?.split('T')[0] || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, contractEnd: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('contractEnd')}`}
-                  />
-                  {changeIndicator('contractEnd')}
-                </div>
-              </div>
-              <SectionCheckbox section="employmentDates" label="Employment Dates" />
-            </div>
-
-            {/* Next of Kin */}
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">{t('crew.edDetail.sections.nextOfKin')}</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.fullName')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.nextOfKinName || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, nextOfKinName: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('nextOfKinName')}`}
-                  />
-                  {changeIndicator('nextOfKinName')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.relationship')}</label>
-                  <select
-                    value={editedCrew.nextOfKinRelation || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, nextOfKinRelation: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('nextOfKinRelation')}`}
-                  >
-                    <option value="">{t('crew.edDetail.form.select')}</option>
-                    <option value="Father">{t('crew.edDetail.form.father')}</option>
-                    <option value="Mother">{t('crew.edDetail.form.mother')}</option>
-                    <option value="Spouse">{t('crew.edDetail.form.spouse')}</option>
-                    <option value="Sibling">{t('crew.edDetail.form.sibling')}</option>
-                    <option value="Child">{t('crew.edDetail.form.child')}</option>
-                    <option value="Other">{t('crew.edDetail.form.other')}</option>
-                  </select>
-                  {changeIndicator('nextOfKinRelation')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.phone')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.nextOfKinPhone || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, nextOfKinPhone: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('nextOfKinPhone')}`}
-                  />
-                  {changeIndicator('nextOfKinPhone')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.address')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.nextOfKinAddress || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, nextOfKinAddress: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('nextOfKinAddress')}`}
-                  />
-                  {changeIndicator('nextOfKinAddress')}
-                </div>
-              </div>
-              <SectionCheckbox section="nextOfKin" label="Next of Kin" />
-            </div>
-
-            {/* Education */}
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">{t('crew.edDetail.sections.education')}</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.institution')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.educationInstitution || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, educationInstitution: e.target.value })}
-                    placeholder={t('crew.edDetail.form.institution')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('educationInstitution')}`}
-                  />
-                  {changeIndicator('educationInstitution')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.course')}</label>
-                  <input
-                    type="text"
-                    value={editedCrew.educationCourse || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, educationCourse: e.target.value })}
-                    placeholder={t('crew.edDetail.form.course')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('educationCourse')}`}
-                  />
-                  {changeIndicator('educationCourse')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.periodYears')}</label>
-                  <input
-                    type="number"
-                    value={editedCrew.educationPeriodYears || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, educationPeriodYears: e.target.value ? Number(e.target.value) : undefined })}
-                    placeholder={t('crew.edDetail.form.select')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('educationPeriodYears')}`}
-                  />
-                  {changeIndicator('educationPeriodYears')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.graduationYear')}</label>
-                  <input
-                    type="number"
-                    value={editedCrew.educationGraduationYear || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, educationGraduationYear: e.target.value ? Number(e.target.value) : undefined })}
-                    placeholder={t('crew.edDetail.form.select')}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('educationGraduationYear')}`}
-                  />
-                  {changeIndicator('educationGraduationYear')}
-                </div>
-              </div>
-              <SectionCheckbox section="education" label="Education Background" />
-            </div>
-
-            {/* {t('crew.edDetail.sections.contact')} */}
-            <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="text-sm font-bold text-gray-700 uppercase mb-4">{t('crew.edDetail.sections.contact')}</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.address')}</label>
-                  <textarea
-                    value={editedCrew.address || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, address: e.target.value })}
-                    rows={3}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('address')}`}
-                  />
-                  {changeIndicator('address')}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.emergencyLegacy')}</label>
-                  <textarea
-                    value={editedCrew.emergencyContact || ''}
-                    onChange={(e) => setEditedCrew({ ...editedCrew, emergencyContact: e.target.value })}
-                    rows={3}
-                    className={`w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500 bg-gray-50 ${fieldBorderClass('emergencyContact')}`}
-                    placeholder={t('crew.edDetail.form.emergencyPlaceholder')}
-                  />
-                  {changeIndicator('emergencyContact')}
-                </div>
-              </div>
-              <div className="mt-4">
-                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('crew.edDetail.form.notes')}</label>
-                <textarea
-                  value={editedCrew.notes || ''}
-                  onChange={(e) => setEditedCrew({ ...editedCrew, notes: e.target.value })}
-                  rows={4}
-                  className={`w-full px-3 py-2 border rounded focus:outline-none ${fieldBorderClass('notes')}`}
-                />
-                {changeIndicator('notes')}
-              </div>
-              <SectionCheckbox section="contactInfo" label="Contact Information" />
-            </div>
-          </div>
+          <CrewBasicInfo
+            edited={editedCrew}
+            set={(key, value) => setEditedCrew(prev => ({ ...prev, [key]: value }))}
+            editing={editing}
+            ranks={ranks}
+            countries={countries}
+            changeMap={shoreChangeMap}
+            manualOverride={manualOverride}
+            onManualOverrideChange={setManualOverride}
+            reviewing={isPendingReview}
+            checklist={sectionChecklist}
+            onToggleCheck={(keys, checked) => setSectionChecklist(prev => ({ ...prev, ...Object.fromEntries(keys.map(k => [k, checked])) }))}
+          />
         )}
 
         {activeTab === 'documents' && (
-          <div className="space-y-2">
-            {/* {t('crew.edDetail.docs.identityDocs')} Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">
-                  {t('crew.edDetail.docs.identityDocs')} ({travelDocuments.length + seafarerDocuments.length + employmentDocuments.length})
-                </h3>
-                <div className="flex items-center gap-2">
-                  <PermissionGate permission="crew.update"><button
-                    onClick={() => setIsAddDocumentModalOpen(true)}
-                    className="w-6 h-6 rounded bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-lg font-bold transition-colors"
-                    title={t('crew.edDetail.docs.addIdentityDoc')}
-                  >
-                    +
-                  </button></PermissionGate>
-                  <button onClick={() => setIsIdentityExpanded(!isIdentityExpanded)} className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all">
-                    <span className="text-white text-xs transition-transform" style={{ transform: isIdentityExpanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>
-                      ▼
-                    </span>
-                  </button>
-                </div>
-              </div>
-              {isIdentityExpanded && (
-                loadingDocuments ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse" style={{tableLayout: 'fixed'}}>
-                      <thead className="bg-white border-b-2 border-gray-300">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '20%'}}>{t('crew.edDetail.docs.name')}</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '8%'}}>{t('crew.edDetail.docs.files')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>{t('crew.edDetail.docs.number')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>{t('crew.edDetail.docs.dateOfIssue')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>{t('crew.edDetail.docs.country')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '16%'}}>{t('crew.edDetail.docs.expDate')}</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '12%'}}>{t('crew.edDetail.docs.actions')}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white">
-                        {/* Travel Documents */}
-                        {travelDocuments.map((doc) => (
-                          <tr key={`travel-${doc.id}`} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200" style={{width: '20%'}}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{doc.documentType}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center border-r border-gray-200" style={{width: '8%'}}>
-                              <button 
-                                onClick={() => doc.fileUrl ? handleViewImage(doc.fileUrl, doc.id, 'travel_documents') : handleDocumentFileUpload(doc.id, 'travel_documents')}
-                                disabled={uploadingDocId === doc.id}
-                                className={`inline-flex items-center justify-center w-8 h-8 rounded text-white transition-colors ${
-                                  uploadingDocId === doc.id 
-                                    ? 'bg-gray-400 cursor-not-allowed' 
-                                    : doc.fileUrl 
-                                      ? 'bg-blue-500 hover:bg-blue-600' 
-                                      : 'bg-green-500 hover:bg-green-600'
-                                }`}
-                                title={doc.fileUrl ? t('crew.edDetail.docs.viewFile') : t('crew.edDetail.docs.uploadFile')}
-                              >
-                                {uploadingDocId === doc.id ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                ) : doc.fileUrl ? (
-                                  <Eye className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-4 h-4" />
-                                )}
-                              </button>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.documentNumber}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.issueDate ? format(new Date(doc.issueDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.country?.name || doc.countryId === 1 ? 'Vietnam' : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '16%'}}>
-                              <div className="truncate">{doc.expiryDate ? format(new Date(doc.expiryDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-center" style={{width: '12%'}}>
-                              <div className="flex items-center justify-center gap-1">
-                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'travel_documents')} title={t('crew.edDetail.docs.edit')}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
-                                  <Pencil className="w-4 h-4 text-gray-500" />
-                                </button></PermissionGate>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        
-                        {/* Seafarer Documents */}
-                        {seafarerDocuments.map((doc) => (
-                          <tr key={`seafarer-${doc.id}`} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200" style={{width: '20%'}}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{doc.documentType}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center border-r border-gray-200" style={{width: '8%'}}>
-                              <button 
-                                onClick={() => doc.fileUrl ? handleViewImage(doc.fileUrl, doc.id, 'seafarer_documents') : handleDocumentFileUpload(doc.id, 'seafarer_documents')}
-                                disabled={uploadingDocId === doc.id}
-                                className={`inline-flex items-center justify-center w-8 h-8 rounded text-white transition-colors ${
-                                  uploadingDocId === doc.id 
-                                    ? 'bg-gray-400 cursor-not-allowed' 
-                                    : doc.fileUrl 
-                                      ? 'bg-blue-500 hover:bg-blue-600' 
-                                      : 'bg-green-500 hover:bg-green-600'
-                                }`}
-                                title={doc.fileUrl ? t('crew.edDetail.docs.viewFile') : t('crew.edDetail.docs.uploadFile')}
-                              >
-                                {uploadingDocId === doc.id ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                ) : doc.fileUrl ? (
-                                  <Eye className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-4 h-4" />
-                                )}
-                              </button>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.documentNumber}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.issueDate ? format(new Date(doc.issueDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.country?.name || doc.countryId === 1 ? 'Vietnam' : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '16%'}}>
-                              <div className="truncate">{doc.expiryDate ? format(new Date(doc.expiryDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-center" style={{width: '12%'}}>
-                              <div className="flex items-center justify-center gap-1">
-                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'seafarer_documents')} title={t('crew.edDetail.docs.edit')}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
-                                  <Pencil className="w-4 h-4 text-gray-500" />
-                                </button></PermissionGate>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        
-                        {/* Employment Documents */}
-                        {employmentDocuments.map((doc) => (
-                          <tr key={`employment-${doc.id}`} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200" style={{width: '20%'}}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{doc.documentType}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center border-r border-gray-200" style={{width: '8%'}}>
-                              <button 
-                                onClick={() => doc.fileUrl ? handleViewImage(doc.fileUrl, doc.id, 'employment_documents') : handleDocumentFileUpload(doc.id, 'employment_documents')}
-                                disabled={uploadingDocId === doc.id}
-                                className={`inline-flex items-center justify-center w-8 h-8 rounded text-white transition-colors ${
-                                  uploadingDocId === doc.id 
-                                    ? 'bg-gray-400 cursor-not-allowed' 
-                                    : doc.fileUrl 
-                                      ? 'bg-blue-500 hover:bg-blue-600' 
-                                      : 'bg-green-500 hover:bg-green-600'
-                                }`}
-                                title={doc.fileUrl ? t('crew.edDetail.docs.viewFile') : t('crew.edDetail.docs.uploadFile')}
-                              >
-                                {uploadingDocId === doc.id ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                ) : doc.fileUrl ? (
-                                  <Eye className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-4 h-4" />
-                                )}
-                              </button>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.documentNumber}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.issueDate ? format(new Date(doc.issueDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.country?.name || doc.countryId === 1 ? 'Vietnam' : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '16%'}}>
-                              <div className="truncate">{doc.expiryDate ? format(new Date(doc.expiryDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-center" style={{width: '12%'}}>
-                              <div className="flex items-center justify-center gap-1">
-                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'employment_documents')} title={t('crew.edDetail.docs.edit')}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
-                                  <Pencil className="w-4 h-4 text-gray-500" />
-                                </button></PermissionGate>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        
-                        {(travelDocuments.length + seafarerDocuments.length + employmentDocuments.length) === 0 && (
-                          <tr className="border-b border-gray-100">
-                            <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                              {t('crew.edDetail.docs.noIdentityDocs')}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* {t('crew.edDetail.docs.healthDocs')} Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">{t('crew.edDetail.docs.healthDocs')} ({healthDocuments.length})</h3>
-                <div className="flex items-center gap-2">
-                  <PermissionGate permission="crew.update"><button
-                    onClick={() => setIsAddHealthDocumentModalOpen(true)}
-                    className="w-6 h-6 rounded bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-lg font-bold transition-colors"
-                    title={t('crew.edDetail.docs.addHealthDoc')}
-                  >
-                    +
-                  </button></PermissionGate>
-                  <button onClick={() => setIsHealthExpanded(!isHealthExpanded)} className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all">
-                    <span className="text-white text-xs transition-transform" style={{ transform: isHealthExpanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>
-                      ▼
-                    </span>
-                  </button>
-                </div>
-              </div>
-              {isHealthExpanded && (
-                loadingDocuments ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse" style={{tableLayout: 'fixed'}}>
-                      <thead className="bg-white border-b-2 border-gray-300">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '20%'}}>{t('crew.edDetail.docs.name')}</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '8%'}}>{t('crew.edDetail.docs.files')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>{t('crew.edDetail.docs.number')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>{t('crew.edDetail.docs.dateOfIssue')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '16%'}}>{t('crew.edDetail.docs.expDate')}</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '12%'}}>{t('crew.edDetail.docs.actions')}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white">
-                        {healthDocuments.map((doc) => (
-                          <tr key={`health-${doc.id}`} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200" style={{width: '20%'}}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{doc.documentType}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center border-r border-gray-200" style={{width: '8%'}}>
-                              <button 
-                                onClick={() => doc.fileUrl ? handleViewImage(doc.fileUrl, doc.id, 'health_documents') : handleDocumentFileUpload(doc.id, 'health_documents')}
-                                disabled={uploadingDocId === doc.id}
-                                className={`inline-flex items-center justify-center w-8 h-8 rounded text-white transition-colors ${
-                                  uploadingDocId === doc.id 
-                                    ? 'bg-gray-400 cursor-not-allowed' 
-                                    : doc.fileUrl 
-                                      ? 'bg-blue-500 hover:bg-blue-600' 
-                                      : 'bg-green-500 hover:bg-green-600'
-                                }`}
-                                title={doc.fileUrl ? t('crew.edDetail.docs.viewFile') : t('crew.edDetail.docs.uploadFile')}
-                              >
-                                {uploadingDocId === doc.id ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                ) : doc.fileUrl ? (
-                                  <Eye className="w-4 h-4" />
-                                ) : (
-                                  <Upload className="w-4 h-4" />
-                                )}
-                              </button>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.documentNumber}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
-                              <div className="truncate">{doc.issueDate ? format(new Date(doc.issueDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '16%'}}>
-                              <div className="truncate">{doc.expiryDate ? format(new Date(doc.expiryDate), 'dd/MM/yyyy') : '-'}</div>
-                            </td>
-                            <td className="px-4 py-3 text-center" style={{width: '12%'}}>
-                              <div className="flex items-center justify-center gap-1">
-                                <PermissionGate permission="crew.update"><button onClick={() => openEditDoc(doc, 'health_documents')} title={t('crew.edDetail.docs.edit')}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
-                                  <Pencil className="w-4 h-4 text-gray-500" />
-                                </button></PermissionGate>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        
-                        {healthDocuments.length === 0 && (
-                          <tr className="border-b border-gray-100">
-                            <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                              {t('crew.edDetail.docs.noHealthDocs')}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* CERTIFICATES Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">{t('crew.edDetail.docs.certificates')} ({certificates.length})</h3>
-                <div className="flex items-center gap-2">
-                  <PermissionGate permission={'certificates.create'}><button
-                    onClick={() => setShowAddCertModal(true)}
-                    className="w-6 h-6 rounded bg-green-600 hover:bg-green-700 text-white flex items-center justify-center text-lg font-bold transition-colors"
-                    title={t('crew.edDetail.docs.addCertificate')}
-                  >
-                    +
-                  </button></PermissionGate>
-                  <button onClick={() => setIsCertificatesExpanded(!isCertificatesExpanded)} className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all">
-                    <span className="text-white text-xs transition-transform" style={{ transform: isCertificatesExpanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>
-                      ▼
-                    </span>
-                  </button>
-                </div>
-              </div>
-              {isCertificatesExpanded && (
-                loadingCertificates ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : certificates && certificates.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse" style={{tableLayout: 'fixed'}}>
-                      <thead className="bg-white border-b-2 border-gray-300">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '15%'}}>{t('crew.edDetail.docs.certName')}</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '6%'}}>{t('crew.edDetail.docs.files')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '7%'}}>{t('crew.edDetail.docs.coc')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '9%'}}>{t('crew.edDetail.docs.country')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '11%'}}>{t('crew.edDetail.docs.certNumber')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '9%'}}>{t('crew.edDetail.docs.issueDate')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '9%'}}>{t('crew.edDetail.docs.expiryDate')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '14%'}}>{t('crew.edDetail.docs.issuingAuth')}</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '10%'}}>{t('crew.edDetail.docs.status')}</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '10%'}}>{t('crew.edDetail.docs.actions')}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white">
-                        {certificates.map((cert) => {
-                          const getCertStatus = (expiryDate: string) => {
-                            if (!expiryDate) return { icon: AlertTriangle, status: t('crew.edDetail.docs.na'), color: 'text-gray-500', bgColor: 'bg-gray-100' }
-                            const daysLeft = differenceInDays(parseISO(expiryDate), new Date())
-                            if (daysLeft < 0) {
-                              return { icon: XCircle, status: t('crew.edDetail.docs.expired'), color: 'text-red-600', bgColor: 'bg-red-100' }
-                            } else if (daysLeft < 90) {
-                              return { icon: AlertTriangle, status: t('crew.edDetail.docs.expiring'), color: 'text-yellow-600', bgColor: 'bg-yellow-100' }
-                            } else {
-                              return { icon: CheckCircle, status: t('crew.edDetail.docs.valid'), color: 'text-green-600', bgColor: 'bg-green-100' }
-                            }
-                          }
-                          
-                          const status = getCertStatus(cert.expiryDate)
-                          const StatusIcon = status.icon
-                          const daysLeft = cert.expiryDate ? differenceInDays(parseISO(cert.expiryDate), new Date()) : null
-                          
-                          return (
-                            <tr key={cert.id} className="border-b border-gray-100 hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '15%'}}>
-                                <div className="font-medium text-gray-900 truncate">
-                                  {cert.certificate?.certificateName || cert.certificateName || t('crew.edDetail.docs.unknownCert')}
-                                </div>
-                                <div className="text-xs text-gray-500 truncate">
-                                  {cert.certificate?.certificateCode || cert.certificateCode || ''}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-center border-r border-gray-200" style={{width: '6%'}}>
-                                <button 
-                                  onClick={() => cert.documentFilePath ? handleViewCertificateImage(cert.documentFilePath, cert.id) : handleCertificateFileUpload(cert.id)}
-                                  disabled={uploadingCertId === cert.id}
-                                  className={`inline-flex items-center justify-center w-8 h-8 rounded text-white transition-colors ${
-                                    uploadingCertId === cert.id 
-                                      ? 'bg-gray-400 cursor-not-allowed' 
-                                      : cert.documentFilePath 
-                                        ? 'bg-blue-500 hover:bg-blue-600' 
-                                        : 'bg-green-500 hover:bg-green-600'
-                                  }`}
-                                  title={cert.documentFilePath ? t('crew.edDetail.docs.viewFile') : t('crew.edDetail.docs.uploadFile')}
-                                >
-                                  {uploadingCertId === cert.id ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                  ) : cert.documentFilePath ? (
-                                    <Eye className="w-4 h-4" />
-                                  ) : (
-                                    <Upload className="w-4 h-4" />
-                                  )}
-                                </button>
-                              </td>
-                              <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '7%'}}>
-                                {cert.certificateOfCompetency ? (
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                    cert.certificateOfCompetency === 'National' 
-                                      ? 'bg-blue-100 text-blue-800' 
-                                      : 'bg-purple-100 text-purple-800'
-                                  }`}>
-                                    {cert.certificateOfCompetency}
-                                  </span>
-                                ) : '-'}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '9%'}}>
-                                <div className="truncate">{cert.country?.countryName || cert.countryName || '-'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '11%'}}>
-                                <code className="text-xs font-mono text-gray-900 truncate block">
-                                  {cert.certificateNumber || '-'}
-                                </code>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '9%'}}>
-                                <div className="truncate">
-                                  {cert.issueDate ? format(parseISO(cert.issueDate), 'dd MMM yyyy') : '-'}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '9%'}}>
-                                <div className="text-gray-900 font-medium truncate">
-                                  {cert.expiryDate ? format(parseISO(cert.expiryDate), 'dd MMM yyyy') : '-'}
-                                </div>
-                                {daysLeft !== null && (
-                                  <div className={`text-xs ${status.color} truncate`}>
-                                    {t('crew.edDetail.docs.daysLeft', { days: daysLeft })}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '14%'}}>
-                                <div className="truncate">
-                                  {cert.issuingAuthority || '-'}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '10%'}}>
-                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${status.bgColor} ${status.color}`}>
-                                  <StatusIcon className="w-3 h-3" />
-                                  {status.status}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-center" style={{width: '10%'}}>
-                                <div className="flex items-center justify-center gap-1">
-                                  <PermissionGate permission={'certificates.update'}><button onClick={() => openEditCert(cert)} title={t('crew.edDetail.docs.edit')}
-                                    className="inline-flex items-center justify-center w-8 h-8 rounded border border-gray-300 hover:bg-gray-50">
-                                    <Pencil className="w-4 h-4 text-gray-500" />
-                                  </button></PermissionGate>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 mb-4">{t('crew.edDetail.docs.noCertificates')}</p>
-                  </div>
-                )
-              )}
-            </div>
+          <>
             {isPendingReview && (
-              <div className="bg-white rounded-lg shadow-sm p-4">
-                <SectionCheckbox section="documents" label="Documents & Certificates" />
-              </div>
+              <label className={`flex cursor-pointer select-none items-center justify-end gap-2 rounded-lg border bg-white px-4 py-2 text-xs font-medium ${
+                sectionChecklist.documents ? 'border-green-300 text-green-700' : 'border-gray-200 text-gray-500'}`}>
+                <input type="checkbox" className="h-4 w-4 accent-green-600" checked={!!sectionChecklist.documents}
+                  onChange={e => setSectionChecklist(prev => ({ ...prev, documents: e.target.checked }))} />
+                {sectionChecklist.documents ? '✓ Đã kiểm tra tài liệu' : 'Đánh dấu đã kiểm tra tài liệu'}
+              </label>
             )}
-          </div>
+
+            <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+              <header className="border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+                <h2 className="text-sm font-semibold text-blue-700">Giấy tờ định danh ({identityDocs.length})</h2>
+              </header>
+              <DataTable
+                flush
+                columns={docColumns(true)}
+                data={identityDocs}
+                rowKey={d => d.id}
+                loading={loadingDocuments}
+                itemLabel="giấy tờ"
+                emptyMessage="Chưa có giấy tờ định danh."
+                searchPlaceholder="Tìm theo loại, số, quốc gia..."
+                onAdd={canUpdate ? () => setIsAddDocumentModalOpen(true) : undefined}
+                addLabel="Thêm giấy tờ"
+                exportOptions={{ fileName: `giay-to-${crew.crewId}`, title: `GIẤY TỜ ĐỊNH DANH — ${crew.fullName.toUpperCase()}` }}
+                pageSize={10}
+              />
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+              <header className="border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+                <h2 className="text-sm font-semibold text-blue-700">Tài liệu y tế ({healthDocuments.length})</h2>
+              </header>
+              <DataTable
+                flush
+                columns={docColumns(false)}
+                data={healthRows}
+                rowKey={d => d.id}
+                loading={loadingDocuments}
+                itemLabel="tài liệu"
+                emptyMessage="Chưa có tài liệu y tế."
+                searchPlaceholder="Tìm theo loại, số..."
+                onAdd={canUpdate ? () => setIsAddHealthDocumentModalOpen(true) : undefined}
+                addLabel="Thêm tài liệu y tế"
+                exportOptions={{ fileName: `y-te-${crew.crewId}`, title: `TÀI LIỆU Y TẾ — ${crew.fullName.toUpperCase()}` }}
+                pageSize={10}
+              />
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+              <header className="border-b border-gray-200 bg-blue-50 px-4 py-2.5">
+                <h2 className="text-sm font-semibold text-blue-700">Chứng chỉ ({certificates.length})</h2>
+              </header>
+              <DataTable
+                flush
+                columns={certColumns}
+                data={certificates}
+                rowKey={c => c.id}
+                loading={loadingCertificates}
+                itemLabel="chứng chỉ"
+                emptyMessage="Chưa có chứng chỉ nào."
+                searchPlaceholder="Tìm theo tên, số, cơ quan cấp..."
+                onAdd={canUpdate ? () => setShowAddCertModal(true) : undefined}
+                addLabel="Thêm chứng chỉ"
+                exportOptions={{ fileName: `chung-chi-${crew.crewId}`, title: `CHỨNG CHỈ — ${crew.fullName.toUpperCase()}` }}
+                pageSize={10}
+              />
+            </section>
+          </>
         )}
-
-
 
         {activeTab === 'logbook' && id && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <CrewLogbookSection crewMemberId={id} onSaved={loadCrewDetails} />
-          </div>
+          <CrewLogbookSection crewMemberId={id} onSaved={loadCrewDetails} />
         )}
       </div>
+
+      {/* Thanh lưu khi đang sửa — giống bờ */}
+      {editing && (
+        <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-gray-200 bg-white/95 px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] backdrop-blur">
+          <span className={`text-xs ${isDirty ? 'font-medium text-amber-700' : 'text-gray-500'}`}>
+            {isDirty ? '● Có thay đổi chưa lưu' : 'Đang sửa hồ sơ — chưa có thay đổi'}
+          </span>
+          <div className="flex gap-2">
+            <button type="button" onClick={cancelEdit} disabled={saving}
+              className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">Hủy</button>
+            <button type="button" onClick={handleSave} disabled={saving || !isDirty}
+              className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <AddDocumentModal
         isOpen={isAddDocumentModalOpen}

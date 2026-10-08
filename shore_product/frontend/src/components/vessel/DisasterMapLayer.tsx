@@ -132,9 +132,9 @@ export const DisasterMapLayer: React.FC<DisasterMapLayerProps> = ({ visible }) =
         <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 250px;">
           <div style="border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
             <img src="${props.icon}" style="width: 24px; height: 24px;" alt="icon"/>
-            <h3 style="margin: 0; font-size: 14px; font-weight: 700; color: #111827;">${props.name}</h3>
+            <h3 style="margin: 0; font-size: 0.875rem; font-weight: 700; color: #111827;">${props.name}</h3>
           </div>
-          <div style="font-size: 12px; color: #4b5563; line-height: 1.5;">
+          <div style="font-size: 0.8125rem; color: #4b5563; line-height: 1.5;">
             <p style="margin: 4px 0;"><strong>Quốc gia:</strong> ${props.country || 'N/A'}</p>
             <p style="margin: 4px 0;"><strong>Thời gian:</strong> ${fromDate}</p>
             <p style="margin: 4px 0;"><strong>Mức độ:</strong> 
@@ -143,12 +143,12 @@ export const DisasterMapLayer: React.FC<DisasterMapLayerProps> = ({ visible }) =
               </span>
             </p>
             ${props.severitydata?.severitytext ? `<p style="margin: 4px 0;"><strong>Tác động:</strong> ${props.severitydata.severitytext}</p>` : ''}
-            <div style="margin-top: 10px; background: #f3f4f6; padding: 8px; border-radius: 4px; font-size: 11px;">
+            <div style="margin-top: 10px; background: #f3f4f6; padding: 8px; border-radius: 4px; font-size: 0.8125rem;">
               ${props.htmldescription || props.description || 'Không có mô tả chi tiết.'}
             </div>
           </div>
           <div style="margin-top: 10px; text-align: right;">
-            <a href="https://www.gdacs.org/report.aspx?eventid=${props.eventid}&episodeid=${props.episodeid}&eventtype=${props.eventtype}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: #2563eb; text-decoration: none; font-weight: 600;">Xem báo cáo gốc ↗</a>
+            <a href="https://www.gdacs.org/report.aspx?eventid=${props.eventid}&episodeid=${props.episodeid}&eventtype=${props.eventtype}" target="_blank" rel="noopener noreferrer" style="font-size: 0.8125rem; color: #2563eb; text-decoration: none; font-weight: 600;">Xem báo cáo gốc ↗</a>
           </div>
         </div>
       `;

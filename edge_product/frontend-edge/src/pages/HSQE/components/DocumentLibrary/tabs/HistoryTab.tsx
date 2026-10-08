@@ -104,7 +104,7 @@ export function HistoryTab({ history, revisions, documentCode }: HistoryTabProps
         <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
           <History className="w-4 h-4 text-blue-500" />
           Nhật ký thay đổi — {documentCode}
-          <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+          <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-bold px-2 py-0.5 rounded-full">
             {filtered.length} sự kiện
           </span>
         </h3>
@@ -171,11 +171,11 @@ export function HistoryTab({ history, revisions, documentCode }: HistoryTabProps
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                         {entry.userName}
                       </span>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${config.bgLight} text-slate-600 dark:text-slate-400`}>
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${config.bgLight} text-slate-600 dark:text-slate-400`}>
                         {config.label}
                       </span>
                       {entry.version && (
-                        <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500">
+                        <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
                           ({entry.version})
                         </span>
                       )}
@@ -186,7 +186,7 @@ export function HistoryTab({ history, revisions, documentCode }: HistoryTabProps
                   </div>
 
                   {/* Timestamp */}
-                  <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">
+                  <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">
                     <Calendar className="w-3 h-3" />
                     {entry.timestamp}
                   </div>

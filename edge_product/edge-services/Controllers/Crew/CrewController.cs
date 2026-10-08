@@ -134,9 +134,9 @@ public class CrewController : ControllerBase
             var dto = _mapper.Map<CrewDetailDto>(crew);
 
             // Load passport info from travel documents
-            var passport = await _context.TravelDocuments
+            var passport = await _context.CrewMemberDocuments
                 .AsNoTracking()
-                .Where(d => d.CrewMemberId == id && d.DocumentType == "passport")
+                .Where(d => d.CrewMemberId == id && d.Category == CrewDocumentCategory.Travel && d.DocumentType == "passport")
                 .OrderByDescending(d => d.ExpiryDate)
                 .FirstOrDefaultAsync();
 
@@ -147,9 +147,9 @@ public class CrewController : ControllerBase
             }
 
             // Load seaman book
-            var seamanBook = await _context.SeafarerDocuments
+            var seamanBook = await _context.CrewMemberDocuments
                 .AsNoTracking()
-                .Where(d => d.CrewMemberId == id && d.DocumentType == "seaman_book")
+                .Where(d => d.CrewMemberId == id && d.Category == CrewDocumentCategory.Seafarer && d.DocumentType == "seaman_book")
                 .OrderByDescending(d => d.ExpiryDate)
                 .FirstOrDefaultAsync();
 
@@ -635,11 +635,11 @@ public class CrewController : ControllerBase
 
             await _context.SaveChangesAsync();
 
-            // Upsert seaman book number into SeafarerDocuments if provided
+            // Upsert seaman book number (tài liệu nhóm seafarer) if provided
             if (!string.IsNullOrWhiteSpace(crew.SeamanBookNumber))
             {
-                var existingSeamanBook = await _context.SeafarerDocuments
-                    .Where(d => d.CrewMemberId == id && d.DocumentType == "seaman_book")
+                var existingSeamanBook = await _context.CrewMemberDocuments
+                    .Where(d => d.CrewMemberId == id && d.Category == CrewDocumentCategory.Seafarer && d.DocumentType == "seaman_book")
                     .FirstOrDefaultAsync();
 
                 if (existingSeamanBook != null)
@@ -649,9 +649,10 @@ public class CrewController : ControllerBase
                 }
                 else
                 {
-                    _context.SeafarerDocuments.Add(new SeafarerDocument
+                    _context.CrewMemberDocuments.Add(new CrewMemberDocument
                     {
                         CrewMemberId = id,
+                        Category = CrewDocumentCategory.Seafarer,
                         DocumentType = "seaman_book",
                         DocumentNumber = crew.SeamanBookNumber,
                         CreatedAt = DateTime.UtcNow,
@@ -1001,98 +1002,30 @@ public class CrewController : ControllerBase
             {
                 fileUrl = await SaveIdentityDocumentFileAsync(id, dto.DocumentType, dto.File, normalizedTarget);
             }
-            switch (normalizedTarget)
+            var category = DocumentCategoryOf(normalizedTarget);
+            if (category == null)
+                return BadRequest(new { error = "targetTable must be one of: travel_documents, seafarer_documents, employment_documents, health_documents" });
+
+            var entity = new CrewMemberDocument
             {
-                case "travel_documents":
-                {
-                    var entity = new TravelDocument
-                    {
-                        CrewMember = crewMember,
-                        DocumentType = dto.DocumentType.Trim(),
-                        DocumentNumber = dto.DocumentNumber.Trim(),
-                        IssueDate = dto.IssueDate,
-                        ExpiryDate = dto.ExpiryDate,
-                        CountryId = dto.CountryId,
-                        Notes = dto.Notes,
-                        FileUrl = fileUrl,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
+                CrewMember = crewMember,
+                Category = category,
+                DocumentType = dto.DocumentType.Trim(),
+                DocumentNumber = dto.DocumentNumber.Trim(),
+                IssueDate = dto.IssueDate,
+                ExpiryDate = dto.ExpiryDate,
+                // Tài liệu sức khoẻ không gắn quốc gia
+                CountryId = category == CrewDocumentCategory.Health ? null : dto.CountryId,
+                Notes = dto.Notes,
+                FileUrl = fileUrl,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
 
-                    _context.TravelDocuments.Add(entity);
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("travel_document", entity.Id.ToString(), SyncActionType.CREATE, entity);
-                    return Ok(entity);
-                }
-
-                case "seafarer_documents":
-                {
-                    var entity = new SeafarerDocument
-                    {
-                        CrewMember = crewMember,
-                        DocumentType = dto.DocumentType.Trim(),
-                        DocumentNumber = dto.DocumentNumber.Trim(),
-                        IssueDate = dto.IssueDate,
-                        ExpiryDate = dto.ExpiryDate,
-                        CountryId = dto.CountryId,
-                        Notes = dto.Notes,
-                        FileUrl = fileUrl,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    _context.SeafarerDocuments.Add(entity);
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("seafarer_document", entity.Id.ToString(), SyncActionType.CREATE, entity);
-                    return Ok(entity);
-                }
-
-                case "employment_documents":
-                {
-                    var entity = new EmploymentDocument
-                    {
-                        CrewMember = crewMember,
-                        DocumentType = dto.DocumentType.Trim(),
-                        DocumentNumber = dto.DocumentNumber.Trim(),
-                        IssueDate = dto.IssueDate,
-                        ExpiryDate = dto.ExpiryDate,
-                        CountryId = dto.CountryId,
-                        Notes = dto.Notes,
-                        FileUrl = fileUrl,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    _context.EmploymentDocuments.Add(entity);
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("employment_document", entity.Id.ToString(), SyncActionType.CREATE, entity);
-                    return Ok(entity);
-                }
-
-                case "health_documents":
-                {
-                    var entity = new HealthDocument
-                    {
-                        CrewMember = crewMember,
-                        DocumentType = dto.DocumentType.Trim(),
-                        DocumentNumber = dto.DocumentNumber.Trim(),
-                        IssueDate = dto.IssueDate,
-                        ExpiryDate = dto.ExpiryDate,
-                        Notes = dto.Notes,
-                        FileUrl = fileUrl,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    _context.HealthDocuments.Add(entity);
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("health_document", entity.Id.ToString(), SyncActionType.CREATE, entity);
-                    return Ok(entity);
-                }
-
-                default:
-                    return BadRequest(new { error = "targetTable must be one of: travel_documents, seafarer_documents, employment_documents, health_documents" });
-            }
+            _context.CrewMemberDocuments.Add(entity);
+            await _context.SaveChangesAsync();
+            await EnqueueIdentityDocumentSyncAsync(CrewMemberDocument.SyncTable, entity.Id.ToString(), SyncActionType.CREATE, entity);
+            return Ok(entity);
         }
         catch (Exception ex)
         {
@@ -1119,66 +1052,20 @@ public class CrewController : ControllerBase
             if (string.IsNullOrWhiteSpace(dto.DocumentNumber))
                 return BadRequest(new { error = "documentNumber is required" });
 
-            var now = DateTime.UtcNow;
+            var category = DocumentCategoryOf(dto.TargetTable);
+            if (category == null)
+                return BadRequest(new { error = "targetTable must be one of: travel_documents, seafarer_documents, employment_documents, health_documents" });
 
-            switch (dto.TargetTable.Trim().ToLowerInvariant())
-            {
-                case "travel_documents":
-                {
-                    var e = await _context.TravelDocuments.FirstOrDefaultAsync(d => d.Id == documentId);
-                    if (e == null) return NotFound(new { error = "Document not found" });
-                    e.DocumentType = dto.DocumentType.Trim();
-                    e.DocumentNumber = dto.DocumentNumber.Trim();
-                    e.IssueDate = dto.IssueDate; e.ExpiryDate = dto.ExpiryDate;
-                    e.CountryId = dto.CountryId; e.Notes = dto.Notes; e.UpdatedAt = now;
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("travel_document", e.Id.ToString(), SyncActionType.UPDATE, e);
-                    return Ok(e);
-                }
-
-                case "seafarer_documents":
-                {
-                    var e = await _context.SeafarerDocuments.FirstOrDefaultAsync(d => d.Id == documentId);
-                    if (e == null) return NotFound(new { error = "Document not found" });
-                    e.DocumentType = dto.DocumentType.Trim();
-                    e.DocumentNumber = dto.DocumentNumber.Trim();
-                    e.IssueDate = dto.IssueDate; e.ExpiryDate = dto.ExpiryDate;
-                    e.CountryId = dto.CountryId; e.Notes = dto.Notes; e.UpdatedAt = now;
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("seafarer_document", e.Id.ToString(), SyncActionType.UPDATE, e);
-                    return Ok(e);
-                }
-
-                case "employment_documents":
-                {
-                    var e = await _context.EmploymentDocuments.FirstOrDefaultAsync(d => d.Id == documentId);
-                    if (e == null) return NotFound(new { error = "Document not found" });
-                    e.DocumentType = dto.DocumentType.Trim();
-                    e.DocumentNumber = dto.DocumentNumber.Trim();
-                    e.IssueDate = dto.IssueDate; e.ExpiryDate = dto.ExpiryDate;
-                    e.CountryId = dto.CountryId; e.Notes = dto.Notes; e.UpdatedAt = now;
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("employment_document", e.Id.ToString(), SyncActionType.UPDATE, e);
-                    return Ok(e);
-                }
-
-                case "health_documents":
-                {
-                    // HealthDocument không có CountryId — bỏ qua trường này thay vì cố gán.
-                    var e = await _context.HealthDocuments.FirstOrDefaultAsync(d => d.Id == documentId);
-                    if (e == null) return NotFound(new { error = "Document not found" });
-                    e.DocumentType = dto.DocumentType.Trim();
-                    e.DocumentNumber = dto.DocumentNumber.Trim();
-                    e.IssueDate = dto.IssueDate; e.ExpiryDate = dto.ExpiryDate;
-                    e.Notes = dto.Notes; e.UpdatedAt = now;
-                    await _context.SaveChangesAsync();
-                    await EnqueueIdentityDocumentSyncAsync("health_document", e.Id.ToString(), SyncActionType.UPDATE, e);
-                    return Ok(e);
-                }
-
-                default:
-                    return BadRequest(new { error = "targetTable must be one of: travel_documents, seafarer_documents, employment_documents, health_documents" });
-            }
+            var e = await _context.CrewMemberDocuments.FirstOrDefaultAsync(d => d.Id == documentId && d.Category == category);
+            if (e == null) return NotFound(new { error = "Document not found" });
+            e.DocumentType = dto.DocumentType.Trim();
+            e.DocumentNumber = dto.DocumentNumber.Trim();
+            e.IssueDate = dto.IssueDate; e.ExpiryDate = dto.ExpiryDate;
+            e.CountryId = category == CrewDocumentCategory.Health ? null : dto.CountryId;
+            e.Notes = dto.Notes; e.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            await EnqueueIdentityDocumentSyncAsync(CrewMemberDocument.SyncTable, e.Id.ToString(), SyncActionType.UPDATE, e);
+            return Ok(e);
         }
         catch (Exception ex)
         {
@@ -1208,90 +1095,20 @@ public class CrewController : ControllerBase
 
             var normalizedTarget = dto.TargetTable.Trim().ToLowerInvariant();
             
-            object? document = null;
-            string? oldFileUrl = null;
+            var category = DocumentCategoryOf(normalizedTarget);
+            if (category == null)
+                return BadRequest(new { error = "targetTable must be one of: travel_documents, seafarer_documents, employment_documents, health_documents" });
 
-            switch (normalizedTarget)
-            {
-                case "travel_documents":
-                    {
-                        var entity = await _context.TravelDocuments
-                            .Include(d => d.CrewMember)
-                            .FirstOrDefaultAsync(d => d.Id == documentId);
-                        if (entity == null) return NotFound(new { error = "Document not found" });
-                        
-                        oldFileUrl = entity.FileUrl;
-                        var fileUrl = await SaveIdentityDocumentFileAsync(entity.CrewMember.Id, entity.DocumentType, dto.File, normalizedTarget);
-                        entity.FileUrl = fileUrl;
-                        entity.UpdatedAt = DateTime.UtcNow;
-                        document = entity;
-                        break;
-                    }
+            var document = await _context.CrewMemberDocuments
+                .Include(d => d.CrewMember)
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.Category == category);
+            if (document == null) return NotFound(new { error = "Document not found" });
 
-                case "seafarer_documents":
-                    {
-                        var entity = await _context.SeafarerDocuments
-                            .Include(d => d.CrewMember)
-                            .FirstOrDefaultAsync(d => d.Id == documentId);
-                        if (entity == null) return NotFound(new { error = "Document not found" });
-                        
-                        oldFileUrl = entity.FileUrl;
-                        var fileUrl = await SaveIdentityDocumentFileAsync(entity.CrewMember.Id, entity.DocumentType, dto.File, normalizedTarget);
-                        entity.FileUrl = fileUrl;
-                        entity.UpdatedAt = DateTime.UtcNow;
-                        document = entity;
-                        break;
-                    }
-
-                case "employment_documents":
-                    {
-                        var entity = await _context.EmploymentDocuments
-                            .Include(d => d.CrewMember)
-                            .FirstOrDefaultAsync(d => d.Id == documentId);
-                        if (entity == null) return NotFound(new { error = "Document not found" });
-                        
-                        oldFileUrl = entity.FileUrl;
-                        var fileUrl = await SaveIdentityDocumentFileAsync(entity.CrewMember.Id, entity.DocumentType, dto.File, normalizedTarget);
-                        entity.FileUrl = fileUrl;
-                        entity.UpdatedAt = DateTime.UtcNow;
-                        document = entity;
-                        break;
-                    }
-
-                case "health_documents":
-                    {
-                        var entity = await _context.HealthDocuments
-                            .Include(d => d.CrewMember)
-                            .FirstOrDefaultAsync(d => d.Id == documentId);
-                        if (entity == null) return NotFound(new { error = "Document not found" });
-                        
-                        oldFileUrl = entity.FileUrl;
-                        var fileUrl = await SaveIdentityDocumentFileAsync(entity.CrewMember.Id, entity.DocumentType, dto.File, normalizedTarget);
-                        entity.FileUrl = fileUrl;
-                        entity.UpdatedAt = DateTime.UtcNow;
-                        document = entity;
-                        break;
-                    }
-
-                default:
-                    return BadRequest(new { error = "targetTable must be one of: travel_documents, seafarer_documents, employment_documents, health_documents" });
-            }
-
+            var oldFileUrl = document.FileUrl;
+            document.FileUrl = await SaveIdentityDocumentFileAsync(document.CrewMember.Id, document.DocumentType, dto.File, normalizedTarget);
+            document.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
-
-            var syncTableName = normalizedTarget switch
-            {
-                "travel_documents" => "travel_document",
-                "seafarer_documents" => "seafarer_document",
-                "employment_documents" => "employment_document",
-                "health_documents" => "health_document",
-                _ => string.Empty
-            };
-
-            if (!string.IsNullOrWhiteSpace(syncTableName) && document != null)
-            {
-                await EnqueueIdentityDocumentSyncAsync(syncTableName, documentId.ToString(), SyncActionType.UPDATE, document);
-            }
+            await EnqueueIdentityDocumentSyncAsync(CrewMemberDocument.SyncTable, documentId.ToString(), SyncActionType.UPDATE, document);
 
             // Delete old file if exists
             if (!string.IsNullOrWhiteSpace(oldFileUrl))
@@ -1319,103 +1136,49 @@ public class CrewController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get travel documents for a crew member
-    /// GET /api/crew/{id}/travel-documents
-    /// </summary>
+    /// <summary>GET /api/crew/{id}/travel-documents — hộ chiếu, thị thực.</summary>
     [HttpGet("{id}/travel-documents")]
-    public async Task<IActionResult> GetTravelDocuments(Guid id)
-    {
-        try
-        {
-            var documents = await _context.TravelDocuments
-                .AsNoTracking()
-                .Where(d => d.CrewMember.Id == id)
-                .Include(d => d.Country)
-                .OrderBy(d => d.DocumentType)
-                .ToListAsync();
+    public Task<IActionResult> GetTravelDocuments(Guid id) => GetDocumentsAsync(id, CrewDocumentCategory.Travel);
 
-            return Ok(documents);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting travel documents for crew {CrewId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Get seafarer documents for a crew member
-    /// GET /api/crew/{id}/seafarer-documents
-    /// </summary>
+    /// <summary>GET /api/crew/{id}/seafarer-documents — sổ thuyền viên.</summary>
     [HttpGet("{id}/seafarer-documents")]
-    public async Task<IActionResult> GetSeafarerDocuments(Guid id)
-    {
-        try
-        {
-            var documents = await _context.SeafarerDocuments
-                .AsNoTracking()
-                .Where(d => d.CrewMember.Id == id)
-                .Include(d => d.Country)
-                .OrderBy(d => d.DocumentType)
-                .ToListAsync();
+    public Task<IActionResult> GetSeafarerDocuments(Guid id) => GetDocumentsAsync(id, CrewDocumentCategory.Seafarer);
 
-            return Ok(documents);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting seafarer documents for crew {CrewId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
-    }
-
-    /// <summary>
-    /// Get employment documents for a crew member
-    /// GET /api/crew/{id}/employment-documents
-    /// </summary>
+    /// <summary>GET /api/crew/{id}/employment-documents — hợp đồng lao động.</summary>
     [HttpGet("{id}/employment-documents")]
-    public async Task<IActionResult> GetEmploymentDocuments(Guid id)
+    public Task<IActionResult> GetEmploymentDocuments(Guid id) => GetDocumentsAsync(id, CrewDocumentCategory.Employment);
+
+    /// <summary>GET /api/crew/{id}/health-documents — tài liệu sức khoẻ.</summary>
+    [HttpGet("{id}/health-documents")]
+    public Task<IActionResult> GetHealthDocuments(Guid id) => GetDocumentsAsync(id, CrewDocumentCategory.Health);
+
+    private async Task<IActionResult> GetDocumentsAsync(Guid crewId, string category)
     {
         try
         {
-            var documents = await _context.EmploymentDocuments
+            var documents = await _context.CrewMemberDocuments
                 .AsNoTracking()
-                .Where(d => d.CrewMember.Id == id)
+                .Where(d => d.CrewMemberId == crewId && d.Category == category)
                 .Include(d => d.Country)
                 .OrderBy(d => d.DocumentType)
                 .ToListAsync();
-
             return Ok(documents);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting employment documents for crew {CrewId}", id);
+            _logger.LogError(ex, "Error getting {Category} documents for crew {CrewId}", category, crewId);
             return StatusCode(500, new { error = "Internal server error" });
         }
     }
 
     /// <summary>
-    /// Get health documents for a crew member
-    /// GET /api/crew/{id}/health-documents
+    /// Đổi targetTable (tên cũ giao diện gửi: travel_documents, …) hoặc tên nhóm (travel, …) sang nhóm tài liệu.
     /// </summary>
-    [HttpGet("{id}/health-documents")]
-    public async Task<IActionResult> GetHealthDocuments(Guid id)
+    private static string? DocumentCategoryOf(string? targetTable)
     {
-        try
-        {
-            var documents = await _context.HealthDocuments
-                .AsNoTracking()
-                .Where(d => d.CrewMember.Id == id)
-                .OrderBy(d => d.DocumentType)
-                .ToListAsync();
-
-            return Ok(documents);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting health documents for crew {CrewId}", id);
-            return StatusCode(500, new { error = "Internal server error" });
-        }
+        var value = targetTable?.Trim().ToLowerInvariant();
+        if (value != null && value.EndsWith("_documents")) value = value[..^"_documents".Length];
+        return CrewDocumentCategory.Normalize(value);
     }
 
     private async Task EnqueueIdentityDocumentSyncAsync(string tableName, string recordKey, SyncActionType actionType, object payload)

@@ -280,12 +280,12 @@ export function DataTable<T>({
               />
             </label>
           )}
-          <span className="whitespace-nowrap text-[13px] font-semibold text-ink" aria-live="polite">
+          <span className="whitespace-nowrap text-sm font-semibold text-ink" aria-live="polite">
             {loading ? 'Đang tải...' : `${(serverPagination ? serverPagination.total : sorted.length).toLocaleString('vi-VN')} ${itemLabel}`}
           </span>
           {activeFilterCount > 0 && (
             <button type="button" onClick={() => { setFilters({}); serverFiltered.forEach(c => c.serverFilter!.onChange(null)); }}
-              className="flex h-7 items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2.5 text-[12px] font-medium text-primary hover:bg-accent-soft">
+              className="flex h-7 items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2.5 text-sm font-medium text-primary hover:bg-accent-soft">
               Đang lọc {activeFilterCount} cột <X className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="sr-only">Bỏ tất cả bộ lọc</span>
             </button>
@@ -317,10 +317,10 @@ export function DataTable<T>({
       </div>
 
       {selection && selection.selected.size > 0 && (
-        <div className="flex items-center gap-3 border-b border-grid bg-accent-soft px-3 py-1.5 text-[13px] text-primary">
+        <div className="flex items-center gap-3 border-b border-grid bg-accent-soft px-3 py-1.5 text-sm text-primary">
           <span>Đã chọn <strong>{selection.selected.size}</strong> dòng</span>
           {bulkActions}
-          <button type="button" className="ml-auto text-[13px] underline-offset-2 hover:underline" onClick={() => selection.onChange(new Set())}>
+          <button type="button" className="ml-auto text-sm underline-offset-2 hover:underline" onClick={() => selection.onChange(new Set())}>
             Bỏ chọn
           </button>
         </div>
@@ -328,7 +328,7 @@ export function DataTable<T>({
 
       {/* ── Bảng ── */}
       <div className="min-h-0 flex-1 overflow-auto" tabIndex={0} aria-label="Bảng dữ liệu, có thể cuộn ngang">
-        <table className="w-full table-fixed border-collapse text-[13px] text-ink" style={{ minWidth }}>
+        <table className="w-full table-fixed border-collapse text-sm text-ink" style={{ minWidth }}>
           <colgroup>
             {selection && <col style={{ width: 40 }} />}
             {showIndex && <col style={{ width: 52 }} />}
@@ -508,7 +508,7 @@ const TruncatedText: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 );
 
 const thClass =
-  'sticky top-0 z-[1] h-11 border-b border-r border-b-grid-strong border-r-grid bg-canvas px-2 py-1.5 overflow-hidden text-center align-middle text-[13px] font-semibold leading-tight text-ink last:border-r-0';
+  'sticky top-0 z-[1] h-11 border-b border-r border-b-grid-strong border-r-grid bg-canvas px-2 py-1.5 overflow-hidden text-center align-middle text-sm font-semibold leading-tight text-ink last:border-r-0';
 const tdClass = 'overflow-hidden border-b border-r border-grid px-2.5 py-2 align-middle last:border-r-0';
 const toolbarBtn =
   'inline-flex h-9 items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-primary-soft hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50';
@@ -525,7 +525,7 @@ const ExportMenu: React.FC<{ disabled?: boolean; onExcel: () => void; onCsv: () 
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
   }, [open]);
-  const item = 'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] text-ink hover:bg-primary-soft';
+  const item = 'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-ink hover:bg-primary-soft';
   return (
     <div ref={ref} className="relative">
       <button type="button" disabled={disabled} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} className={toolbarBtn}

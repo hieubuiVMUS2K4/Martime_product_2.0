@@ -41,7 +41,7 @@ function RequireAuth() {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0f172a' }}>
-        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>Loading...</div>
+        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>Loading...</div>
       </div>
     );
   }

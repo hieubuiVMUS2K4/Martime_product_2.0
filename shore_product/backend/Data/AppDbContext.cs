@@ -76,10 +76,8 @@ namespace ProductApi.Data
         public DbSet<CrewLogbookEntry> CrewLogbookEntries { get; set; } = null!;
 
         // Crew Documents
-        public DbSet<TravelDocument> TravelDocuments { get; set; } = null!;
-        public DbSet<SeafarerDocument> SeafarerDocuments { get; set; } = null!;
-        public DbSet<EmploymentDocument> EmploymentDocuments { get; set; } = null!;
-        public DbSet<HealthDocument> HealthDocuments { get; set; } = null!;
+        /// <summary>Tài liệu định danh + sức khoẻ của thuyền viên (một bảng, phân nhóm theo Category).</summary>
+        public DbSet<CrewMemberDocument> CrewMemberDocuments { get; set; } = null!;
 
         // ============================================================
         // SYNC INFRASTRUCTURE
@@ -994,15 +992,15 @@ namespace ProductApi.Data
                 entity.Property(e => e.VesselDwt).HasPrecision(12, 2);
             });
 
-            // Configure TravelDocument
-            modelBuilder.Entity<TravelDocument>(entity =>
+            // Tài liệu thuyền viên: định danh (travel/seafarer/employment) + sức khoẻ — một bảng chung.
+            modelBuilder.Entity<CrewMemberDocument>(entity =>
             {
-                entity.ToTable("travel_documents");
+                entity.ToTable("crew_member_documents");
                 entity.HasKey(e => e.Id);
-                entity.HasIndex(e => e.CrewMemberId);
+                entity.HasIndex(e => new { e.CrewMemberId, e.Category });
 
                 entity.HasOne(e => e.CrewMember)
-                    .WithMany(c => c.TravelDocuments)
+                    .WithMany(c => c.Documents)
                     .HasForeignKey(e => e.CrewMemberId)
                     .OnDelete(DeleteBehavior.Cascade);
 
@@ -1010,55 +1008,6 @@ namespace ProductApi.Data
                     .WithMany()
                     .HasForeignKey(e => e.CountryId)
                     .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            // Configure SeafarerDocument
-            modelBuilder.Entity<SeafarerDocument>(entity =>
-            {
-                entity.ToTable("seafarer_documents");
-                entity.HasKey(e => e.Id);
-                entity.HasIndex(e => e.CrewMemberId);
-
-                entity.HasOne(e => e.CrewMember)
-                    .WithMany(c => c.SeafarerDocuments)
-                    .HasForeignKey(e => e.CrewMemberId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Country)
-                    .WithMany()
-                    .HasForeignKey(e => e.CountryId)
-                    .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            // Configure EmploymentDocument
-            modelBuilder.Entity<EmploymentDocument>(entity =>
-            {
-                entity.ToTable("employment_documents");
-                entity.HasKey(e => e.Id);
-                entity.HasIndex(e => e.CrewMemberId);
-
-                entity.HasOne(e => e.CrewMember)
-                    .WithMany(c => c.EmploymentDocuments)
-                    .HasForeignKey(e => e.CrewMemberId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Country)
-                    .WithMany()
-                    .HasForeignKey(e => e.CountryId)
-                    .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            // Configure HealthDocument
-            modelBuilder.Entity<HealthDocument>(entity =>
-            {
-                entity.ToTable("health_documents");
-                entity.HasKey(e => e.Id);
-                entity.HasIndex(e => e.CrewMemberId);
-
-                entity.HasOne(e => e.CrewMember)
-                    .WithMany(c => c.HealthDocuments)
-                    .HasForeignKey(e => e.CrewMemberId)
-                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Configure MaritimeReport

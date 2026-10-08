@@ -155,7 +155,7 @@
   justify-content: center;
   flex-shrink: 0;
   transition: all var(--transition-fast);
-  font-size: 10px;
+  font-size: 0.875rem;
   color: white;
 }
 
@@ -165,9 +165,9 @@
 }
 
 .cfl-code {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-family); font-variant-numeric: tabular-nums;
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text-secondary);
   min-width: 36px;
 }

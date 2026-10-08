@@ -114,7 +114,7 @@ export function AttachedDocumentsTab({
           <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <HardDrive className="w-4 h-4 text-blue-500" />
             Danh sách tệp đính kèm
-            <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold px-2 py-0.5 rounded-full">
               {attachments.length}
             </span>
           </h3>

@@ -34,7 +34,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ report, on
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slideUp" 
+        className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-slideUp" 
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

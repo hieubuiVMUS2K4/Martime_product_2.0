@@ -658,7 +658,7 @@ export default function MasterSchedulePage() {
                               style={{ left: `${todayPos}%` }}
                             >
                               <div className="absolute top-0 -translate-x-1/2 -translate-y-full pb-1">
-                                <div className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 px-1 rounded whitespace-nowrap">
+                                <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 px-1 rounded whitespace-nowrap">
                                   {t('pms.masterSchedule.today').toUpperCase()}
                                 </div>
                               </div>

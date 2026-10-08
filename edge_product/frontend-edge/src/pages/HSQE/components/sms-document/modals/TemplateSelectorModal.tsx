@@ -21,7 +21,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
 
   return (
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col max-h-[85vh]">
           
           {/* Modal Header */}
           <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
@@ -31,7 +31,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">Gán biểu mẫu đã có vào quy trình</h3>
-                <p className="text-[10px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   Quy trình hiện tại: <span className="font-semibold text-slate-700 dark:text-slate-350">{selectedProcDetail?.procedureCode} - {selectedProcDetail?.title}</span>
                 </p>
               </div>
@@ -100,7 +100,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
                       />
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[9px] font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded">
+                          <span className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded">
                             {temp.formCode}
                           </span>
                           <span className="text-xs font-bold text-slate-800 dark:text-white">
@@ -108,7 +108,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
                           </span>
                         </div>
                         {temp.procedureCode && (
-                          <p className="text-[10px] text-slate-450">
+                          <p className="text-xs text-slate-450">
                             Thuộc quy trình: <span className="font-medium text-slate-500">{temp.procedureCode}</span>
                           </p>
                         )}

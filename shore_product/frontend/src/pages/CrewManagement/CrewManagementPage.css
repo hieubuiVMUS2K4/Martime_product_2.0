@@ -59,13 +59,13 @@
 }
 
 .avatar-placeholder {
-  font-size: 60px;
+  font-size: 3.75rem;
   color: #999;
 }
 
 .crew-name {
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text);
   margin-bottom: var(--spacing-sm);
 }
@@ -105,7 +105,7 @@
 }
 
 .avatar-preview-large .avatar-placeholder {
-  font-size: 50px;
+  font-size: 3.125rem;
 }
 
 .form-row {

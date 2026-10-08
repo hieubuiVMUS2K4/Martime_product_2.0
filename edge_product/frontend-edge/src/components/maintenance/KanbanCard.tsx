@@ -180,28 +180,28 @@ export const KanbanCard = memo(function KanbanCard({
     >
       {/* Status Badge */}
       <div className="mb-2 flex flex-wrap gap-1">
-        <span className={`inline-flex items-center gap-1 ${status.bg} ${status.text} px-2 py-0.5 rounded text-[10px] font-medium`}>
+        <span className={`inline-flex items-center gap-1 ${status.bg} ${status.text} px-2 py-0.5 rounded text-xs font-medium`}>
           <div className={`w-1 h-1 rounded-full ${status.dot}`} />
           {status.label}
         </span>
         
         {/* PMS Workflow v2.0 Indicators */}
         {task.hasPendingDeferral && (
-          <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded text-[10px] font-medium">
+          <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded text-xs font-medium">
             <Clock className="w-2.5 h-2.5" />
             Deferral
           </span>
         )}
         
         {task.isCms && (
-          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-medium">
+          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-medium">
             <Shield className="w-2.5 h-2.5" />
             CMS
           </span>
         )}
         
         {task.rejectionCount > 0 && (
-          <span className="inline-flex items-center gap-1 bg-pink-100 text-pink-800 px-2 py-0.5 rounded text-[10px] font-medium">
+          <span className="inline-flex items-center gap-1 bg-pink-100 text-pink-800 px-2 py-0.5 rounded text-xs font-medium">
             <RotateCcw className="w-2.5 h-2.5" />
             ×{task.rejectionCount}
           </span>
@@ -216,7 +216,7 @@ export const KanbanCard = memo(function KanbanCard({
               e.stopPropagation()
               navigate('/pms/work-planning')
             }}
-            className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-[10px] font-medium hover:bg-purple-100 transition-colors max-w-full"
+            className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-xs font-medium hover:bg-purple-100 transition-colors max-w-full"
             title={scheduleInfo.scheduleCode}
           >
             <Package className="w-2.5 h-2.5 flex-shrink-0" />
@@ -233,12 +233,12 @@ export const KanbanCard = memo(function KanbanCard({
       {/* Checklist Badge for Group Tasks */}
       {task.equipmentGroupId && task.checklistItems && (
         <div className="mb-2 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-medium">
+          <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium">
             <ListChecks className="w-3 h-3" />
             {task.checklistItems.filter(item => item.isCompleted).length}/{task.checklistItems.length} assets
           </span>
           {task.checklistItems.some(item => item.isAbnormal && !item.isCompleted) && (
-            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[10px] font-medium">
+            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">
               <AlertTriangle className="w-3 h-3" />
               Abnormal
             </span>
@@ -262,9 +262,9 @@ export const KanbanCard = memo(function KanbanCard({
       {/* Assignees with Quick Assign Dropdown */}
       <div className="flex items-center gap-1.5 mb-3 min-w-0">
         <UserCircle className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
-        <span className="text-[11px] text-gray-600 font-medium flex-shrink-0">Assigned:</span>
+        <span className="text-xs text-gray-600 font-medium flex-shrink-0">Assigned:</span>
         {isLoadingCrew ? (
-          <span className="text-[11px] text-gray-400 italic">Loading...</span>
+          <span className="text-xs text-gray-400 italic">Loading...</span>
         ) : (
           <div className="relative flex-1 min-w-0 group">
             {task.assignedTo ? (
@@ -272,7 +272,7 @@ export const KanbanCard = memo(function KanbanCard({
                 {/* Display selected crew with truncate */}
                 <button
                   type="button"
-                  className="text-[11px] text-gray-900 font-medium truncate hover:text-indigo-600 flex items-center gap-0.5 w-full text-left transition-all group-hover:opacity-0"
+                  className="text-xs text-gray-900 font-medium truncate hover:text-indigo-600 flex items-center gap-0.5 w-full text-left transition-all group-hover:opacity-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     setShowAssignDropdown(!showAssignDropdown)
@@ -286,7 +286,7 @@ export const KanbanCard = memo(function KanbanCard({
                 </button>
                 {/* Scrolling text on hover - replaces truncated text */}
                 <div className="absolute left-0 top-0 bottom-0 bg-white overflow-hidden whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-full flex items-center pointer-events-none">
-                  <div className="inline-block text-[11px] text-indigo-600 font-medium">
+                  <div className="inline-block text-xs text-indigo-600 font-medium">
                     <span className="inline-block animate-marquee">
                       {crewList.find(c => c.crewId === task.assignedTo)?.fullName} ({(() => { const r = crewList.find(c => c.crewId === task.assignedTo)?.rank; return r ? (typeof r === 'object' ? r.rankName : r) : ''; })()})
                       &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
@@ -340,7 +340,7 @@ export const KanbanCard = memo(function KanbanCard({
                 onChange={handleAssignChange}
                 onClick={(e) => e.stopPropagation()}
                 disabled={isAssigning}
-                className="text-[11px] text-gray-400 italic bg-transparent border-0 p-0 pr-4 focus:ring-0 focus:outline-none cursor-pointer hover:text-indigo-600 disabled:opacity-50 w-full appearance-none"
+                className="text-xs text-gray-400 italic bg-transparent border-0 p-0 pr-4 focus:ring-0 focus:outline-none cursor-pointer hover:text-indigo-600 disabled:opacity-50 w-full appearance-none"
               >
                 <option value="">Select crew...</option>
                 {crewList.map((crew) => (
@@ -359,13 +359,13 @@ export const KanbanCard = memo(function KanbanCard({
         {/* Due Date */}
         <div className="flex items-center gap-1 text-gray-600">
           <Calendar className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-medium">
+          <span className="text-xs font-medium">
             {format(parseISO(task.nextDueAt), 'dd MMM yyyy')}
           </span>
         </div>
 
         {/* Priority Badge */}
-        <span className={`${priority.badge} px-2 py-0.5 rounded text-[10px] font-semibold`}>
+        <span className={`${priority.badge} px-2 py-0.5 rounded text-xs font-semibold`}>
           {priority.label}
         </span>
       </div>

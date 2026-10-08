@@ -104,7 +104,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
       <div style={{ background: '#fff', borderRadius: 8, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', maxWidth: 900, maxHeight: '90vh', width: 'calc(100% - 32px)', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid #d6dee8' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#14202e' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#14202e' }}>
             {previewFile
               ? (isCurrentPdf ? 'Xem trước PDF mới' : 'Xem trước ảnh mới')
               : (isPdfUrl(currentImageUrl || imageUrl) ? 'Tài liệu PDF' : 'Ảnh tài liệu')}
@@ -144,25 +144,25 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {documentId && customUploadHandler && !previewFile && (
               <button onClick={handleSelectFile} disabled={uploading}
-                style={{ padding: '8px 16px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500 }}>
+                style={{ padding: '8px 16px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', fontWeight: 500 }}>
                 <Upload style={{ width: 16, height: 16 }} /> Thay đổi file
               </button>
             )}
             {previewFile && (
               <>
                 <button onClick={handleConfirmChange} disabled={uploading}
-                  style={{ padding: '8px 16px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+                  style={{ padding: '8px 16px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}>
                   ✓ Xác nhận
                 </button>
                 <button onClick={handleCancelChange} disabled={uploading}
-                  style={{ padding: '8px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+                  style={{ padding: '8px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}>
                   ✕ Hủy
                 </button>
               </>
             )}
           </div>
           <button onClick={onClose} disabled={uploading}
-            style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14 }}>
+            style={{ padding: '8px 16px', background: '#64748b', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.875rem' }}>
             Đóng
           </button>
         </div>

@@ -565,13 +565,13 @@ export function DrillTimelinePage() {
                               onClick={() => handleScheduleClick(schedule)}
                             >
                               {/* Time label */}
-                              <span className="text-white text-[10px] font-semibold truncate mr-1">
+                              <span className="text-white text-xs font-semibold truncate mr-1">
                                 {schedule.timelineLabel}
                               </span>
                               
                               {/* Overdue indicator */}
                               {schedule.status === 'OVERDUE' && (
-                                <span className="ml-auto bg-white/20 px-1.5 py-0.5 rounded text-[9px] font-bold text-white whitespace-nowrap">
+                                <span className="ml-auto bg-white/20 px-1.5 py-0.5 rounded text-xs font-bold text-white whitespace-nowrap">
                                   {t('drillTimeline.overdue')}
                                 </span>
                               )}
@@ -621,7 +621,7 @@ export function DrillTimelinePage() {
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+          <div className="bg-white rounded-lg p-6 max-w-xl w-full mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">
               {t('drillTimeline.deleteConfirmTitle', { count: selectedSchedules.size })}
             </h3>

@@ -293,7 +293,7 @@ export const AddCrewCertificateModal: React.FC<Props> = ({
                         <img src={savedFileUrl} alt="Ảnh đã lưu"
                           style={{ maxHeight: 150, maxWidth: '100%', borderRadius: 4, objectFit: 'contain', border: '1px solid #d6dee8' }} />
                       ) : (
-                        <a href={savedFileUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: '#0b2545' }}>
+                        <a href={savedFileUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8125rem', color: '#0b2545' }}>
                           Xem tệp đã lưu
                         </a>
                       )}

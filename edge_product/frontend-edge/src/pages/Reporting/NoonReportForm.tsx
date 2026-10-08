@@ -1353,7 +1353,7 @@ export function NoonReportForm() {
                 <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
                 Safety Incidents (if any)
                 {(formData.safetyIncidents || '').includes('[AUTO]') && (
-                  <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-orange-100 text-orange-700 rounded-full">
+                  <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-orange-100 text-orange-700 rounded-full">
                     AUTO
                   </span>
                 )}

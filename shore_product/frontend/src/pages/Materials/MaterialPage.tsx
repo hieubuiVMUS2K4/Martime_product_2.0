@@ -100,7 +100,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
         <span className="inline-flex max-w-full items-center gap-2">
           <span className="truncate font-medium text-primary">{i.name}</span>
           {i.minStock != null && i.onHandQuantity < (i.minStock ?? 0) && (
-            <span className="shrink-0 rounded-full bg-red-100 px-1.5 text-[11px] font-semibold text-red-700">Dưới tồn tối thiểu</span>
+            <span className="shrink-0 rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700">Dưới tồn tối thiểu</span>
           )}
         </span>
       ),

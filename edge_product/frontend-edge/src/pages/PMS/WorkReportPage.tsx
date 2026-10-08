@@ -1072,8 +1072,8 @@ export default function WorkReportPage() {
                     <div className="flex items-center gap-2">
                       <AlertTriangle size={14} className="text-orange-500" />
                       <span className="font-semibold text-orange-700">{t('pms.workReport.riskTitle')}</span>
-                      {riskFilled && <span className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.riskFilled')}</span>}
-                      {!riskFilled && task?.requireRiskAssessment && <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.riskRequired')}</span>}
+                      {riskFilled && <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.riskFilled')}</span>}
+                      {!riskFilled && task?.requireRiskAssessment && <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.riskRequired')}</span>}
                     </div>
                     <PermissionGate permission="pms.work.execute"><button onClick={handleSaveRisk} disabled={savingRisk} className="flex items-center gap-1 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50">
                       <Save size={12} /> {savingRisk ? t('pms.workReport.savingRisk') : t('pms.workReport.saveRisk')}
@@ -1224,8 +1224,8 @@ export default function WorkReportPage() {
                     <div className="flex items-center gap-2">
                       <FileText size={14} className="text-blue-500" />
                       <span className="font-semibold text-blue-700">{t('pms.workReport.inspTitle')}</span>
-                      {bbktFilled && <span className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.inspFilled')}</span>}
-                      {!bbktFilled && task?.requireInspectionReport && <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.inspRequired')}</span>}
+                      {bbktFilled && <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.inspFilled')}</span>}
+                      {!bbktFilled && task?.requireInspectionReport && <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.inspRequired')}</span>}
                     </div>
                     <PermissionGate permission="pms.work.execute"><button onClick={handleSaveBbkt} disabled={savingBbkt} className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                       <Save size={12} /> {savingBbkt ? t('pms.workReport.savingInsp') : t('pms.workReport.saveInsp')}
@@ -1429,7 +1429,7 @@ export default function WorkReportPage() {
       {/* ── Rejection Modal ── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-xl mx-4">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
               <h3 className="text-sm font-semibold text-gray-800">{t('pms.workReport.rejectModalTitle')}</h3>
               <button onClick={() => setShowRejectModal(false)} className="text-gray-400 hover:text-gray-600">

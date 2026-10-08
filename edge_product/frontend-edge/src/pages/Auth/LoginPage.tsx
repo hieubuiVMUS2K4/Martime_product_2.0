@@ -291,7 +291,7 @@ export function LoginPage() {
               <div className="mb-5">
                 <label
                   htmlFor="username"
-                  className="block text-[11px] font-bold text-blue-200/50 uppercase tracking-[0.12em] mb-2"
+                  className="block text-xs font-bold text-blue-200/50 uppercase tracking-[0.12em] mb-2"
                 >
                   Username / Officer ID
                 </label>
@@ -325,7 +325,7 @@ export function LoginPage() {
               <div className="mb-8">
                 <label
                   htmlFor="password"
-                  className="block text-[11px] font-bold text-blue-200/50 uppercase tracking-[0.12em] mb-2"
+                  className="block text-xs font-bold text-blue-200/50 uppercase tracking-[0.12em] mb-2"
                 >
                   Password
                 </label>
@@ -376,7 +376,7 @@ export function LoginPage() {
                 }}
               >
                 <Shield className="w-3.5 h-3.5 text-amber-400/80 flex-shrink-0" />
-                <p className="text-[10.5px] leading-[1.5] text-amber-100/60">
+                <p className="text-xs leading-[1.5] text-amber-100/60">
                   ISPS compliant. All sessions are logged per IMO MSC.428(98).
                 </p>
               </div>
@@ -385,7 +385,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoggingIn || !username.trim() || !password.trim()}
-                className="group relative w-full h-[50px] text-white font-semibold text-[15px] rounded-xl
+                className="group relative w-full h-[50px] text-white font-semibold text-[0.9375rem] rounded-xl
                          disabled:opacity-35 disabled:cursor-not-allowed
                          focus:outline-none focus:ring-2 focus:ring-rose-400/50 focus:ring-offset-2 focus:ring-offset-transparent
                          transition-all duration-300 
@@ -623,11 +623,11 @@ export function LoginPage() {
 
       {/* ===== BOTTOM FOOTER ===== */}
       <div className="absolute bottom-0 left-0 right-0 z-20 px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[11px] text-white/30">
+        <div className="flex items-center gap-2 text-xs text-white/30">
           <Ship className="w-3.5 h-3.5" />
           <span className="tracking-wide">ISPS Code &middot; ISM Code &middot; IMO MSC.428(98)</span>
         </div>
-        <p className="text-[10.5px] text-white/25 tracking-wide">
+        <p className="text-xs text-white/25 tracking-wide">
           Maritime Edge E-Logbook &copy; {new Date().getFullYear()}. All sessions are recorded.
         </p>
       </div>

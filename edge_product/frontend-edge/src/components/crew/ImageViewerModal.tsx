@@ -112,7 +112,7 @@ export default function ImageViewerModal({ isOpen, imageUrl, documentId, targetT
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-5xl max-h-[90vh] w-full mx-4 flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
             {previewFile ? (isCurrentPdf ? 'Xem trước PDF mới' : 'Xem trước ảnh mới') : (isPdfUrl(currentImageUrl || imageUrl) ? 'Tài liệu PDF' : 'Ảnh tài liệu')}

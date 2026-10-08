@@ -10,7 +10,7 @@
 
 .page-header h1 {
   font-size: var(--font-size-2xl);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text);
   margin-bottom: var(--spacing-xs);
 }
@@ -69,7 +69,7 @@
 .work-table thead th {
   padding: var(--spacing-md);
   text-align: left;
-  font-weight: 600;
+  font-weight: 700;
   border-bottom: 2px solid var(--color-primary-dark);
 }
 
@@ -147,7 +147,7 @@ form {
 }
 
 .detail-row label {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text);
 }
 

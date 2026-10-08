@@ -1415,12 +1415,12 @@ export default function WorkPlanningPage() {
               {tab.label}
               {/* Tooltip for Counter & Config */}
               {tab.key === 'counter' && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 hidden group-hover:block w-64 px-3 py-2 bg-gray-800 text-white text-[10px] rounded-lg shadow-lg leading-relaxed pointer-events-none">
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 hidden group-hover:block w-64 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg leading-relaxed pointer-events-none">
                   {t('pms.workPlanning.counter.tooltip')}
                 </div>
               )}
               {tab.key === 'config' && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 hidden group-hover:block w-64 px-3 py-2 bg-gray-800 text-white text-[10px] rounded-lg shadow-lg leading-relaxed pointer-events-none">
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 hidden group-hover:block w-64 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg leading-relaxed pointer-events-none">
                   {t('pms.workPlanning.config.tooltip')}
                 </div>
               )}
@@ -1538,7 +1538,7 @@ export default function WorkPlanningPage() {
                               <button
                                 key={task.id}
                                 onClick={() => navigate(`/pms/work-report/${task.id}`)}
-                                className="w-full text-left px-1.5 py-0.5 rounded text-[10px] truncate hover:opacity-80 transition-opacity"
+                                className="w-full text-left px-1.5 py-0.5 rounded text-xs truncate hover:opacity-80 transition-opacity"
                                 style={{ backgroundColor: colors.bg, color: colors.text }}
                                 title={`${task.taskId} - ${task.taskDescription}${task.status === 'UPCOMING' ? ` ⚠️ ${t('pms.workPlanning.calendar.upcomingTooltip')}` : ''}${isRunningHours ? t('pms.workPlanning.calendar.rhTooltip') : ''}`}
                               >
@@ -1547,7 +1547,7 @@ export default function WorkPlanningPage() {
                             );
                           })}
                           {dayTasks.length > 3 && (
-                            <div className="text-[10px] text-gray-400 text-center">{t('pms.workPlanning.calendar.moreItems', { count: dayTasks.length - 3 })}</div>
+                            <div className="text-xs text-gray-400 text-center">{t('pms.workPlanning.calendar.moreItems', { count: dayTasks.length - 3 })}</div>
                           )}
                         </div>
                       </div>
@@ -1628,13 +1628,13 @@ export default function WorkPlanningPage() {
                               <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
                               <span className="truncate">{taskName}</span>
                             </div>
-                            <div className="w-[90px] px-2 flex items-center justify-center text-[11px] text-gray-600 border-r border-gray-100">{startDateStr}</div>
-                            <div className="w-[60px] px-2 flex items-center justify-center text-[11px] text-gray-600 border-r border-gray-100">{durationStr}</div>
-                            <div className="w-[160px] px-2 flex items-center text-[11px] text-gray-700 truncate border-r border-gray-100">{equipName}</div>
+                            <div className="w-[90px] px-2 flex items-center justify-center text-xs text-gray-600 border-r border-gray-100">{startDateStr}</div>
+                            <div className="w-[60px] px-2 flex items-center justify-center text-xs text-gray-600 border-r border-gray-100">{durationStr}</div>
+                            <div className="w-[160px] px-2 flex items-center text-xs text-gray-700 truncate border-r border-gray-100">{equipName}</div>
                             <div className="w-[80px] px-2 flex items-center justify-center border-r border-gray-100">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isAdhoc ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{taskTypeLabel}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${isAdhoc ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{taskTypeLabel}</span>
                             </div>
-                            <div className="w-[90px] px-2 flex items-center justify-center text-[11px] text-gray-600 truncate">{assignee}</div>
+                            <div className="w-[90px] px-2 flex items-center justify-center text-xs text-gray-600 truncate">{assignee}</div>
                           </div>
                         );
                       })
@@ -1686,8 +1686,8 @@ export default function WorkPlanningPage() {
                           const shortDay = ganttWeekDays[dow];
                           return (
                             <div key={i} className={`flex flex-col items-center justify-center border-r border-gray-200 ${isToday ? 'bg-blue-50' : isWeekend ? 'bg-gray-100/50' : ''}`} style={{ width: '40px', flexShrink: 0 }}>
-                              <div className="text-[11px] font-semibold text-gray-700 leading-none">{format(day, 'dd')}</div>
-                              <div className={`text-[9px] leading-none mt-0.5 ${isWeekend ? 'text-red-400' : 'text-gray-400'}`}>{shortDay}</div>
+                              <div className="text-xs font-semibold text-gray-700 leading-none">{format(day, 'dd')}</div>
+                              <div className={`text-xs leading-none mt-0.5 ${isWeekend ? 'text-red-400' : 'text-gray-400'}`}>{shortDay}</div>
                             </div>
                           );
                         })}
@@ -1724,7 +1724,7 @@ export default function WorkPlanningPage() {
                                 })()}
                                 {/* Bar */}
                                 {barLeft >= 0 && (
-                                  <div className="absolute top-1/2 -translate-y-1/2 rounded-sm flex items-center justify-center text-[10px] font-bold text-white leading-none shadow-sm" style={{
+                                  <div className="absolute top-1/2 -translate-y-1/2 rounded-sm flex items-center justify-center text-xs font-bold text-white leading-none shadow-sm" style={{
                                     left: `${barLeft}px`,
                                     width: `${barWidth}px`,
                                     height: '20px',
@@ -1952,10 +1952,10 @@ export default function WorkPlanningPage() {
                                 </tr>
                                 <tr className="bg-white border-t border-gray-200 [&_th]:py-1">
                                   <th /><th />
-                                  {(['code', 'device', 'name'] as const).map((field, index) => <th key={field}><input aria-label={['Lọc mã cấu hình', 'Lọc thiết bị', 'Lọc tên công việc'][index]} placeholder="Tìm kiếm" value={cfgListFilters[field]} onChange={event => setCfgListFilters(previous => ({ ...previous, [field]: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-normal focus:border-blue-500 focus:outline-none" /></th>)}
-                                  <th><select aria-label="Lọc loại bảo trì" value={cfgListFilters.type} onChange={event => setCfgListFilters(previous => ({ ...previous, type: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.maintenanceCategory))].sort().map(category => <option key={category} value={category}>{maintenanceCategoryLabel(category, t)}</option>)}</select></th>
-                                  <th><select aria-label="Lọc độ ưu tiên" value={cfgListFilters.priority} onChange={event => setCfgListFilters(previous => ({ ...previous, priority: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-[11px] font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.priority))].sort().map(priority => <option key={priority} value={priority}>{getPriorityLabel(priority)}</option>)}</select></th>
-                                  <th><input aria-label="Lọc chu kỳ" placeholder="Tìm kiếm" value={cfgListFilters.cycle} onChange={event => setCfgListFilters(previous => ({ ...previous, cycle: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-normal focus:border-blue-500 focus:outline-none" /></th>
+                                  {(['code', 'device', 'name'] as const).map((field, index) => <th key={field}><input aria-label={['Lọc mã cấu hình', 'Lọc thiết bị', 'Lọc tên công việc'][index]} placeholder="Tìm kiếm" value={cfgListFilters[field]} onChange={event => setCfgListFilters(previous => ({ ...previous, [field]: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-normal focus:border-blue-500 focus:outline-none" /></th>)}
+                                  <th><select aria-label="Lọc loại bảo trì" value={cfgListFilters.type} onChange={event => setCfgListFilters(previous => ({ ...previous, type: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-xs font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.maintenanceCategory))].sort().map(category => <option key={category} value={category}>{maintenanceCategoryLabel(category, t)}</option>)}</select></th>
+                                  <th><select aria-label="Lọc độ ưu tiên" value={cfgListFilters.priority} onChange={event => setCfgListFilters(previous => ({ ...previous, priority: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1 py-0.5 text-xs font-normal"><option value="">Tất cả</option>{[...new Set(schedules.map(schedule => schedule.priority))].sort().map(priority => <option key={priority} value={priority}>{getPriorityLabel(priority)}</option>)}</select></th>
+                                  <th><input aria-label="Lọc chu kỳ" placeholder="Tìm kiếm" value={cfgListFilters.cycle} onChange={event => setCfgListFilters(previous => ({ ...previous, cycle: event.target.value }))} className="w-full rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-normal focus:border-blue-500 focus:outline-none" /></th>
                                   <th className="sticky right-0 bg-white" />
                                 </tr>
                               </thead>
@@ -2030,11 +2030,11 @@ export default function WorkPlanningPage() {
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="maintenanceCategory" value="PERIODIC" checked={cfgForm.maintenanceCategory === 'PERIODIC'} onChange={() => setCfgForm(f => ({ ...f, maintenanceCategory: 'PERIODIC' }))} className="w-3.5 h-3.5 text-blue-600" />
-                            <span className="text-xs text-gray-700">{t('pms.workPlanning.config.periodicLabel')} <span className="text-[10px] text-gray-400">({t('pms.workPlanning.config.periodicDesc')})</span></span>
+                            <span className="text-xs text-gray-700">{t('pms.workPlanning.config.periodicLabel')} <span className="text-xs text-gray-400">({t('pms.workPlanning.config.periodicDesc')})</span></span>
                           </label>
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="maintenanceCategory" value="AD_HOC" checked={cfgForm.maintenanceCategory === 'AD_HOC'} onChange={() => setCfgForm(f => ({ ...f, maintenanceCategory: 'AD_HOC' }))} className="w-3.5 h-3.5 text-orange-600" />
-                            <span className="text-xs text-gray-700">{t('pms.workPlanning.config.adhocLabel')} <span className="text-[10px] text-gray-400">({t('pms.workPlanning.config.adhocDesc')})</span></span>
+                            <span className="text-xs text-gray-700">{t('pms.workPlanning.config.adhocLabel')} <span className="text-xs text-gray-400">({t('pms.workPlanning.config.adhocDesc')})</span></span>
                           </label>
                           {(['DRY_DOCK', 'ON_DEMAND', 'VOYAGE'] as const).map(category => (
                             <label key={category} className="flex items-center gap-2 cursor-pointer">
@@ -2050,7 +2050,7 @@ export default function WorkPlanningPage() {
                       </div>
                       {/* Thiết bị */}
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">{t('pms.workPlanning.config.equipment')} <span className="text-red-500">*</span> <span className="text-[10px] text-gray-400 font-normal">— {t('pms.workPlanning.config.selectFromTree')}</span></label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{t('pms.workPlanning.config.equipment')} <span className="text-red-500">*</span> <span className="text-xs text-gray-400 font-normal">— {t('pms.workPlanning.config.selectFromTree')}</span></label>
                         {cfgSelectedEquipmentNames.length === 0 ? (
                           <div className="px-2.5 py-2 border border-dashed border-gray-300 rounded text-xs text-gray-400 text-center">
                             {t('pms.workPlanning.config.noEquipmentSelected')}
@@ -2058,7 +2058,7 @@ export default function WorkPlanningPage() {
                         ) : (
                           <div className="flex flex-wrap gap-1.5">
                             {cfgSelectedEquipmentNames.slice(0, 8).map(eq => (
-                              <span key={eq.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-800">
+                              <span key={eq.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
                                 {eq.code}
                                 <button type="button" onClick={() => setCfgTreeSelectedIds(prev => { const n = new Set(prev); n.delete(eq.id); return n; })} className="text-blue-400 hover:text-red-500">
                                   <XIcon size={10} />
@@ -2066,10 +2066,10 @@ export default function WorkPlanningPage() {
                               </span>
                             ))}
                             {cfgSelectedEquipmentNames.length > 8 && (
-                              <span className="text-[10px] text-gray-500 self-center">+{cfgSelectedEquipmentNames.length - 8} {t('pms.workPlanning.config.more')}</span>
+                              <span className="text-xs text-gray-500 self-center">+{cfgSelectedEquipmentNames.length - 8} {t('pms.workPlanning.config.more')}</span>
                             )}
                             {cfgSelectedEquipmentNames.length > 1 && (
-                              <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded self-center">{t('pms.workPlanning.config.group', { count: cfgSelectedEquipmentNames.length })}</span>
+                              <span className="text-xs bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded self-center">{t('pms.workPlanning.config.group', { count: cfgSelectedEquipmentNames.length })}</span>
                             )}
                           </div>
                         )}
@@ -2081,7 +2081,7 @@ export default function WorkPlanningPage() {
                       <div className="flex items-center gap-6 pt-1">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="checkbox" checked={cfgIsCbm} onChange={e => setCfgIsCbm(e.target.checked)} className="w-3.5 h-3.5 rounded text-blue-600 border-gray-300" />
-                          <span className="text-xs text-gray-700">CBM <span className="text-[10px] text-gray-400">({t('pms.workPlanning.config.cbm')})</span></span>
+                          <span className="text-xs text-gray-700">CBM <span className="text-xs text-gray-400">({t('pms.workPlanning.config.cbm')})</span></span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="checkbox" checked={cfgRequireRiskAssessment} onChange={e => setCfgRequireRiskAssessment(e.target.checked)} className="w-3.5 h-3.5 rounded text-blue-600 border-gray-300" />
@@ -2379,10 +2379,10 @@ export default function WorkPlanningPage() {
                               </div>
                               <div className="px-3 py-3 space-y-2.5">
                                 <div>
-                                  <label className="block text-[10px] font-medium text-gray-600 mb-1">{t('pms.workPlanning.config.templateName')} <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">{t('pms.workPlanning.config.templateName')} <span className="text-red-500">*</span></label>
                                   <input type="text" value={cfgTemplateName} onChange={e => setCfgTemplateName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') cfgConfirmSaveTemplate(); }} placeholder={t('pms.workPlanning.config.templateNamePlaceholder')} autoFocus className="w-full border border-gray-300 px-2.5 py-1.5 text-xs rounded" />
                                 </div>
-                                <div className="text-[10px] text-gray-500 bg-gray-50 px-2 py-1.5 rounded">
+                                <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1.5 rounded">
                                   {t('pms.workPlanning.config.templateStepCount', { count: cfgForm.checklistItemTemplates?.length || 0 })}
                                 </div>
                                 <div className="flex items-center justify-end gap-2">
@@ -2408,7 +2408,7 @@ export default function WorkPlanningPage() {
                                     className="w-full text-left px-3 py-2 hover:bg-blue-50 text-xs border-b border-gray-50 flex items-center justify-between">
                                     <span className="font-medium text-gray-900">{tpl.label}</span>
                                     <span className="flex items-center gap-1.5">
-                                      {key.startsWith('CUSTOM_') && <span className="text-[9px] bg-teal-50 text-teal-600 px-1 rounded">{t('pms.workPlanning.config.custom')}</span>}
+                                      {key.startsWith('CUSTOM_') && <span className="text-xs bg-teal-50 text-teal-600 px-1 rounded">{t('pms.workPlanning.config.custom')}</span>}
                                       <span className="text-gray-400">{t('pms.workPlanning.config.steps', { count: tpl.items.length })}</span>
                                     </span>
                                   </button>

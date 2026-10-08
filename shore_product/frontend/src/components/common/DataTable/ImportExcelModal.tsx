@@ -140,7 +140,7 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
           </div>
           {failed.length > 0 && (
             <div className="max-h-72 overflow-auto rounded-md border border-grid">
-              <table className="w-full border-collapse text-[13px]">
+              <table className="w-full border-collapse text-sm">
                 <thead className="sticky top-0 bg-canvas">
                   <tr>
                     <th className="w-20 border-b border-r border-grid px-2 py-2 font-semibold">Dòng</th>
@@ -166,18 +166,18 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
             <input type="file" accept=".xlsx,.xls" disabled={running} className={`${fieldClass} max-w-md py-1.5`}
               onChange={e => { readFile(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
-          <p className="text-[13px] text-ink-muted">
+          <p className="text-sm text-ink-muted">
             Cột bắt buộc: {fields.filter(f => f.required).map(f => f.header).join(', ')}. Dòng đầu tiên của tệp là tên cột.
           </p>
           <FormAlert>{fileError}</FormAlert>
           {rows.length > 0 && (
             <>
-              <p className="text-[13px] text-ink">
+              <p className="text-sm text-ink">
                 Đọc được <strong>{rows.length}</strong> dòng, <strong>{validRows.length}</strong> dòng hợp lệ
                 {rows.length > validRows.length && <span className="text-red-700"> ({rows.length - validRows.length} dòng thiếu dữ liệu bắt buộc, sẽ bỏ qua)</span>}.
               </p>
               <div className="max-h-80 overflow-auto rounded-md border border-grid">
-                <table className="w-full border-collapse text-[13px]">
+                <table className="w-full border-collapse text-sm">
                   <thead className="sticky top-0 bg-canvas">
                     <tr>
                       <th className="w-12 border-b border-r border-grid px-2 py-2 font-semibold">Dòng</th>

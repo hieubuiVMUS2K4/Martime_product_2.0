@@ -1145,12 +1145,18 @@ namespace MaritimeEdge.Data.Migrations
                     b.ToTable("service_records", "public");
                 });
 
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.EmploymentDocument", b =>
+            modelBuilder.Entity("Maritime.Shared.Models.Documents.CrewMemberDocument", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("category");
 
                     b.Property<int?>("CountryId")
                         .HasColumnType("integer")
@@ -1198,193 +1204,13 @@ namespace MaritimeEdge.Data.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id")
-                        .HasName("p_k_employment_documents");
+                        .HasName("p_k_crew_member_documents");
 
                     b.HasIndex("CountryId");
 
                     b.HasIndex("CrewMemberId");
 
-                    b.ToTable("employment_documents", "public");
-                });
-
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.HealthDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("CrewMemberId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("crew_member_id");
-
-                    b.Property<string>("DocumentNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("document_number");
-
-                    b.Property<string>("DocumentType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("document_type");
-
-                    b.Property<DateTime?>("ExpiryDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expiry_date");
-
-                    b.Property<string>("FileUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("file_url");
-
-                    b.Property<DateTime?>("IssueDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("issue_date");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("p_k_health_documents");
-
-                    b.HasIndex("CrewMemberId");
-
-                    b.ToTable("health_documents", "public");
-                });
-
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.SeafarerDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int?>("CountryId")
-                        .HasColumnType("integer")
-                        .HasColumnName("country_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("CrewMemberId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("crew_member_id");
-
-                    b.Property<string>("DocumentNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("document_number");
-
-                    b.Property<string>("DocumentType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("document_type");
-
-                    b.Property<DateTime?>("ExpiryDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expiry_date");
-
-                    b.Property<string>("FileUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("file_url");
-
-                    b.Property<DateTime?>("IssueDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("issue_date");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("p_k_seafarer_documents");
-
-                    b.HasIndex("CountryId");
-
-                    b.HasIndex("CrewMemberId");
-
-                    b.ToTable("seafarer_documents", "public");
-                });
-
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.TravelDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int?>("CountryId")
-                        .HasColumnType("integer")
-                        .HasColumnName("country_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("CrewMemberId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("crew_member_id");
-
-                    b.Property<string>("DocumentNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("document_number");
-
-                    b.Property<string>("DocumentType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("document_type");
-
-                    b.Property<DateTime?>("ExpiryDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expiry_date");
-
-                    b.Property<string>("FileUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("file_url");
-
-                    b.Property<DateTime?>("IssueDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("issue_date");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text")
-                        .HasColumnName("notes");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("p_k_travel_documents");
-
-                    b.HasIndex("CountryId");
-
-                    b.HasIndex("CrewMemberId");
-
-                    b.ToTable("travel_documents", "public");
+                    b.ToTable("crew_member_documents", "public");
                 });
 
             modelBuilder.Entity("Maritime.Shared.Models.Sync.SyncFileChunkSession", b =>
@@ -15392,69 +15218,19 @@ namespace MaritimeEdge.Data.Migrations
                     b.Navigation("CrewMember");
                 });
 
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.EmploymentDocument", b =>
+            modelBuilder.Entity("Maritime.Shared.Models.Documents.CrewMemberDocument", b =>
                 {
                     b.HasOne("Maritime.Shared.Models.Crew.Country", "Country")
                         .WithMany()
                         .HasForeignKey("CountryId")
-                        .HasConstraintName("f_k_employment_documents_countries_country_id");
+                        .HasConstraintName("f_k_crew_member_documents_countries_country_id");
 
                     b.HasOne("Maritime.Shared.Models.Crew.CrewMember", "CrewMember")
-                        .WithMany("EmploymentDocuments")
+                        .WithMany("Documents")
                         .HasForeignKey("CrewMemberId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("f_k_employment_documents_crew_members_crew_member_id");
-
-                    b.Navigation("Country");
-
-                    b.Navigation("CrewMember");
-                });
-
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.HealthDocument", b =>
-                {
-                    b.HasOne("Maritime.Shared.Models.Crew.CrewMember", "CrewMember")
-                        .WithMany("HealthDocuments")
-                        .HasForeignKey("CrewMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("f_k_health_documents_crew_members_crew_member_id");
-
-                    b.Navigation("CrewMember");
-                });
-
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.SeafarerDocument", b =>
-                {
-                    b.HasOne("Maritime.Shared.Models.Crew.Country", "Country")
-                        .WithMany()
-                        .HasForeignKey("CountryId")
-                        .HasConstraintName("f_k_seafarer_documents_countries_country_id");
-
-                    b.HasOne("Maritime.Shared.Models.Crew.CrewMember", "CrewMember")
-                        .WithMany("SeafarerDocuments")
-                        .HasForeignKey("CrewMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("f_k_seafarer_documents_crew_members_crew_member_id");
-
-                    b.Navigation("Country");
-
-                    b.Navigation("CrewMember");
-                });
-
-            modelBuilder.Entity("Maritime.Shared.Models.Documents.TravelDocument", b =>
-                {
-                    b.HasOne("Maritime.Shared.Models.Crew.Country", "Country")
-                        .WithMany()
-                        .HasForeignKey("CountryId")
-                        .HasConstraintName("f_k_travel_documents_countries_country_id");
-
-                    b.HasOne("Maritime.Shared.Models.Crew.CrewMember", "CrewMember")
-                        .WithMany("TravelDocuments")
-                        .HasForeignKey("CrewMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("f_k_travel_documents_crew_members_crew_member_id");
+                        .HasConstraintName("f_k_crew_member_documents_crew_members_crew_member_id");
 
                     b.Navigation("Country");
 
@@ -16675,15 +16451,9 @@ namespace MaritimeEdge.Data.Migrations
                 {
                     b.Navigation("Certificates");
 
-                    b.Navigation("EmploymentDocuments");
-
-                    b.Navigation("HealthDocuments");
-
-                    b.Navigation("SeafarerDocuments");
+                    b.Navigation("Documents");
 
                     b.Navigation("ServiceRecords");
-
-                    b.Navigation("TravelDocuments");
                 });
 
             modelBuilder.Entity("MaritimeEdge.Models.AbstractLogLeg", b =>

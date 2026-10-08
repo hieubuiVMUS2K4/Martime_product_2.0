@@ -30,7 +30,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-sm">Gán biểu mẫu đã có vào quy trình</h3>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Quy trình hiện tại: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedProcDetail?.procedureCode} - {selectedProcDetail?.title}</span>
               </p>
             </div>
@@ -99,7 +99,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
                     />
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[9px] font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded">
+                        <span className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded">
                           {temp.formCode}
                         </span>
                         <span className="text-xs font-bold text-slate-800 dark:text-white">
@@ -107,7 +107,7 @@ export function TemplateSelectorModal(props: TemplateSelectorModalProps) {
                         </span>
                       </div>
                       {temp.procedureCode && (
-                        <p className="text-[10px] text-slate-400">
+                        <p className="text-xs text-slate-400">
                           Thuộc quy trình: <span className="font-medium text-slate-500">{temp.procedureCode}</span>
                         </p>
                       )}

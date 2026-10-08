@@ -15,7 +15,7 @@ const THEME_OPTIONS: { value: Theme; icon: typeof Sun }[] = [
   { value: 'system', icon: Monitor },
 ];
 
-const FONT_SIZE_OPTIONS: FontSize[] = ['small', 'medium', 'large', 'xlarge'];
+const FONT_SIZE_OPTIONS: FontSize[] = ['medium', 'large', 'xlarge'];
 
 // ============================================
 // Main Component

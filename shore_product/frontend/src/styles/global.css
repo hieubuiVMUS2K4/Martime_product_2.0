@@ -10,7 +10,9 @@
 }
 
 html {
-  font-size: 16px;
+  /* Cỡ gốc DUY NHẤT: 100% = theo cài đặt trình duyệt (mặc định 16px). Mọi cỡ chữ trong app
+     đều bằng rem nên chỉ cần đổi chỗ này là cả app co giãn theo. */
+  font-size: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

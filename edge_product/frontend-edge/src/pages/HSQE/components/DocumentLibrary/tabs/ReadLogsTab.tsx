@@ -126,11 +126,11 @@ export function ReadLogsTab({
                     </td>
                     <td className="px-4 py-3 text-center">
                       {log.acknowledged ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-bold">
                           <Check className="w-3 h-3" /> Đã đọc
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-full text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-full text-xs font-bold">
                           <X className="w-3 h-3" /> Chưa
                         </span>
                       )}

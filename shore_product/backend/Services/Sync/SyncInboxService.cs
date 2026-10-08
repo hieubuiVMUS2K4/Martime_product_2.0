@@ -206,10 +206,7 @@ public class SyncInboxService : ISyncInboxService
         ["service_record"]      = typeof(ServiceRecord),
 
         // Crew Documents
-        ["travel_document"]      = typeof(TravelDocument),
-        ["seafarer_document"]    = typeof(SeafarerDocument),
-        ["employment_document"]  = typeof(EmploymentDocument),
-        ["health_document"]      = typeof(HealthDocument),
+        ["crew_member_document"] = typeof(CrewMemberDocument),
 
         // Crew Management Workflow — onboard events from Edge
         ["onboard_event"]        = typeof(OnboardEvent),
@@ -434,10 +431,7 @@ public class SyncInboxService : ISyncInboxService
         "voyage_actual_revenue",
         "voyage_settlement",
         // Document tables — edge creates documents locally; if not yet on shore, create them.
-        "travel_document",
-        "seafarer_document",
-        "employment_document",
-        "health_document",
+        "crew_member_document",
         "crew_certificate",
         // SMS operational data from Edge
         "sms_filled_record",
@@ -2654,10 +2648,7 @@ public class SyncInboxService : ISyncInboxService
                 }
             }
         }
-        if (entityType == typeof(TravelDocument)
-            || entityType == typeof(SeafarerDocument)
-            || entityType == typeof(EmploymentDocument)
-            || entityType == typeof(HealthDocument))
+        if (entityType == typeof(CrewMemberDocument))
         {
             await ResolveIdentityDocumentForeignKeysAsync(entity, rawPayload);
         }

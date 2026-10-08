@@ -194,7 +194,7 @@ export function AuditLogPage() {
       render: l => l.entityType ? (
         <span>
           <span className="text-gray-700 dark:text-gray-300">{l.entityType}</span>
-          {l.entityId && <span className="ml-1 font-mono text-[10px] text-gray-400">#{truncateId(l.entityId)}</span>}
+          {l.entityId && <span className="ml-1 font-mono text-xs text-gray-400">#{truncateId(l.entityId)}</span>}
         </span>
       ) : <span className="text-gray-400">—</span>,
     },
@@ -363,7 +363,7 @@ function LogDetailModal({ log, onClose }: { log: AuditLogEntry; onClose: () => v
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[85vh] overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-4xl max-h-[85vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

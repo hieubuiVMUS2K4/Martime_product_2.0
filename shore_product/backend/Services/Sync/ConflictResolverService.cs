@@ -367,6 +367,15 @@ public class ConflictResolverService : IConflictResolverService
         return ConflictResolution.Apply(existing);
     }
 
+    /// <summary>Trường thuộc vòng đề nghị/duyệt rời tàu — bị khoá khi gói của tàu cũ hơn quyết định của bờ.</summary>
+    private static readonly HashSet<string> CrewLogbookDecisionFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        nameof(CrewLogbookEntry.RecordStatus), nameof(CrewLogbookEntry.Status),
+        nameof(CrewLogbookEntry.SignOffDate), nameof(CrewLogbookEntry.SignOffPortCode), nameof(CrewLogbookEntry.SignOffPortName),
+        nameof(CrewLogbookEntry.SignOffReason), nameof(CrewLogbookEntry.SignOffBy),
+        nameof(CrewLogbookEntry.SignOffRequestedBy), nameof(CrewLogbookEntry.SignOffRequestedAt), nameof(CrewLogbookEntry.SignOffRequestReason),
+    };
+
     /// <summary>
     /// Sổ thuyền viên. Không dùng so sánh UpdatedAt như các bảng khác: UpdateSyncMetadata đóng dấu
     /// UpdatedAt = UtcNow trên MỌI lần đồng bộ, nên bên nào vừa được sync chạm vào sẽ luôn "mới hơn"
@@ -377,11 +386,23 @@ public class ConflictResolverService : IConflictResolverService
         var fromShore = originNode == "SHORE";
         var existingType = existing.GetType();
 
+        // Gói CŨ của tàu tới sau quyết định của bờ (mạng chậm, gửi lại): không được lật ngược quyết định.
+        // Đã duyệt (CLOSED) thì tàu không đổi được trạng thái/thông tin rời tàu nữa; đang bị từ chối thì chỉ
+        // nhận đề nghị mới gửi SAU lúc bờ từ chối.
+        var staleDecision = !fromShore && existing is CrewLogbookEntry current && incoming is CrewLogbookEntry proposed
+            && (current.RecordStatus == "CLOSED"
+                || (current.RecordStatus == "REJECTED" && current.RejectedAt.HasValue
+                    && (proposed.SignOffRequestedAt == null || proposed.SignOffRequestedAt <= current.RejectedAt)));
+        if (staleDecision)
+            _logger.LogWarning("CrewLogbook {Id}: bỏ qua trạng thái/đề nghị rời tàu cũ từ {Origin} — bờ đã quyết định sau đó",
+                ((CrewLogbookEntry)existing).Id, originNode);
+
         foreach (var prop in existingType.GetProperties())
         {
             if (prop.GetSetMethod() == null) continue;
             if (!IsCopyableScalar(prop) || !FieldPresent(prop.Name)) continue;     // Never touch navigation properties
             if (prop.Name == "Id") continue;
+            if (staleDecision && CrewLogbookDecisionFields.Contains(prop.Name)) continue;
 
             var incomingValue = prop.GetValue(incoming);
             if (incomingValue == null && _incomingFields == null) continue;

@@ -845,7 +845,7 @@ export function ReportDetailPage() {
       {/* ── Approval modal ───────────────────────────────────────── */}
       {showApproveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
               <CheckCircle className="h-4 w-4 text-blue-600" />
               Approve report
@@ -895,7 +895,7 @@ export function ReportDetailPage() {
       {/* ── Rejection modal ──────────────────────────────────────── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
               <XCircle className="h-4 w-4 text-rose-600" />
               Reject report
@@ -931,7 +931,7 @@ export function ReportDetailPage() {
       {/* ── Transmit modal ───────────────────────────────────────── */}
       {showTransmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
               <Send className="h-4 w-4 text-emerald-600" />
               Transmit report

@@ -312,7 +312,7 @@ export function VoyagePage() {
     { key: 'vesselName', header: t('voyage.page.vesselName'), width: 170, value: v => v.vesselName ?? '', render: v => v.vesselName || <span className="text-gray-400">—</span> },
     {
       key: 'voyageStatus', header: t('voyage.page.voyageStatus'), width: 140, align: 'center', value: v => formatStatusLabel(v.voyageStatus),
-      render: v => <span className={`inline-flex whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[v.voyageStatus] || 'bg-gray-100 text-gray-600'}`}>{formatStatusLabel(v.voyageStatus)}</span>,
+      render: v => <span className={`inline-flex whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[v.voyageStatus] || 'bg-gray-100 text-gray-600'}`}>{formatStatusLabel(v.voyageStatus)}</span>,
     },
     { key: 'departurePort', header: t('voyage.page.departurePort'), width: 190, value: v => portLabel(v.departurePort, v.departurePortCode), render: v => portLabel(v.departurePort, v.departurePortCode) || <span className="text-gray-400">{t('voyage.page.tbd')}</span> },
     { key: 'arrivalPort', header: t('voyage.page.arrivalPort'), width: 190, value: v => portLabel(v.arrivalPort, v.arrivalPortCode), render: v => portLabel(v.arrivalPort, v.arrivalPortCode) || <span className="text-gray-400">{t('voyage.page.tbd')}</span> },
@@ -726,8 +726,8 @@ function OverviewTab({ detail }: { detail: VoyageDetail }) {
                   <div><span className="text-gray-400">{t('voyage.page.dur')}: </span>{formatMetric(leg.plannedDurationHours, 1, ' h')}</div>
                   <div><span className="text-gray-400">{t('voyage.page.spd')}: </span>{formatMetric(leg.plannedAverageSpeed, 1, ' kn')}</div>
                   <div className="flex gap-1.5 pt-0.5 flex-wrap">
-                    {leg.crewChangePlanned && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[11px]">{t('voyage.page.crewChange')}</span>}
-                    {leg.bunkerSupplyPlanned && <span className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[11px]">{t('voyage.page.bunkerSupply')}</span>}
+                    {leg.crewChangePlanned && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs">{t('voyage.page.crewChange')}</span>}
+                    {leg.bunkerSupplyPlanned && <span className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-xs">{t('voyage.page.bunkerSupply')}</span>}
                   </div>
                 </div>
               </div>
@@ -767,12 +767,12 @@ function OverviewTab({ detail }: { detail: VoyageDetail }) {
                     <div key={pc.id} className="flex flex-col items-center" style={{ minWidth: 80, flex: i === 0 || i === arr.length - 1 ? '0 0 auto' : '1' }}>
                       <div className={`w-3 h-3 rounded-full border-2 ${dotColor} relative z-10`} />
                       <div className="mt-2 text-center">
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${CALL_TYPE_COLORS[pc.callType] || 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${CALL_TYPE_COLORS[pc.callType] || 'bg-gray-100 text-gray-600'}`}>
                           {pc.callType}
                         </span>
                         <div className="text-xs font-semibold text-gray-900 mt-1">{pc.portName}</div>
-                        {pc.portCode && <div className="text-[10px] text-blue-600 font-mono">{pc.portCode}</div>}
-                        {pc.arrivalTime && <div className="text-[10px] text-gray-400 mt-0.5">{formatDateShort(pc.arrivalTime)}</div>}
+                        {pc.portCode && <div className="text-xs text-blue-600 font-mono">{pc.portCode}</div>}
+                        {pc.arrivalTime && <div className="text-xs text-gray-400 mt-0.5">{formatDateShort(pc.arrivalTime)}</div>}
                       </div>
                     </div>
                   )
@@ -1041,7 +1041,7 @@ function PortCallsTab({ detail, onRefresh, voyageStatus }: { detail: VoyageDetai
       {/* Port Call Modal */}
       {showModal && canEdit && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-lg font-semibold">{editingCall ? t('voyage.page.editPortCall') : t('voyage.page.addPortCall')}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -1385,7 +1385,7 @@ function CrewAssignmentsTab({ detail, onRefresh, voyageStatus }: { detail: Voyag
       {/* Assign Crew Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-lg font-semibold">{editingAssignment ? t('voyage.page.editAssignment') : t('voyage.page.assignCrew')}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -1486,7 +1486,7 @@ function CrewAssignmentsTab({ detail, onRefresh, voyageStatus }: { detail: Voyag
       {/* Bulk Assign Modal */}
       {showBulkModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-lg font-semibold">{t('voyage.page.bulkAssignCrew')} ({bulkSelectedIds.length})</h2>
               <button onClick={() => setShowBulkModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -1879,7 +1879,7 @@ function CargoOperationsTab({ voyageId, voyageStatus, onRefresh }: { voyageId: s
       {/* Cargo Operation Modal */}
       {showModal && canEdit && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-lg font-semibold">{editingCargo ? t('voyage.page.editCargoOp') : t('voyage.page.addCargoOp')}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -2581,7 +2581,7 @@ function EditVoyageModal({ detail, onClose, onSaved }: { detail: VoyageDetail; o
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-lg font-semibold">{isReadOnly ? t('voyage.page.changeStatus') : t('voyage.page.editVoyage')} — {detail.voyageNumber}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>

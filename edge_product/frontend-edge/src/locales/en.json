@@ -1385,6 +1385,8 @@
       "seafarerDocument": "Seafarer Document",
       "employmentDocument": "Employment Document",
       "healthDocument": "Health Document",
+      "crewMemberDocument": "Crew documents",
+      "crewRoster": "Vessel crew roster",
       "voyageRecord": "Voyage",
       "noonReport": "Noon Report",
       "maritimeReport": "Maritime Report",
@@ -4521,7 +4523,9 @@
     "rpm": "RPM",
     "propPitch": "Prop pitch",
     "engineLoad": "Engine load",
-    "fuelRate": "Fuel rate"
+    "fuelRate": "Fuel rate",
+    "shipView": "Ship view",
+    "chart": "Chart"
   },
   "safety": {
     "title": "Safety & Drills"

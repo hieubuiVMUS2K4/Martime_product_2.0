@@ -70,7 +70,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
                 <label className="block text-sm font-medium text-gray-600 mb-1">Đối tượng bảo trì</label>
                 {schedule.equipmentAssetId ? (
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-5 h-5 bg-[#dce9f8] text-[#16375f] rounded text-[10px] font-bold">A</span>
+                    <span className="inline-flex items-center justify-center w-5 h-5 bg-[#dce9f8] text-[#16375f] rounded text-xs font-bold">A</span>
                     <p className="text-sm text-gray-900">
                       {schedule.assetCode && <span className="font-medium">{schedule.assetCode}</span>}
                       {schedule.assetName && <span className="ml-1">{schedule.assetName}</span>}
@@ -79,7 +79,7 @@ export function ViewScheduleModal({ isOpen, schedule, onClose }: ViewScheduleMod
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-5 h-5 bg-[#dce9f8] text-[#16375f] rounded text-[10px] font-bold">G</span>
+                    <span className="inline-flex items-center justify-center w-5 h-5 bg-[#dce9f8] text-[#16375f] rounded text-xs font-bold">G</span>
                     <p className="text-sm text-gray-900">
                       {schedule.groupName || schedule.groupCode}
                       {schedule.assetCount !== undefined && schedule.assetCount > 0 && (

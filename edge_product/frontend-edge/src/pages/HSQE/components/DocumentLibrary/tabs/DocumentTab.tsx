@@ -543,7 +543,7 @@ export function DocumentTab({
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition font-medium"
               >
                 <Download className="w-3.5 h-3.5 text-slate-500" /> {t('hsqeDocumentRibbon.download')}
-                <span className="text-[10px] text-slate-400">v</span>
+                <span className="text-xs text-slate-400">v</span>
               </button>
               {downloadMenuOpen && (
                 <div className="absolute left-0 top-full z-50 mt-1 w-32 rounded border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
@@ -794,7 +794,7 @@ export function DocumentTab({
             <div className="flex items-center bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 gap-0.5">
               <button
                 onClick={() => runCommand((editor) => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-                className={`p-1 text-[10px] font-extrabold rounded transition ${
+                className={`p-1 text-xs font-extrabold rounded transition ${
                   isCommandActive('heading', { level: 1 })
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -805,7 +805,7 @@ export function DocumentTab({
               </button>
               <button
                 onClick={() => runCommand((editor) => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-                className={`p-1 text-[10px] font-extrabold rounded transition ${
+                className={`p-1 text-xs font-extrabold rounded transition ${
                   isCommandActive('heading', { level: 2 })
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -816,7 +816,7 @@ export function DocumentTab({
               </button>
               <button
                 onClick={() => runCommand((editor) => editor.chain().focus().toggleHeading({ level: 3 }).run())}
-                className={`p-1 text-[10px] font-extrabold rounded transition ${
+                className={`p-1 text-xs font-extrabold rounded transition ${
                   isCommandActive('heading', { level: 3 })
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -883,7 +883,7 @@ export function DocumentTab({
           <div className="flex items-center gap-2 flex-wrap">
             {/* Orientation */}
             <div className="flex items-center gap-1 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] uppercase font-bold text-slate-500 px-1">{t('hsqeDocumentRibbon.actions.orientation')}</span>
+              <span className="text-xs uppercase font-bold text-slate-500 px-1">{t('hsqeDocumentRibbon.actions.orientation')}</span>
               <button
                 onClick={() => {
                   onOrientationChange('portrait');
@@ -914,7 +914,7 @@ export function DocumentTab({
 
             {/* Margins */}
             <div className="flex items-center gap-1 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] uppercase font-bold text-slate-500 px-1">{t('hsqeDocumentRibbon.actions.margins')}</span>
+              <span className="text-xs uppercase font-bold text-slate-500 px-1">{t('hsqeDocumentRibbon.actions.margins')}</span>
               <button
                 onClick={() => onMarginsChange('normal')}
                 className={`px-2 py-1 text-xs rounded transition font-medium ${
@@ -950,7 +950,7 @@ export function DocumentTab({
             {/* Watermark input */}
             <div className="flex items-center gap-1.5 bg-slate-200/50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
               <Shield className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-[10px] uppercase font-bold text-slate-500">Watermark:</span>
+              <span className="text-xs uppercase font-bold text-slate-500">Watermark:</span>
               <input
                 type="text"
                 value={watermarkText}
@@ -1000,7 +1000,7 @@ export function DocumentTab({
 
             {/* Zoom Group */}
             <div className="flex items-center gap-1 bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] uppercase font-bold text-slate-500 px-1">Zoom:</span>
+              <span className="text-xs uppercase font-bold text-slate-500 px-1">Zoom:</span>
               <button
                 onClick={() => {
                   onZoomChange(Math.max(50, zoom - 10));
@@ -1027,7 +1027,7 @@ export function DocumentTab({
                   onZoomChange(100);
                   toast.success(t('hsqeDocumentRibbon.toast.zoomReset'));
                 }}
-                className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-300 dark:bg-slate-750 rounded text-slate-700 dark:text-slate-300"
+                className="px-1.5 py-0.5 text-xs font-bold bg-slate-300 dark:bg-slate-750 rounded text-slate-700 dark:text-slate-300"
               >
                 100%
               </button>
@@ -1068,7 +1068,7 @@ export function DocumentTab({
       {/* Page Ruler bar */}
       {showRuler && (
         <div className="h-5 bg-slate-100 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 flex items-center px-2 overflow-hidden flex-shrink-0 select-none">
-          <div className="flex items-center gap-0 text-[7px] text-slate-400 dark:text-slate-600 font-mono">
+          <div className="flex items-center gap-0 text-xs text-slate-400 dark:text-slate-600 font-mono">
             {Array.from({ length: orientation === 'landscape' ? 24 : 18 }, (_, i) => (
               <span key={i} className="flex items-center">
                 <span className="w-[1px] h-2 bg-slate-300 dark:bg-slate-600 mr-px" />
@@ -1113,7 +1113,7 @@ export function DocumentTab({
             {/* Watermark overlay */}
             {watermarkText.trim() && !isImportedWordDocument && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-0">
-                <span className="text-slate-150 dark:text-slate-800/10 font-black text-[70px] uppercase tracking-[12px] -rotate-[35deg] opacity-25 whitespace-nowrap">
+                <span className="text-slate-150 dark:text-slate-800/10 font-black text-[4.375rem] uppercase tracking-[12px] -rotate-[35deg] opacity-25 whitespace-nowrap">
                   {watermarkText}
                 </span>
               </div>
@@ -1129,7 +1129,7 @@ export function DocumentTab({
                       <div className="mx-auto mb-1 flex h-14 w-24 items-center justify-center rounded-[50%] border-2 border-slate-400 text-2xl font-black italic tracking-tight text-slate-500">
                         FLY
                       </div>
-                      <div className="text-[9px] font-bold uppercase leading-tight text-slate-500">
+                      <div className="text-xs font-bold uppercase leading-tight text-slate-500">
                         Flying Shipping<br />Company
                       </div>
                     </td>
@@ -1174,7 +1174,7 @@ export function DocumentTab({
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-sm">
                           <span className="text-white font-black text-lg">F</span>
                         </div>
-                        <span className="text-[8px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider leading-tight">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider leading-tight">
                           Flying<br />Shipping
                         </span>
                       </div>
@@ -1197,7 +1197,7 @@ export function DocumentTab({
                   </tr>
                   <tr>
                     <td className="w-[220px] border border-slate-300 dark:border-slate-600 px-4 py-2">
-                      <div className="space-y-1 font-medium text-[11px]">
+                      <div className="space-y-1 font-medium text-xs">
                         <div className="flex justify-between">
                           <span className="text-slate-500">Effective Date:</span>
                           <span className="font-bold text-slate-800 dark:text-slate-200">{document.lastModified}</span>

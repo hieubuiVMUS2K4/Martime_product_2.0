@@ -117,7 +117,7 @@ function CreateDocumentModal({
 
   return (
     <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-700 shadow-2xl">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Tạo tài liệu mới</h3>
         <p className="text-xs text-slate-400 mb-5">ISM Code Document Control System</p>
 
@@ -236,7 +236,7 @@ function ImportDocumentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
         <h3 className="mb-1 text-lg font-bold text-slate-900 dark:text-white">Import Document</h3>
         <p className="mb-5 text-xs text-slate-400">Upload external file into SMS Library.</p>
 
@@ -500,9 +500,9 @@ function ChecklistTemplateModal({
           <div style="padding: 10px 12px; border-right: 1px solid #e6edf5; font-weight: 600;">${sectionIndex + 1}.${questionIndex + 1}.</div>
           <div style="padding: 10px 12px;">
             <div style="font-weight: 600;">${question.text}</div>
-            ${question.code ? `<div style="font-size: 12px; color: #64748b;">Code: ${question.code}</div>` : ''}
-            ${question.options.length ? `<div style="font-size: 12px; color: #64748b;">Options: ${question.options.filter(Boolean).join(', ')}</div>` : ''}
-            ${question.answerType === 'slider' ? `<div style="font-size: 12px; color: #64748b;">Range: ${question.min ?? 1} - ${question.max ?? 10}</div>` : ''}
+            ${question.code ? `<div style="font-size: 14px; color: #64748b;">Code: ${question.code}</div>` : ''}
+            ${question.options.length ? `<div style="font-size: 14px; color: #64748b;">Options: ${question.options.filter(Boolean).join(', ')}</div>` : ''}
+            ${question.answerType === 'slider' ? `<div style="font-size: 14px; color: #64748b;">Range: ${question.min ?? 1} - ${question.max ?? 10}</div>` : ''}
           </div>
           <div style="padding: 10px 12px; border-left: 1px solid #e6edf5;">${answerTypeLabel[question.answerType]}</div>
           <div style="padding: 10px 12px; border-left: 1px solid #e6edf5;">${question.mandatory ? 'Mandatory' : 'Optional'}</div>
@@ -763,7 +763,7 @@ function BulkDeleteConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+      <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300">
             <Trash2 className="h-4 w-4" />
@@ -826,7 +826,7 @@ function ApproveModal({
 
   return (
     <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-700 shadow-2xl">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Ký duyệt & Ban hành - {docCode}</h3>
         <p className="text-xs text-slate-400 mb-5">Quy trình sẽ được chuyển sang trạng thái Published và phân phối xuống đội tàu.</p>
 

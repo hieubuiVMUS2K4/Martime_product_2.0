@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Plus, Pencil, Trash2, X, RefreshCw, Send, 
-  Book, Edit3, Check, AlertTriangle
-} from 'lucide-react';
+import { Pencil, Trash2, X, RefreshCw, Send, Check, AlertTriangle } from 'lucide-react';
 import { logbookApi, crewApi } from '../../services/crew.service';
 import type { CrewLogbookEntry } from '../../types/crew.types';
 import { useToast } from '../../components/common/Toast';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/common/ConfirmDialog';
+import { Button, DataTable, TableActions, TableIconButton, type Column } from '@/components/common';
+import ProtectedImage from '@/components/common/ProtectedImage';
+
+const PHOTO_FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 260'%3E%3Crect width='200' height='260' fill='%23e5e7eb'/%3E%3Ccircle cx='100' cy='70' r='35' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='180' rx='65' ry='50' fill='%239ca3af'/%3E%3C/svg%3E";
 
 interface CrewLogbookSectionProps {
   crewMemberId: string;
@@ -55,6 +56,16 @@ interface SeaServiceDetails {
   signOffPort: string;
   conduct: string;
 }
+
+/** Ô thông tin chỉ đọc: nhãn nhỏ phía trên, giá trị phía dưới. */
+const BookField: React.FC<{ label: string; value?: React.ReactNode; mono?: boolean; wide?: boolean }> = ({ label, value, mono, wide }) => (
+  <div className={wide ? 'md:col-span-2' : undefined}>
+    <dt className="text-xs font-medium text-ink-muted">{label}</dt>
+    <dd className={`mt-0.5 truncate text-sm font-semibold text-ink ${mono ? 'font-mono' : ''}`} title={typeof value === 'string' ? value : undefined}>
+      {value || '—'}
+    </dd>
+  </div>
+);
 
 export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemberId, onSaved }) => {
   const ask = useConfirm();
@@ -404,375 +415,149 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
   const displayNokPhone = crew.nextOfKinPhone || bookMeta.nokPhone || '';
   const displayNokAddress = crew.nextOfKinAddress || bookMeta.nokAddress || '';
 
+  type SeaServiceRow = { entry: CrewLogbookEntry; details: SeaServiceDetails };
+  const dateVi = (d?: string) => (d ? new Date(d).toLocaleDateString('vi-VN') : '');
+  const serviceStatus = ({ entry, details }: SeaServiceRow) =>
+    details.signOffDate ? 'Đã rời tàu'
+      : entry.recordStatus === 'DRAFT' ? 'Đã phân công'
+      : entry.recordStatus === 'PENDING_APPROVAL' ? 'Chờ bờ duyệt'
+      : entry.recordStatus === 'REJECTED' ? 'Bờ từ chối'
+      : 'Đang đi tàu';
+  const STATUS_TONE: Record<string, string> = {
+    'Đã rời tàu': 'bg-slate-100 text-slate-700',
+    'Đã phân công': 'bg-amber-50 text-amber-700',
+    'Chờ bờ duyệt': 'bg-orange-50 text-orange-700',
+    'Bờ từ chối': 'bg-red-50 text-red-700',
+    'Đang đi tàu': 'bg-indigo-50 text-indigo-700',
+  };
+
+  const serviceColumns: Column<SeaServiceRow>[] = [
+    { key: 'vessel', header: 'Tàu', width: 170, value: r => r.entry.vesselName || r.entry.title || '', className: 'font-semibold text-ink' },
+    { key: 'imo', header: 'IMO', width: 90, value: r => r.details.imoNumber, render: r => r.details.imoNumber || '—', className: 'font-mono' },
+    { key: 'flag', header: 'Cờ', width: 100, value: r => r.details.flagState, render: r => r.details.flagState || '—' },
+    { key: 'gt', header: 'GT', width: 80, numeric: true, filter: false, value: r => Number(r.details.grossTonnage) || undefined, render: r => r.details.grossTonnage || '—' },
+    { key: 'rank', header: 'Chức danh', width: 130, value: r => r.details.rank, render: r => r.details.rank || '—' },
+    {
+      key: 'signOn', header: 'Ngày lên tàu', width: 105, align: 'center', value: r => r.details.signOnDate,
+      filter: r => dateVi(r.details.signOnDate), exportValue: r => dateVi(r.details.signOnDate), render: r => dateVi(r.details.signOnDate) || '—',
+    },
+    { key: 'signOnPort', header: 'Cảng lên', width: 110, value: r => r.details.signOnPort, render: r => r.details.signOnPort || '—' },
+    {
+      key: 'signOff', header: 'Ngày rời tàu', width: 105, align: 'center', value: r => r.details.signOffDate,
+      filter: r => dateVi(r.details.signOffDate), exportValue: r => dateVi(r.details.signOffDate), render: r => dateVi(r.details.signOffDate) || '—',
+    },
+    { key: 'signOffPort', header: 'Cảng rời', width: 110, value: r => r.details.signOffPort, render: r => r.details.signOffPort || '—' },
+    {
+      key: 'status', header: 'Trạng thái', width: 120, align: 'center', value: serviceStatus,
+      render: r => (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_TONE[serviceStatus(r)]}`}
+          title={r.entry.recordStatus === 'REJECTED' ? r.entry.rejectionReason ?? '' : undefined}>
+          {serviceStatus(r)}
+        </span>
+      ),
+    },
+    { key: 'conduct', header: 'Đánh giá', width: 100, value: r => r.details.conduct, render: r => r.details.conduct || '—' },
+    {
+      key: 'sync', header: 'Đồng bộ', width: 105, align: 'center', value: r => (r.entry.isSynced ? 'Đã đồng bộ' : 'Chờ đồng bộ'),
+      render: r => r.entry.isSynced
+        ? <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700"><Check className="h-3 w-3" />Đã đồng bộ</span>
+        : <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"><AlertTriangle className="h-3 w-3" />Chờ đồng bộ</span>,
+    },
+    {
+      key: 'actions', header: 'Thao tác', width: 90, align: 'center',
+      render: r => (
+        <TableActions>
+          <TableIconButton label="Sửa quá trình" icon={<Pencil />} onClick={() => handleOpenEditService(r)} />
+          <TableIconButton label="Xóa quá trình" icon={<Trash2 />} variant="danger" onClick={() => handleDeleteService(r.entry.id)} />
+        </TableActions>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-4 select-none">
-      {/* DIGITAL CREW LOGBOOK MODERN DASHBOARD */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 select-text">
-        {/* Left 2 Columns: Bio-data & Issuing Authority */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Card 1: Hồ sơ số hóa (Digital Particulars) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
-            {/* Card Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-[#eef2f7] text-[#0b2545] rounded-xl">
-                  <Book className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Thông tin định danh Sổ Thuyền Viên / Particulars</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wider">SEAFARER'S PARTICULARS & CORE IDENTITY DATA</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase font-sans">Số sổ / Book No:</span>
-                <span className="px-3 py-1 bg-red-50 text-red-650 font-mono font-bold rounded-lg text-xs tracking-wider border border-red-100">
-                  {displayBookNo || '----------'}
-                </span>
-              </div>
-            </div>
-
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Avatar Column */}
-              <div className="md:col-span-4 flex flex-col items-center gap-4">
-                <div className="w-32 h-44 rounded-2xl border border-slate-200/60 bg-slate-50 shadow-inner relative overflow-hidden group">
-                  <img 
-                    src={crew.photoUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 260'%3E%3Crect width='200' height='260' fill='%23e5e7eb'/%3E%3Ccircle cx='100' cy='70' r='35' fill='%239ca3af'/%3E%3Cellipse cx='100' cy='180' rx='65' ry='50' fill='%239ca3af'/%3E%3C/svg%3E"}
-                    alt="Bearer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  {/* Digital giáp lai watermark overlay */}
-                  <div className="absolute -bottom-2 -right-2 w-14 h-14 rounded-full border border-dashed border-red-500/20 flex items-center justify-center rotate-12 pointer-events-none select-none">
-                    <span className="text-[4px] font-bold text-red-500/30 text-center uppercase tracking-tighter">SECURED<br/>VINAMARINE</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Particulars Fields Column */}
-              <div className="md:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
-                <div className="md:col-span-2 bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Họ và tên / Full Name</span>
-                  <span className="text-sm font-bold text-slate-800 uppercase tracking-wider block mt-0.5">
-                    {displayFullName || '---'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Ngày sinh / Date of Birth</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5">
-                    {displayDateOfBirth ? new Date(displayDateOfBirth).toLocaleDateString('vi-VN') : '---'}
-                  </span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Giới tính / Sex</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5">{displaySex}</span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Nơi sinh / Place of Birth</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5">{displayPlaceOfBirth || '---'}</span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Quốc tịch / Nationality</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5 uppercase">{displayNationality}</span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Số CMND/CCCD/Hộ chiếu / ID Card or Passport No.</span>
-                  <span className="font-mono font-semibold text-slate-700 block mt-0.5">{displayIdCardNo || '----------'}</span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Chiều cao / Height</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5">{displayHeight ? `${displayHeight} cm` : '---'}</span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Màu mắt / Eye Color</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5">{displayEyeColor}</span>
-                </div>
-
-                <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Đặc điểm dị hình / Distinguishing Marks</span>
-                  <span className="font-semibold text-slate-700 block mt-0.5 truncate" title={displayMarks}>
-                    {displayMarks || '---'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Cơ quan cấp & Ghi chú (Issuing Authority & Remarks) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#eef2f7] text-[#0b2545] rounded-xl">
-                  <Edit3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Cơ quan cấp & Ghi chú / Issuing Authority</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wider">ISSUING DETAILS & ADMINISTRATIVE REMARKS</p>
-                </div>
-              </div>
-              
-              <button
-                onClick={() => setIsEditingMeta(true)}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#eef2f7] text-[#0b2545] hover:bg-[#dce9f8] text-xs font-bold rounded-lg transition-all"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Chỉnh sửa sổ / Edit Seaman's Book</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Cơ quan cấp / Issuing Authority</span>
-                <span className="font-bold text-slate-800 block mt-0.5 uppercase">{bookMeta.issuingAuthority}</span>
-              </div>
-
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Nơi cấp / Place of Issue</span>
-                <span className="font-semibold text-slate-700 block mt-0.5">{bookMeta.placeOfIssue}</span>
-              </div>
-
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Ngày cấp / Date of Issue</span>
-                <span className="font-semibold text-slate-700 block mt-0.5">
-                  {bookMeta.issueDate ? new Date(bookMeta.issueDate).toLocaleDateString('vi-VN') : '---'}
-                </span>
-              </div>
-
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Ngày hết hạn / Date of Expiry</span>
-                <span className="font-bold text-red-600 block mt-0.5">
-                  {bookMeta.expiryDate ? new Date(bookMeta.expiryDate).toLocaleDateString('vi-VN') : '---'}
-                </span>
-              </div>
-
-              <div className="md:col-span-2 bg-slate-50/50 rounded-xl p-3 border border-slate-100/50 flex justify-between items-center gap-4">
-                <div>
-                  <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Người có thẩm quyền / Authority Signer</span>
-                  <span className="font-bold text-slate-800 block mt-0.5">{bookMeta.authoritySignerName}</span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">{bookMeta.authoritySignerTitle}</span>
-                </div>
-                
-                {/* Modernized official stamp avatar */}
-                <div className="w-16 h-16 rounded-full border-2 border-red-500/50 border-double flex flex-col items-center justify-center text-[5px] font-bold text-red-500/60 rotate-6 select-none pointer-events-none p-1 bg-red-50/10 shadow-sm flex-shrink-0">
-                  <span className="scale-90 leading-none text-center">VINAMARINE<br/>APPROVED</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Remarks content */}
-            {bookMeta.extensionsAndRemarks && (
-              <div className="bg-amber-50/10 border border-amber-100 rounded-xl p-4 mt-2">
-                <span className="text-[9px] font-bold text-amber-600/80 uppercase tracking-wider block mb-1">Gia hạn & Ghi chú / Remarks & Extensions</span>
-                <p className="text-xs text-slate-600 italic font-serif leading-relaxed whitespace-pre-line">
-                  {bookMeta.extensionsAndRemarks}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right 1 Column: Next of Kin */}
-        <div className="space-y-6">
-          {/* Card 3: Thân nhân / Emergency Contact */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-              <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
-                <Send className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Liên hệ khẩn cấp / Next of Kin</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5 font-medium uppercase tracking-wider">EMERGENCY NOTIFICATION DETAILS</p>
-              </div>
-            </div>
-
-            <div className="space-y-3.5 text-xs font-sans">
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Họ và tên người liên hệ / Next of Kin Name</span>
-                <span className="font-bold text-slate-800 block mt-0.5 uppercase">{displayNokName || '---'}</span>
-              </div>
-
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Mối quan hệ / Relationship</span>
-                <span className="font-semibold text-slate-700 block mt-0.5">{displayNokRelation || '---'}</span>
-              </div>
-
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Số điện thoại liên hệ / Contact Phone</span>
-                <span className="font-mono font-bold text-slate-700 block mt-0.5">{displayNokPhone || '---'}</span>
-              </div>
-
-              <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Địa chỉ thường trú / Contact Address</span>
-                <span className="font-medium text-slate-600 block mt-0.5 leading-relaxed">{displayNokAddress || '---'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* MODERN SEA SERVICE RECORD LIST SECTION */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6 select-text">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 mb-6 gap-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#eef2f7] text-[#0b2545] rounded-xl">
-              <Book className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Lý lịch đi biển (Record of Employment / Sea Service)</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">CHRONOLOGICAL RECORD OF VESSEL ASSIGNMENTS</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3 self-start sm:self-center">
-            <span className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg whitespace-nowrap">
-              Tổng số: {seaServices.length} quá trình
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Thông tin định danh sổ */}
+        <section className="cd-section lg:col-span-2">
+          <div className="cd-section-header">
+            <h3 className="cd-section-title">Thông tin sổ thuyền viên</h3>
+            <span className="text-sm text-ink-muted">
+              Số sổ: <span className="font-mono font-semibold text-ink">{displayBookNo || '—'}</span>
             </span>
           </div>
-        </div>
-
-        {seaServices.length === 0 ? (
-          <div className="text-center py-16 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-            <Book className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium text-xs">Chưa có quá trình đi biển nào được khai báo.</p>
-            <button
-              onClick={handleOpenAddService}
-              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-[#0b2545] hover:bg-[#16375f] text-white font-bold rounded-xl text-xs transition-all shadow-md active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Khai báo quá trình đầu tiên</span>
-            </button>
+          <div className="flex flex-col gap-5 p-4 sm:flex-row">
+            {/* Ảnh hồ sơ là tệp cần đăng nhập — tải qua ProtectedImage như ảnh ở đầu trang. */}
+            <ProtectedImage
+              src={crew.avatarUrl || crew.photoUrl || undefined}
+              fallbackSrc={PHOTO_FALLBACK}
+              alt={`Ảnh ${crew.fullName ?? 'thuyền viên'}`}
+              className="h-36 w-28 shrink-0 rounded border border-line object-cover"
+            />
+            <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
+              <BookField label="Họ và tên" value={displayFullName} wide />
+              <BookField label="Ngày sinh" value={displayDateOfBirth ? new Date(displayDateOfBirth).toLocaleDateString('vi-VN') : ''} />
+              <BookField label="Giới tính" value={displaySex} />
+              <BookField label="Nơi sinh" value={displayPlaceOfBirth} />
+              <BookField label="Quốc tịch" value={displayNationality} />
+              <BookField label="Số CMND/CCCD/Hộ chiếu" value={displayIdCardNo} mono />
+              <BookField label="Chiều cao" value={displayHeight ? `${displayHeight} cm` : ''} />
+              <BookField label="Màu mắt" value={displayEyeColor} />
+              <BookField label="Đặc điểm nhận dạng" value={displayMarks} />
+            </dl>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="overflow-x-auto border border-slate-100 rounded-xl shadow-sm">
-              <table className="min-w-full divide-y divide-slate-100 text-[11px] font-sans text-left">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[9px] font-bold">
-                  <tr>
-                    <th scope="col" className="px-4 py-3">Trạng thái / Status</th>
-                    <th scope="col" className="px-4 py-3">Tàu biển / Vessel</th>
-                    <th scope="col" className="px-4 py-3">Thông tin tàu / Vessel Details</th>
-                    <th scope="col" className="px-4 py-3">Chức danh / Capacity</th>
-                    <th scope="col" className="px-4 py-3">Ngày & Cảng lên / Sign-on</th>
-                    <th scope="col" className="px-4 py-3">Ngày & Cảng rời / Sign-off</th>
-                    <th scope="col" className="px-4 py-3">Đánh giá / Ability</th>
-                    <th scope="col" className="px-4 py-3 text-right">Thao tác / Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-100">
-                  {seaServices.map(({ entry, details }) => (
-                    <tr key={entry.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        {entry.isSynced ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-700 border border-green-150">
-                            <Check className="w-2.5 h-2.5" />
-                            <span>Đã đồng bộ</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-150 animate-pulse">
-                            <AlertTriangle className="w-2.5 h-2.5" />
-                            <span>Chờ đồng bộ</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-slate-800 uppercase tracking-wider text-xs">{entry.vesselName || entry.title}</div>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          {details.imoNumber ? `IMO ${details.imoNumber}` : 'IMO ---'}
-                          {details.callSign && <span className="ml-2">{details.callSign}</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="text-slate-650 font-semibold">{details.flagState || '---'}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {[details.grossTonnage, details.enginePower, entry.vesselType].filter(Boolean).join(' · ') || '---'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {details.rank
-                          ? <span className="inline-flex px-2 py-0.5 rounded bg-[#eef2f7] text-[#0b2545] font-semibold border border-[#d6dee8]">{details.rank}</span>
-                          : <span className="text-slate-300">---</span>}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-green-700">{details.signOnDate ? new Date(details.signOnDate).toLocaleDateString('vi-VN') : '---'}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{details.signOnPort}</div>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {details.signOffDate ? (
-                          <>
-                            <div className="font-bold text-rose-700">{new Date(details.signOffDate).toLocaleDateString('vi-VN')}</div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">{details.signOffPort}</div>
-                          </>
-                        ) : entry.recordStatus === 'DRAFT' ? (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
-                            Đã phân công / Assigned
-                          </span>
-                        ) : entry.recordStatus === 'PENDING_APPROVAL' ? (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-orange-50 text-orange-700 border border-orange-100">
-                            Chờ bờ duyệt / Pending
-                          </span>
-                        ) : entry.recordStatus === 'REJECTED' ? (
-                          <div>
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-50 text-red-700 border border-red-200">
-                              Bờ từ chối / Rejected
-                            </span>
-                            <div className="text-[10px] text-red-600 mt-0.5 max-w-[180px]" title={entry.rejectionReason ?? ''}>
-                              {entry.rejectionReason}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                            Đang đi tàu / Onboard
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-slate-700">{details.conduct}</div>
-                        {entry.notes && <div className="text-[10px] text-slate-400 italic max-w-xs truncate mt-0.5" title={entry.notes}>{entry.notes}</div>}
-                      </td>
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                        <div className="inline-flex gap-1.5">
-                          <button
-                            onClick={() => handleOpenEditService({ entry, details })}
-                            className="p-1.5 rounded-lg bg-white hover:bg-[#eef2f7] hover:text-[#0b2545] border border-slate-200 shadow-sm transition-colors"
-                            title="Sửa quá trình"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteService(entry.id)}
-                            className="p-1.5 rounded-lg bg-white hover:bg-rose-50 hover:text-rose-600 border border-slate-200 shadow-sm transition-colors"
-                            title="Xóa quá trình"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        </section>
 
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button
-                onClick={handleOpenAddService}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0b2545] hover:bg-[#16375f] text-white font-bold rounded-lg text-xs transition-all shadow-md active:scale-95 border border-[#0b2545]/20"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Khai báo đi tàu / Declare Sea Service</span>
-              </button>
-            </div>
+        {/* Liên hệ khẩn cấp */}
+        <section className="cd-section">
+          <div className="cd-section-header">
+            <h3 className="cd-section-title">Liên hệ khẩn cấp</h3>
           </div>
-        )}
+          <dl className="grid grid-cols-1 gap-y-3 p-4">
+            <BookField label="Họ và tên" value={displayNokName} />
+            <BookField label="Mối quan hệ" value={displayNokRelation} />
+            <BookField label="Số điện thoại" value={displayNokPhone} mono />
+            <BookField label="Địa chỉ" value={displayNokAddress} />
+          </dl>
+        </section>
+
+        {/* Cơ quan cấp & ghi chú */}
+        <section className="cd-section lg:col-span-3">
+          <div className="cd-section-header">
+            <h3 className="cd-section-title">Cơ quan cấp & ghi chú</h3>
+            <Button size="sm" variant="secondary" icon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setIsEditingMeta(true)}>
+              Chỉnh sửa sổ
+            </Button>
+          </div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 p-4 md:grid-cols-3">
+            <BookField label="Cơ quan cấp" value={bookMeta.issuingAuthority} />
+            <BookField label="Nơi cấp" value={bookMeta.placeOfIssue} />
+            <BookField label="Người ký" value={[bookMeta.authoritySignerName, bookMeta.authoritySignerTitle].filter(Boolean).join(' — ')} />
+            <BookField label="Ngày cấp" value={bookMeta.issueDate ? new Date(bookMeta.issueDate).toLocaleDateString('vi-VN') : ''} />
+            <BookField label="Ngày hết hạn" value={bookMeta.expiryDate ? new Date(bookMeta.expiryDate).toLocaleDateString('vi-VN') : ''} />
+            <BookField label="Gia hạn & ghi chú" value={bookMeta.extensionsAndRemarks} />
+          </dl>
+        </section>
       </div>
+
+      {/* Lý lịch đi biển */}
+      <section className="cd-section">
+        <div className="cd-section-header">
+          <h3 className="cd-section-title">Lý lịch đi biển ({seaServices.length})</h3>
+        </div>
+        <DataTable
+          flush
+          columns={serviceColumns}
+          data={seaServices}
+          rowKey={r => r.entry.id}
+          itemLabel="quá trình"
+          emptyMessage="Chưa có quá trình đi biển nào được khai báo."
+          searchPlaceholder="Tìm theo tàu, IMO, chức danh, cảng..."
+          onAdd={handleOpenAddService}
+          addLabel="Khai báo đi tàu"
+          exportOptions={{ fileName: `ly-lich-di-bien-${crew.crewId ?? ''}`, title: `LÝ LỊCH ĐI BIỂN — ${displayFullName}` }}
+          pageSize={10}
+        />
+      </section>
 
       {/* METADATA EDIT MODAL */}
       {isEditingMeta && (
@@ -781,7 +566,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
             <div className="px-6 py-4 border-b border-gray-100 bg-[#0b2545] text-white rounded-t-2xl flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-white">Chỉnh sửa Sổ Thuyền Viên 3D</h3>
-                <p className="text-[10px] text-[#dce9f8] mt-0.5">Dữ liệu sẽ tự động đồng bộ hóa lên hệ thống Shore (Bờ) và hồ sơ gốc</p>
+                <p className="text-xs text-[#dce9f8] mt-0.5">Dữ liệu sẽ tự động đồng bộ hóa lên hệ thống Shore (Bờ) và hồ sơ gốc</p>
               </div>
               <button onClick={() => setIsEditingMeta(false)} className="text-white hover:bg-white/10 p-1.5 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
@@ -823,7 +608,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Số sổ thuyền viên (Book No.) *</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số sổ thuyền viên (Book No.) *</label>
                       <input
                         type="text"
                         value={bookMeta.bookNo}
@@ -833,7 +618,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Họ và tên (Full Name) *</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Họ và tên (Full Name) *</label>
                       <input
                         type="text"
                         value={bookMeta.fullName}
@@ -846,7 +631,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ngày sinh (Date of Birth)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày sinh (Date of Birth)</label>
                       <input
                         type="date"
                         value={bookMeta.dateOfBirth}
@@ -855,7 +640,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Giới tính (Sex)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Giới tính (Sex)</label>
                       <select
                         value={bookMeta.sex}
                         onChange={(e) => setBookMeta({ ...bookMeta, sex: e.target.value })}
@@ -866,7 +651,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Chiều cao (Height cm)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Chiều cao (Height cm)</label>
                       <input
                         type="number"
                         placeholder="cm"
@@ -879,7 +664,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nơi sinh (Place of Birth)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nơi sinh (Place of Birth)</label>
                       <input
                         type="text"
                         value={bookMeta.placeOfBirth}
@@ -888,7 +673,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Quốc tịch (Nationality)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quốc tịch (Nationality)</label>
                       <input
                         type="text"
                         value={bookMeta.nationality}
@@ -900,7 +685,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">CMND/CCCD/Hộ chiếu (ID No.)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CMND/CCCD/Hộ chiếu (ID No.)</label>
                       <input
                         type="text"
                         value={bookMeta.idCardNo}
@@ -909,7 +694,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Màu mắt (Eyes Color)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Màu mắt (Eyes Color)</label>
                       <input
                         type="text"
                         value={bookMeta.eyeColor}
@@ -920,7 +705,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Đặc điểm nhận dạng (Marks)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Đặc điểm nhận dạng (Marks)</label>
                     <input
                       type="text"
                       value={bookMeta.distinguishingMarks}
@@ -934,7 +719,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
               {metaFormTab === 'trang2' && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Cơ quan cấp (Issuing Authority)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cơ quan cấp (Issuing Authority)</label>
                     <input
                       type="text"
                       value={bookMeta.issuingAuthority}
@@ -945,7 +730,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nơi cấp (Place of Issue)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nơi cấp (Place of Issue)</label>
                       <input
                         type="text"
                         value={bookMeta.placeOfIssue}
@@ -954,7 +739,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ngày cấp (Date of Issue)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày cấp (Date of Issue)</label>
                       <input
                         type="date"
                         value={bookMeta.issueDate}
@@ -963,7 +748,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ngày hết hạn (Date of Expiry)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày hết hạn (Date of Expiry)</label>
                       <input
                         type="date"
                         value={bookMeta.expiryDate}
@@ -975,7 +760,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
                   <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Họ tên người ký (Authority Signer)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Họ tên người ký (Authority Signer)</label>
                       <input
                         type="text"
                         value={bookMeta.authoritySignerName}
@@ -984,7 +769,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Chức vụ người ký (Signer Title)</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Chức vụ người ký (Signer Title)</label>
                       <input
                         type="text"
                         value={bookMeta.authoritySignerTitle}
@@ -998,13 +783,13 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
               {metaFormTab === 'trang3' && (
                 <div className="space-y-4">
-                  <p className="text-[10px] text-yellow-700 bg-yellow-50 border border-yellow-250 p-2.5 rounded-lg italic">
+                  <p className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-250 p-2.5 rounded-lg italic">
                     * Thông tin này sẽ tự động cập nhật vào mục "Người liên hệ khẩn cấp" trong hồ sơ nhân viên để bờ liên lạc khi có sự cố khẩn cấp trên biển.
                   </p>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Họ tên người liên hệ khẩn cấp *</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Họ tên người liên hệ khẩn cấp *</label>
                       <input
                         type="text"
                         value={bookMeta.nokName}
@@ -1013,7 +798,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mối quan hệ *</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mối quan hệ *</label>
                       <input
                         type="text"
                         placeholder="Vợ, Chồng, Bố, Mẹ, Con..."
@@ -1025,7 +810,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Số điện thoại khẩn cấp *</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số điện thoại khẩn cấp *</label>
                     <input
                       type="text"
                       value={bookMeta.nokPhone}
@@ -1035,7 +820,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Địa chỉ người liên hệ *</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Địa chỉ người liên hệ *</label>
                     <textarea
                       value={bookMeta.nokAddress}
                       onChange={(e) => setBookMeta({ ...bookMeta, nokAddress: e.target.value })}
@@ -1048,7 +833,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
               {metaFormTab === 'trang4' && (
                 <div className="space-y-4">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Thông tin gia hạn và ghi chú hành chính (Remarks)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Thông tin gia hạn và ghi chú hành chính (Remarks)</label>
                   <textarea
                     value={bookMeta.extensionsAndRemarks}
                     onChange={(e) => setBookMeta({ ...bookMeta, extensionsAndRemarks: e.target.value })}
@@ -1059,21 +844,21 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
               )}
 
               <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
-                <div className="text-[10px] text-gray-400 italic">
+                <div className="text-xs text-gray-400 italic">
                   * Vui lòng điền đủ các trường bắt buộc để đảm bảo an toàn hành hải.
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setIsEditingMeta(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg font-semibold text-gray-600 hover:bg-gray-50 text-[11px]"
+                    className="px-4 py-2 border border-gray-300 rounded-lg font-semibold text-gray-600 hover:bg-gray-50 text-xs"
                     disabled={savingMeta}
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#0b2545] hover:bg-[#16375f] text-white font-semibold rounded-lg shadow flex items-center gap-1.5 text-[11px]"
+                    className="px-5 py-2 bg-[#0b2545] hover:bg-[#16375f] text-white font-semibold rounded-lg shadow flex items-center gap-1.5 text-xs"
                     disabled={savingMeta}
                   >
                     {savingMeta ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
@@ -1103,7 +888,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
               
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tên tàu biển *</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tên tàu biển *</label>
                   <input
                     type="text"
                     placeholder="VD: Tàu MV VINALINES VIGOR"
@@ -1114,7 +899,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Hô hiệu (Call Sign)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hô hiệu (Call Sign)</label>
                   <input
                     type="text"
                     placeholder="VD: 3WKD9"
@@ -1127,7 +912,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Số IMO tàu</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số IMO tàu</label>
                   <input
                     type="text"
                     placeholder="VD: IMO 9568762"
@@ -1137,7 +922,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Quốc tịch tàu</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quốc tịch tàu</label>
                   <input
                     type="text"
                     value={serviceFormData.flagState}
@@ -1146,7 +931,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tổng dung tích (GT)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tổng dung tích (GT)</label>
                   <input
                     type="text"
                     placeholder="VD: 20,854 GT"
@@ -1159,7 +944,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Công suất máy chính (kW)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Công suất máy chính (kW)</label>
                   <input
                     type="text"
                     placeholder="VD: 6,480 kW"
@@ -1169,7 +954,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Chức danh đảm nhiệm *</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Chức danh đảm nhiệm *</label>
                   <input
                     type="text"
                     placeholder="VD: Thủy thủ trực ca / OS"
@@ -1185,7 +970,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                 <span className="font-bold text-[#0b2545] block mb-2">Thông tin Sign-on (Lên tàu)</span>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ngày Sign-on *</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày Sign-on *</label>
                     <input
                       type="date"
                       value={serviceFormData.signOnDate}
@@ -1195,7 +980,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Cảng Sign-on *</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cảng Sign-on *</label>
                     <input
                       type="text"
                       placeholder="VD: Hải Phòng, Việt Nam"
@@ -1212,7 +997,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                 <span className="font-bold text-red-700 block mb-2">Thông tin Sign-off (Rời tàu) (Bỏ trống nếu đang đi tàu)</span>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ngày Sign-off</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ngày Sign-off</label>
                     <input
                       type="date"
                       value={serviceFormData.signOffDate}
@@ -1221,7 +1006,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Cảng Sign-off</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cảng Sign-off</label>
                     <input
                       type="text"
                       placeholder="VD: Rotterdam, Hà Lan"
@@ -1236,7 +1021,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
               <div className="border-t border-gray-100 pt-3">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-1">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nhận xét năng lực</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nhận xét năng lực</label>
                     <select
                       value={serviceFormData.conduct}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, conduct: e.target.value })}
@@ -1248,7 +1033,7 @@ export const CrewLogbookSection: React.FC<CrewLogbookSectionProps> = ({ crewMemb
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ghi chú hành trình / Nhận xét khác</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ghi chú hành trình / Nhận xét khác</label>
                     <input
                       type="text"
                       placeholder="VD: Hoàn thành tốt hợp đồng đi ca / Thuyền trưởng đánh giá cao"

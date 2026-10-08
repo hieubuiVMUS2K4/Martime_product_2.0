@@ -808,7 +808,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
                 <div className="p-8 text-center text-gray-400">Không có yêu cầu nào đã duyệt</div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-primary-soft text-[13px] text-primary">
+                  <thead className="sticky top-0 bg-primary-soft text-xs text-primary">
                     <tr>
                       <th className="px-3 py-2 text-left">Mã yêu cầu</th>
                       <th className="px-3 py-2 text-left">Người yêu cầu</th>

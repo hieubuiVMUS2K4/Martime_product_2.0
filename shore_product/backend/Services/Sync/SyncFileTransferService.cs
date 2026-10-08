@@ -959,10 +959,7 @@ public class SyncFileTransferService : ISyncFileTransferService
         else if (Guid.TryParse(recordKey, out var documentId))
             entity = tableName switch
             {
-                "travel_document" => await _context.TravelDocuments.FindAsync(new object[] { documentId }, cancellationToken),
-                "seafarer_document" => await _context.SeafarerDocuments.FindAsync(new object[] { documentId }, cancellationToken),
-                "employment_document" => await _context.EmploymentDocuments.FindAsync(new object[] { documentId }, cancellationToken),
-                "health_document" => await _context.HealthDocuments.FindAsync(new object[] { documentId }, cancellationToken),
+                "crew_member_document" => await _context.CrewMemberDocuments.FindAsync(new object[] { documentId }, cancellationToken),
                 "sms_procedure" or "sms_procedures" => await _context.SmsProcedures.FindAsync(new object[] { documentId }, cancellationToken),
                 _ => null
             };
@@ -1032,10 +1029,7 @@ public class SyncFileTransferService : ISyncFileTransferService
         else if (Guid.TryParse(recordKey, out var documentId))
             entity = tableName switch
             {
-                "travel_document" => (object?)await _context.TravelDocuments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == documentId, cancellationToken),
-                "seafarer_document" => await _context.SeafarerDocuments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == documentId, cancellationToken),
-                "employment_document" => await _context.EmploymentDocuments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == documentId, cancellationToken),
-                "health_document" => await _context.HealthDocuments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == documentId, cancellationToken),
+                "crew_member_document" => (object?)await _context.CrewMemberDocuments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == documentId, cancellationToken),
                 "sms_procedure" or "sms_procedures" => await _context.SmsProcedures.AsNoTracking().FirstOrDefaultAsync(e => e.Id == documentId, cancellationToken),
                 _ => null
             };

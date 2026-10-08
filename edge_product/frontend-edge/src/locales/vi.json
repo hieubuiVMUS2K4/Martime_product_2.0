@@ -1385,6 +1385,8 @@
       "seafarerDocument": "Hồ sơ thuyền viên",
       "employmentDocument": "Hợp đồng lao động",
       "healthDocument": "Hồ sơ sức khỏe",
+      "crewMemberDocument": "Tài liệu thuyền viên",
+      "crewRoster": "Danh sách thuyền viên của tàu",
       "voyageRecord": "Chuyến đi",
       "noonReport": "Báo cáo Noon",
       "maritimeReport": "Báo cáo hàng hải",
@@ -4521,7 +4523,9 @@
     "rpm": "RPM",
     "propPitch": "Bước chân vịt",
     "engineLoad": "Tải máy",
-    "fuelRate": "Tiêu hao"
+    "fuelRate": "Tiêu hao",
+    "shipView": "Sơ đồ tàu",
+    "chart": "Hải đồ"
   },
   "safety": {
     "title": "An toàn & Diễn tập"

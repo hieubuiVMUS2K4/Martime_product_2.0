@@ -25,16 +25,16 @@
   display: flex; align-items: center; gap: 8px;
   padding: 14px 20px; border-bottom: 1px solid #d6dee8;
 }
-.acm-header h2 { flex: 1; font-size: 15px; font-weight: 700; color: #14202e; margin: 0; }
+.acm-header h2 { flex: 1; font-size: 0.9375rem; font-weight: 800; color: #14202e; margin: 0; }
 .acm-header svg:first-child { color: #0b2545; }
 .acm-close {
   width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-  border: none; background: none; color: #64748b; cursor: pointer; border-radius: 6px;
+  border: none; background: none; color: #334155; cursor: pointer; border-radius: 6px;
 }
 .acm-close:hover { background: #eef2f7; color: #14202e; }
 
-.acm-loading { padding: 40px; text-align: center; color: #64748b; font-size: 13px; }
-.acm-error { background: #fef2f2; color: #dc2626; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
+.acm-loading { padding: 40px; text-align: center; color: #334155; font-size: 0.875rem; }
+.acm-error { background: #fef2f2; color: #dc2626; padding: 8px 12px; border-radius: 6px; font-size: 0.875rem; margin-bottom: 10px; }
 
 .acm-body { padding: 16px 20px; }
 
@@ -45,14 +45,14 @@
 .acm-field--full { grid-column: 1 / -1; }
 
 .acm-field label {
-  font-size: 11.5px; font-weight: 600; color: #64748b;
+  font-size: 0.875rem; font-weight: 700; color: #334155;
   text-transform: uppercase; letter-spacing: 0.02em;
 }
 .acm-field input,
 .acm-field select,
 .acm-field textarea {
   padding: 7px 10px; border: 1px solid #d6dee8;
-  border-radius: 5px; font-size: 13px; color: #14202e;
+  border-radius: 5px; font-size: 0.875rem; color: #14202e;
   background: #fff; outline: none;
   transition: border-color 0.12s;
 }
@@ -60,7 +60,7 @@
 .acm-field select:focus,
 .acm-field textarea:focus { border-color: #0b2545; }
 
-.acm-err { font-size: 11px; color: #dc2626; }
+.acm-err { font-size: 0.875rem; color: #dc2626; }
 
 /* File upload */
 .acm-file-area {
@@ -74,7 +74,7 @@
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 16px; border: 1px solid #d6dee8;
   border-radius: 6px; background: #fff;
-  font-size: 12px; color: #64748b; cursor: pointer;
+  font-size: 0.875rem; color: #334155; cursor: pointer;
   transition: all 0.12s;
 }
 .acm-upload-btn:hover { border-color: #0b2545; color: #0b2545; }
@@ -88,7 +88,7 @@
 }
 .acm-file-info {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 12px; color: #64748b;
+  font-size: 0.875rem; color: #334155;
 }
 .acm-file-remove {
   display: inline-flex; align-items: center; justify-content: center;
@@ -105,8 +105,8 @@
 }
 .acm-btn-cancel {
   padding: 7px 16px; border: 1px solid #d6dee8;
-  border-radius: 6px; background: #fff; color: #64748b;
-  font-size: 12px; font-weight: 500; cursor: pointer;
+  border-radius: 6px; background: #fff; color: #334155;
+  font-size: 0.875rem; font-weight: 500; cursor: pointer;
 }
 .acm-btn-cancel:hover { background: #eef2f7; }
 
@@ -114,7 +114,7 @@
   display: inline-flex; align-items: center; gap: 5px;
   padding: 7px 18px; border: none;
   border-radius: 6px; background: #0b2545; color: #fff;
-  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-size: 0.875rem; font-weight: 700; cursor: pointer;
   transition: background 0.12s;
 }
 .acm-btn-save:hover { background: #16375f; }

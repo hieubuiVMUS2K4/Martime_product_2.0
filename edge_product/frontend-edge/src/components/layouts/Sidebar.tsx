@@ -124,6 +124,20 @@ export function Sidebar() {
     setExpanded(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
   }
 
+  // Màn hẹp (< 1024px) tự thu gọn để nội dung không bị ép; rộng lại thì trả về lựa chọn đã lưu.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const apply = () => {
+      if (mq.matches) setIsCollapsed(true)
+      else {
+        try { setIsCollapsed(localStorage.getItem('sidebar-collapsed') === 'true') } catch { /* bỏ qua */ }
+      }
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+
   const toggleSidebar = () => {
     const next = !isCollapsed
     setIsCollapsed(next)
@@ -151,7 +165,7 @@ export function Sidebar() {
   )
 
   return (
-    <div className={`${isCollapsed ? 'w-16' : 'w-64'} flex h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 dark:border-gray-700 dark:bg-gray-800`}>
+    <div className={`${isCollapsed ? 'w-16' : 'w-64'} flex h-full shrink-0 flex-col border-r border-gray-200 bg-white transition-all duration-300 dark:border-gray-700 dark:bg-gray-800`}>
       {/* Logo */}
       <div className={`flex h-16 shrink-0 items-center gap-2.5 border-b border-gray-200 px-4 dark:border-gray-700 ${isCollapsed ? 'justify-center' : ''}`}>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
@@ -192,7 +206,7 @@ export function Sidebar() {
                   {entry.children.map(c =>
                     isSection(c) ? (
                       <div key={c.label} className="pt-1.5">
-                        <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{c.label}</p>
+                        <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{c.label}</p>
                         <div className="space-y-0.5">{c.items.map(i => renderLeaf(i, true))}</div>
                       </div>
                     ) : renderLeaf(c, true),

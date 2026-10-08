@@ -210,7 +210,7 @@ public class AssignmentService : IAssignmentService
         await DetectAndSaveConflictsAsync(entity);
 
         // Sync assignment to Edge
-        await _syncOutbox.BroadcastAsync("crew_assignment", entity.Id.ToString(),
+        await _syncOutbox.EnqueueForVesselAsync(entity.VesselId, "crew_assignment", entity.Id.ToString(),
             SyncActionType.CREATE, entity);
 
         return (await GetAssignmentAsync(entity.Id))!;
@@ -271,7 +271,7 @@ public class AssignmentService : IAssignmentService
         var updated = await _db.CrewAssignments.FindAsync(id);
         if (updated != null)
         {
-            await _syncOutbox.BroadcastAsync("crew_assignment", id.ToString(),
+            await _syncOutbox.EnqueueForVesselAsync(updated.VesselId, "crew_assignment", id.ToString(),
                 SyncActionType.UPDATE, updated);
         }
 
@@ -554,7 +554,7 @@ public class AssignmentService : IAssignmentService
             }
 
             // Sync confirmed assignment to Edge
-            await _syncOutbox.BroadcastAsync("crew_assignment", entity.AssignmentId.ToString(),
+            await _syncOutbox.EnqueueForVesselAsync(entity.Assignment.VesselId, "crew_assignment", entity.AssignmentId.ToString(),
                 SyncActionType.UPDATE, entity.Assignment);
         }
 

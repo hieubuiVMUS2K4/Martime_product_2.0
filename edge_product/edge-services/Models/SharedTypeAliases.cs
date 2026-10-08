@@ -28,7 +28,5 @@ global using CountryCertificate = Maritime.Shared.Models.Crew.CountryCertificate
 global using ServiceRecord = Maritime.Shared.Models.Crew.ServiceRecord;
 
 // Document models
-global using TravelDocument = Maritime.Shared.Models.Documents.TravelDocument;
-global using SeafarerDocument = Maritime.Shared.Models.Documents.SeafarerDocument;
-global using EmploymentDocument = Maritime.Shared.Models.Documents.EmploymentDocument;
-global using HealthDocument = Maritime.Shared.Models.Documents.HealthDocument;
+global using CrewMemberDocument = Maritime.Shared.Models.Documents.CrewMemberDocument;
+global using CrewDocumentCategory = Maritime.Shared.Models.Documents.CrewDocumentCategory;

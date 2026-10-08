@@ -29,7 +29,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
     'flex h-8 w-8 items-center justify-center rounded border border-gray-300 bg-white text-gray-900 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40';
 
   return (
-    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#a3b1bc] px-3 py-2 text-[13px] text-gray-600">
+    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#a3b1bc] px-3 py-2 text-xs text-gray-600">
       <div className="flex items-center gap-3">
         <span>
           Hiển thị <strong className="text-gray-900">{first}</strong>–<strong className="text-gray-900">{last}</strong> trên{' '}
@@ -41,7 +41,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
             <select
               value={pageSize}
               onChange={e => onPageSizeChange(Number(e.target.value))}
-              className="h-8 rounded border border-gray-300 bg-white px-1.5 text-[13px] text-gray-900 focus:border-blue-500 focus:outline-none"
+              className="h-8 rounded border border-gray-300 bg-white px-1.5 text-xs text-gray-900 focus:border-blue-500 focus:outline-none"
             >
               {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
             </select>

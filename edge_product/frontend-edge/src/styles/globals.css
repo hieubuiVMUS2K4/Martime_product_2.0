@@ -7,12 +7,8 @@
 
 /* Apply font scaling to root - affects all rem-based sizes */
 html {
-  font-size: calc(16px * var(--font-scale));
-}
-
-/* Elements that should NOT scale (icons, fixed UI) */
-.font-fixed {
-  font-size: 16px !important;
+  /* Cỡ gốc DUY NHẤT: 100% (theo trình duyệt) × hệ số trong Cài đặt. Mọi cỡ chữ đều bằng rem. */
+  font-size: calc(100% * var(--font-scale));
 }
 
 /* Prevent text overflow at large font sizes */
@@ -881,7 +877,7 @@ a.active {
    ======================================== */
 .prose {
   color: inherit;
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 1.6;
 }
 
@@ -891,7 +887,7 @@ a.active {
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
-  font-weight: 700;
+  font-weight: 800;
   color: inherit;
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
@@ -926,7 +922,7 @@ a.active {
   border-collapse: collapse !important;
   margin-top: 1.25rem;
   margin-bottom: 1.25rem;
-  font-size: 13.5px;
+  font-size: 0.875rem;
 }
 
 .prose th,
