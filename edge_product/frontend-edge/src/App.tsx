@@ -1,3 +1,4 @@
+import { ApprovalDialog } from "./components/ApprovalDialog"
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ToastContainer, Slide } from 'react-toastify'
@@ -90,6 +91,7 @@ function App() {
 
       {/* Settings Dialog (renders as portal, controlled by zustand store) */}
       <SettingsDialog />
+      <ApprovalDialog />
 
       <Routes>
       {/* Public: Login Page */}

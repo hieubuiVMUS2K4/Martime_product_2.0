@@ -80,7 +80,7 @@ public sealed class SyncFilePreparationService : ISyncFilePreparationService
         var contentType = GuessContentType(absolutePath);
         var extension = Path.GetExtension(fileName);
 
-        if (!ShouldOptimizeImage(extension))
+        if (tableName == "approval_revision" || !ShouldOptimizeImage(extension))
         {
             return new PreparedSyncFile(
                 sourcePath,

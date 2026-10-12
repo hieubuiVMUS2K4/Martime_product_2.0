@@ -1,3 +1,5 @@
+import { ApprovalHistory } from "@/components/ApprovalHistory";
+import { apiClient } from "@/services/api.client";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
@@ -8,6 +10,7 @@ import {
   GitCompare, ChevronLeft, Layers, Link2, ExternalLink, Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { useAuthStore } from '@/stores/auth.store';
 import { smsService, SmsTreeChapter, SmsProcedureDetail, SmsFormTemplate, SmsFilledRecord, SignatureEntry, SmsProcedure } from '@/services/sms.service';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
@@ -192,7 +195,6 @@ export function SmsDocumentPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const currentUserName = user?.fullName || user?.username || 'Thuyền viên Demo';
-  const currentUserRank = user?.rankName || user?.position || user?.roleName || 'Sỹ quan';
 
   // ─── State ─────────────────────────────────────────────────
   const [treeData, setTreeData] = useState<SmsTreeChapter[]>([]);
@@ -216,9 +218,6 @@ export function SmsDocumentPage() {
   const [filledRecordId, setFilledRecordId] = useState<string | null>(null);
   const [recordStatus, setRecordStatus] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<SignatureEntry[]>([]);
-  const [signingName, setSigningName] = useState<string>(currentUserName);
-  const [signingRank, setSigningRank] = useState<string>(currentUserRank);
-  const [signingPin, setSigningPin] = useState<string>('');
   const [crewList, setCrewList] = useState<any[]>([]);
 
   // Edit / Version Control States
@@ -752,7 +751,6 @@ export function SmsDocumentPage() {
       setFilledRecordId(null);
       setRecordStatus(null);
       setSignatures([]);
-      setSigningPin('');
       setIsFormMaximized(true);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lỗi khi tải biểu mẫu');
@@ -826,10 +824,6 @@ export function SmsDocumentPage() {
       }
     }
 
-    if (!signingName.trim() || !signingRank.trim() || !signingPin.trim()) {
-      toast.error('Vui lòng điền tên, chức danh và mã PIN ký số.');
-      return;
-    }
 
     try {
       let recordId = filledRecordId;
@@ -845,42 +839,29 @@ export function SmsDocumentPage() {
         setFilledRecordId(recordId);
       }
 
+      if (filledRecordId) await smsService.updateFilledRecord(recordId, { filledBy: currentUserName, filledData: JSON.stringify(formValues), submitImmediately: false });
       // Call Sign API
-      const signRes = await smsService.signRecord(recordId, {
-        pin: signingPin,
-        name: signingName,
-        rank: signingRank
-      });
+      const signRes = await smsService.signRecord(recordId, {});
 
       setSignatures(signRes.signatures);
       setRecordStatus(signRes.status);
-      setSigningPin('');
-      toast.success('Đã ký số điện tử đóng dấu thành công!');
+      toast.success('Đã ký xác nhận và gửi duyệt.');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Mã PIN không chính xác hoặc lỗi ký số');
+      reportSigningError(err, 'Không thể ký xác nhận');
     }
   };
 
   const handleCaptainApprove = async () => {
     if (!filledRecordId) return;
-    if (!signingPin.trim()) {
-      toast.error('Vui lòng nhập mã PIN Thuyền trưởng.');
-      return;
-    }
 
     try {
-      const res = await smsService.approveRecord(filledRecordId, {
-        pin: signingPin,
-        name: currentUserName,
-        rank: 'Thuyền trưởng (Master)'
-      });
+      const res = await smsService.approveRecord(filledRecordId, {});
 
       setSignatures(res.signatures);
       setRecordStatus(res.status);
-      setSigningPin('');
       toast.success('Thuyền trưởng đã phê duyệt hoàn tất hồ sơ!');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'PIN Thuyền trưởng không đúng (Mặc định: 1111)');
+      toast.error(err.response?.data?.message || 'Không thể phê duyệt hồ sơ');
     }
   };
 
@@ -3386,7 +3367,7 @@ export function SmsDocumentPage() {
                                     <div className="absolute top-1 right-2 text-blue-600/10 dark:text-blue-400/5 select-none font-bold text-5xl">SIG</div>
                                     <div>
                                       <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
-                                      <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div>
+                                      <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div><div className="text-[9px] break-all">{(sig.authenticationMethod || (sig as any).AuthenticationMethod) === "password-reauthentication" ? "?? x?c nh?n b?ng t?i kho?n" : "D?u k? c? ? ch?a x?c th?c"} ? {sig.contentHash || (sig as any).ContentHash || ""}</div>
                                     </div>
                                     <div className="mt-3 flex items-end justify-between">
                                       <div>
@@ -3404,49 +3385,18 @@ export function SmsDocumentPage() {
                           </div>
                         )}
 
+                        {filledRecordId && <ApprovalHistory module="sms" recordKey={filledRecordId} />}
+                        {filledRecordId && recordStatus === 'Submitted' && <PermissionGate permission="hsqe.records.reject"><button onClick={async () => { try { await apiClient.post(`/approvals/sms/${filledRecordId}/reject`, {}); setRecordStatus('Returned'); } catch (error: any) { toast.error(error.message); } }}>Trả lại</button></PermissionGate>}
+                        {filledRecordId && ['Approved', 'Returned', 'Submitted'].includes(recordStatus || '') && <PermissionGate permission="hsqe.records.sign"><button onClick={async () => { try { await apiClient.post(`/approvals/sms/${filledRecordId}/amend`, {}); setRecordStatus('Draft'); setSignatures([]); } catch (error: any) { toast.error(error.message); } }}>Tạo sửa đổi / ký gửi lại hồ sơ cũ</button></PermissionGate>}
                         {/* E-Signature Input & Submission Controls */}
                         {recordStatus !== 'Approved' && (
                           <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-250 dark:border-slate-800 space-y-3 pt-4">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
                               <Lock className="w-4 h-4 text-blue-500" />
-                              <span>MÃ PIN XÁC THỰC CHỮ KÝ SỐ</span>
+                              <span>KÝ XÁC NHẬN BẰNG TÀI KHOẢN</span>
                             </div>
 
-                            <p className="text-[10px] text-slate-450 leading-relaxed">
-                              Đóng dấu số điện tử trực tiếp lên biểu mẫu. Crew/Officers sử dụng mã PIN cá nhân của mình. <br />
-                              <strong>Thuyền trưởng duyệt hồ sơ sử dụng mã PIN: 1111</strong>
-                            </p>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                              {recordStatus !== 'Submitted' && (
-                                <>
-                                  <input
-                                    type="text"
-                                    placeholder="Họ tên người ký"
-                                    value={signingName}
-                                    onChange={(e) => setSigningName(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder="Chức danh ký"
-                                    value={signingRank}
-                                    onChange={(e) => setSigningRank(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </>
-                              )}
-
-                              <input
-                                type="password"
-                                maxLength={4}
-                                placeholder="PIN (4 số)"
-                                value={signingPin}
-                                onChange={(e) => setSigningPin(e.target.value)}
-                                className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white font-mono text-center outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                            </div>
-
+                            <p className="text-xs">Danh tính lấy từ tài khoản đăng nhập. Nhập lại mật khẩu khi xác nhận.</p>
                             <div className="flex gap-2 justify-end pt-1">
                               {recordStatus !== 'Submitted' ? (
                                 <>
@@ -3456,7 +3406,7 @@ export function SmsDocumentPage() {
                                   >
                                     Lưu nháp
                                   </button></PermissionGate>
-                                  <PermissionGate permission="hsqe.approve"><button
+                                  <PermissionGate permission="hsqe.records.sign"><button
                                     onClick={handleECompactSign}
                                     className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
                                   >
@@ -3464,11 +3414,11 @@ export function SmsDocumentPage() {
                                   </button></PermissionGate>
                                 </>
                               ) : (
-                                <PermissionGate permission="hsqe.approve"><button
+                                <PermissionGate permission="hsqe.records.approve"><button
                                   onClick={handleCaptainApprove}
                                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
                                 >
-                                  <Award className="w-4 h-4" /> Captain Duyệt & Ban hành
+                                  <Award className="w-4 h-4" /> Phê duyệt & Ban hành
                                 </button></PermissionGate>
                               )}
                             </div>
@@ -4378,7 +4328,7 @@ export function SmsDocumentPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div>
+                              <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div><div className="text-[9px] break-all">{(sig.authenticationMethod || (sig as any).AuthenticationMethod) === "password-reauthentication" ? "?? x?c nh?n b?ng t?i kho?n" : "D?u k? c? ? ch?a x?c th?c"} ? {sig.contentHash || (sig as any).ContentHash || ""}</div>
                               <div className="text-[9px] text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
                             </div>
                           </div>

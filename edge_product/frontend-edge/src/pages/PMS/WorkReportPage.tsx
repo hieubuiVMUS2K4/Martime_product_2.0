@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { usePermission } from '@/stores/permissions.store'
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
@@ -433,7 +434,7 @@ export default function WorkReportPage() {
     if (!task) return
     try {
       setSavingRisk(true)
-      await maritimeService.maintenance.saveRiskAssessment(task.taskId || id!, riskForm)
+      await maritimeService.maintenance.saveRiskAssessment(task.taskId || id!, { ...riskForm, workerSignature: undefined, supervisorSignature: undefined, chiefEngineerApproval: undefined })
       setRiskFilled(true)
       toast.success(t('pms.workReport.toast.riskSaved'))
     } catch (error: any) {
@@ -448,7 +449,7 @@ export default function WorkReportPage() {
     try {
       setSavingBbkt(true)
       const payload: Partial<TaskInspectionReport> = {
-        ...bbktForm,
+        ...bbktForm, operatorSignature: undefined, chiefEngineerSignature: undefined,
         jobItemsJson: JSON.stringify(bbktJobItems),
       }
       await maritimeService.maintenance.saveInspectionReport(task.taskId || id!, payload)
@@ -1208,7 +1209,8 @@ export default function WorkReportPage() {
                       ].map(({ label, key }) => (
                         <div key={key}>
                           <label className="text-xs text-gray-500 block mb-0.5">{label}</label>
-                          <input type="text" value={(riskForm as any)[key] || ''} onChange={e => setRiskForm(f => ({ ...f, [key]: e.target.value }))} placeholder={t('pms.workReport.riskSignPlaceholder')} className={inp} />
+                          <span>{(riskForm as any)[key] || 'Chưa xác nhận'}</span>
+                          {id && riskFilled && <SigningControls module={key === 'workerSignature' ? 'pms-risk-worker' : key === 'supervisorSignature' ? 'pms-risk-supervisor' : 'pms-risk-chief'} recordKey={id} permission={key === 'workerSignature' ? 'pms.work.execute' : 'pms.work.approve'} signed={!!(riskForm as any)[key]} />}
                         </div>
                       ))}
                     </div>
@@ -1340,11 +1342,11 @@ export default function WorkReportPage() {
                     <div className="p-3 grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-gray-500 block mb-0.5">{t('pms.workReport.inspOperator')}</label>
-                        <input type="text" value={bbktForm.operatorSignature || ''} onChange={e => setBbktForm(f => ({ ...f, operatorSignature: e.target.value }))} placeholder={t('pms.workReport.inspSignPlaceholder')} className={inp} />
+                        <span>{bbktForm.operatorSignature || "Chưa xác nhận"}</span>{id && bbktFilled && <SigningControls module="pms-inspection-operator" recordKey={id} permission="pms.work.execute" signed={!!bbktForm.operatorSignature} />}
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 block mb-0.5">{t('pms.workReport.inspChiefEngineer')}</label>
-                        <input type="text" value={bbktForm.chiefEngineerSignature || ''} onChange={e => setBbktForm(f => ({ ...f, chiefEngineerSignature: e.target.value }))} placeholder={t('pms.workReport.inspSignPlaceholder')} className={inp} />
+                        <span>{bbktForm.chiefEngineerSignature || "Chưa xác nhận"}</span>{id && bbktFilled && <SigningControls module="pms-inspection-chief" recordKey={id} permission="pms.work.approve" signed={!!bbktForm.chiefEngineerSignature} />}
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-gray-500 block mb-1">{t('pms.workReport.inspOverallResult')}</label>

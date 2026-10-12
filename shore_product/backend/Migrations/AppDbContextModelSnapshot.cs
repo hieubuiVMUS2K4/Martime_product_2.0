@@ -2915,6 +2915,186 @@ namespace productapi.Migrations
                     b.ToTable("travel_documents", (string)null);
                 });
 
+            modelBuilder.Entity("Maritime.Shared.Models.Sync.ApprovalAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ActorRank")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("ActorUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ActorUsername")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuthenticationMethod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Authority")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CrewId")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RevisionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("RevisionId");
+
+                    b.HasIndex("OriginNode", "ActorUserId", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("approval_actions");
+                });
+
+            modelBuilder.Entity("Maritime.Shared.Models.Sync.ApprovalDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentRevision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CurrentState")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RecordKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OriginNode", "Module", "RecordKey")
+                        .IsUnique();
+
+                    b.ToTable("approval_documents");
+                });
+
+            modelBuilder.Entity("Maritime.Shared.Models.Sync.ApprovalRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsSynced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OriginNode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PreviousRevisionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "Revision")
+                        .IsUnique();
+
+                    b.ToTable("approval_revisions");
+                });
+
             modelBuilder.Entity("Maritime.Shared.Models.Sync.SyncFileChunkSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4303,10 +4483,6 @@ namespace productapi.Migrations
 
             modelBuilder.Entity("ProductApi.Models.MaintenanceHistory", b =>
                 {
-                    b.Property<string>("ReportSnapshot")
-                        .HasColumnType("text")
-                        .HasColumnName("report_snapshot");
-
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
@@ -4341,6 +4517,10 @@ namespace productapi.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ReportSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("report_snapshot");
 
                     b.Property<Guid>("ScheduleId")
                         .HasColumnType("uuid");
@@ -10498,6 +10678,30 @@ namespace productapi.Migrations
                     b.Navigation("Country");
 
                     b.Navigation("CrewMember");
+                });
+
+            modelBuilder.Entity("Maritime.Shared.Models.Sync.ApprovalAction", b =>
+                {
+                    b.HasOne("Maritime.Shared.Models.Sync.ApprovalDocument", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maritime.Shared.Models.Sync.ApprovalRevision", null)
+                        .WithMany()
+                        .HasForeignKey("RevisionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Maritime.Shared.Models.Sync.ApprovalRevision", b =>
+                {
+                    b.HasOne("Maritime.Shared.Models.Sync.ApprovalDocument", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Maritime.Shared.Models.Sync.SyncFileTransferRequest", b =>

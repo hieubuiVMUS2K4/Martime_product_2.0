@@ -14,6 +14,11 @@ internal static class InventoryWriteScope
     {
         if (!context.Database.IsRelational()) return null;
 
+        if (context.Database.CurrentTransaction != null)
+        {
+            if (context.Database.IsNpgsql()) await context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(7311042026)");
+            return null;
+        }
         var transaction = await context.Database.BeginTransactionAsync();
         try
         {

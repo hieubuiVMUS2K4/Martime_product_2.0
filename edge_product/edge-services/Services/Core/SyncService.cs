@@ -43,6 +43,7 @@ public class SyncService : ISyncService
         public List<SyncBatchItemFailure>? FailedItems { get; set; }
         public List<Guid>? AcknowledgedEventIds { get; set; }
         public int SensorDeferralSyncVersion { get; set; }
+        public int ApprovalEvidenceVersion { get; set; }
     }
 
     private readonly IServiceProvider _serviceProvider;
@@ -56,7 +57,7 @@ public class SyncService : ISyncService
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "maintenance_history", "task_deferral_request", "crew_member", "crew_certificate", "travel_document", "seafarer_document",
-        "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
+        "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records", "approval_revision"
     };
     
     // Tracks upload cooldowns to prevent rapid retry of failed uploads (in-memory, per instance).
@@ -833,6 +834,7 @@ public class SyncService : ISyncService
                 {
                     var mirrorSupported = !SensorDeferralSyncBackfill.Tables.Contains(item.TableName)
                         || batchResponse?.SensorDeferralSyncVersion >= 1;
+                    mirrorSupported &= !ApprovalSnapshot.Tables.Contains(item.TableName) || batchResponse?.ApprovalEvidenceVersion >= 1;
                     if (acknowledged.Contains(item.EventId) && mirrorSupported)
                     {
                         item.SyncedAt = DateTime.UtcNow;
@@ -1249,6 +1251,7 @@ public class SyncService : ISyncService
 
         foreach (var (role, rawPath) in dto.TableName == "maintenance_history"
             ? MaintenanceHistorySyncFiles.References(dto.Payload)
+            : dto.TableName == "approval_revision" ? ApprovalSnapshot.FileReferences(dto.Payload)
             : dto.TableName == "task_deferral_request" ? DeferralSyncFiles.References(dto.Payload) : ExtractSyncFilePaths(dto.Payload))
         {
             var filePath = StripQueryString(rawPath) ?? rawPath;

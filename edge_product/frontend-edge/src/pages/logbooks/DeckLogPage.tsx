@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -5,6 +6,7 @@ import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { logbookService } from '../../services/logbook.service';
 import { DeckLogEntryResponseDto, CreateDeckLogEntryDto } from '../../types/logbook.types';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 
 export const DeckLogPage: React.FC = () => {
@@ -115,7 +117,7 @@ export const DeckLogPage: React.FC = () => {
       fetchEntries();
     } catch (error) {
       console.error(error);
-      toast.error(t('logbooks.common.signFailed'));
+      reportSigningError(error, t('logbooks.common.signFailed'));
     }
   };
 
@@ -223,7 +225,8 @@ export const DeckLogPage: React.FC = () => {
             <div key={entry.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-2 relative shadow-sm">
               <div className="flex justify-between items-start">
                 <span className="text-blue-600 dark:text-blue-400 font-semibold text-sm">{new Date(entry.logDateTime).toLocaleString()}</span>
-                {entry.masterSignature ? (
+                <SigningControls module="log-deck" recordKey={entry.id} permission="logbooks.deck.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                   <span className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded font-semibold">{t('logbooks.deckLog.signed')}</span>
                 ) : (
                   <span className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs px-2 py-1 rounded font-semibold">{t('voyageLog.draft')}</span>

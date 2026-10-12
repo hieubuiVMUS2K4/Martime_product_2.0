@@ -741,6 +741,11 @@ app.Use(async (context, next) =>
 app.UseCors("AllowWebMobile");
 
 // Serve uploaded static files (SMS PDFs, avatars, certificates)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/uploads/approval-evidence")) { context.Response.StatusCode = 404; return; }
+    await next();
+});
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadsPath),

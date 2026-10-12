@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 /**
  * Weekly Report Details Modal
  * Full details view of a weekly performance report
@@ -165,7 +166,8 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ report, on
           <Section title="Report Information" icon={<Calendar className="w-5 h-5" />} className="mt-6">
             <DetailRow label="Status" value={<StatusBadge status={report.status} />} />
             <DetailRow label="Prepared By" value={report.preparedBy || 'System'} />
-            <DetailRow label="Master Signature" value={report.masterSignature || 'Pending'} />
+            <SigningControls module="report-weekly" recordKey={report.id} permission="reporting.approve" signed={!!report.masterSignature} />
+<DetailRow label="Người xác nhận" value={report.masterSignature || 'Pending'} />
             <DetailRow label="Signed At" value={report.signedAt ? new Date(report.signedAt).toLocaleString() : 'Not signed'} />
             <DetailRow label="Transmitted" value={report.isTransmitted ? '✓ Yes' : '✗ No'} />
             <DetailRow label="Created At" value={new Date(report.createdAt).toLocaleString()} />

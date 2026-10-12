@@ -213,6 +213,7 @@ public class SyncController : ControllerBase
                 failedItems = batchResult.FailedItems,
                 acknowledgedEventIds = batchResult.AcknowledgedEventIds,
                 sensorDeferralSyncVersion = 1,
+                approvalEvidenceVersion = 1,
                 serverTime = DateTime.UtcNow
             });
         }

@@ -989,6 +989,9 @@ public class SyncFileTransferService : ISyncFileTransferService
         _logger.LogInformation("[UpdateEntityFilePath] START: table={Table}, recordKey={RecordKey}, fileRole={FileRole}, relativePath={RelativePath}",
             tableName, recordKey, fileRole, relativePath);
 
+        // Evidence snapshots retain the signed source path and hash. Verified locations live in manifests.
+        if (tableName == "approval_revision") return;
+
         if (tableName == "maintenance_history")
         {
             if (supplierNodeId == null) throw new InvalidOperationException("Maintenance file supplier identity is required.");

@@ -106,7 +106,10 @@ public class EdgeDbContext : DbContext
     // Authentication & Authorization
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<RankPermissionConfig> RankPermissionConfigs { get; set; } = null!;
-    public DbSet<User> Users { get; set; } = null!;
+    public DbSet<ApprovalDocument> ApprovalDocuments { get; set; } = null!;
+        public DbSet<ApprovalRevision> ApprovalRevisions { get; set; } = null!;
+        public DbSet<ApprovalAction> ApprovalActions { get; set; } = null!;
+        public DbSet<User> Users { get; set; } = null!;
     public DbSet<UserSession> UserSessions { get; set; } = null!;
     public DbSet<LoginAttempt> LoginAttempts { get; set; } = null!;
 
@@ -200,6 +203,13 @@ public class EdgeDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<ApprovalDocument>().HasIndex(d => new { d.OriginNode, d.Module, d.RecordKey }).IsUnique();
+        modelBuilder.Entity<ApprovalRevision>().HasIndex(r => new { r.DocumentId, r.Revision }).IsUnique();
+        modelBuilder.Entity<ApprovalRevision>().HasOne<ApprovalDocument>().WithMany().HasForeignKey(r => r.DocumentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ApprovalAction>().HasIndex(a => new { a.OriginNode, a.ActorUserId, a.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<ApprovalAction>().HasOne<ApprovalDocument>().WithMany().HasForeignKey(a => a.DocumentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ApprovalAction>().HasOne<ApprovalRevision>().WithMany().HasForeignKey(a => a.RevisionId).OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<RankPermissionConfig>(entity =>
         {
             entity.ToTable("rank_permission_configs");
@@ -2942,8 +2952,17 @@ public class EdgeDbContext : DbContext
 
     public bool SuppressSyncQueue { get; set; }
 
+    private void ValidateApprovalEvidence()
+    {
+        ChangeTracker.DetectChanges();
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.Entity is ApprovalRevision or ApprovalAction))
+            if (entry.State == EntityState.Deleted || entry.State == EntityState.Modified && entry.Properties.Any(p => p.IsModified && p.Metadata.Name != "IsSynced"))
+                throw new InvalidOperationException("Signed evidence is append-only. Create a revision instead.");
+    }
+
     public override int SaveChanges()
     {
+        ValidateApprovalEvidence();
         using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
             ? Database.BeginTransaction() : null;
         NormalizeDateTimesToUtc();
@@ -2960,6 +2979,7 @@ public class EdgeDbContext : DbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        ValidateApprovalEvidence();
         await using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
             ? await Database.BeginTransactionAsync(cancellationToken) : null;
         NormalizeDateTimesToUtc();
@@ -3184,7 +3204,7 @@ public class EdgeDbContext : DbContext
                 // (để nối khoá ngoại) và mã vật tư + tên (để nhận ra đúng dòng nào trong phiếu).
                 EnrichLineItemPayload(changedProps, entry.Entity);
 
-                syncItem.Payload = System.Text.Json.JsonSerializer.Serialize(changedProps);
+                syncItem.Payload = entry.Entity is ApprovalDocument ? SerializeSyncPayload(entry.Entity) : System.Text.Json.JsonSerializer.Serialize(changedProps);
                 
                 // Log CrewMember updates with FullName specifically
                 if (tableName == "crew_member" && changedProps.ContainsKey("FullName"))
@@ -3390,6 +3410,7 @@ public class EdgeDbContext : DbContext
     /// </summary>
     private SyncPriority GetPriorityForEntity(Type type)
     {
+        if (type == typeof(ApprovalDocument) || type == typeof(ApprovalRevision) || type == typeof(ApprovalAction)) return SyncPriority.Operational;
         // P1: Critical Safety & Alerts
         if (type == typeof(SafetyAlarm) || 
             type == typeof(FuelEfficiencyAlert)) 

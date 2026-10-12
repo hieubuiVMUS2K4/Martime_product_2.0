@@ -1,3 +1,4 @@
+using MaritimeEdge.Services.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -662,7 +663,8 @@ namespace MaritimeEdge.Controllers.Safety
                     .FirstOrDefaultAsync(d => d.Id == id);
                 if (doc == null) return NotFound();
 
-                var approver = dto.ApproverName ?? "Giám đốc Trần Quốc Tuấn";
+                var actor = (MaritimeEdge.Services.Core.ApprovalActor)HttpContext.Items["ApprovalActor"]!;
+                var approver = actor.Name;
                 var cleanName = approver.Replace("Giám đốc", "").Replace("DPA", "").Replace("Thuyền trưởng", "").Trim();
                 var initials = string.Concat(cleanName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpper(w[0])));
                 if (string.IsNullOrEmpty(initials)) initials = "DIR";
@@ -670,7 +672,7 @@ namespace MaritimeEdge.Controllers.Safety
                 doc.Status = "Published";
                 doc.ApprovedBy = approver;
                 doc.ApprovedAt = DateTime.UtcNow;
-                doc.DigitalSignature = $"SIG-DIR-{initials}-2026-{Guid.NewGuid().ToString()[..8].ToUpper()}";
+                doc.DigitalSignature = HttpContext.Items["ApprovalActionId"]!.ToString();
                 doc.WatermarkText = "TÀI LIỆU ĐƯỢC KIỂM SOÁT";
                 doc.UpdatedAt = DateTime.UtcNow;
 
@@ -1278,7 +1280,7 @@ namespace MaritimeEdge.Controllers.Safety
                     Title = dto.Title,
                     Vessel = dto.Vessel ?? "M/V Green Star",
                     Location = dto.Location,
-                    Status = "Active",
+                    Status = "Draft",
                     DurationHours = dto.DurationHours,
                     StartTime = dto.StartTime ?? DateTime.UtcNow,
                     RiskAssessmentId = dto.RiskAssessmentId,
@@ -1304,38 +1306,21 @@ namespace MaritimeEdge.Controllers.Safety
             {
                 var permit = await _context.HsqeWorkPermits.FindAsync(id);
                 if (permit == null) return NotFound();
+                if (permit.Status is not ("Draft" or "Returned")) return Conflict(new { message = "Sửa đổi giấy phép trước khi thay kết quả đo khí." });
+                if (string.IsNullOrWhiteSpace(dto.Device)) return BadRequest(new { message = "Cần mã thiết bị đo khí." });
+                permit.GasTestAt = DateTime.UtcNow;
+                permit.GasTestDevice = dto.Device;
+                permit.GasTestBy = HttpContext.GetUsername();
 
                 permit.GasTestO2 = dto.GasTestO2;
                 permit.GasTestLEL = dto.GasTestLEL;
                 permit.GasTestCO = dto.GasTestCO;
                 permit.GasTestH2S = dto.GasTestH2S;
 
-                // STRICT GAS TEST SAFETY VALIDATOR
-                // O2 >= 20.9% (Normal oxygen)
-                // LEL < 1% (Lower Explosive Limit)
-                // CO < 25ppm (Carbon Monoxide limit)
-                // H2S == 0.0 (Hydrogen Sulfide must be 0)
-                bool isSafe = (dto.GasTestO2 >= 20.9) && 
-                              (dto.GasTestLEL < 1.0) && 
-                              (dto.GasTestCO < 25.0) && 
-                              (dto.GasTestH2S <= 0.0);
-
-                if (!isSafe)
-                {
-                    permit.ChiefOfficerSigned = false;
-                    permit.CaptainApproved = false;
-                    await _context.SaveChangesAsync();
-
-                    return BadRequest(new
-                    {
-                        message = "Khí độc hoặc nồng độ Oxy Vượt Ngưỡng An Toàn! Hệ thống kích hoạt chặn phê duyệt.",
-                        gasSafe = false,
-                        permit
-                    });
-                }
-
+                permit.IsSynced = false;
+                permit.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
-                return Ok(new { message = "Chỉ số đo khí gas đạt ngưỡng an toàn.", gasSafe = true, permit });
+                return Ok(new { message = "Đã lưu kết quả đo. Người kiểm tra đánh giá theo SMS công ty.", gasSafe = false, permit });
             }
             catch (Exception ex)
             {
@@ -1345,96 +1330,9 @@ namespace MaritimeEdge.Controllers.Safety
         }
 
         [HttpPost("permits/{id}/sign")]
-        public async Task<IActionResult> SignPermit(Guid id, [FromBody] SignPermitDto dto)
+        public IActionResult SignPermit(Guid id, [FromBody] SignPermitDto dto)
         {
-            try
-            {
-                var permit = await _context.HsqeWorkPermits.FindAsync(id);
-                if (permit == null) return NotFound();
-
-                // Validation: For Enclosed Space and Hot Work, block if gas test was never verified or failed
-                if (permit.PermitType == "Enclosed" || permit.PermitType == "Hot")
-                {
-                    bool isSafe = (permit.GasTestO2 >= 20.9) && 
-                                  (permit.GasTestLEL < 1.0) && 
-                                  (permit.GasTestCO < 25.0) && 
-                                  (permit.GasTestH2S <= 0.0);
-                    if (!isSafe)
-                    {
-                        return BadRequest(new { message = "Không thể ký phê duyệt. Chỉ số đo khí gas chưa đạt tiêu chuẩn an toàn hàng hải." });
-                    }
-                }
-
-                // PIN Validation (same pattern as SMS signing)
-                if (string.IsNullOrWhiteSpace(dto.Pin) || dto.Pin.Length != 4 || !dto.Pin.All(char.IsDigit))
-                {
-                    return BadRequest(new { message = "Mã PIN chữ ký số không hợp lệ (yêu cầu 4 chữ số)." });
-                }
-
-                // Parse existing signatures
-                var signatures = new List<object>();
-                try
-                {
-                    signatures = System.Text.Json.JsonSerializer.Deserialize<List<object>>(permit.DigitalSignatures ?? "[]") ?? new List<object>();
-                }
-                catch { signatures = new List<object>(); }
-
-                if (dto.Role == "ChiefOfficer")
-                {
-                    // Officers PIN: any valid 4-digit PIN
-                    permit.ChiefOfficerSigned = true;
-
-                    signatures.Add(new
-                    {
-                        name = dto.Name ?? "Đại phó",
-                        rank = dto.Rank ?? "Chief Officer",
-                        timestamp = DateTime.UtcNow,
-                        sigCode = $"SIG-CO-{Guid.NewGuid().ToString()[..8].ToUpper()}"
-                    });
-                }
-                else if (dto.Role == "Captain")
-                {
-                    if (!permit.ChiefOfficerSigned)
-                    {
-                        return BadRequest(new { message = "Cần Đại phó (Chief Officer) ký nháy trước khi Thuyền trưởng phê duyệt." });
-                    }
-
-                    // Captain PIN must be 1111
-                    if (dto.Pin != "1111")
-                    {
-                        return BadRequest(new { message = "Mã PIN phê duyệt của Thuyền trưởng không đúng (Gợi ý: 1111)." });
-                    }
-
-                    permit.CaptainApproved = true;
-
-                    signatures.Add(new
-                    {
-                        name = dto.Name ?? "Thuyền trưởng",
-                        rank = dto.Rank ?? "Captain (Master)",
-                        timestamp = DateTime.UtcNow,
-                        sigCode = $"SIG-CAPT-{Guid.NewGuid().ToString()[..8].ToUpper()}"
-                    });
-                }
-
-                permit.DigitalSignatures = System.Text.Json.JsonSerializer.Serialize(signatures);
-                permit.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-                return Ok(new
-                {
-                    permit.Id,
-                    permit.PermitCode,
-                    permit.ChiefOfficerSigned,
-                    permit.CaptainApproved,
-                    permit.Status,
-                    digitalSignatures = permit.DigitalSignatures
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error signing permit");
-                return StatusCode(500, new { error = ex.Message });
-            }
+            return Conflict(new { message = "Dùng luồng gửi kiểm tra / kiểm tra / cấp phép bằng tài khoản." });
         }
 
         [HttpPost("permits/{id}/close")]
@@ -1445,6 +1343,7 @@ namespace MaritimeEdge.Controllers.Safety
                 var permit = await _context.HsqeWorkPermits.FindAsync(id);
                 if (permit == null) return NotFound();
 
+                if (permit.Status is not ("Issued" or "Suspended")) return Conflict(new { message = "Chỉ đóng phép đã cấp hoặc đình chỉ." });
                 permit.Status = "Closed";
                 await _context.SaveChangesAsync();
                 return Ok(permit);
@@ -1454,6 +1353,20 @@ namespace MaritimeEdge.Controllers.Safety
                 _logger.LogError(ex, "Error closing permit {Id}", id);
                 return StatusCode(500, new { error = ex.Message });
             }
+        }
+
+        [HttpPut("permits/{id}")]
+        public async Task<IActionResult> UpdateDraftPermit(Guid id, [FromBody] CreatePermitDto dto)
+        {
+            var permit = await _context.HsqeWorkPermits.FindAsync(id);
+            if (permit == null) return NotFound();
+            if (permit.Status is not ("Draft" or "Returned")) return Conflict(new { message = "Sửa đổi giấy phép trước khi thay nội dung." });
+            permit.Title = dto.Title; permit.Location = dto.Location; permit.PermitType = dto.PermitType;
+            permit.DurationHours = dto.DurationHours; permit.StartTime = dto.StartTime ?? DateTime.UtcNow;
+            permit.RiskAssessmentId = dto.RiskAssessmentId; permit.PrecautionsJson = dto.PrecautionsJson ?? "[]";
+            permit.UpdatedAt = DateTime.UtcNow; permit.IsSynced = false;
+            await _context.SaveChangesAsync();
+            return Ok(permit);
         }
 
         [HttpDelete("risks/{id}")]
@@ -1483,6 +1396,8 @@ namespace MaritimeEdge.Controllers.Safety
                 var permit = await _context.HsqeWorkPermits.FindAsync(id);
                 if (permit == null) return NotFound();
 
+                if (permit.Status != "Draft" || await _context.ApprovalDocuments.AnyAsync(d => d.Module == "permit" && d.RecordKey == id.ToString()))
+                    return Conflict(new { message = "Giữ nguyên giấy phép đã có lịch sử xác nhận." });
                 _context.HsqeWorkPermits.Remove(permit);
                 await _context.SaveChangesAsync();
                 return Ok(new { message = "Permit deleted" });
@@ -1591,19 +1506,14 @@ namespace MaritimeEdge.Controllers.Safety
 
         public class GasTestDto
         {
+            public string Device { get; set; } = "";
             public double GasTestO2 { get; set; }
             public double GasTestLEL { get; set; }
             public double GasTestCO { get; set; }
             public double GasTestH2S { get; set; }
         }
 
-        public class SignPermitDto
-        {
-            public string Role { get; set; } = "ChiefOfficer"; // ChiefOfficer, Captain
-            public string Pin { get; set; } = string.Empty;
-            public string? Name { get; set; }
-            public string? Rank { get; set; }
-        }
+        public class SignPermitDto { }
 
         public class MarkAsReadDto
         {

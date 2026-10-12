@@ -52,11 +52,9 @@ class LogbookService {
     return await apiClient.put<DeckLogEntryResponseDto>(`/logbooks/deck/${id}`, data);
   }
 
-  async signDeckEntry(id: string, data: SignLogbookDto) {
+  async signDeckEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/deck/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Engine Log
@@ -75,10 +73,8 @@ class LogbookService {
 
   async signEngineEntry(id: string, data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/engine/${id}/sign`, {
-      chiefEngineerSignature: data.signature,
       chiefEngineerRemarks: data.remarks,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Oil Record
@@ -95,11 +91,9 @@ class LogbookService {
     return await apiClient.put<OilRecordEntryResponseDto>(`/logbooks/oil/${id}`, data);
   }
 
-  async signOilEntry(id: string, data: SignLogbookDto) {
+  async signOilEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/oil/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Watchkeeping Log
@@ -116,11 +110,9 @@ class LogbookService {
     return await apiClient.put<WatchkeepingLogResponseDto>(`/logbooks/watchkeeping/${id}`, data);
   }
 
-  async signWatchkeepingEntry(id: string, data: SignLogbookDto) {
+  async signWatchkeepingEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/watchkeeping/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Garbage Record
@@ -137,11 +129,9 @@ class LogbookService {
     return await apiClient.put<GarbageRecordResponseDto>(`/logbooks/garbage/${id}`, data);
   }
 
-  async signGarbageEntry(id: string, data: SignLogbookDto) {
+  async signGarbageEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/garbage/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Garbage Record Part I
@@ -162,11 +152,9 @@ class LogbookService {
     return await apiClient.delete(`/logbooks/garbage/part-i/${id}`);
   }
 
-  async signGarbagePartIEntry(id: string, data: SignLogbookDto) {
+  async signGarbagePartIEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/garbage/part-i/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Garbage Record Part II
@@ -187,11 +175,9 @@ class LogbookService {
     return await apiClient.delete(`/logbooks/garbage/part-ii/${id}`);
   }
 
-  async signGarbagePartIIEntry(id: string, data: SignLogbookDto) {
+  async signGarbagePartIIEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/garbage/part-ii/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // Ballast Water Record
@@ -208,11 +194,9 @@ class LogbookService {
     return await apiClient.put<BallastWaterRecordResponseDto>(`/logbooks/ballast/${id}`, data);
   }
 
-  async signBallastWaterEntry(id: string, data: SignLogbookDto) {
+  async signBallastWaterEntry(id: string, _data: SignLogbookDto) {
     return await apiClient.post(`/logbooks/ballast/${id}/sign`, {
-      masterSignature: data.signature,
-      signedAt: data.signedAt
-    });
+      });
   }
 
   // ==================== VOYAGE LOG ====================
@@ -239,7 +223,7 @@ class LogbookService {
   }
 
   async signVoyageLogEntry(id: string, data: SignVoyageLogEntryDto) {
-    return await apiClient.post<VoyageLogEntryResponseDto>(`/voyage-log/${id}/sign`, data);
+    return await apiClient.post<VoyageLogEntryResponseDto>(`/voyage-log/${id}/sign`, { remarks: data.remarks });
   }
 
   async getVoyageLogTimeline(voyageId?: string, limit: number = 50) {

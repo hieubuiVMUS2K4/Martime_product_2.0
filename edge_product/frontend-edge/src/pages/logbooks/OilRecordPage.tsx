@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -5,6 +6,7 @@ import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { logbookService } from '../../services/logbook.service';
 import { CreateOilRecordEntryDto, OilRecordEntryResponseDto } from '../../types/logbook.types';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 
 const OPERATIONS = [
@@ -49,7 +51,7 @@ export const OilRecordPage: React.FC = () => {
   const handleSign = async (id: string) => {
     try {
       await logbookService.signOilEntry(id, {
-        signature: 'Chief Engineer Signature',
+        signature: '',
         remarks: 'Signed',
         signedAt: new Date().toISOString()
       });
@@ -57,7 +59,7 @@ export const OilRecordPage: React.FC = () => {
       fetchEntries();
     } catch (error) {
       console.error(error);
-      toast.error(t('logbooks.common.signFailed'));
+      reportSigningError(error, t('logbooks.common.signFailed'));
     }
   };
 
@@ -306,7 +308,8 @@ export const OilRecordPage: React.FC = () => {
                 <td className="p-4 font-sans text-gray-900 text-sm">{entry.tankFrom || '-'}</td>
                 <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
                 <td className="p-4">
-                  {entry.masterSignature ? (
+                  <SigningControls module="log-oil" recordKey={entry.id} permission="logbooks.oil.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                     <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
                       {t('logbooks.deckLog.signed')}
                     </span>

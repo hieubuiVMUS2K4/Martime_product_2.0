@@ -6,6 +6,7 @@
 
 import axios from 'axios';
 import { API_CONFIG } from '@/config/app.config';
+import { prepareApproval } from './approval';
 import { getAuthToken } from './api.client';
 import type {
   DrillType,
@@ -26,11 +27,13 @@ const api = axios.create({
 });
 
 // Inject auth token into all requests
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const proof = await prepareApproval(config.url || "", config.data, token);
+  Object.entries(proof).forEach(([key, value]) => config.headers.set(key, value));
   return config;
 });
 

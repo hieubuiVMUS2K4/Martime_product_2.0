@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import '@/styles/OperationalTheme.css';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
@@ -5,6 +6,7 @@ import { GarbagePartIForm } from '../../components/logbooks/GarbagePartIForm';
 import { GarbagePartIIForm } from '../../components/logbooks/GarbagePartIIForm';
 import { FileText, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { 
   GarbagePartIResponseDto,
@@ -48,7 +50,7 @@ export const GarbageManagementPage: React.FC = () => {
     entryId: string | null;
     type: 'part-i' | 'part-ii';
   }>({ show: false, entryId: null, type: 'part-i' });
-  const [masterSignature, setMasterSignature] = useState('Captain');
+
 
   // Part I form state
   const [partIForm, setPartIForm] = useState({
@@ -459,15 +461,15 @@ export const GarbageManagementPage: React.FC = () => {
   };
 
   const confirmSign = async () => {
-    if (!signModal.entryId || !masterSignature.trim()) {
+    if (!signModal.entryId) {
       toast.error(t('logbooks.garbageRecord.masterSignatureRequired'));
       return;
     }
 
     try {
       const signData = {
-        signature: masterSignature.trim(),
-        masterSignature: masterSignature.trim(),
+        signature: '',
+        masterSignature: '',
         signedAt: new Date().toISOString()
       };
 
@@ -479,11 +481,10 @@ export const GarbageManagementPage: React.FC = () => {
       toast.success(t('logbooks.common.signSuccess'));
 
       setSignModal({ show: false, entryId: null, type: 'part-i' });
-      setMasterSignature('Captain');
       fetchEntries();
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.error || t('logbooks.common.signFailed'));
+      reportSigningError(error, t('logbooks.common.signFailed'));
     }
   };
 
@@ -778,7 +779,8 @@ export const GarbageManagementPage: React.FC = () => {
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">{entry.officerInCharge}</td>
                   <td className="px-3 py-2 text-center border-r border-gray-100">
-                    {entry.masterSignature ? (
+                    <SigningControls module="log-garbage-i" recordKey={entry.id} permission="logbooks.garbage.approve" signed={!!entry.masterSignature} />
+{Boolean(entry.masterSignature) ? (
                       <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded font-medium">
                         {t('logbooks.deckLog.signed')}
                       </span>
@@ -864,7 +866,8 @@ export const GarbageManagementPage: React.FC = () => {
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-700 border-r border-gray-100">{entry.officerInCharge}</td>
                   <td className="px-3 py-2 text-center border-r border-gray-100">
-                    {entry.masterSignature ? (
+                    <SigningControls module="log-garbage-ii" recordKey={entry.id} permission="logbooks.garbage.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                       <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded font-medium">
                         {t('logbooks.deckLog.signed')}
                       </span>
@@ -927,20 +930,12 @@ export const GarbageManagementPage: React.FC = () => {
               <label className="text-xs text-gray-600 font-medium block mb-1.5">
                 {t('logbooks.garbageRecord.masterSignature')}
               </label>
-              <input
-                type="text"
-                value={masterSignature}
-                onChange={e => setMasterSignature(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded text-sm text-gray-900 px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder={t('logbooks.garbageRecord.enterMasterName')}
-                autoFocus
-              />
+              <p className="text-sm">Người ký và chức danh được lấy từ tài khoản. Nhập lại mật khẩu ở bước xác nhận.</p>
             </div>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setSignModal({ show: false, entryId: null, type: 'part-i' });
-                  setMasterSignature('Captain');
                 }}
                 className="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-medium rounded hover:bg-gray-50"
               >

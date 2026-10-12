@@ -1,3 +1,5 @@
+import { ApprovalHistory } from "@/components/ApprovalHistory";
+import { apiClient } from '@/services/api.client';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { ReceiptCompletionButton } from './ReceiptCompletionButton';
 import { usePermission } from '@/stores/permissions.store';
@@ -380,6 +382,15 @@ export default function StockReceiptPage() {
     });
   };
 
+  const handleReturn = async (id: number) => {
+    try {
+      await apiClient.post(`/approvals/receipt/${id}/reject`, {});
+      await loadList();
+      if (view === 'detail') await openDetail(id);
+      toast.success('Đã trả lại phiếu để sửa và gửi lại');
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Không thể trả lại phiếu'); }
+  };
+
   const handleComplete = async (id: number) => {
     toast('Xác nhận hoàn thành nhập kho? Tồn kho sẽ được cập nhật.', {
       action: {
@@ -654,6 +665,8 @@ export default function StockReceiptPage() {
             {detailData.status === 'Draft' && <PermissionGate permission="pms.receipts.update"><button onClick={() => openEdit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Edit2 className="w-3.5 h-3.5" /> Sửa</button></PermissionGate>}
             {detailData.status === 'Draft' && canSubmit && <button onClick={() => handleSubmit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"><Send className="w-3.5 h-3.5" /> Gửi duyệt</button>}
             {detailData.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleApprove(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"><CheckCircle className="w-3.5 h-3.5" /> Duyệt phiếu nhập</button></PermissionGate>}
+            <ApprovalHistory module="receipt" recordKey={String(detailData.id)} />
+            {detailData.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleReturn(detailData.id)} className="px-3 py-1.5 text-xs border rounded">Trả lại để sửa</button></PermissionGate>}
             <ReceiptCompletionButton status={detailData.status} onComplete={() => handleComplete(detailData.id)} />
             <button onClick={() => setView('list')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><X className="w-3.5 h-3.5" /> Đóng</button>
           </div>

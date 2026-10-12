@@ -85,8 +85,70 @@ function deferred() {
 }
 function unauthorized() { return Object.assign(new Error('Unauthorized'), { response: { status: 401 } }) }
 function client(fetch) {
-  return load('services/api.client.ts', { '@/config/app.config': { API_CONFIG: { BASE_URL: '/api', TIMEOUT: 30000 } } }, { fetch })
+  const config = { API_CONFIG: { BASE_URL: '/api', TIMEOUT: 30000 } }
+  const approval = load('services/approval.ts', { '@/config/app.config': config }, { fetch, crypto: require('node:crypto').webcrypto })
+  return load('services/api.client.ts', { '@/config/app.config': config, './approval': approval }, { fetch })
 }
+
+test('approval proof uses reviewed server identity and version; credentials remain transient headers', async () => {
+  const context = { actor: { name: 'Officer', rank: 'Master', username: 'officer' }, module: 'sms', recordKey: 'record', action: 'approve', version: 4, revision: 2, contentHash: 'reviewed-hash', snapshot: { title: 'Reviewed content' } }
+  const approval = load('services/approval.ts', { '@/config/app.config': { API_CONFIG: { BASE_URL: '/api' } } }, {
+    fetch: async (url, options) => { assert.equal(url, '/api/approvals/sms/record/context?action=approve'); assert.equal(options.headers.Authorization, 'Bearer session'); return { ok: true, json: async () => context } }, crypto: require('node:crypto').webcrypto,
+  })
+  approval.registerApprovalConfirmation(async value => { assert.equal(value.actor.username, 'officer'); assert.equal(value.snapshot.title, 'Reviewed content'); return { password: 'transient-password', reason: 'Checked' } })
+  const headers = await approval.prepareApproval('/sms/records/record/approve', {}, 'session')
+  assert.equal(headers['X-Approval-Hash'], 'reviewed-hash')
+  assert.equal(headers['X-Approval-Version'], '4')
+  assert.equal(headers['X-Approval-Password'], 'transient-password')
+  assert.match(headers['X-Approval-Idempotency-Key'], /^[0-9a-f-]{36}$/)
+})
+
+test('approval permission failure does not open a confirmation dialog', async () => {
+  const approval = load('services/approval.ts', { '@/config/app.config': { API_CONFIG: { BASE_URL: '/api' } } }, { fetch: async () => ({ ok: false, json: async () => ({ message: 'No authority' }) }) })
+  approval.registerApprovalConfirmation(() => { throw new Error('Must not open') })
+  await assert.rejects(() => approval.prepareApproval('/tasks/task/verify', { action: 'REJECT' }, 'session'), /No authority/)
+})
+
+for (const [status, message] of [
+  [403, 'Mật khẩu xác nhận không đúng hoặc tài khoản đang khóa.'],
+  [403, 'Bạn không có quyền ký hồ sơ này.'],
+  [409, 'Hồ sơ đã thay đổi. Tải lại và kiểm tra nội dung trước khi ký.'],
+  [429, 'Quá nhiều lần sai mật khẩu. Thử lại sau 5 phút.'],
+]) test(`signing feedback preserves backend reason: ${message}`, async () => {
+  const config = { API_CONFIG: { BASE_URL: '/api', TIMEOUT: 30000 } }
+  const fetch = async url => url.includes('/context?')
+    ? { ok: true, json: async () => ({ actor: {}, version: 1, contentHash: 'hash' }) }
+    : { ok: false, status, statusText: 'Signing failed', json: async () => ({ message }) }
+  const approval = load('services/approval.ts', { '@/config/app.config': config }, { fetch, crypto: require('node:crypto').webcrypto })
+  approval.registerApprovalConfirmation(async () => ({ password: 'test-only', reason: '' }))
+  const { apiClient } = load('services/api.client.ts', { '@/config/app.config': config, './approval': approval }, { fetch })
+  const errors = []
+  const { reportSigningError } = load('lib/signingFeedback.ts', { sonner: { toast: { error: value => errors.push(value), info: () => assert.fail('Not a cancellation') } } })
+  try {
+    await apiClient.post('/voyage-log/record/sign', {})
+    assert.fail('Must fail')
+  } catch (error) {
+    reportSigningError(error, 'Failed to sign entry')
+  }
+  assert.deepEqual(errors, [message])
+})
+
+test('cancelled signing sends no mutation and displays informational feedback', async () => {
+  const config = { API_CONFIG: { BASE_URL: '/api', TIMEOUT: 30000 } }
+  let requests = 0
+  const fetch = async () => { requests++; return { ok: true, json: async () => ({ actor: {} }) } }
+  const approval = load('services/approval.ts', { '@/config/app.config': config }, { fetch })
+  approval.registerApprovalConfirmation(async () => { throw new approval.ApprovalCancelledError() })
+  const { apiClient } = load('services/api.client.ts', { '@/config/app.config': config, './approval': approval }, { fetch })
+  const information = []
+  const { reportSigningError } = load('lib/signingFeedback.ts', { sonner: { toast: { error: () => assert.fail('Cancellation is not an error'), info: value => information.push(value) } } })
+  await assert.rejects(() => apiClient.post('/voyage-log/record/sign', {}), error => {
+    reportSigningError(error)
+    return error.name === 'ApprovalCancelledError'
+  })
+  assert.equal(requests, 1)
+  assert.deepEqual(information, ['Đã hủy ký xác nhận.'])
+})
 
 test('reload restores a stored authenticated session; duplicate guards share validation', async () => {
   const wait = deferred(); let calls = 0
@@ -458,4 +520,25 @@ test('read-only drill attachments retain viewing but hide upload and removal', (
   const writable = renderToStaticMarkup(zone(props))
   assert.equal(writable.includes('type="file"'), true)
   assert.equal(writable.includes('title="Remove document"'), true)
+})
+
+test('all journal and report signing routes require the common confirmation', () => {
+  const { approvalTarget } = load('services/approval.ts', { '@/config/app.config': { API_CONFIG: { BASE_URL: '/api' } } })
+  const routes = [
+    ['/voyage-log/record/sign', 'log-voyage', 'sign'],
+    ['/logbooks/deck/record/sign', 'log-deck', 'sign'],
+    ['/logbooks/engine/record/sign', 'log-engine', 'sign'],
+    ['/logbooks/oil/record/sign', 'log-oil', 'sign'],
+    ['/logbooks/watchkeeping/record/sign', 'log-watchkeeping', 'sign'],
+    ['/logbooks/garbage/record/sign', 'log-garbage', 'sign'],
+    ['/logbooks/garbage/part-i/record/sign', 'log-garbage-i', 'sign'],
+    ['/logbooks/garbage/part-ii/record/sign', 'log-garbage-ii', 'sign'],
+    ['/logbooks/ballast/record/sign', 'log-ballast', 'sign'],
+    ['/reports/record/approve', 'report', 'approve'],
+    ['/reports/original/amendments/record/approve', 'report-amendment', 'approve'],
+    ['/drill/logs/record/approve', 'drill-log', 'approve'],
+    ['/hsqe/documents/record/approve', 'hsqe-document', 'approve'],
+    ...['log-abstract-master', 'log-abstract-engineer', 'report-weekly', 'report-monthly', 'report-engineer', 'pms-risk-worker', 'pms-risk-supervisor', 'pms-risk-chief', 'pms-inspection-operator', 'pms-inspection-chief'].map(module => [`/approvals/${module}/record/sign`, module, 'sign']),
+  ]
+  for (const [path, module, action] of routes) assert.deepEqual(JSON.parse(JSON.stringify(approvalTarget(path, {}))), { module, key: 'record', action })
 })

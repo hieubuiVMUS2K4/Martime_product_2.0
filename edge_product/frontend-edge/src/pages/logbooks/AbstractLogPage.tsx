@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -556,8 +557,6 @@ const SumTab: React.FC<{
         fwProduced: form.fwProduced,
         fwConsumed: form.fwConsumed,
         fwRobCurrent: form.fwRobCurrent,
-        masterSignature: form.masterSignature,
-        chiefEngineerSignature: form.chiefEngineerSignature,
         remarks: form.remarks,
         status: form.status,
       })
@@ -711,29 +710,21 @@ const SumTab: React.FC<{
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-0.5">{t('abstractLog.masterSignature')}</label>
-            {editing ? (
-              <input type="text" value={form.masterSignature ?? ''}
-                onChange={e => setForm(prev => ({ ...prev, masterSignature: e.target.value || undefined }))}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder={isVi ? 'Nhập tên Thuyền trưởng' : "Master's name"} />
-            ) : (
+
               <div>
                 <span className="text-gray-800 font-medium">{log.masterSignature || '—'}</span>
                 {log.masterSignedAt && <span className="text-xs text-gray-500 ml-2">{new Date(log.masterSignedAt).toLocaleDateString()}</span>}
               </div>
-            )}
+<SigningControls module="log-abstract-master" recordKey={log.id} permission="logbooks.abstract.approve" signed={!!log.masterSignature} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-0.5">{t('abstractLog.chiefEngineerSignature')}</label>
-            {editing ? (
-              <input type="text" value={form.chiefEngineerSignature ?? ''}
-                onChange={e => setForm(prev => ({ ...prev, chiefEngineerSignature: e.target.value || undefined }))}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder={isVi ? 'Nhập tên Máy trưởng' : "Chief Engineer's name"} />
-            ) : (
+
               <div>
                 <span className="text-gray-800 font-medium">{log.chiefEngineerSignature || '—'}</span>
                 {log.chiefEngineerSignedAt && <span className="text-xs text-gray-500 ml-2">{new Date(log.chiefEngineerSignedAt).toLocaleDateString()}</span>}
               </div>
-            )}
+<SigningControls module="log-abstract-engineer" recordKey={log.id} permission="logbooks.abstract.approve" signed={!!log.chiefEngineerSignature} />
           </div>
         </div>
       </div>

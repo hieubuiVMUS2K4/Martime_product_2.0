@@ -1,3 +1,4 @@
+import { prepareApproval } from "./approval";
 /**
  * Maintenance Task Service
  * ISM Code - Planned Maintenance System API Client
@@ -21,10 +22,14 @@ const api = axios.create({
 });
 
 // Add auth token to all requests
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (config.method !== "get") {
+    const proof = await prepareApproval(config.url || "", config.data, token);
+    Object.entries(proof).forEach(([key, value]) => { config.headers[key] = value });
   }
   return config;
 });

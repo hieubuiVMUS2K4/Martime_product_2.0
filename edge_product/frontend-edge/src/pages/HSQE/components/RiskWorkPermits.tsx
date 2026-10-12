@@ -1,8 +1,9 @@
+import { PermitApprovalActions } from "@/components/PermitApprovalActions";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react';
 import { 
   Plus, Activity, ArrowRight, ArrowLeft, ShieldAlert, ShieldCheck, Trash2, Eye,
-  Lock, Sparkles, Award
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/services/api.client';
@@ -38,7 +39,7 @@ interface WorkPermit {
   title: string;
   vessel: string;
   location: string;
-  status: 'Active' | 'Suspended' | 'Closed';
+  status: string;
   durationHours: number;
   startTime: string;
   riskAssessmentId?: string;
@@ -103,6 +104,7 @@ export function RiskWorkPermits() {
   const [permitRiskId, setPermitRiskId] = useState('');
   const [permitPreparedBy, setPermitPreparedBy] = useState('Đại phó Trần Văn D');
   
+  const [gasDevice, setGasDevice] = useState('');
   // Gas test inputs
   const [gasO2, setGasO2] = useState<number>(20.9);
   const [gasLEL, setGasLEL] = useState<number>(0.0);
@@ -112,13 +114,10 @@ export function RiskWorkPermits() {
   // Precautions checkboxes simulation
   const [precautionList, setPrecautionList] = useState<{ label: string; checked: boolean }[]>([]);
 
-  // PIN Digital Signature State (matching SMS Dashboard pattern)
-  const [permitSigningName, setPermitSigningName] = useState('Đại phó Trần Văn D');
-  const [permitSigningRank, setPermitSigningRank] = useState('Chief Officer');
-  const [permitSigningPin, setPermitSigningPin] = useState('');
-  const [permitSignStep, setPermitSignStep] = useState<'draft' | 'co_signed' | 'approved'>('draft');
+  // Current draft permit
+  const [, setPermitSignStep] = useState<'draft' | 'co_signed' | 'approved'>('draft');
   const [permitCreatedId, setPermitCreatedId] = useState<string | null>(null);
-  const [permitSignatures, setPermitSignatures] = useState<{ name: string; rank: string; timestamp: string; sigCode: string }[]>([]);
+  const [, setPermitSignatures] = useState<{ name: string; rank: string; timestamp: string; sigCode: string }[]>([]);
 
   const fetchRisksAndPermits = async () => {
     setLoading(true);
@@ -157,7 +156,7 @@ export function RiskWorkPermits() {
           location: p.location,
           status: p.status,
           durationHours: p.durationHours,
-          startTime: p.startTime ? p.startTime.slice(0, 16) : '',
+          startTime: p.startTime || '',
           riskAssessmentId: p.riskAssessmentId || undefined,
           gasO2: p.gasTestO2,
           gasLEL: p.gasTestLEL,
@@ -249,12 +248,6 @@ export function RiskWorkPermits() {
     setPrecautionList(list);
   }, [permitType]);
 
-  // Gas safety verification logic (mirroring backend validator)
-  const isGasSafe = (o2: number, lel: number, co: number, h2s: number) => {
-    return o2 >= 20.9 && o2 <= 22.0 && lel < 1 && co < 25 && h2s === 0;
-  };
-
-  const gasSafetyStatus = isGasSafe(gasO2, gasLEL, gasCO, gasH2S);
 
   // Compute Risk level color code
   const getRiskLevel = (score: number) => {
@@ -352,10 +345,6 @@ export function RiskWorkPermits() {
       return;
     }
 
-    if (permitType === 'Enclosed' && !gasSafetyStatus) {
-      toast.error('⚠️ Nồng độ khí chưa an toàn! Không thể cấp giấy phép vào không gian kín.');
-      return;
-    }
 
     try {
       // 1. Create Permit
@@ -374,87 +363,17 @@ export function RiskWorkPermits() {
         precautionsJson: JSON.stringify(finalPrecautions)
       });
 
-      // 2. Perform Gas Test
-      await apiClient.post(`/hsqe/permits/${created.id}/gas-test`, {
-        gasTestO2: gasO2,
-        gasTestLEL: gasLEL,
-        gasTestCO: gasCO,
-        gasTestH2S: gasH2S
-      });
-
-      // 3. Set permit created, ready for PIN signing
+      if ((permitType === 'Hot' || permitType === 'Enclosed') && gasDevice.trim()) {
+        await apiClient.post(`/hsqe/permits/${created.id}/gas-test`, { gasTestO2: gasO2, gasTestLEL: gasLEL, gasTestCO: gasCO, gasTestH2S: gasH2S, device: gasDevice });
+      }
+      // 3. Save draft before authenticated review
       setPermitCreatedId(created.id);
+      await fetchRisksAndPermits();
       setPermitSignStep('draft');
       setPermitSignatures([]);
-      setPermitSigningPin('');
-      toast.success(`Đã tạo Giấy phép ${created.permitCode}. Vui lòng ký duyệt bằng mã PIN.`);
+      toast.success(`Đã tạo Giấy phép ${created.permitCode}. Đã lưu nháp, cần gửi kiểm tra và cấp phép.`);
     } catch (err) {
       toast.error('Không thể tạo giấy phép nguy hiểm');
-    }
-  };
-
-  const handlePermitSign = async () => {
-    if (!permitCreatedId) return;
-
-    if (!permitSigningName.trim() || !permitSigningRank.trim() || !permitSigningPin.trim()) {
-      toast.error('Vui lòng điền tên, chức danh và mã PIN ký số.');
-      return;
-    }
-
-    try {
-      const res = await apiClient.post<any>(`/hsqe/permits/${permitCreatedId}/sign`, {
-        role: 'ChiefOfficer',
-        pin: permitSigningPin,
-        name: permitSigningName,
-        rank: permitSigningRank
-      });
-
-      const sigs = (() => { try { return JSON.parse(res.digitalSignatures || '[]'); } catch { return []; } })();
-      setPermitSignatures(sigs);
-      setPermitSignStep('co_signed');
-      setPermitSigningPin('');
-      setPermitSigningName('Thuyền trưởng');
-      setPermitSigningRank('Captain (Master)');
-      toast.success('Đại phó đã ký duyệt thành công! Chờ Thuyền trưởng phê duyệt.');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Mã PIN không chính xác hoặc lỗi ký số');
-    }
-  };
-
-  const handlePermitCaptainApprove = async () => {
-    if (!permitCreatedId) return;
-
-    if (!permitSigningPin.trim()) {
-      toast.error('Vui lòng nhập mã PIN Thuyền trưởng.');
-      return;
-    }
-
-    try {
-      const res = await apiClient.post<any>(`/hsqe/permits/${permitCreatedId}/sign`, {
-        role: 'Captain',
-        pin: permitSigningPin,
-        name: permitSigningName,
-        rank: permitSigningRank
-      });
-
-      const sigs = (() => { try { return JSON.parse(res.digitalSignatures || '[]'); } catch { return []; } })();
-      setPermitSignatures(sigs);
-      setPermitSignStep('approved');
-      setPermitSigningPin('');
-      toast.success('Thuyền trưởng đã phê duyệt cấp giấy phép thành công!');
-
-      // Reset and go back to list
-      setTimeout(async () => {
-        setViewMode('list');
-        setPermitTitle('');
-        setPermitLocation('');
-        setPermitCreatedId(null);
-        setPermitSignStep('draft');
-        setPermitSignatures([]);
-        await fetchRisksAndPermits();
-      }, 1500);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'PIN Thuyền trưởng không đúng (Mặc định: 1111)');
     }
   };
 
@@ -891,6 +810,7 @@ export function RiskWorkPermits() {
             </div>
           </div>
 
+          <label>Mã thiết bị đo khí<input value={gasDevice} onChange={event => setGasDevice(event.target.value)} className="border rounded p-2 ml-2" /></label>
           {/* Gas Input Form section - Only relevant for Enclosed spaces */}
           {permitType === 'Enclosed' && (
             <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
@@ -940,15 +860,7 @@ export function RiskWorkPermits() {
               </div>
 
               {/* Visual safety indicator */}
-              {gasSafetyStatus ? (
-                <div className="p-3 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-850 text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4" /> NỒNG ĐỘ KHÍ AN TOÀN. Đủ điều kiện cấp phép vào không gian kín.
-                </div>
-              ) : (
-                <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-850 text-xs font-bold flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4 animate-bounce" /> NỒNG ĐỘ KHÍ NGUY HIỂM! Hệ thống tự động khóa nút phê duyệt cấp phép.
-                </div>
-              )}
+              <p className="text-xs text-slate-500">K?t qu? ?o ???c l?u ?? ng??i ki?m tra v? ng??i c?p ph?p ??i chi?u SMS c?ng ty.</p>
             </div>
           )}
 
@@ -970,108 +882,9 @@ export function RiskWorkPermits() {
             </div>
           </div>
 
-          {/* PIN DIGITAL SIGNATURE SECTION */}
-          <div className="bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-250 dark:border-slate-800 space-y-4 border-t border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-              <Lock className="w-4 h-4 text-blue-500" />
-              <span>MÃ PIN XÁC THỰC CHỮ KÝ SỐ</span>
-            </div>
-
-            <p className="text-[10px] text-slate-450 leading-relaxed">
-              Đóng dấu số điện tử trực tiếp lên giấy phép làm việc. Officers sử dụng mã PIN cá nhân của mình (4 chữ số bất kỳ). <br />
-              <strong>Thuyền trưởng duyệt cấp phép sử dụng mã PIN: 1111</strong>
-            </p>
-
-            {/* Show signatures already made */}
-            {permitSignatures.length > 0 && (
-              <div className="space-y-1.5">
-                {permitSignatures.map((sig, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-[10px] bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 px-3 py-2 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="font-bold">{sig.name}</span>
-                    <span className="text-emerald-600 dark:text-emerald-500">({sig.rank})</span>
-                    <span className="ml-auto font-mono text-[9px] text-emerald-500">{sig.sigCode}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {permitSignStep !== 'approved' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {permitSignStep === 'draft' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Họ tên người ký"
-                        value={permitSigningName}
-                        onChange={(e) => setPermitSigningName(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Chức danh ký"
-                        value={permitSigningRank}
-                        onChange={(e) => setPermitSigningRank(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </>
-                  )}
-                  <input
-                    type="password"
-                    maxLength={4}
-                    placeholder="PIN (4 số)"
-                    value={permitSigningPin}
-                    onChange={(e) => setPermitSigningPin(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white font-mono text-center outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end pt-1">
-                  <button
-                    onClick={() => { setViewMode('list'); setPermitCreatedId(null); setPermitSignStep('draft'); setPermitSignatures([]); }}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 transition"
-                  >
-                    Hủy bỏ
-                  </button>
-
-                  {!permitCreatedId ? (
-                    <PermissionGate permission="hsqe.create"><button
-                      onClick={handleCreatePermit}
-                      disabled={permitType === 'Enclosed' && !gasSafetyStatus}
-                      className={`px-5 py-2 rounded-xl text-white text-xs font-semibold transition shadow flex items-center gap-1.5 ${
-                        permitType === 'Enclosed' && !gasSafetyStatus
-                          ? 'bg-slate-350 cursor-not-allowed opacity-50'
-                          : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Tạo Giấy phép
-                    </button></PermissionGate>
-                  ) : permitSignStep === 'draft' ? (
-                    <PermissionGate permission="hsqe.approve"><button
-                      onClick={handlePermitSign}
-                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Ký & Đệ trình (Chief Officer)
-                    </button></PermissionGate>
-                  ) : (
-                    <PermissionGate permission="hsqe.approve"><button
-                      onClick={handlePermitCaptainApprove}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
-                    >
-                      <Award className="w-4 h-4" /> Captain Duyệt & Cấp phép
-                    </button></PermissionGate>
-                  )}
-                </div>
-              </>
-            )}
-
-            {permitSignStep === 'approved' && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5" />
-                GIẤY PHÉP ĐÃ ĐƯỢC PHÊ DUYỆT ĐIỆN TỬ THÀNH CÔNG — Đang chuyển về danh sách...
-              </div>
-            )}
+          <div className="p-5 border rounded-xl">
+            {!permitCreatedId ? <PermissionGate permission="hsqe.create"><button className="bg-blue-600 rounded text-white px-4 py-2" onClick={handleCreatePermit}>Lưu giấy phép nháp</button></PermissionGate> : <PermitApprovalActions id={permitCreatedId} status={permits.find(p => p.id === permitCreatedId)?.status || 'Draft'} onChanged={fetchRisksAndPermits} />}
+            <button className="ml-3" onClick={() => { setViewMode('list'); setPermitCreatedId(null); }}>Về danh sách</button>
           </div>
         </div>
       </div>
@@ -1148,7 +961,7 @@ export function RiskWorkPermits() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {permits.filter(p => p.status === 'Active').map(p => (
+              {permits.map(p => (
                 <div key={p.id} className="bg-white dark:bg-slate-800 border-l-4 border-green-500 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between gap-4">
                   <div>
                     <div className="flex justify-between items-start">
@@ -1183,7 +996,7 @@ export function RiskWorkPermits() {
                 </div>
               ))}
 
-              {permits.filter(p => p.status === 'Active').length === 0 && (
+              {permits.length === 0 && (
                 <div className="col-span-3 bg-slate-100/50 dark:bg-slate-800/20 py-8 border border-dashed rounded-2xl flex flex-col items-center justify-center text-slate-400">
                   <ShieldCheck className="w-8 h-8 mb-2" />
                   <span className="text-xs">Hiện tại không có giấy phép nào đang hoạt động trên tàu.</span>
@@ -1231,7 +1044,7 @@ export function RiskWorkPermits() {
                         <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
                           p.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
                         }`}>
-                          {p.status === 'Active' ? 'Active' : 'Closed'}
+                          {p.status}
                         </span>
                       </td>
                       <td className="p-3 text-right space-x-2">
@@ -1757,7 +1570,8 @@ export function RiskWorkPermits() {
                 </div>
               </div>
 
-              {/* Gas Input Form section - Only relevant for Enclosed spaces */}
+              <label>Mã thiết bị đo khí<input value={gasDevice} onChange={event => setGasDevice(event.target.value)} className="border rounded p-2 ml-2" /></label>
+          {/* Gas Input Form section - Only relevant for Enclosed spaces */}
               {permitType === 'Enclosed' && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
                   <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -1806,15 +1620,7 @@ export function RiskWorkPermits() {
                   </div>
 
                   {/* Visual safety indicator */}
-                  {gasSafetyStatus ? (
-                    <div className="p-3 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-850 text-xs font-semibold flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4" /> NỒNG ĐỘ KHÍ AN TOÀN. Đủ điều kiện cấp phép vào không gian kín.
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-850 text-xs font-bold flex items-center gap-1.5">
-                      <ShieldAlert className="w-4 h-4 animate-bounce" /> NỒNG ĐỘ KHÍ NGUY HIỂM! Hệ thống tự động khóa nút phê duyệt cấp phép.
-                    </div>
-                  )}
+                  <p className="text-xs text-slate-500">K?t qu? ?o ???c l?u ?? ng??i ki?m tra v? ng??i c?p ph?p ??i chi?u SMS c?ng ty.</p>
                 </div>
               )}
 
@@ -1846,9 +1652,9 @@ export function RiskWorkPermits() {
               </button>
               <PermissionGate permission="hsqe.create"><button
                 onClick={handleCreatePermit}
-                disabled={permitType === 'Enclosed' && !gasSafetyStatus}
+                disabled={false}
                 className={`px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition shadow ${
-                  permitType === 'Enclosed' && !gasSafetyStatus
+                  false
                     ? 'bg-slate-350 cursor-not-allowed opacity-50'
                     : 'bg-green-600 hover:bg-green-700'
                 }`}
@@ -1882,7 +1688,7 @@ export function RiskWorkPermits() {
               <div id="printable-permit-document" className="bg-white text-slate-900 w-full max-w-[500px] shadow border border-slate-200 p-8 flex flex-col justify-between relative font-sans text-xs">
                 
                 {/* Diagonal Watermark for Active status */}
-                {selectedPermit.status === 'Active' && (
+                {selectedPermit.status === 'Issued' && Date.now() >= new Date(selectedPermit.startTime).getTime() && Date.now() < new Date(selectedPermit.startTime).getTime() + selectedPermit.durationHours * 3600000 && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10 opacity-[0.05] transform -rotate-45">
                     <span className="text-4xl font-extrabold tracking-widest text-green-600 border-8 border-green-600 p-3 uppercase">
                       GIẤY PHÉP HIỆU LỰC

@@ -26,7 +26,7 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
         // Refresh coarse account role used by legacy admin helpers; never trust the session cache.
         http.Items["RoleCode"] = current.IsAdmin ? "ADMIN" : "CREW";
         http.Items["EffectivePermissions"] = current;
-        if (controller == "RankPermissions") { await next(); return; } // Controller enforces admin/self separately.
+        if (controller is "RankPermissions" or "Approvals") { await next(); return; } // Controller enforces admin/self separately.
         if (controller == "Crew" && name == "AddCrew")
         {
             context.Result = new ObjectResult(new { error = "Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu." }) { StatusCode = 403 };

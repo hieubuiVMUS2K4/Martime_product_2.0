@@ -1,9 +1,11 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { CoordinatePicker } from '../../components/common/CoordinatePicker';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { BallastWaterRecordResponseDto } from '../../types/logbook.types';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -96,7 +98,7 @@ export const BallastWaterPage: React.FC = () => {
     show: boolean;
     entryId: string | null;
   }>({ show: false, entryId: null });
-  const [masterSignature, setMasterSignature] = useState('Captain');
+
 
   const handleSignEntry = (entryId: string, alreadySigned: boolean) => {
     if (alreadySigned) {
@@ -107,14 +109,14 @@ export const BallastWaterPage: React.FC = () => {
   };
 
   const confirmSign = async () => {
-    if (!signModal.entryId || !masterSignature.trim()) {
+    if (!signModal.entryId) {
       toast.error('Master signature is required');
       return;
     }
 
     try {
       const signData = {
-        signature: masterSignature.trim(),
+        signature: '',
         signedAt: new Date().toISOString()
       };
 
@@ -122,11 +124,10 @@ export const BallastWaterPage: React.FC = () => {
       toast.success(t('logbooks.common.signSuccess'));
       
       setSignModal({ show: false, entryId: null });
-      setMasterSignature('Captain');
       fetchEntries();
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.error || t('logbooks.common.signFailed'));
+      reportSigningError(error, t('logbooks.common.signFailed'));
     }
   };
 
@@ -652,7 +653,8 @@ export const BallastWaterPage: React.FC = () => {
                   </td>
                   <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
                   <td className="p-4">
-                    {entry.masterSignature ? (
+                    <SigningControls module="log-ballast" recordKey={entry.id} permission="logbooks.ballast.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                       <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
                         {t('logbooks.deckLog.signed')}
                       </span>
@@ -704,26 +706,18 @@ export const BallastWaterPage: React.FC = () => {
             </h3>
             <p className="text-gray-700 font-sans mb-4">
               By signing this entry, you confirm that all information is accurate and complete.
-              This action cannot be undone.
+              Sửa đổi sau ký sẽ giữ lại phiên bản và lịch sử xác nhận.
             </p>
             <div className="mb-6">
               <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
                 Master Signature *
               </label>
-              <input
-                type="text"
-                value={masterSignature}
-                onChange={e => setMasterSignature(e.target.value)}
-                className="w-full bg-white border-2 border-gray-200 text-gray-900 font-sans p-3 focus:border-blue-500 focus:outline-none"
-                placeholder="Enter master's name"
-                autoFocus
-              />
+              <p className="text-sm">Người ký và chức danh được lấy từ tài khoản. Nhập lại mật khẩu ở bước xác nhận.</p>
             </div>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setSignModal({ show: false, entryId: null });
-                  setMasterSignature('Captain');
                 }}
                 className="px-6 py-1.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
               >

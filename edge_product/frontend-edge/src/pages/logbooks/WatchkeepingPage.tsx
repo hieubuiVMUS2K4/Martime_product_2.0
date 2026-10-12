@@ -1,9 +1,11 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { CoordinatePicker } from '../../components/common/CoordinatePicker';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { WatchkeepingLogResponseDto } from '../../types/logbook.types';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -354,7 +356,7 @@ export const WatchkeepingPage: React.FC = () => {
       fetchEntries();
     } catch (error) {
       console.error(error);
-      toast.error(t('logbooks.watchkeeping.signFailed'));
+      reportSigningError(error, t('logbooks.watchkeeping.signFailed'));
     }
   };
 
@@ -404,7 +406,8 @@ export const WatchkeepingPage: React.FC = () => {
               <span className="px-3 py-1 bg-blue-500 rounded-full text-sm font-medium">
                 ⏰ {entry.watchPeriod}
               </span>
-              {entry.masterSignature ? (
+              <SigningControls module="log-watchkeeping" recordKey={entry.id} permission="logbooks.watchkeeping.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                 <span className="px-3 py-1 bg-green-500 rounded-full text-sm font-medium">✓ {t('logbooks.watchkeeping.signed')}</span>
               ) : (
                 <span className="px-3 py-1 bg-yellow-500 text-black rounded-full text-sm font-medium">{t('logbooks.abstractLog.draft')}</span>
@@ -679,7 +682,7 @@ export const WatchkeepingPage: React.FC = () => {
                 </button></PermissionGate>
                 <PermissionGate permission="logbooks.watchkeeping.approve"><button
                   onClick={() => {
-                    handleSign(entry.id, 'Master Signature');
+                    handleSign(entry.id, '');
                     closeDetailModal();
                   }}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -1307,7 +1310,7 @@ export const WatchkeepingPage: React.FC = () => {
                         <PermissionGate permission="logbooks.watchkeeping.approve"><button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleSign(entry.id, 'Master Signature');
+                            handleSign(entry.id, '');
                           }}
                           className="text-green-600 hover:underline font-sans text-sm"
                         >

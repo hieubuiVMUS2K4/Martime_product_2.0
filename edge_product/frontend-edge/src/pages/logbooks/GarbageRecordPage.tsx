@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -484,7 +485,8 @@ export const GarbageRecordPage: React.FC = () => {
                   </td>
                   <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
                   <td className="p-4">
-                    {entry.masterSignature ? (
+                    <SigningControls module="log-garbage" recordKey={entry.id} permission="logbooks.garbage.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                       <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
                         {t('logbooks.deckLog.signed')}
                       </span>

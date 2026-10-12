@@ -6,6 +6,7 @@ import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ReportFormError } from './ReportFormError';
 import { Fuel, AlertTriangle, Save, Send } from 'lucide-react';
 import { useCurrentAccountName } from '../../hooks/useCurrentAccountName';
 import { maritimeService } from '../../services/maritime.service';
@@ -133,7 +134,7 @@ export function BunkerReportForm() {
           robAfter: report.robAfter,
           tanksLoaded: report.tanksLoaded,
           sealNumbers: report.sealNumbers,
-          chiefEngineerSignature: report.chiefEngineerSignature,
+          chiefEngineerSignature: undefined,
           unitPrice: report.unitPrice,
           totalCost: report.totalCost,
           deliveryMethod: report.deliveryMethod,
@@ -368,12 +369,7 @@ export function BunkerReportForm() {
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          <p className="font-semibold">Error</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
+      <ReportFormError error={error} />
 
       <form className="space-y-6">
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
@@ -744,14 +740,7 @@ export function BunkerReportForm() {
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Chief Engineer Signature</label>
-            <input
-              ref={setFieldRef('chiefEngineerSignature')}
-              type="text"
-              value={formData.chiefEngineerSignature || ''}
-              onChange={(e) => handleChange('chiefEngineerSignature', e.target.value || undefined)}
-              placeholder="Chief Engineer sign-off"
-              className={`${getValidationInputClassName(fieldErrors, 'chiefEngineerSignature')} mb-4`}
-            />
+            <p>Lưu báo cáo trước, rồi ký xác nhận bằng tài khoản trong trang chi tiết.</p>
             {renderValidationFieldError(fieldErrors, 'chiefEngineerSignature')}
 
             <label className="block text-sm font-medium text-gray-700 mb-2">Prepared By</label>

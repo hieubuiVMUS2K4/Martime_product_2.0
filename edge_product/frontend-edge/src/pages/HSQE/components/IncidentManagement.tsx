@@ -159,11 +159,7 @@ export function IncidentManagement() {
       date: selectedIncident.date,
       contentHtml,
       watermark: selectedIncident.status === 'Closed' ? 'ĐÃ ĐÓNG HS' : 'BẢN PHÁT HÀNH',
-      signatures: [
-        { name: 'Thuyền trưởng', rank: 'Người báo cáo', sigCode: 'SIG-INC-' + selectedIncident.code + '-CAPT', timestamp: selectedIncident.date },
-        { name: 'DPA Hải', rank: 'Người kiểm tra', sigCode: 'SIG-INC-' + selectedIncident.code + '-DPA', timestamp: selectedIncident.date },
-        { name: 'Giám đốc', rank: 'Phê duyệt đóng HS', sigCode: 'SIG-INC-' + selectedIncident.code + '-DIR', timestamp: selectedIncident.date }
-      ]
+      signatures: []
     });
   };
 

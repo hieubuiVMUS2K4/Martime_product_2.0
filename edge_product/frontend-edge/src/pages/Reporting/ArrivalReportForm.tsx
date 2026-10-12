@@ -6,6 +6,7 @@ import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ReportFormError } from './ReportFormError';
 import { Anchor, MapPin, Save, Send, Ship, User, Fuel } from 'lucide-react';
 import { useCurrentAccountName } from '../../hooks/useCurrentAccountName';
 import { maritimeService } from '../../services/maritime.service';
@@ -366,11 +367,7 @@ export function ArrivalReportForm() {
           <p className="text-gray-600 dark:text-gray-400 mt-2">SOLAS V Compliant - Port Arrival Notification</p>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-800 dark:text-red-200">{error}</p>
-          </div>
-        )}
+        <ReportFormError error={error} />
 
         <form className="space-y-6">
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">

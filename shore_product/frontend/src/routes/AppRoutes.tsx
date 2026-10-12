@@ -1,3 +1,4 @@
+import ApprovalEvidencePage from "../pages/SyncManagement/ApprovalEvidencePage";
 import React from 'react';
 import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { TopNavLayout } from '../components/layout';
@@ -83,6 +84,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/certificates" element={<Navigate to="/crew?tab=certificates" replace />} />
         <Route path="/sign-off-requests" element={<Navigate to="/crew?tab=sign-off" replace />} />
         <Route path="/sync" element={<SyncDashboardPage />} />
+        <Route path="/approval-evidence" element={<ApprovalEvidencePage />} />
         <Route path="/work-assignments" element={<WorkAssignmentPage />} />
         <Route path="/vessels" element={<VesselsPage />} />
         <Route path="/vessels/tracking" element={<VesselTrackingPage />} />

@@ -1,3 +1,4 @@
+import { prepareApproval } from './approval'
 import { API_CONFIG } from '@/config/app.config'
 
 // ─── Auth Token Provider ──────────────────────────────────
@@ -46,6 +47,10 @@ export class ApiClient {
     options: RequestInit = {},
     retryAuth = true
   ): Promise<T> {
+    if (retryAuth && options.method && options.method !== "GET") {
+      const proof = await prepareApproval(endpoint, typeof options.body === "string" ? JSON.parse(options.body) : undefined, _getToken?.() ?? null)
+      options = { ...options, headers: { ...options.headers, ...proof } }
+    }
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 

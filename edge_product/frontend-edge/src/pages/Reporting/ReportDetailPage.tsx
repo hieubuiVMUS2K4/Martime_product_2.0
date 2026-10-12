@@ -1,8 +1,11 @@
+import { SigningControls } from "@/components/SigningControls";
+import { ApprovalHistory } from "@/components/ApprovalHistory";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import {
   Anchor,
   ArrowLeft,
@@ -257,10 +260,9 @@ export function ReportDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [showTransmitModal, setShowTransmitModal] = useState(false);
+  const [transmitting, setTransmitting] = useState(false);
   const [approvalData, setApprovalData] = useState({ masterSignature: '', approvalRemarks: '' });
   const [rejectionReason, setRejectionReason] = useState('');
-  const [transmitData, setTransmitData] = useState({ transmissionMethod: 'EMAIL', recipientEmails: '' });
 
   useEffect(() => {
     if (!id) {
@@ -317,7 +319,7 @@ export function ReportDetailPage() {
       toast.success('Report approved successfully');
       await reloadAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to approve report');
+      reportSigningError(err, 'Không thể phê duyệt báo cáo. Vui lòng thử lại.');
     }
   };
 
@@ -334,18 +336,20 @@ export function ReportDetailPage() {
   };
 
   const handleTransmit = async () => {
+    if (!id || transmitting) return;
+
+    setTransmitting(true);
     try {
-      await ReportingService.transmitReport(id!, {
-        transmissionMethod: transmitData.transmissionMethod,
-        recipientEmails: transmitData.recipientEmails.split(';').map((email) => email.trim()).filter(Boolean),
+      await ReportingService.transmitReport(id, {
+        transmissionMethod: 'API',
         includeAttachments: false,
       });
-      setShowTransmitModal(false);
-      setTransmitData({ transmissionMethod: 'EMAIL', recipientEmails: '' });
-      toast.success('Report transmitted successfully');
+      toast.success('Report queued for delivery to Shore');
       await reloadAll();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to transmit report');
+    } finally {
+      setTransmitting(false);
     }
   };
 
@@ -732,11 +736,13 @@ export function ReportDetailPage() {
 
             {report.status === 'APPROVED' && !report.isTransmitted && (
               <PermissionGate permission="reporting.update"><button
-                onClick={() => setShowTransmitModal(true)}
-                className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                type="button"
+                onClick={handleTransmit}
+                disabled={transmitting}
+                className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
               >
                 <Send className="h-4 w-4" />
-                Transmit
+                {transmitting ? 'Transmitting...' : 'Transmit'}
               </button></PermissionGate>
             )}
 
@@ -783,7 +789,9 @@ export function ReportDetailPage() {
           </div>
 
           <div className="space-y-4">
-            {report.masterSignature && (
+            <ApprovalHistory module="report" recordKey={report.id} />
+{report.reportTypeCode === "BUNKER" && <SigningControls module="report-engineer" recordKey={report.id} permission="reporting.approve" signed={!!(report as any).chiefEngineerSignature} />}
+{report.masterSignature && (
               <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
                   <CheckCircle className="h-4 w-4 text-emerald-600" />
@@ -853,12 +861,7 @@ export function ReportDetailPage() {
             <div className="mt-4 space-y-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Master signature</label>
-                <input
-                  type="text"
-                  value={approvalData.masterSignature}
-                  onChange={(event) => setApprovalData({ ...approvalData, masterSignature: event.target.value })}
-                  className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:bg-white"
-                />
+                <p className="text-sm">Danh tính người duyệt được xác nhận từ tài khoản ở bước nhập mật khẩu.</p>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Remarks (optional)</label>
@@ -928,56 +931,6 @@ export function ReportDetailPage() {
         </div>
       )}
 
-      {/* ── Transmit modal ───────────────────────────────────────── */}
-      {showTransmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
-            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-              <Send className="h-4 w-4 text-emerald-600" />
-              Transmit report
-            </h3>
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Method</label>
-                <select
-                  value={transmitData.transmissionMethod}
-                  onChange={(event) => setTransmitData({ ...transmitData, transmissionMethod: event.target.value })}
-                  className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
-                >
-                  <option value="EMAIL">Email</option>
-                  <option value="TELEX">Telex</option>
-                  <option value="INMARSAT">Inmarsat</option>
-                  <option value="VSAT">VSAT</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Recipient emails</label>
-                <input
-                  type="text"
-                  value={transmitData.recipientEmails}
-                  onChange={(event) => setTransmitData({ ...transmitData, recipientEmails: event.target.value })}
-                  placeholder="ops@example.com; fleet@example.com"
-                  className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => setShowTransmitModal(false)}
-                className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <PermissionGate permission="reporting.update"><button
-                onClick={handleTransmit}
-                className="flex-1 rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"
-              >
-                Send transmission
-              </button></PermissionGate>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

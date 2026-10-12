@@ -746,7 +746,6 @@ public class ReportSummaryDto
 /// </summary>
 public class ApproveReportDto
 {
-    [Required]
     [MaxLength(100)]
     public string MasterSignature { get; set; } = string.Empty;
 
@@ -939,7 +938,6 @@ public class ReportAmendmentDto
 /// </summary>
 public class ApproveAmendmentDto
 {
-    [Required]
     [MinLength(3)]
     public string MasterSignature { get; set; } = string.Empty;
     

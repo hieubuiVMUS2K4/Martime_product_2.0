@@ -1,8 +1,10 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { VoyageLogEntryResponseDto } from '../../types/logbook.types';
 import { VOYAGE_LOG_EVENT_TYPES } from '../../types/logbook.types';
@@ -26,7 +28,7 @@ export const VoyageLogDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showSignature, setShowSignature] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [masterSignature, setMasterSignature] = useState('Captain');
+
 
   useEffect(() => {
     if (id) {
@@ -59,7 +61,7 @@ export const VoyageLogDetailPage: React.FC = () => {
       fetchEntry();
     } catch (error) {
       console.error(error);
-      toast.error('Failed to sign entry');
+      reportSigningError(error, 'Không thể ký nhật ký hành trình. Vui lòng thử lại.');
     } finally {
       setSigning(false);
     }
@@ -150,7 +152,8 @@ export const VoyageLogDetailPage: React.FC = () => {
             ? 'bg-green-50 border border-green-200' 
             : 'bg-yellow-50 border border-yellow-200'
         }`}>
-          {entry.masterSignature ? (
+          <SigningControls module="log-voyage" recordKey={entry.id} permission="logbooks.voyage.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
             <>
               <CheckCircle className="w-6 h-6 text-green-600" />
               <div>
@@ -439,21 +442,13 @@ export const VoyageLogDetailPage: React.FC = () => {
               <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
                 Master Signature *
               </label>
-              <input
-                type="text"
-                value={masterSignature}
-                onChange={e => setMasterSignature(e.target.value)}
-                className="w-full bg-white border border-gray-300 text-gray-900 font-sans p-3 rounded-lg focus:border-blue-500 focus:outline-none"
-                placeholder="Enter master's name"
-                autoFocus
-              />
+              <p className="text-sm">Người ký và chức danh được lấy từ tài khoản. Nhập lại mật khẩu ở bước xác nhận.</p>
             </div>
             
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowSignature(false);
-                  setMasterSignature('Captain');
                 }}
                 className="px-6 py-1.5 border border-gray-300 text-gray-700 font-sans font-semibold rounded-lg hover:bg-gray-50"
                 disabled={signing}
@@ -462,11 +457,7 @@ export const VoyageLogDetailPage: React.FC = () => {
               </button>
               <PermissionGate permission="logbooks.voyage.approve"><button
                 onClick={() => {
-                  if (!masterSignature.trim()) {
-                    toast.error("Master signature is required");
-                    return;
-                  }
-                  handleSign(masterSignature.trim());
+                  handleSign('');
                 }}
                 className="px-6 py-1.5 bg-green-600 text-white font-sans font-semibold rounded-lg hover:bg-green-700"
                 disabled={signing}

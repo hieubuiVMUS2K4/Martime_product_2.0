@@ -85,6 +85,9 @@ export interface SmsFilledRecord {
 }
 
 export interface SignatureEntry {
+  authenticationMethod?: string;
+  contentHash?: string;
+  revisionId?: string;
   name: string;
   rank: string;
   timestamp: string;
@@ -144,22 +147,14 @@ class SmsService {
 
   async signRecord(
     id: string,
-    data: {
-      pin: string;
-      name: string;
-      rank: string;
-    }
+    data: Record<string, never>
   ): Promise<{ message: string; signatures: SignatureEntry[]; status: string }> {
     return apiClient.post<{ message: string; signatures: SignatureEntry[]; status: string }>(`/sms/records/${id}/sign`, data);
   }
 
   async approveRecord(
     id: string,
-    data: {
-      pin: string;
-      name: string;
-      rank: string;
-    }
+    data: Record<string, never>
   ): Promise<{ message: string; signatures: SignatureEntry[]; status: string }> {
     return apiClient.post<{ message: string; signatures: SignatureEntry[]; status: string }>(`/sms/records/${id}/approve`, data);
   }

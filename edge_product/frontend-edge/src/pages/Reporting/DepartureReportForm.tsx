@@ -6,6 +6,7 @@ import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ReportFormError } from './ReportFormError';
 import { Anchor, MapPin, Save, Send, Ship, User } from 'lucide-react';
 import { useCurrentAccountName } from '../../hooks/useCurrentAccountName';
 import { useOfflineDraft } from '../../hooks/useOfflineDraft';
@@ -375,12 +376,7 @@ export function DepartureReportForm() {
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          <p className="font-semibold">Error</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
+      <ReportFormError error={error} />
 
       <form className="space-y-6">
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">

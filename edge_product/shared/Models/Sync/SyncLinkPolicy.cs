@@ -22,6 +22,7 @@ public sealed record SyncLinkPolicy(int MetadataBytes, int ChunkBytes, int Reque
 
     public static SyncPriority TablePriority(string table) => table.ToLowerInvariant() switch
     {
+        "approval_document" or "approval_revision" or "approval_action" => SyncPriority.Operational,
         "safety_alarm" or "engine_event" or "alert" => SyncPriority.Critical,
         "maintenance_history" or "task_deferral_request" or "maintenance_task" or "maintenance_schedule" or "equipment_asset" or "equipment_group" or
         "crew_member" or "crew_certificate" or "crew_logbook_entry" or "maritime_report" or "report_type" or "ship_data" or

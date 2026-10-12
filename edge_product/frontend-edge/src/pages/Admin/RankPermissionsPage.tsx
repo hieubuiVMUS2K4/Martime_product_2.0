@@ -13,6 +13,11 @@ const actionGroups = [
   { label: 'Xuất / tải file', actions: ['export'] },
   { label: 'Thực hiện', actions: ['execute'] },
   { label: 'Duyệt / ký', actions: ['approve'] },
+  { label: 'Ký gửi hồ sơ', actions: ['sign'] },
+  { label: 'Kiểm tra an toàn', actions: ['check'] },
+  { label: 'Cấp phép', actions: ['issue'] },
+  { label: 'Đóng phép', actions: ['close'] },
+  { label: 'Đình chỉ', actions: ['suspend'] },
   { label: 'Từ chối', actions: ['reject'] },
 ]
 const departments: Record<string, string> = { DECK: 'Bộ phận boong', ENGINE: 'Bộ phận máy', CATERING: 'Bộ phận phục vụ', OTHER: 'Khác' }

@@ -1,3 +1,4 @@
+using MaritimeEdge.Services.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -325,7 +326,7 @@ namespace MaritimeEdge.Controllers.Safety
                     FilledDate = DateTime.UtcNow,
                     FilledData = req.FilledData,
                     DigitalSignatures = "[]",
-                    Status = req.SubmitImmediately ? "Submitted" : "Draft",
+                    Status = "Draft",
                     IsSynced = false,
                     OriginNode = "SHIP_01"
                 };
@@ -354,18 +355,15 @@ namespace MaritimeEdge.Controllers.Safety
                 if (record == null)
                     return NotFound(new { message = "Không tìm thấy Hồ sơ" });
 
-                if (record.Status == "Approved")
-                    return BadRequest(new { message = "Hồ sơ đã được phê duyệt, không thể chỉnh sửa." });
+                if (record.Status != "Draft" && record.Status != "Returned")
+                    return Conflict(new { message = "Hồ sơ đã ký bị khóa. Tạo sửa đổi trước khi sửa." });
 
                 record.FilledData = req.FilledData;
                 record.FilledBy = req.FilledBy;
                 record.UpdatedAt = DateTime.UtcNow;
                 record.IsSynced = false;
 
-                if (req.SubmitImmediately)
-                {
-                    record.Status = "Submitted";
-                }
+                if (req.SubmitImmediately) return BadRequest(new { message = "Lưu nháp rồi ký gửi duyệt bằng tài khoản." });
 
                 _context.SmsFilledRecords.Update(record);
                 await _context.SaveChangesAsync();
@@ -380,7 +378,7 @@ namespace MaritimeEdge.Controllers.Safety
         }
 
         // ==========================================
-        // 8. E-SIGNATURE (PIN SIGN OFF)
+        // 8. Authenticated sign and submit
         // ==========================================
         [HttpPost("records/{id}/sign")]
         public async Task<IActionResult> SignRecord(Guid id, [FromBody] SignRequest req)
@@ -397,38 +395,18 @@ namespace MaritimeEdge.Controllers.Safety
                 if (record.Status == "Approved")
                     return BadRequest(new { message = "Hồ sơ đã được phê duyệt hoàn tất." });
 
-                // Simple maritime PIN check:
-                // Captain PIN: 1111 or 1234
-                // Officers/Crew PIN: any 4 digits
-                if (string.IsNullOrWhiteSpace(req.Pin) || req.Pin.Length != 4 || !req.Pin.All(char.IsDigit))
-                {
-                    return BadRequest(new { message = "Mã PIN chữ ký số không hợp lệ (yêu cầu 4 chữ số)." });
-                }
-
-                // Add signature to JSON array
-                var signatures = JsonSerializer.Deserialize<List<SignatureEntry>>(record.DigitalSignatures, JsonOptions) ?? new List<SignatureEntry>();
-
-                // Check if this rank already signed
-                if (signatures.Any(s => s.Rank == req.Rank))
-                {
-                    return BadRequest(new { message = $"Chức danh {req.Rank} đã ký vào hồ sơ này." });
-                }
-
-                var newSig = new SignatureEntry
-                {
-                    Name = req.Name,
-                    Rank = req.Rank,
-                    Timestamp = DateTime.UtcNow,
-                    SigCode = $"SIG-{req.Rank.Replace(" ", "").ToUpper()}-{Guid.NewGuid().ToString()[..8].ToUpper()}"
-                };
-
+                if (record.Status != "Draft" && record.Status != "Returned") return Conflict(new { message = "Chỉ ký gửi hồ sơ nháp hoặc đã trả lại." });
+                var actor = (ApprovalActor)HttpContext.Items["ApprovalActor"]!;
+                var signatures = new List<SignatureEntry>();
+                var newSig = new SignatureEntry { Name = actor.Name, Rank = actor.Rank, Timestamp = DateTime.UtcNow, AuthenticationMethod = "password-reauthentication", ContentHash = (string)HttpContext.Items["ApprovalContentHash"]!, RevisionId = (Guid)HttpContext.Items["ApprovalRevisionId"]!,
+                    SigCode = HttpContext.Items["ApprovalActionId"]!.ToString()! };
                 signatures.Add(newSig);
                 record.DigitalSignatures = JsonSerializer.Serialize(signatures, JsonOptions);
                 record.IsSynced = false;
                 record.UpdatedAt = DateTime.UtcNow;
 
                 // Auto-transition to Submitted if signed by officer, or just update
-                if (record.Status == "Draft")
+                if (record.Status is "Draft" or "Returned")
                 {
                     record.Status = "Submitted";
                 }
@@ -436,7 +414,7 @@ namespace MaritimeEdge.Controllers.Safety
                 _context.SmsFilledRecords.Update(record);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "Ký chữ ký số điện tử thành công", signatures, status = record.Status });
+                return Ok(new { message = "Ký xác nhận thành công", signatures, status = record.Status });
             }
             catch (Exception ex)
             {
@@ -463,22 +441,13 @@ namespace MaritimeEdge.Controllers.Safety
                 if (record.Status == "Approved")
                     return Ok(new { message = "Hồ sơ đã được phê duyệt trước đó." });
 
-                // Require Captain or DPA level signature
-                if (string.IsNullOrWhiteSpace(req.Pin) || req.Pin != "1111")
-                {
-                    return BadRequest(new { message = "Mã PIN phê duyệt của Thuyền trưởng không đúng (Gợi ý: 1111)." });
-                }
-
-                var signatures = JsonSerializer.Deserialize<List<SignatureEntry>>(record.DigitalSignatures, JsonOptions) ?? new List<SignatureEntry>();
-
-                var approveSig = new SignatureEntry
-                {
-                    Name = req.Name,
-                    Rank = req.Rank,
-                    Timestamp = DateTime.UtcNow,
-                    SigCode = $"SIG-APPROVED-CAPT-{Guid.NewGuid().ToString()[..8].ToUpper()}"
-                };
-
+                if (record.Status != "Submitted") return Conflict(new { message = "Chỉ duyệt hồ sơ đang chờ duyệt." });
+                if (!await _context.ApprovalActions.AnyAsync(a => a.Action == "submit" && _context.ApprovalDocuments.Any(d => d.Id == a.DocumentId && d.Module == "sms" && d.RecordKey == id.ToString())))
+                    return Conflict(new { message = "Hồ sơ cũ chưa có xác nhận gửi bằng tài khoản. Sửa đổi và ký gửi lại." });
+                var actor = (ApprovalActor)HttpContext.Items["ApprovalActor"]!;
+                var signatures = JsonSerializer.Deserialize<List<SignatureEntry>>(record.DigitalSignatures, JsonOptions) ?? new();
+                var approveSig = new SignatureEntry { Name = actor.Name, Rank = actor.Rank, Timestamp = DateTime.UtcNow, AuthenticationMethod = "password-reauthentication", ContentHash = (string)HttpContext.Items["ApprovalContentHash"]!, RevisionId = (Guid)HttpContext.Items["ApprovalRevisionId"]!,
+                    SigCode = HttpContext.Items["ApprovalActionId"]!.ToString()! };
                 signatures.Add(approveSig);
                 record.DigitalSignatures = JsonSerializer.Serialize(signatures, JsonOptions);
                 record.Status = "Approved";
@@ -619,19 +588,9 @@ namespace MaritimeEdge.Controllers.Safety
         public bool SubmitImmediately { get; set; } = false;
     }
 
-    public class SignRequest
-    {
-        public string Pin { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string Rank { get; set; } = string.Empty;
-    }
+    public class SignRequest { }
 
-    public class ApproveRequest
-    {
-        public string Pin { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string Rank { get; set; } = string.Empty;
-    }
+    public class ApproveRequest { }
 
     public class BumpVersionRequest
     {
@@ -644,6 +603,9 @@ namespace MaritimeEdge.Controllers.Safety
 
     public class SignatureEntry
     {
+        public string AuthenticationMethod { get; set; } = "legacy-unverified";
+        public string? ContentHash { get; set; }
+        public Guid? RevisionId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Rank { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }

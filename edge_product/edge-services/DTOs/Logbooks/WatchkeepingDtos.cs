@@ -169,11 +169,9 @@ namespace MaritimeEdge.DTOs.Logbooks
 
     public class SignWatchkeepingLogDto
     {
-        [Required]
         [MaxLength(200)]
         public string MasterSignature { get; set; } = string.Empty;
         
-        [Required]
         public DateTime SignedAt { get; set; }
     }
     

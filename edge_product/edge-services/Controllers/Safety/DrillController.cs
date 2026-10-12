@@ -689,7 +689,8 @@ namespace MaritimeEdge.Controllers.Safety
                 if (log.IsLocked)
                     return BadRequest(new { message = "Drill log is already approved and locked" });
 
-                log.VerifiedByCrewId = dto.VerifiedByCrewId;
+                var actor = (MaritimeEdge.Services.Core.ApprovalActor)HttpContext.Items["ApprovalActor"]!;
+                log.VerifiedByCrewId = await _context.CrewMembers.Where(c => c.CrewId == actor.CrewId).Select(c => (Guid?)c.Id).SingleAsync();
                 log.VerifiedDate = DateTime.UtcNow;
                 log.IsLocked = true; // Lock after approval
                 log.UpdatedAt = DateTime.UtcNow;

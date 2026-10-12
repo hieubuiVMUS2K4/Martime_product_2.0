@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Document Library Page - Main Orchestrator
@@ -832,12 +833,7 @@ function ApproveModal({
 
         <div>
           <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Người phê duyệt</label>
-          <input
-            type="text"
-            value={approverName}
-            onChange={(e) => setApproverName(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <p>Người duyệt được lấy từ tài khoản và xác nhận bằng mật khẩu.</p>
         </div>
 
         <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
@@ -1623,7 +1619,8 @@ export function DocumentLibraryPage() {
                     isEditing={isEditing}
                   />
                 )}
-                {activeTab === 'readLogs' && (
+                <SigningControls module="hsqe-document" recordKey={selectedDoc.id} permission="hsqe.approve" signed={!!selectedDoc.approver} signEndpoint={`/hsqe/documents/${selectedDoc.id}/approve`} />
+{activeTab === 'readLogs' && (
                   <ReadLogsTab
                     readLogs={readLogs}
                     documentTitle={selectedDoc.title}
