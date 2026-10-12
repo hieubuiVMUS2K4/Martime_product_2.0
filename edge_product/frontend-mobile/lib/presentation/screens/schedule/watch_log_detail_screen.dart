@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../providers/watchkeeping_provider.dart';
@@ -92,14 +93,14 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _log!.watchType == 'NAVIGATION'
-                                          ? Colors.blue.withOpacity(0.1)
-                                          : Colors.orange.withOpacity(0.1),
+                                          ? MaritimeTheme.accent.withOpacity(0.1)
+                                          : MaritimeTheme.warning.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
                                       _log!.watchTypeDisplay,
                                       style: TextStyle(
-                                        color: _log!.watchType == 'NAVIGATION' ? Colors.blue : Colors.orange,
+                                        color: _log!.watchType == 'NAVIGATION' ? MaritimeTheme.accent : MaritimeTheme.warning,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -109,17 +110,17 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.1),
+                                        color: MaritimeTheme.success.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                          const Icon(Icons.check_circle, color: MaritimeTheme.success, size: 16),
                                           const SizedBox(width: 4),
                                           Text(
                                             l10n.signed,
                                             style: const TextStyle(
-                                              color: Colors.green,
+                                              color: MaritimeTheme.success,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -130,17 +131,17 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: Colors.red.withOpacity(0.1),
+                                        color: MaritimeTheme.error.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.warning, color: Colors.red, size: 16),
+                                          const Icon(Icons.warning, color: MaritimeTheme.error, size: 16),
                                           const SizedBox(width: 4),
                                           Text(
                                             l10n.unsigned,
                                             style: const TextStyle(
-                                              color: Colors.red,
+                                              color: MaritimeTheme.error,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -217,9 +218,9 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.1),
+                                color: MaritimeTheme.warning.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                                border: Border.all(color: MaritimeTheme.warning.withOpacity(0.3)),
                               ),
                               child: Text(
                                 _log!.notableEvents!,
@@ -238,13 +239,13 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: MaritimeTheme.success.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                border: Border.all(color: MaritimeTheme.success.withOpacity(0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.check_circle, color: Colors.green),
+                                  const Icon(Icons.check_circle, color: MaritimeTheme.success),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
@@ -307,7 +308,7 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+                    color: MaritimeTheme.textSecondary,
                   ),
             ),
           ),
@@ -353,17 +354,17 @@ class _WatchLogDetailScreenState extends State<WatchLogDetailScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: MaritimeTheme.accent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  const Icon(Icons.info_outline, size: 16, color: MaritimeTheme.accent),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       l10n.onlyMasterCanSign,
-                      style: const TextStyle(fontSize: 12, color: Colors.blue),
+                      style: const TextStyle(fontSize: 12, color: MaritimeTheme.accent),
                     ),
                   ),
                 ],

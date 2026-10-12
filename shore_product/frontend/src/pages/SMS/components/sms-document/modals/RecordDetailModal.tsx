@@ -67,15 +67,15 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
               <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                 <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
                   <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
-                  <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                  <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                 </div>
                 <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
-                  <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                  <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                     LỊCH LÀM VỆ SINH BẾP, CÁC KHO THỰC PHẨM, KHU VỰC SINH HOẠT CHUNG, PHÒNG Ở
                   </h3>
-                  <span className="italic text-[8px] text-slate-500 font-semibold uppercase">ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE</span>
+                  <span className="italic text-xs text-slate-500 font-semibold uppercase">ACCOMMODATIONS, STORE, GALLEY CLEANING SCHEDULE</span>
                 </div>
-                <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5 bg-slate-50/10">
+                <div className="col-span-3 flex flex-col justify-center p-2 text-left text-xs space-y-0.5 bg-slate-50/10">
                   <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-26-03</span></div>
                   <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                   <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -87,16 +87,16 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                 const filled = JSON.parse(viewRecordDetail.filledData || '{}');
                 return (
                   <>
-                    <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-[11px]">
+                    <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                       <div><strong>Tên tàu / Ship's Name:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.shipName || viewRecordDetail.vesselName}</span></div>
                       <div><strong>Tháng / Month-Year:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.monthYear || ''}</span></div>
                     </div>
 
                     {/* Cleaning Schedule Grid Table */}
                     <div className="mt-4 border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden">
-                      <table className="w-full text-left border-collapse text-[10px]">
+                      <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-300 dark:border-slate-700">
+                          <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-300 dark:border-slate-700">
                             <th className="p-1.5 border-r border-slate-300 dark:border-slate-700 w-[40px] text-center">STT</th>
                             <th className="p-1.5 border-r border-slate-300 dark:border-slate-700 w-[180px]">Hạng mục</th>
                             <th className="p-1.5 border-r border-slate-300 dark:border-slate-700 w-[100px]">Chu kỳ</th>
@@ -109,7 +109,7 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                           {cleaningCategories.map((category) => (
                             <React.Fragment key={category.prefix}>
                               <tr className="bg-blue-50/30 dark:bg-blue-900/20 text-primary dark:text-blue-300 font-bold border-b border-slate-300 dark:border-slate-700">
-                                <td colSpan={6} className="p-1.5 text-[10px] uppercase font-bold">{category.title}</td>
+                                <td colSpan={6} className="p-1.5 text-xs uppercase font-bold">{category.title}</td>
                               </tr>
                               {category.items.map((item) => {
                                 const key = `${category.prefix}_perf_${item.num}`;
@@ -122,7 +122,7 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                                     <td className="p-1.5 border-r border-slate-200 dark:border-slate-800 font-medium text-accent dark:text-blue-400">
                                       {filled[key] || <span className="text-slate-400 italic">Chưa nhập</span>}
                                     </td>
-                                    <td className="p-1.5 text-slate-500 italic text-[9px]">{item.note}</td>
+                                    <td className="p-1.5 text-slate-500 italic text-xs">{item.note}</td>
                                   </tr>
                                 );
                               })}
@@ -141,15 +141,15 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
               <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                 <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
                   <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
-                  <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                  <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                 </div>
                 <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
-                  <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                  <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                     BIÊN BẢN SOÁT XÉT CÔNG TÁC QUẢN LÝ AN TOÀN,<br/>SỨC KHỎE, BẢO VỆ MÔI TRƯỜNG
                   </h3>
-                  <span className="italic text-[9px] text-slate-500 font-semibold">Master's Review of the SLMS</span>
+                  <span className="italic text-xs text-slate-500 font-semibold">Master's Review of the SLMS</span>
                 </div>
-                <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5">
+                <div className="col-span-3 flex flex-col justify-center p-2 text-left text-xs space-y-0.5">
                   <div><strong>Mã:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-02-01</span></div>
                   <div><strong>Ngày BH:</strong> <span className="font-mono">20/10/2016</span></div>
                   <div><strong>Lần sửa đổi:</strong> <span className="font-mono">00</span></div>
@@ -161,7 +161,7 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                 const filled = JSON.parse(viewRecordDetail.filledData || '{}');
                 return (
                   <>
-                    <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-[11px]">
+                    <div className="grid grid-cols-2 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs">
                       <div><strong>Tên tàu / Ship's Name:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.shipName || viewRecordDetail.vesselName}</span></div>
                       <div><strong>Loại tàu / Ship Type:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.shipType || 'Bulk Carrier'}</span></div>
                       <div><strong>Thuyền trưởng / Master:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.masterName || viewRecordDetail.filledBy}</span></div>
@@ -233,13 +233,13 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                       ].map((item) => (
                         <div key={item.id} className="space-y-1.5 border-b border-slate-200 dark:border-slate-800 pb-3">
                           <div className="font-sans font-bold text-slate-800 dark:text-white flex items-start gap-2">
-                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">{item.num}</span>
+                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-0.5">{item.num}</span>
                             <div className="space-y-0.5">
-                              <p className="text-[11px] text-slate-700 dark:text-slate-200">{item.en}</p>
-                              <p className="text-[11px] text-slate-500 italic font-medium">{item.vi}</p>
+                              <p className="text-xs text-slate-700 dark:text-slate-200">{item.en}</p>
+                              <p className="text-xs text-slate-500 italic font-medium">{item.vi}</p>
                             </div>
                           </div>
-                          <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-[11px] leading-relaxed text-slate-800 dark:text-white font-sans whitespace-pre-wrap">
+                          <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-xs leading-relaxed text-slate-800 dark:text-white font-sans whitespace-pre-wrap">
                             {filled[item.id] || '--- Không có thông tin / No comment ---'}
                           </div>
                         </div>
@@ -255,15 +255,15 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
               <div className="border border-slate-300 dark:border-slate-700 grid grid-cols-12 items-stretch text-center font-sans">
                 <div className="col-span-3 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2">
                   <div className="w-8 h-8 rounded-full border border-accent flex items-center justify-center mb-1 text-accent text-xs font-bold">⚓</div>
-                  <span className="text-[8px] font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
+                  <span className="text-xs font-extrabold tracking-tight leading-tight text-primary dark:text-blue-300 uppercase">HP SHIPPING</span>
                 </div>
                 <div className="col-span-6 border-r border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-2 bg-slate-50/30 dark:bg-slate-900/30">
-                  <h3 className="font-extrabold text-[10px] leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
+                  <h3 className="font-extrabold text-xs leading-snug uppercase tracking-tight text-slate-800 dark:text-white">
                     KẾ HOẠCH NHẬN NHIÊN LIỆU / BUNKERING PLAN
                   </h3>
-                  <span className="italic text-[8px] text-slate-500 font-semibold uppercase">SAFETY MANAGEMENT SYSTEM - CHECKLIST</span>
+                  <span className="italic text-xs text-slate-500 font-semibold uppercase">SAFETY MANAGEMENT SYSTEM - CHECKLIST</span>
                 </div>
-                <div className="col-span-3 flex flex-col justify-center p-2 text-left text-[8px] space-y-0.5">
+                <div className="col-span-3 flex flex-col justify-center p-2 text-left text-xs space-y-0.5">
                   <div><strong>Mã biểu mẫu:</strong> <span className="font-mono text-accent dark:text-blue-400 font-bold">TL-15-01</span></div>
                   <div><strong>Ngày ban hành:</strong> <span className="font-mono">20/10/2016</span></div>
                   <div><strong>Lần sửa đổi:</strong> <span className="font-mono">0</span></div>
@@ -293,7 +293,7 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
 
                 return (
                   <>
-                    <div className="grid grid-cols-3 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-[11px] rounded-lg">
+                    <div className="grid grid-cols-3 gap-4 border border-slate-300 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 font-sans text-xs rounded-lg">
                       <div><strong>Tên tàu / Vessel:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.vessel || viewRecordDetail.vesselName}</span></div>
                       <div><strong>Vị trí / Location:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.location || ''}</span></div>
                       <div><strong>Xà lan/Cảng / Supply:</strong> <span className="ml-1 text-slate-900 dark:text-white font-medium">{filled.supplyBarge || ''}</span></div>
@@ -304,13 +304,13 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
 
                     {/* Section 1 */}
                     <div>
-                      <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                      <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                         1. Loại nhiên liệu nhận / Product to be Handled
                       </h4>
                       <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                        <table className="w-full text-left border-collapse text-[10px]">
+                        <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Chủng loại / Grade</th>
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center">Tỷ trọng / Density</th>
@@ -339,13 +339,13 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
 
                     {/* Section 2 */}
                     <div>
-                      <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                      <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                         2. Trách nhiệm của thành viên tham gia / Responsibilities of Personnel
                       </h4>
                       <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                        <table className="w-full text-left border-collapse text-[10px]">
+                        <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-[150px]">Chức danh / Rank</th>
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 w-[180px]">Họ tên / Name</th>
@@ -434,17 +434,17 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
 
                     {/* Section 7 */}
                     <div>
-                      <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                      <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                         7. Phân phối nhiên liệu và sơ đồ đường ống / Distribution of Bunker Oil and Pipe Line-up
                       </h4>
                       <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs mb-2 font-mono leading-relaxed">
-                        <span className="text-slate-400 block font-sans text-[10px] font-bold mb-1">MÔ TẢ THIẾT LẬP VAN / PIPING LINE-UP DESCRIPTION:</span>
+                        <span className="text-slate-400 block font-sans text-xs font-bold mb-1">MÔ TẢ THIẾT LẬP VAN / PIPING LINE-UP DESCRIPTION:</span>
                         {filled.line_up_piping || 'Chưa thiết lập sơ đồ van'}
                       </div>
                       <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                        <table className="w-full text-left border-collapse text-[10px]">
+                        <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-[9px] border-b border-slate-200 dark:border-slate-700">
+                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700 text-center w-[40px]">STT</th>
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Két nhận / Receiving Tank</th>
                               <th className="p-1.5 border-r border-slate-200 dark:border-slate-700">Các van mở / Valves opened</th>
@@ -471,20 +471,20 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
 
                     {/* Section 8 */}
                     <div>
-                      <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                      <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                         8. Lưu lượng nhận nhiên liệu dự kiến / Expected Loading Rates
                       </h4>
                       <div className="grid grid-cols-3 gap-4 border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/40 rounded-lg text-center">
                         <div>
-                          <div className="text-[10px] text-slate-400 uppercase">Ban đầu / Initial Rate</div>
+                          <div className="text-xs text-slate-400 uppercase">Ban đầu / Initial Rate</div>
                           <div className="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">{filled.rate_initial || 'N/A'} Mts/Hr</div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-slate-400 uppercase">Tối đa / Max Rate</div>
+                          <div className="text-xs text-slate-400 uppercase">Tối đa / Max Rate</div>
                           <div className="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">{filled.rate_max || 'N/A'} Mts/Hr</div>
                         </div>
                         <div>
-                          <div className="text-[10px] text-slate-400 uppercase">Topping-off Rate</div>
+                          <div className="text-xs text-slate-400 uppercase">Topping-off Rate</div>
                           <div className="text-xs font-extrabold text-slate-800 dark:text-white mt-0.5">{filled.rate_topping || 'N/A'} Mts/Hr</div>
                         </div>
                       </div>
@@ -492,13 +492,13 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
 
                     {/* Section 9 */}
                     <div>
-                      <h4 className="font-extrabold text-[10px] uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
+                      <h4 className="font-extrabold text-xs uppercase text-primary dark:text-blue-400 mb-1 border-b border-accent/30 dark:border-blue-800 pb-0.5">
                         9. Bảng đo các két trước và sau nhận / Gauging of Tanks
                       </h4>
                       <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                        <table className="w-full text-left border-collapse text-[9px]">
+                        <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-[8px] border-b border-slate-200 dark:border-slate-700">
+                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-200 uppercase font-bold text-xs border-b border-slate-200 dark:border-slate-700">
                               <th rowSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700 text-center w-[30px]">STT</th>
                               <th rowSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700">Két / Tank</th>
                               <th colSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700 text-center">Dung tích 85%</th>
@@ -507,7 +507,7 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                               <th colSpan={2} className="p-1 border-r border-slate-200 dark:border-slate-700 text-center">Mức giảm tốc</th>
                               <th rowSpan={2} className="p-1 text-center w-[50px]">Seq</th>
                             </tr>
-                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-500 border-b border-slate-200 dark:border-slate-700 text-[8px]">
+                            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-500 border-b border-slate-200 dark:border-slate-700 text-xs">
                               <th className="p-1 border-r border-slate-200 dark:border-slate-700 text-center font-normal">Sound</th>
                               <th className="p-1 border-r border-slate-200 dark:border-slate-700 text-center font-normal">Vol</th>
                               <th className="p-1 border-r border-slate-200 dark:border-slate-700 text-center font-normal">Sound</th>
@@ -541,7 +541,7 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                       </div>
 
                       {/* Sum Calculations */}
-                      <div className="grid grid-cols-3 gap-2 mt-2 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] text-center font-bold">
+                      <div className="grid grid-cols-3 gap-2 mt-2 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-center font-bold">
                         <div>Tổng 85% / Total 85% Cap: <span className="text-slate-800 dark:text-white font-mono ml-1">{gauging.reduce((sum: number, r: any) => sum + (parseFloat(r.capVol) || 0), 0).toFixed(2)} m³</span></div>
                         <div>Tổng trước nhận / Total Pre: <span className="text-slate-800 dark:text-white font-mono ml-1">{gauging.reduce((sum: number, r: any) => sum + (parseFloat(r.preVol) || 0), 0).toFixed(2)} m³</span></div>
                         <div>Dự kiến sau nhận / Total Post: <span className="text-slate-800 dark:text-white font-mono ml-1">{gauging.reduce((sum: number, r: any) => sum + (parseFloat(r.postVol) || 0), 0).toFixed(2)} m³</span></div>
@@ -611,12 +611,12 @@ export function RecordDetailModal({ record, onClose, onPrint, getRecordStatusBad
                       </div>
                       <div>
                         <div className="text-xs font-extrabold text-slate-800 dark:text-white">{name}</div>
-                        <div className="text-[10px] text-slate-500">{rank}</div>
+                        <div className="text-xs text-slate-500">{rank}</div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div>
-                      <div className="text-[9px] text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
+                      <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
                     </div>
                   </div>
                 );

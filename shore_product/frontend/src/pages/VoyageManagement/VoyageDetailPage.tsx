@@ -198,7 +198,7 @@ export const VoyageDetailPage: React.FC = () => {
           {data.voyageInstructions && (
             <div className="vd-panel">
               <div className="vd-panel__head"><h3 className="vd-panel__title">Chỉ thị hải trình</h3></div>
-              <div className="vd-panel__body"><p style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>{data.voyageInstructions}</p></div>
+              <div className="vd-panel__body"><p style={{ margin: 0, fontSize: '0.8125rem', whiteSpace: 'pre-wrap' }}>{data.voyageInstructions}</p></div>
             </div>
           )}
         </>
@@ -277,7 +277,7 @@ export const VoyageDetailPage: React.FC = () => {
                     <tr key={p.id}>
                       <td>{p.sequence}</td>
                       <td><span className="vm-badge">{p.callType}</span></td>
-                      <td><strong>{p.portName}</strong> <span style={{ color: '#6b7c8f', fontSize: 11 }}>({p.portCode})</span></td>
+                      <td><strong>{p.portName}</strong> <span style={{ color: '#6b7c8f', fontSize: '0.8125rem' }}>({p.portCode})</span></td>
                       <td>{p.country || '—'}</td>
                       <td>{fmt(p.arrivalTime)}</td>
                       <td>{fmt(p.departureTime)}</td>

@@ -401,7 +401,7 @@ public class CertificatesController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Broadcast updated certificate to edge with file path
-            await _syncOutbox.BroadcastAsync("crew_certificate", id.ToString(), SyncActionType.UPDATE, crewCertificate);
+            await _syncOutbox.EnqueueForCrewAsync(crewCertificate.CrewMemberId, "crew_certificate", id.ToString(), SyncActionType.UPDATE, crewCertificate);
 
             _logger.LogInformation("Uploaded certificate file for crew certificate: {Id}", id);
 

@@ -198,7 +198,7 @@ public class SignalKTestController : ControllerBase
                     : "SignalK server is not responding"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return Ok(new
             {

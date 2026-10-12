@@ -19,13 +19,13 @@ public class BunkerReportGenerator : ReportGeneratorBase<CreateBunkerReportDto, 
         _mapper = mapper;
     }
 
-    protected override async Task<ValidationResult> ValidateReportAsync(CreateBunkerReportDto dto)
+    protected override Task<ValidationResult> ValidateReportAsync(CreateBunkerReportDto dto)
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(dto.FuelType)) errors.Add("Bunker type is required");
         if (dto.QuantityReceived <= 0) errors.Add("Bunker quantity must be positive");
         if (dto.Density.HasValue && (dto.Density < 0.80 || dto.Density > 1.00)) errors.Add("Bunker density invalid");
-        return errors.Count > 0 ? ValidationResult.Failure(errors.ToArray()) : ValidationResult.Success();
+        return Task.FromResult(errors.Count > 0 ? ValidationResult.Failure(errors.ToArray()) : ValidationResult.Success());
     }
 
     protected override async Task<DuplicateCheckResult> CheckForDuplicatesAsync(CreateBunkerReportDto dto, ReportType reportType)
@@ -35,7 +35,7 @@ public class BunkerReportGenerator : ReportGeneratorBase<CreateBunkerReportDto, 
             .AsNoTracking()
             .AnyAsync(b => b.FuelType == dto.FuelType &&
                           b.BunkerDate.Date == reportDate &&
-                          b.MaritimeReport.DeletedAt == null);
+                          b.MaritimeReport!.DeletedAt == null);
         if (exists) return DuplicateCheckResult.Failure("Bunker report for this type already exists today.");
         return DuplicateCheckResult.Success();
     }
@@ -94,7 +94,7 @@ public class BunkerReportGenerator : ReportGeneratorBase<CreateBunkerReportDto, 
         var report = await Context.BunkerReports
             .AsNoTracking()
             .Include(b => b.MaritimeReport)
-            .FirstOrDefaultAsync(b => b.MaritimeReportId == reportId && b.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(b => b.MaritimeReportId == reportId && b.MaritimeReport!.DeletedAt == null);
         return report != null ? _mapper.Map<BunkerReportDto>(report) : null;
     }
 

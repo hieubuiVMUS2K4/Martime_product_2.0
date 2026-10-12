@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 
 class ErrorDisplayWidget extends StatelessWidget {
   final String message;
@@ -23,7 +24,7 @@ class ErrorDisplayWidget extends StatelessWidget {
             Icon(
               icon ?? Icons.error_outline,
               size: 64,
-              color: Colors.red.shade400,
+              color: MaritimeTheme.error,
             ),
             const SizedBox(height: 16),
             Text(
@@ -35,7 +36,7 @@ class ErrorDisplayWidget extends StatelessWidget {
             Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
+                    color: MaritimeTheme.textSecondary,
                   ),
               textAlign: TextAlign.center,
             ),

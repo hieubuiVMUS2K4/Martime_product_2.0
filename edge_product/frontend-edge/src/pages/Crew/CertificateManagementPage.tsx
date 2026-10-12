@@ -423,7 +423,7 @@ export function CertificateManagementPage() {
                             className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-800 text-xs rounded border border-blue-200"
                           >
                             {c.countryCode && (
-                              <code className="font-mono text-[10px] text-blue-500">{c.countryCode}</code>
+                              <code className="font-mono text-xs text-blue-500">{c.countryCode}</code>
                             )}
                             {c.countryName}
                           </span>
@@ -439,7 +439,7 @@ export function CertificateManagementPage() {
                       <div className="space-y-2 py-1">
                         {ranksByDepartment.map(([dept, list]) => (
                           <div key={dept}>
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
                               {DEPARTMENT_LABELS[dept] || dept} ({list.length})
                             </p>
                             <div className="flex flex-wrap gap-1.5">
@@ -448,7 +448,7 @@ export function CertificateManagementPage() {
                                   key={r.id || idx}
                                   className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-50 text-slate-800 text-xs rounded border border-slate-200"
                                 >
-                                  <code className="font-mono text-[10px] text-slate-500">
+                                  <code className="font-mono text-xs text-slate-500">
                                     {r.rankCode ?? r.RankCode}
                                   </code>
                                   {r.rankName ?? r.RankName}
@@ -510,34 +510,34 @@ export function CertificateManagementPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse" style={{tableLayout: 'fixed'}}>
-                    <thead className="bg-gray-50">
+                  <table className="w-full border-collapse border border-[#7d8d9a] text-xs text-gray-900" style={{tableLayout: 'fixed'}}>
+                    <thead className="bg-blue-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '12%'}}>
                           {t('crew.certMgmt.crewMember')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '10%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '10%'}}>
                           {t('crew.certMgmt.position')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '8%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '8%'}}>
                           {t('crew.certMgmt.coc')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '10%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '10%'}}>
                           {t('crew.certMgmt.country')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '10%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '10%'}}>
                           {t('crew.certMgmt.certNumber')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '10%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '10%'}}>
                           {t('crew.certMgmt.issueDate')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '10%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '10%'}}>
                           {t('crew.certMgmt.expiryDate')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200" style={{width: '12%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '12%'}}>
                           {t('crew.certMgmt.issuingAuth')}
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{width: '10%'}}>
+                        <th className="px-3 py-2 text-center align-middle text-xs font-semibold text-gray-600 border-b border-b-[#7d8d9a] border-r border-r-[#a3b1bc] last:border-r-0" style={{width: '10%'}}>
                           {t('crew.certMgmt.status')}
                         </th>
                       </tr>
@@ -552,17 +552,17 @@ export function CertificateManagementPage() {
                           <tr
                             key={crewCert.id}
                             onContextMenu={(e) => handleContextMenu(e, crewCert)}
-                            className={`border-b border-gray-100 transition-colors cursor-pointer ${
-                              selectedRow === crewCert.id ? 'bg-blue-100' : 'hover:bg-gray-50'
+                            className={`border-b border-[#a3b1bc] transition-colors cursor-pointer ${
+                              selectedRow === crewCert.id ? 'bg-blue-100' : 'hover:bg-blue-50/70'
                             }`}
                           >
-                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200" style={{width: '12%'}}>
+                            <td className="px-3 py-2 text-xs text-gray-900 border-r border-[#a3b1bc]" style={{width: '12%'}}>
                               <div className="truncate font-medium">{crewCert.crewMember.fullName}</div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '10%'}}>
+                            <td className="px-3 py-2 text-xs text-gray-700 border-r border-[#a3b1bc]" style={{width: '10%'}}>
                               <div className="truncate">{crewCert.crewMember.rank?.rankName || '-'}</div>
                             </td>
-                            <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '8%'}}>
+                            <td className="px-3 py-2 text-xs border-r border-[#a3b1bc]" style={{width: '8%'}}>
                               {(crewCert as any).certificateOfCompetency ? (
                                 <span className={`px-2 py-0.5 text-xs font-medium rounded ${
                                   (crewCert as any).certificateOfCompetency === 'National' 
@@ -573,20 +573,20 @@ export function CertificateManagementPage() {
                                 </span>
                               ) : '-'}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '10%'}}>
+                            <td className="px-3 py-2 text-xs text-gray-700 border-r border-[#a3b1bc]" style={{width: '10%'}}>
                               <div className="truncate">{(crewCert as any).country?.countryName || '-'}</div>
                             </td>
-                            <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '10%'}}>
+                            <td className="px-3 py-2 text-xs border-r border-[#a3b1bc]" style={{width: '10%'}}>
                               <code className="text-xs font-mono text-gray-900">
                                 {crewCert.certificateNumber}
                               </code>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '10%'}}>
+                            <td className="px-3 py-2 text-xs text-gray-700 border-r border-[#a3b1bc]" style={{width: '10%'}}>
                               <div className="truncate">
                                 {format(parseISO(crewCert.issueDate), 'dd MMM yyyy')}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm border-r border-gray-200" style={{width: '10%'}}>
+                            <td className="px-3 py-2 text-xs border-r border-[#a3b1bc]" style={{width: '10%'}}>
                               <div className="text-gray-900 font-medium truncate">
                                 {format(parseISO(crewCert.expiryDate), 'dd MMM yyyy')}
                               </div>
@@ -594,12 +594,12 @@ export function CertificateManagementPage() {
                                 {t('crew.certMgmt.daysLeft', { days: daysLeft })}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200" style={{width: '12%'}}>
+                            <td className="px-3 py-2 text-xs text-gray-700 border-r border-[#a3b1bc]" style={{width: '12%'}}>
                               <div className="truncate">
                                 {crewCert.issuingAuthority || t('crew.certMgmt.na')}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm" style={{width: '10%'}}>
+                            <td className="px-3 py-2 text-xs" style={{width: '10%'}}>
                               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${status.bgColor} ${status.color}`}>
                                 <StatusIcon className="w-3 h-3" />
                                 {status.status}

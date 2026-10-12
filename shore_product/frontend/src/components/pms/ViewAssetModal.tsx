@@ -27,19 +27,19 @@ const CRITICALITY: Record<string, { label: string; tone: string }> = {
 const Pill: React.FC<{ map: Record<string, { label: string; tone: string }>; value?: string }> = ({ map, value }) => {
   if (!value) return <span className="text-ink-light">—</span>;
   const m = map[value] ?? { label: value, tone: 'bg-slate-100 text-slate-600' };
-  return <span className={`inline-block rounded-full px-3 py-1 text-[13px] font-medium ${m.tone}`}>{m.label}</span>;
+  return <span className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${m.tone}`}>{m.label}</span>;
 };
 
 const Item: React.FC<{ label: string; children?: React.ReactNode; mono?: boolean }> = ({ label, children, mono }) => (
   <div className="min-w-0">
-    <dt className="text-[13px] font-medium text-ink-muted">{label}</dt>
-    <dd className={`mt-1 break-words text-[15px] ${children ? 'text-ink' : 'text-ink-light'} ${mono ? 'font-mono' : ''}`}>{children || '—'}</dd>
+    <dt className="text-sm font-semibold text-ink-muted">{label}</dt>
+    <dd className={`mt-0.5 break-words text-base font-semibold ${children ? 'text-ink' : 'text-ink-light'} ${mono ? 'font-mono' : ''}`}>{children || '—'}</dd>
   </div>
 );
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <section>
-    <h3 className="mb-3 border-b border-grid pb-2 text-sm font-bold uppercase tracking-wide text-primary">{title}</h3>
+    <h3 className="mb-2.5 border-b border-grid-strong pb-1.5 text-base font-bold uppercase tracking-wide text-primary">{title}</h3>
     {children}
   </section>
 );
@@ -70,16 +70,16 @@ export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModa
       footer={<Button variant="secondary" onClick={onClose}>Đóng</Button>}
     >
       {asset && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <Section title="Thông tin chung">
-            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+            <dl className="grid grid-cols-3 gap-x-6 gap-y-3">
               <Item label="Mã thiết bị" mono>{asset.assetCode}</Item>
               <Item label="Tên thiết bị">{asset.assetName}</Item>
               <Item label="Nhóm">{asset.category}</Item>
               <Item label="Vị trí">{asset.location}</Item>
               <Item label="Trạng thái"><Pill map={STATUS} value={asset.status} /></Item>
               <Item label="Sử dụng">
-                <span className={`inline-block rounded-full px-3 py-1 text-[13px] font-medium ${asset.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                <span className={`inline-block rounded-full px-3 py-1 text-sm font-semibold ${asset.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                   {asset.isActive ? 'Đang dùng' : 'Không dùng'}
                 </span>
               </Item>
@@ -87,7 +87,7 @@ export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModa
           </Section>
 
           <Section title="Thông số kỹ thuật">
-            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+            <dl className="grid grid-cols-3 gap-x-6 gap-y-3">
               <Item label="Hãng sản xuất">{asset.manufacturer && asset.manufacturer !== 'N/A' ? asset.manufacturer : null}</Item>
               <Item label="Model">{asset.model}</Item>
               <Item label="Số sê-ri" mono>{asset.serialNumber && asset.serialNumber !== 'N/A' ? asset.serialNumber : null}</Item>
@@ -96,25 +96,25 @@ export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModa
             </dl>
             {asset.technicalSpecs && (
               <div className="mt-3">
-                <p className="mb-1.5 text-[13px] font-medium text-ink-muted">Thông số chi tiết</p>
+                <p className="mb-1.5 text-sm font-semibold text-ink-muted">Thông số chi tiết</p>
                 {specs ? (
                   <dl className="divide-y divide-grid rounded-md border border-grid">
                     {specs.map(([k, v]) => (
-                      <div key={k} className="flex justify-between gap-4 px-3.5 py-2 text-sm">
-                        <dt className="font-mono text-ink-muted">{k}</dt>
+                      <div key={k} className="flex justify-between gap-4 px-3.5 py-2 text-base">
+                        <dt className="font-mono font-semibold text-ink-muted">{k}</dt>
                         <dd className="text-right font-semibold text-ink">{v}</dd>
                       </div>
                     ))}
                   </dl>
                 ) : (
-                  <p className="whitespace-pre-wrap rounded-md border border-grid bg-canvas px-3.5 py-2.5 text-sm text-ink">{asset.technicalSpecs}</p>
+                  <p className="whitespace-pre-wrap rounded-md border border-grid bg-canvas px-3.5 py-2.5 text-base text-ink">{asset.technicalSpecs}</p>
                 )}
               </div>
             )}
           </Section>
 
           <Section title="Giờ chạy máy">
-            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+            <dl className="grid grid-cols-3 gap-x-6 gap-y-3">
               <Item label="Giờ chạy hiện tại">
                 <span className="font-semibold tabular-nums">{(asset.currentRunningHours ?? 0).toLocaleString('vi-VN')} giờ</span>
               </Item>
@@ -125,7 +125,7 @@ export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModa
           </Section>
 
           <Section title="Phân công">
-            <dl className="grid grid-cols-3 gap-x-8 gap-y-4">
+            <dl className="grid grid-cols-3 gap-x-6 gap-y-3">
               <Item label="Người thực hiện mặc định">{asset.defaultExecutorRole}</Item>
               <Item label="Người duyệt">{asset.approverRole}</Item>
               <Item label="Nhóm thiết bị" mono>{asset.equipmentGroupId}</Item>
@@ -134,7 +134,7 @@ export default function ViewAssetModal({ isOpen, asset, onClose }: ViewAssetModa
 
           {asset.notes && (
             <Section title="Ghi chú">
-              <p className="whitespace-pre-wrap text-[15px] text-ink">{asset.notes}</p>
+              <p className="whitespace-pre-wrap text-base text-ink">{asset.notes}</p>
             </Section>
           )}
         </div>

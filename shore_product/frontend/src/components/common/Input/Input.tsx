@@ -28,7 +28,7 @@ interface FieldProps {
 export const Field: React.FC<FieldProps> = ({ label, required, hint, error, htmlFor, className = '', children }) => (
   <div className={`flex flex-col gap-1.5 ${className}`}>
     {label && (
-      <label htmlFor={htmlFor} className="text-[13px] font-medium text-ink">
+      <label htmlFor={htmlFor} className="text-xs font-medium text-ink">
         {label}
         {required && <span className="ml-0.5 text-danger">*</span>}
       </label>

@@ -77,6 +77,12 @@ public class SyncBackgroundWorker : BackgroundService
                     // Push: Edge → Shore (every push interval)
                     await syncService.ExecuteSyncAsync(stoppingToken);
 
+                    // Vừa đổi tàu mà lúc đó bờ không trả lời: xin bờ gửi lại toàn bộ rồi kéo ngay.
+                    var vesselSwitch = scope.ServiceProvider.GetRequiredService<IEdgeVesselSwitchService>();
+                    if (await vesselSwitch.HasPendingFullSyncAsync(stoppingToken) &&
+                        await vesselSwitch.CompletePendingFullSyncAsync(stoppingToken))
+                        lastPull = DateTime.MinValue;
+
                     // Pull: Shore → Edge (every pull interval)
                     if (DateTime.UtcNow - lastPull >= pullInterval)
                     {

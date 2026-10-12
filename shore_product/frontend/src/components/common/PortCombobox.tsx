@@ -109,7 +109,7 @@ export const PortCombobox: React.FC<Props> = ({
                 <MapPin size={13} className="text-gray-400 shrink-0" />
                 <div className="min-w-0">
                   <div className="text-sm text-gray-800 truncate">{p.portName}</div>
-                  <div className="text-[10px] text-gray-400 font-mono">
+                  <div className="text-xs text-gray-400 font-mono">
                     {p.portCode}{p.country ? ` · ${p.country}` : ''}
                   </div>
                 </div>

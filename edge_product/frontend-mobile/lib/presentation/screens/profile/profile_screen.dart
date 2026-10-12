@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/crew_member.dart';
 import '../../../data/repositories/crew_repository.dart';
@@ -306,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16, color: Colors.grey.shade600),
+            Icon(icon, size: 16, color: MaritimeTheme.textSecondary),
             const SizedBox(width: 8),
           ],
           SizedBox(
@@ -314,7 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: MaritimeTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -336,15 +337,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (isExpired) {
       return Chip(
         label: Text(l10n.expired, style: const TextStyle(fontSize: 10)),
-        backgroundColor: Colors.red.shade100,
-        labelStyle: TextStyle(color: Colors.red.shade900),
+        backgroundColor: MaritimeTheme.errorSoft,
+        labelStyle: TextStyle(color: MaritimeTheme.error),
         padding: EdgeInsets.zero,
       );
     } else if (isExpiring) {
       return Chip(
         label: Text(l10n.expiring, style: const TextStyle(fontSize: 10)),
-        backgroundColor: Colors.orange.shade100,
-        labelStyle: TextStyle(color: Colors.orange.shade900),
+        backgroundColor: MaritimeTheme.warningSoft,
+        labelStyle: TextStyle(color: MaritimeTheme.warning),
         padding: EdgeInsets.zero,
       );
     }

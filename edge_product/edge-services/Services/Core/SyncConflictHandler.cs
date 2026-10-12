@@ -54,10 +54,7 @@ public class SyncConflictHandler : ISyncConflictHandler
         ["crew_logbook_entry"] = typeof(Maritime.Shared.Models.Crew.CrewLogbookEntry),
 
         // Documents
-        ["travel_document"] = typeof(Maritime.Shared.Models.Documents.TravelDocument),
-        ["seafarer_document"] = typeof(Maritime.Shared.Models.Documents.SeafarerDocument),
-        ["employment_document"] = typeof(Maritime.Shared.Models.Documents.EmploymentDocument),
-        ["health_document"] = typeof(Maritime.Shared.Models.Documents.HealthDocument),
+        ["crew_member_document"] = typeof(Maritime.Shared.Models.Documents.CrewMemberDocument),
 
         // Voyage planning / commercial data managed from shore
         ["voyage_record"] = typeof(VoyageRecord),
@@ -89,6 +86,18 @@ public class SyncConflictHandler : ISyncConflictHandler
         ["sms_filled_records"] = typeof(SmsFilledRecord),
         ["sms_procedure_acknowledge"] = typeof(SmsProcedureAcknowledge),
         ["sms_procedure_acknowledgements"] = typeof(SmsProcedureAcknowledge),
+
+        // Thiết bị và lịch bảo dưỡng của tàu — bờ gửi riêng cho từng tàu.
+        ["equipment_asset"] = typeof(EquipmentAsset),
+        ["maintenance_schedule"] = typeof(MaintenanceSchedule),
+
+        // Báo cáo của chính tàu — bờ gửi lại khi tàu cài lại / đổi máy (tàu làm chủ, chỉ tạo dòng còn thiếu).
+        ["maritime_report"] = typeof(MaritimeReport),
+        ["noon_report"] = typeof(NoonReport),
+        ["departure_report"] = typeof(DepartureReport),
+        ["arrival_report"] = typeof(ArrivalReport),
+        ["bunker_report"] = typeof(BunkerReport),
+        ["position_report"] = typeof(PositionReport),
     };
 
     // Master data tables — always accept from Shore
@@ -146,7 +155,8 @@ public class SyncConflictHandler : ISyncConflictHandler
     // Edge-owned tables — reject updates from Shore
     private static readonly HashSet<string> _edgeOwnedTables = new(StringComparer.OrdinalIgnoreCase)
     {
-        "service_record"
+        "service_record",
+        "maritime_report", "noon_report", "departure_report", "arrival_report", "bunker_report", "position_report"
     };
 
     // Shore-authoritative fields on CrewMember (HR data)
@@ -167,6 +177,29 @@ public class SyncConflictHandler : ISyncConflictHandler
     public async Task HandleIncomingAsync(
         EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
     {
+        // Mọi dữ liệu không phải danh mục chung là dữ liệu RIÊNG của một tàu: bờ đóng dấu IMO tàu đích. Gói của
+        // tàu khác thì KHÔNG áp — chốt chặn thứ hai, phòng khi bờ định tuyến nhầm.
+        if (!_masterDataTables.Contains(item.TableName) && item.TableName != CatalogRosterTable)
+        {
+            var (forThisVessel, verified) = await CheckTargetVesselAsync(context, item, token);
+            if (!forThisVessel) return;
+            if (item.TableName == CrewRosterTable)
+            {
+                if (!verified)
+                {
+                    _logger.LogWarning("Ignored crew_roster without a verifiable target vessel IMO");
+                    return;
+                }
+                await ApplyCrewRosterAsync(context, item, token);
+                return;
+            }
+        }
+
+        if (item.TableName == CatalogRosterTable)
+        {
+            await ApplyCatalogRosterAsync(context, item, token);
+            return;
+        }
         if (item.TableName == "vessel_material_definition")
         {
             await ApplyVesselMaterialAsync(context, item, token);
@@ -218,6 +251,127 @@ public class SyncConflictHandler : ISyncConflictHandler
         }
     }
 
+    public const string CrewRosterTable = "crew_roster";
+    public const string TargetVesselImoField = "targetVesselImo";
+
+    /// <summary>Bảng dữ liệu thuyền viên — bờ gửi đích danh từng tàu, kèm IMO tàu đích.</summary>
+    public static readonly HashSet<string> CrewScopedTables = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "crew_member", "crew_certificate", "crew_logbook_entry", "crew_assignment", "service_record",
+        "crew_member_document", CrewRosterTable
+    };
+
+    /// <summary>
+    /// (forThisVessel, verified). Gói mang IMO khác IMO tàu này → không áp. Gói cũ không mang IMO
+    /// vẫn áp (tương thích), nhưng không được coi là đã xác minh.
+    /// </summary>
+    private async Task<(bool ForThisVessel, bool Verified)> CheckTargetVesselAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
+    {
+        string? target = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(item.Payload);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                foreach (var p in doc.RootElement.EnumerateObject())
+                    if (p.Name.Equals(TargetVesselImoField, StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == JsonValueKind.String)
+                        target = p.Value.GetString();
+        }
+        catch (JsonException) { /* payload hỏng: bộ xử lý phía sau sẽ báo lỗi */ }
+
+        if (string.IsNullOrWhiteSpace(target)) return (true, false);
+        var own = await context.ShipData.AsNoTracking().Select(s => s.ImoNumber).FirstOrDefaultAsync(token);
+        if (string.IsNullOrWhiteSpace(own)) return (true, false);
+        if (string.Equals(own.Trim(), target.Trim(), StringComparison.OrdinalIgnoreCase)) return (true, true);
+
+        _logger.LogWarning("Ignored shore {Table}/{Key}: addressed to vessel IMO {Target}, this vessel is {Own}",
+            item.TableName, item.RecordKey, target, own);
+        return (false, false);
+    }
+
+    public const string CatalogRosterTable = "catalog_roster";
+
+    private sealed class CatalogRosterPayload
+    {
+        public string Table { get; set; } = string.Empty;
+        public List<int> Keys { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Danh mục do bờ làm chủ: xoá ở tàu các dòng không còn trên bờ (bờ đã xoá mà lệnh xoá không xuống,
+    /// hoặc dòng tàu tự tạo trước kia). Loại chứng chỉ thuyền viên trên tàu còn dùng thì giữ, chỉ ghi cảnh báo.
+    /// </summary>
+    private async Task ApplyCatalogRosterAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
+    {
+        var roster = JsonSerializer.Deserialize<CatalogRosterPayload>(item.Payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("Invalid catalog_roster payload");
+        var keep = roster.Keys.ToHashSet();
+        switch (roster.Table)
+        {
+            case "rank_certificate":
+                context.RankCertificates.RemoveRange(await context.RankCertificates.AsTracking().Where(x => !keep.Contains(x.Id)).ToListAsync(token));
+                break;
+            case "country_certificate":
+                context.CountryCertificates.RemoveRange(await context.CountryCertificates.AsTracking().Where(x => !keep.Contains(x.Id)).ToListAsync(token));
+                break;
+            case "certificate":
+                foreach (var cert in await context.Certificates.AsTracking().Where(x => !keep.Contains(x.Id)).ToListAsync(token))
+                {
+                    if (await context.CrewCertificates.AnyAsync(c => c.CertificateId == cert.Id, token))
+                    {
+                        _logger.LogWarning("catalog_roster: kept certificate type {Code} (id {Id}) — still used by crew certificates", cert.CertificateCode, cert.Id);
+                        continue;
+                    }
+                    context.RankCertificates.RemoveRange(await context.RankCertificates.AsTracking().Where(x => x.CertificateId == cert.Id).ToListAsync(token));
+                    context.CountryCertificates.RemoveRange(await context.CountryCertificates.AsTracking().Where(x => x.CertificateId == cert.Id).ToListAsync(token));
+                    context.Certificates.Remove(cert);
+                    _logger.LogInformation("catalog_roster: removed certificate type {Code} (id {Id}) — not in shore catalog", cert.CertificateCode, cert.Id);
+                }
+                break;
+            default:
+                _logger.LogWarning("catalog_roster: unsupported table {Table}", roster.Table);
+                break;
+        }
+        await context.SaveChangesAsync(token);
+    }
+
+    private sealed class CrewRosterPayload
+    {
+        public List<Guid> CrewIds { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Danh sách thuyền viên bờ đang gắn với tàu này. Thuyền viên đến từ bờ mà không còn trong danh sách
+    /// (gửi nhầm, đã chuyển tàu, đã cho xuống tàu ở bờ) được gỡ khỏi tàu — dữ liệu gốc vẫn nằm ở bờ.
+    /// Giữ lại: người còn thay đổi chưa gửi lên bờ, người tàu tự tạo chưa đồng bộ.
+    /// Tài khoản đăng nhập tự cấp cho người bị gỡ: khoá và tách khỏi hồ sơ (không xoá — giữ lịch sử đăng nhập).
+    /// </summary>
+    private async Task ApplyCrewRosterAsync(EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
+    {
+        var roster = JsonSerializer.Deserialize<CrewRosterPayload>(item.Payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("Invalid crew_roster payload");
+        var keep = roster.CrewIds.ToHashSet();
+
+        var candidates = await context.CrewMembers.AsTracking().Where(c => c.IsSynced).ToListAsync(token);
+        foreach (var crew in candidates.Where(c => !keep.Contains(c.Id)))
+        {
+            var id = crew.Id.ToString();
+            if (await context.SyncQueue.AnyAsync(q => q.SyncedAt == null && (q.RecordKey == id || q.Payload.Contains(id)), token))
+            {
+                _logger.LogWarning("crew_roster: kept {CrewId} — still has changes waiting to upload", crew.CrewId);
+                continue;
+            }
+            foreach (var account in await context.Users.AsTracking().Where(u => u.CrewId == crew.CrewId).ToListAsync(token))
+            {
+                account.IsActive = false;
+                account.CrewId = null;
+            }
+            context.CrewMembers.Remove(crew);
+            WriteCrewSyncLog(context, crew.FullName, "CREW_RETURNED_TO_SHORE",
+                $"Gỡ {crew.FullName} khỏi tàu: bờ báo không thuộc tàu này (dữ liệu gốc vẫn ở bờ)", id, new List<FieldDiff>());
+            _logger.LogInformation("crew_roster: removed {CrewId} ({Name}) — not on this vessel per shore", crew.CrewId, crew.FullName);
+        }
+    }
+
     // Thông số tàu bờ sửa được — mọi cột vô hướng của ShipData trừ khóa, IMO và mốc thời gian.
     private static readonly Dictionary<string, System.Reflection.PropertyInfo> _shipDataFields = typeof(ShipData)
         .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
@@ -235,7 +389,9 @@ public class SyncConflictHandler : ISyncConflictHandler
     {
         using var doc = JsonDocument.Parse(item.Payload);
         var root = doc.RootElement;
-        var imo = root.TryGetProperty("ImoNumber", out var imoEl) && imoEl.ValueKind == JsonValueKind.String ? imoEl.GetString() : null;
+        var imoEl = root.EnumerateObject().FirstOrDefault(p =>
+            p.Name.Replace("_", "").Equals("ImoNumber", StringComparison.OrdinalIgnoreCase)).Value;
+        var imo = imoEl.ValueKind == JsonValueKind.String ? imoEl.GetString() : null;
 
         // Tàu chỉ có một bản ghi ShipData. Bờ đã định tuyến gói này tới đúng tàu (theo node đã cấp).
         var ship = await context.ShipData.AsTracking().FirstOrDefaultAsync(token)

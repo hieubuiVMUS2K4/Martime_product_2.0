@@ -12,7 +12,7 @@ export const PageHeader: React.FC<{
       {icon && <span className="mt-0.5 text-primary [&>svg]:h-5 [&>svg]:w-5">{icon}</span>}
       <div>
         <h1 className="text-lg font-bold leading-7 text-ink">{title}</h1>
-        {description && <p className="text-[13px] text-ink-muted">{description}</p>}
+        {description && <p className="text-xs text-ink-muted">{description}</p>}
       </div>
     </div>
     {actions && <div className="flex items-center gap-2">{actions}</div>}

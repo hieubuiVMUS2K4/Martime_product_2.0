@@ -131,7 +131,7 @@ export const CrewProfileHeader: React.FC<Props> = ({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-2xl font-bold text-ink">{crew.fullName}</h1>
-            <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ring-1 ${status.tone}`}>{status.label}</span>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${status.tone}`}>{status.label}</span>
           </div>
           <p className="mt-1 text-base text-ink-muted">
             <span className="font-mono">{crew.crewId}</span>
@@ -141,7 +141,7 @@ export const CrewProfileHeader: React.FC<Props> = ({
 
           <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3 text-base">
             <div>
-              <dt className="text-[13px] text-ink-muted">Tàu</dt>
+              <dt className="text-xs text-ink-muted">Tàu</dt>
               <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-ink">
                 {vessel
                   ? <><Ship className="h-4 w-4 text-accent" aria-hidden="true" />{vessel}</>
@@ -149,21 +149,21 @@ export const CrewProfileHeader: React.FC<Props> = ({
               </dd>
             </div>
             <div>
-              <dt className="text-[13px] text-ink-muted">Ngày lên tàu</dt>
+              <dt className="text-xs text-ink-muted">Ngày lên tàu</dt>
               <dd className="mt-0.5 font-medium text-ink">{formatDateVi(crew.embarkDate) || '—'}</dd>
             </div>
             <div>
-              <dt className="text-[13px] text-ink-muted">Hết hạn hợp đồng</dt>
+              <dt className="text-xs text-ink-muted">Hết hạn hợp đồng</dt>
               <dd className={`mt-0.5 flex items-center gap-1.5 font-medium ${contractTone}`}>
                 {daysLeft !== null && daysLeft <= 60 && <CalendarClock className="h-4 w-4" aria-hidden="true" />}
                 {formatDateVi(crew.contractEnd) || '—'}
-                {daysLeft !== null && daysLeft < 0 && <span className="text-[13px]">(đã quá hạn)</span>}
-                {daysLeft !== null && daysLeft >= 0 && daysLeft <= 60 && <span className="text-[13px]">(còn {daysLeft} ngày)</span>}
+                {daysLeft !== null && daysLeft < 0 && <span className="text-xs">(đã quá hạn)</span>}
+                {daysLeft !== null && daysLeft >= 0 && daysLeft <= 60 && <span className="text-xs">(còn {daysLeft} ngày)</span>}
               </dd>
             </div>
             {crew.phoneNumber && (
               <div>
-                <dt className="text-[13px] text-ink-muted">Điện thoại</dt>
+                <dt className="text-xs text-ink-muted">Điện thoại</dt>
                 <dd className="mt-0.5 font-medium text-ink">{crew.phoneNumber}</dd>
               </div>
             )}

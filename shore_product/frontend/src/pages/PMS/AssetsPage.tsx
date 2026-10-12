@@ -207,7 +207,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
           onClick={() => { setSelectedNodeId(node.id); if (hasChildren) toggleNode(node.id); }}
           style={{ paddingLeft: `${10 + depth * 14}px` }}
           aria-current={isSelected || undefined}
-          className={`flex w-full items-center gap-1.5 py-1.5 pr-3 text-left text-[13px] transition-colors ${
+          className={`flex w-full items-center gap-1.5 py-1.5 pr-3 text-left text-xs transition-colors ${
             isSelected ? 'bg-primary-soft font-semibold text-primary' : 'text-ink hover:bg-primary-soft/60'
           }`}
         >
@@ -225,7 +225,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center gap-2 text-[13px] text-ink-muted">
+      <div className="flex h-96 items-center justify-center gap-2 text-xs text-ink-muted">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> {t('pms.assets.loading')}
       </div>
     );
@@ -243,7 +243,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
             type="button"
             onClick={() => setSelectedNodeId(null)}
             aria-current={selectedNodeId === null || undefined}
-            className={`flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+            className={`flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs transition-colors ${
               selectedNodeId === null ? 'bg-primary-soft font-semibold text-primary' : 'text-ink hover:bg-primary-soft/60'
             }`}
           >
@@ -252,7 +252,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
             <span className="text-xs tabular-nums text-ink-light">{assets.length}</span>
           </button>
           {treeRoots.length === 0
-            ? <p className="px-4 py-6 text-center text-[13px] text-ink-muted">{t('pms.assets.noEquipmentTree')}</p>
+            ? <p className="px-4 py-6 text-center text-xs text-ink-muted">{t('pms.assets.noEquipmentTree')}</p>
             : treeRoots.map(node => renderTreeNode(node, 0))}
         </div>
       </aside>
@@ -271,7 +271,7 @@ export default function AssetsPage({ vesselId: vesselIdProp, readOnly = false }:
           onRowClick={openView}
           minWidth={1000}
           toolbarLeft={selectedNodeName && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-[13px] text-primary">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-xs text-primary">
               <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" /> {selectedNodeName}
               <button type="button" onClick={() => setSelectedNodeId(null)} className="ml-0.5 font-semibold hover:underline" aria-label="Bỏ chọn nhánh">×</button>
             </span>

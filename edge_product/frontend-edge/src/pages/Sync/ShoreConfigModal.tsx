@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   X, Settings, Upload, Loader2, CheckCircle2, XCircle,
-  Plug, ShieldCheck, History, RefreshCw, AlertTriangle
+  Plug, ShieldCheck, History, RefreshCw, AlertTriangle, Archive, Download
 } from 'lucide-react'
 import {
   provisioningService,
   type EdgeProvisioningStatus,
   type EdgeProvisioningHistoryItem,
+  type EdgeVesselDataPackage,
 } from '@/services/maritime.service'
 
 interface ShoreConfigModalProps {
@@ -23,16 +24,58 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
   const [testingId, setTestingId] = useState<number | null>(null)
   const [activatingId, setActivatingId] = useState<number | null>(null)
   const [testResult, setTestResult] = useState<{ id: number; success: boolean; message: string } | null>(null)
+  const [packages, setPackages] = useState<EdgeVesselDataPackage[]>([])
+  const [importingPackage, setImportingPackage] = useState(false)
+  const [packageMessage, setPackageMessage] = useState<{ success: boolean; text: string } | null>(null)
+
+  const fmtSize = (bytes: number) =>
+    bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+
+  /** Vừa đóng gói dữ liệu tàu cũ: tự tải về máy để cất giữ / chuyển sang máy khác. */
+  const deliverPackage = async (pkg?: EdgeVesselDataPackage) => {
+    if (!pkg) return
+    setPackageMessage({
+      success: true,
+      text: `Đã đóng gói dữ liệu tàu ${pkg.vesselName ?? ''} (IMO ${pkg.vesselImo ?? '—'}) trước khi xoá: ${pkg.rows.toLocaleString('vi-VN')} dòng, ${pkg.files} tệp, ${pkg.pendingUploads} thay đổi chưa gửi bờ → ${pkg.fileName}.`,
+    })
+    try { await provisioningService.downloadDataPackage(pkg.fileName) } catch { /* vẫn còn trong danh sách bên dưới */ }
+  }
+
+  const handleImportPackage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !status?.isActive) return
+    if (!window.confirm(
+      `Nhập gói dữ liệu "${file.name}" vào tàu ${status.vesselName} (IMO ${status.vesselImo})?\n\n` +
+      'Dòng máy chưa có sẽ được thêm; dòng đã nhận từ bờ được giữ, trừ dòng tàu cũ chưa kịp gửi lên bờ. ' +
+      'Các thay đổi chưa gửi sẽ được đưa lại vào hàng chờ để gửi lên bờ.'
+    )) return
+    setImportingPackage(true)
+    setPackageMessage(null)
+    try {
+      const r = await provisioningService.importDataPackage(file)
+      setPackageMessage({
+        success: true,
+        text: `Đã nhập gói dữ liệu: thêm ${r.inserted.toLocaleString('vi-VN')} dòng, cập nhật ${r.updated.toLocaleString('vi-VN')} dòng chưa gửi bờ, đưa lại ${r.requeued} thay đổi vào hàng chờ, chép ${r.files} tệp.`,
+      })
+    } catch (err) {
+      setPackageMessage({ success: false, text: err instanceof Error ? err.message : 'Nhập gói dữ liệu thất bại' })
+    } finally {
+      setImportingPackage(false)
+    }
+  }
 
   const load = useCallback(async () => {
     try {
       setError(null)
-      const [statusRes, historyRes] = await Promise.all([
+      const [statusRes, historyRes, packagesRes] = await Promise.all([
         provisioningService.getStatus(),
         provisioningService.getHistory(),
+        provisioningService.listDataPackages().catch(() => [] as EdgeVesselDataPackage[]),
       ])
       setStatus(statusRes)
       setHistory(historyRes)
+      setPackages(packagesRes)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không tải được trạng thái cấu hình')
     } finally {
@@ -88,12 +131,82 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
     setActivatingId(id)
     setError(null)
     try {
-      await provisioningService.activate(id)
+      // Gói của tàu khác: máy tàu chỉ giữ dữ liệu của MỘT tàu → xoá sạch dữ liệu tàu cũ, nhận lại từ bờ.
+      const check = await provisioningService.switchCheck(id)
+      let confirmReset = false
+      if (check.requiresReset) {
+        const current = check.currentVesselName
+          ? `${check.currentVesselName} (IMO ${check.currentVesselImo ?? '—'})`
+          : 'dữ liệu hiện có trên máy'
+        const pending = check.pendingUploads > 0
+          ? `
+
+⚠ Còn ${check.pendingUploads} thay đổi CHƯA gửi lên bờ — được đóng gói vào file dữ liệu (.zip) trước khi xoá.`
+          : ''
+        const typed = window.prompt(
+          `ĐỔI TÀU: ${current} → ${check.newVesselName} (IMO ${check.newVesselImo}).
+
+` +
+          'Toàn bộ dữ liệu của tàu hiện tại (thuyền viên, chuyến đi, PMS, vật tư, báo cáo, nhật ký...) được ĐÓNG GÓI thành file .zip rồi bị XOÁ khỏi máy, ' +
+          'sau đó tàu nhận lại toàn bộ dữ liệu của tàu mới từ bờ. Danh mục dùng chung và tài khoản quản trị được giữ.' +
+          pending + `
+
+Gõ IMO của tàu mới (${check.newVesselImo}) để xác nhận:`
+        )
+        if (typed === null) return
+        if (typed.trim() !== (check.newVesselImo ?? '').trim()) {
+          setError('IMO không khớp — chưa kích hoạt, dữ liệu giữ nguyên.')
+          return
+        }
+        confirmReset = true
+      }
+      const result = await provisioningService.activate(id, confirmReset)
+      await deliverPackage(result.dataPackage)
+      if (result.reset) {
+        setTestResult({
+          id, success: result.fullSyncRequested,
+          message: result.fullSyncRequested
+            ? `Đã đổi tàu: xoá ${result.wipedRows} dòng dữ liệu cũ, đang nhận dữ liệu tàu mới từ bờ.`
+            : `Đã đổi tàu và xoá ${result.wipedRows} dòng dữ liệu cũ. Bờ chưa trả lời — tàu sẽ tự xin lại dữ liệu khi có kết nối.`,
+        })
+      }
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Activate thất bại')
     } finally {
       setActivatingId(null)
+    }
+  }
+
+  const [resetting, setResetting] = useState(false)
+  const handleReset = async () => {
+    if (!status?.vesselImo) return
+    const typed = window.prompt(
+      `Làm sạch tàu ${status.vesselName} (IMO ${status.vesselImo}).
+
+` +
+      'Toàn bộ dữ liệu trên máy tàu được ĐÓNG GÓI thành file .zip rồi XOÁ, sau đó nhận lại toàn bộ dữ liệu của tàu từ bờ. ' +
+      `Danh mục dùng chung và tài khoản quản trị được giữ.
+
+Gõ IMO ${status.vesselImo} để xác nhận:`
+    )
+    if (typed === null) return
+    setResetting(true)
+    setError(null)
+    try {
+      const r = await provisioningService.resetFromShore(typed.trim())
+      await deliverPackage(r.dataPackage)
+      setTestResult({
+        id: -1, success: r.fullSyncRequested,
+        message: r.fullSyncRequested
+          ? `Đã xoá ${r.wipedRows} dòng, đang nhận lại dữ liệu từ bờ.`
+          : `Đã xoá ${r.wipedRows} dòng. Bờ chưa trả lời — tàu sẽ tự xin lại dữ liệu khi có kết nối.`,
+      })
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Làm sạch thất bại')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -112,14 +225,14 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[85vh] overflow-y-auto">
+      <div className="relative w-full max-w-4xl mx-3 max-h-[90vh] overflow-y-auto rounded-lg bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between operations-section-title flex-shrink-0 sticky top-0 z-10">
-          <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sticky top-0 z-10">
+          <div className="flex min-w-0 items-center gap-2 text-gray-900">
             <Settings className="w-5 h-5" />
-            <span className="font-semibold text-sm">Cấu hình kết nối bờ</span>
+            <span className="text-sm font-semibold">Cấu hình kết nối bờ</span>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+          <button onClick={onClose} className="text-gray-400 transition-colors hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -166,9 +279,19 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                         <div><span className="text-gray-500">Handshake:</span> <span className={`font-medium ${activeProfileNeedsReimport ? 'text-red-600' : ''}`}>{status.handshakeStatus ?? '—'}</span></div>
                         <div><span className="text-gray-500">Lần cuối:</span> <span className="font-medium">{formatTime(status.lastHandshake)}</span></div>
                       </div>
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-3">
+                        <span className="text-xs text-gray-500">Dữ liệu tàu lệch bờ? Xoá dữ liệu tàu và nhận lại toàn bộ từ bờ.</span>
+                        <button type="button" onClick={handleReset} disabled={resetting}
+                          className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50">
+                          {resetting ? 'Đang làm sạch…' : 'Làm sạch & nhận lại từ bờ'}
+                        </button>
+                      </div>
+                      {testResult?.id === -1 && (
+                        <div className={`text-xs ${testResult.success ? 'text-green-700' : 'text-amber-700'}`}>{testResult.message}</div>
+                      )}
                     </div>
                   ) : (
-                    <span className="text-amber-600 dark:text-amber-300 flex items-center gap-2">
+                    <span className="text-amber-600 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4" /> Chưa có cấu hình đang hoạt động (Legacy/Chưa cấu hình)
                     </span>
                   )}
@@ -197,6 +320,55 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                 </label>
               </section>
 
+              {/* Gói dữ liệu tàu */}
+              <section>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Archive className="h-4 w-4 text-blue-600" />
+                    Gói dữ liệu tàu
+                  </h3>
+                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 ${
+                    !status?.isActive || importingPackage ? 'pointer-events-none opacity-50' : ''}`}
+                    title={status?.isActive ? 'Nhập gói dữ liệu (.zip) của tàu đang chạy' : 'Kích hoạt gói cấu hình của tàu trước'}>
+                    {importingPackage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    Nhập gói dữ liệu (.zip)
+                    <input type="file" accept=".zip" className="hidden" disabled={!status?.isActive || importingPackage} onChange={handleImportPackage} />
+                  </label>
+                </div>
+                <p className="mb-2 text-xs text-gray-500">
+                  Tạo tự động trước khi đổi tàu / làm sạch: toàn bộ dữ liệu tàu cũ kể cả phần chưa gửi lên bờ. Máy khác chạy lại tàu đó:
+                  kích hoạt gói cấu hình của tàu, rồi nhập gói dữ liệu để bù phần bờ còn thiếu.
+                </p>
+                {packageMessage && (
+                  <div className={`mb-2 rounded border px-3 py-2 text-xs ${packageMessage.success ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                    {packageMessage.text}
+                  </div>
+                )}
+                {packages.length === 0 ? (
+                  <div className="rounded border border-dashed border-gray-200 py-4 text-center text-xs text-gray-400">Chưa có gói dữ liệu nào trên máy này.</div>
+                ) : (
+                  <ul className="divide-y divide-gray-100 rounded border border-gray-200">
+                    {packages.map(pkg => (
+                      <li key={pkg.fileName} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-gray-900">
+                            {pkg.vesselName ?? 'Không rõ tàu'} <span className="font-mono text-xs text-gray-500">IMO {pkg.vesselImo ?? '—'}</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(pkg.createdAt).toLocaleString('vi-VN')} · {pkg.rows.toLocaleString('vi-VN')} dòng · {pkg.files} tệp ·{' '}
+                            <span className={pkg.pendingUploads > 0 ? 'font-medium text-amber-700' : ''}>{pkg.pendingUploads} chưa gửi bờ</span> · {fmtSize(pkg.sizeBytes)}
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => provisioningService.downloadDataPackage(pkg.fileName).catch(err => setError(err.message))}
+                          className="inline-flex items-center gap-1.5 rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                          <Download className="h-3.5 w-3.5" /> Tải về
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
               {/* History / Test / Activate */}
               <section>
                 <div className="flex items-center justify-between mb-2">
@@ -220,10 +392,10 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                             <span className="font-medium">{item.vesselName}</span>{' '}
                             <span className="text-gray-400">({item.nodeId})</span>
                             {item.isActive && !isFailed(item.handshakeStatus) && (
-                              <span className="ml-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">ĐANG DÙNG</span>
+                              <span className="ml-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">ĐANG DÙNG</span>
                             )}
                             {item.isActive && isFailed(item.handshakeStatus) && (
-                              <span className="ml-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">CẦN IMPORT LẠI</span>
+                              <span className="ml-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">CẦN IMPORT LẠI</span>
                             )}
                           </div>
                           <span className="text-xs text-gray-400">{formatTime(item.importedAt)}</span>
@@ -242,7 +414,7 @@ export function ShoreConfigModal({ onClose }: ShoreConfigModalProps) {
                         )}
 
                         {testResult?.id === item.id && (
-                          <div className={`mt-2 text-xs flex items-center gap-1 ${testResult.success ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600'}`}>
+                          <div className={`mt-2 text-xs flex items-center gap-1 ${testResult.success ? 'text-emerald-600' : 'text-red-600'}`}>
                             {testResult.success ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                             {testResult.message}
                           </div>

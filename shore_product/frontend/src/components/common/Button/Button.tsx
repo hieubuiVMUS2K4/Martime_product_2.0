@@ -32,9 +32,9 @@ const VARIANT: Record<Variant, string> = {
 };
 
 const SIZE: Record<Size, string> = {
-  sm: 'h-8 px-3 text-[13px] gap-1.5',
+  sm: 'h-8 px-3 text-xs gap-1.5',
   md: 'h-9 px-4 text-sm gap-2',
-  lg: 'h-11 px-5 text-[15px] gap-2',
+  lg: 'h-11 px-5 text-[0.9375rem] gap-2',
 };
 
 export const buttonClass = (variant: Variant = 'secondary', size: Size = 'md', extra = '') =>

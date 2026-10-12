@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../providers/watchkeeping_provider.dart';
@@ -70,21 +71,21 @@ class _WatchScheduleTabState extends State<WatchScheduleTab> {
                         'Navigation',
                         provider.navigationLogsCount,
                         Icons.explore,
-                        color: Colors.blue,
+                        color: MaritimeTheme.accent,
                       ),
                       _buildStatItem(
                         context,
                         'Engine',
                         provider.engineLogsCount,
                         Icons.settings,
-                        color: Colors.orange,
+                        color: MaritimeTheme.warning,
                       ),
                       _buildStatItem(
                         context,
                         'Unsigned',
                         provider.unsignedLogsCount,
                         Icons.edit_note,
-                        color: Colors.red,
+                        color: MaritimeTheme.error,
                       ),
                     ],
                   ),
@@ -197,14 +198,14 @@ class _WatchScheduleTabState extends State<WatchScheduleTab> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: MaritimeTheme.error.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red),
+                        border: Border.all(color: MaritimeTheme.error),
                       ),
                       child: const Text(
                         'Unsigned',
                         style: TextStyle(
-                          color: Colors.red,
+                          color: MaritimeTheme.error,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -218,7 +219,7 @@ class _WatchScheduleTabState extends State<WatchScheduleTab> {
                   Icon(
                     log.watchType == 'NAVIGATION' ? Icons.explore : Icons.settings,
                     size: 16,
-                    color: log.watchType == 'NAVIGATION' ? Colors.blue : Colors.orange,
+                    color: log.watchType == 'NAVIGATION' ? MaritimeTheme.accent : MaritimeTheme.warning,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -226,7 +227,7 @@ class _WatchScheduleTabState extends State<WatchScheduleTab> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(width: 16),
-                  const Icon(Icons.person, size: 16, color: Colors.grey),
+                  const Icon(Icons.person, size: 16, color: MaritimeTheme.textTertiary),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -241,7 +242,7 @@ class _WatchScheduleTabState extends State<WatchScheduleTab> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.wb_sunny, size: 16, color: Colors.amber),
+                    const Icon(Icons.wb_sunny, size: 16, color: MaritimeTheme.warning),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -258,13 +259,13 @@ class _WatchScheduleTabState extends State<WatchScheduleTab> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: MaritimeTheme.warning.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    border: Border.all(color: MaritimeTheme.warning.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning, size: 16, color: Colors.orange),
+                      const Icon(Icons.warning, size: 16, color: MaritimeTheme.warning),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

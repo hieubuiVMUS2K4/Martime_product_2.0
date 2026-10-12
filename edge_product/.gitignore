@@ -124,3 +124,6 @@ coverage/
 # ====================
 edge-services/uploads/*
 !edge-services/uploads/.gitkeep
+
+# Gói dữ liệu tàu (.zip) tạo khi đổi tàu / làm sạch — chứa dữ liệu cá nhân thuyền viên
+edge-services/vessel-data-packages/

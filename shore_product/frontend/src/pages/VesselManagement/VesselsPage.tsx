@@ -121,7 +121,7 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
 const InfoItem: React.FC<{ label: string; value: React.ReactNode; mono?: boolean }> = ({ label, value, mono }) => (
   <div className="min-w-0">
     <dt className="text-xs font-medium text-ink-muted">{label}</dt>
-    <dd className={`truncate text-[13px] font-semibold text-ink ${mono ? 'font-mono' : ''}`}>{value || '—'}</dd>
+    <dd className={`truncate text-xs font-semibold text-ink ${mono ? 'font-mono' : ''}`}>{value || '—'}</dd>
   </div>
 );
 
@@ -129,7 +129,7 @@ const CardAction: React.FC<{ icon: React.ReactNode; label: string; onClick: () =
   <button
     type="button"
     onClick={e => { e.stopPropagation(); onClick(); }}
-    className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-r border-grid py-2 text-[13px] font-medium transition-colors last:border-r-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 ${
+    className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-r border-grid py-2 text-xs font-medium transition-colors last:border-r-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 ${
       danger ? 'text-red-600 hover:bg-danger-soft' : 'text-ink-muted hover:bg-primary-soft hover:text-primary'
     }`}
   >
@@ -167,7 +167,7 @@ const VesselCard: React.FC<{
           <Ship className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-bold leading-5 text-ink group-hover:text-primary" title={v.name}>{v.name}</h3>
+          <h3 className="truncate text-[0.9375rem] font-bold leading-5 text-ink group-hover:text-primary" title={v.name}>{v.name}</h3>
           <p className="font-mono text-xs text-ink-muted">IMO {v.imo}</p>
         </div>
         <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${prov.tone}`}>
@@ -376,16 +376,16 @@ export const VesselsPage: React.FC = () => {
           <option value="">Tất cả quốc tịch</option>
           {flagOptions.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
-        <span className="text-[13px] font-semibold text-ink" aria-live="polite">
+        <span className="text-xs font-semibold text-ink" aria-live="polite">
           {loading ? 'Đang tải...' : hasFilter ? `${filtered.length} / ${vessels.length} tàu` : `${vessels.length} tàu`}
         </span>
         {hasFilter && (
-          <button type="button" onClick={clearFilters} className="text-[13px] font-medium text-primary hover:underline">Bỏ lọc</button>
+          <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">Bỏ lọc</button>
         )}
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">{error}</span>
           <Button size="sm" variant="secondary" onClick={fetchData}>Thử lại</Button>
@@ -394,11 +394,11 @@ export const VesselsPage: React.FC = () => {
 
       {/* Lưới tàu: luôn 4 cột */}
       {loading && vessels.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
+        <div className="flex items-center justify-center gap-2 py-16 text-xs text-ink-muted">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Đang tải danh sách đội tàu...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-grid-strong bg-surface py-16 text-[13px] text-ink-muted">
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-grid-strong bg-surface py-16 text-xs text-ink-muted">
           <Ship className="h-7 w-7 text-ink-light" aria-hidden="true" />
           {hasFilter ? 'Không có tàu nào khớp bộ lọc.' : 'Chưa có tàu nào. Bấm "Thêm tàu" để bắt đầu.'}
         </div>
@@ -438,7 +438,7 @@ export const VesselsPage: React.FC = () => {
       >
         <form id="vessel-form" onSubmit={handleSave} className="grid grid-cols-2 gap-4">
           {formError && (
-            <div className="col-span-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+            <div className="col-span-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {formError}
             </div>
           )}
@@ -470,7 +470,7 @@ export const VesselsPage: React.FC = () => {
       {contextMenu && (
         <div
           role="menu"
-          className="fixed z-50 w-56 overflow-hidden rounded-md border border-line bg-surface py-1 text-[13px] shadow-lg"
+          className="fixed z-50 w-56 overflow-hidden rounded-md border border-line bg-surface py-1 text-xs shadow-lg"
           style={{ left: Math.min(contextMenu.x, window.innerWidth - 232), top: Math.min(contextMenu.y, window.innerHeight - 220) }}
           onClick={e => e.stopPropagation()}
         >

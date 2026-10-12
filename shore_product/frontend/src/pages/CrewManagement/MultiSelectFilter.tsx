@@ -82,12 +82,12 @@ export const MultiSelectFilter: React.FC<Props> = ({ label, options, selected, o
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Tìm..."
-                className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
+                className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-xs text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"
               />
             </label>
           </div>
 
-          <div className="flex gap-3 border-b border-grid px-3 py-1.5 text-[13px]">
+          <div className="flex gap-3 border-b border-grid px-3 py-1.5 text-xs">
             <button type="button" className="font-semibold text-primary hover:underline" onClick={() => onChange(new Set(options.map(o => o.id)))}>
               Chọn tất cả
             </button>
@@ -98,7 +98,7 @@ export const MultiSelectFilter: React.FC<Props> = ({ label, options, selected, o
 
           <div className="max-h-64 overflow-y-auto py-1" role="listbox" aria-multiselectable="true">
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-center text-[13px] text-ink-muted">Không tìm thấy</p>
+              <p className="px-3 py-4 text-center text-xs text-ink-muted">Không tìm thấy</p>
             ) : filtered.map(o => {
               const on = selected.has(o.id);
               return (
@@ -108,7 +108,7 @@ export const MultiSelectFilter: React.FC<Props> = ({ label, options, selected, o
                   role="option"
                   aria-selected={on}
                   onClick={() => toggle(o.id)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-primary-soft ${on ? 'bg-primary-soft/60' : ''}`}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-primary-soft ${on ? 'bg-primary-soft/60' : ''}`}
                 >
                   <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${on ? 'border-primary bg-primary text-white' : 'border-line bg-surface'}`}>
                     {on && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}

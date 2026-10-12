@@ -100,18 +100,18 @@ export default function LoginPage() {
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
           </div>
-          <span style={{ color: 'white', fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em' }}>
+          <span style={{ color: 'white', fontWeight: 700, fontSize: '1.125rem', letterSpacing: '-0.02em' }}>
             Shore Office
           </span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums' }}>
             {fmtDate(currentTime)} — {fmt(currentTime)} UTC
           </span>
           <span
             style={{
-              fontFamily: 'monospace',
+              fontVariantNumeric: 'tabular-nums',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               color: 'rgba(147,130,255,0.8)',
@@ -119,7 +119,7 @@ export default function LoginPage() {
               padding: '6px 12px',
               borderRadius: 99,
               border: '1px solid rgba(255,255,255,0.08)',
-              fontSize: 11,
+              fontSize: '0.8125rem',
             }}
           >
             SHORE MANAGEMENT
@@ -150,10 +150,10 @@ export default function LoginPage() {
               transform: mounted ? 'translateX(0)' : 'translateX(-40px)',
             }}
           >
-            <h1 style={{ fontSize: 52, fontWeight: 800, color: 'white', lineHeight: 1.1, marginBottom: 16 }}>
+            <h1 style={{ fontSize: '3.25rem', fontWeight: 800, color: 'white', lineHeight: 1.1, marginBottom: 16 }}>
               Shore Office
             </h1>
-            <h2 style={{ fontSize: 32, fontWeight: 700, color: 'rgba(255,255,255,0.9)', lineHeight: 1.2, marginBottom: 24 }}>
+            <h2 style={{ fontSize: '2rem', fontWeight: 700, color: 'rgba(255,255,255,0.9)', lineHeight: 1.2, marginBottom: 24 }}>
               Fleet Management<br />
               <span
                 style={{
@@ -165,7 +165,7 @@ export default function LoginPage() {
                 Platform.
               </span>
             </h2>
-            <p style={{ fontSize: 15, color: 'rgba(147,197,253,0.5)', lineHeight: 1.7, maxWidth: 440, marginBottom: 32 }}>
+            <p style={{ fontSize: '0.9375rem', color: 'rgba(147,197,253,0.5)', lineHeight: 1.7, maxWidth: 440, marginBottom: 32 }}>
               Centralized maritime fleet management platform. Monitor vessels, manage crew,
               track compliance and synchronize data with onboard systems.
             </p>
@@ -184,7 +184,7 @@ export default function LoginPage() {
                     gap: 6,
                     padding: '6px 12px',
                     borderRadius: 99,
-                    fontSize: 12,
+                    fontSize: '0.8125rem',
                     fontWeight: 600,
                     color: 'rgba(191,179,255,0.8)',
                     background: 'rgba(255,255,255,0.06)',
@@ -230,10 +230,10 @@ export default function LoginPage() {
 
             {/* Header */}
             <div style={{ padding: '40px 32px 8px', textAlign: 'center' }}>
-              <h2 style={{ fontSize: 24, fontWeight: 700, color: 'white', letterSpacing: '-0.02em' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'white', letterSpacing: '-0.02em' }}>
                 Sign In
               </h2>
-              <p style={{ fontSize: 14, color: 'rgba(147,197,253,0.4)', marginTop: 8 }}>
+              <p style={{ fontSize: '0.875rem', color: 'rgba(147,197,253,0.4)', marginTop: 8 }}>
                 Access shore fleet management dashboard
               </p>
             </div>
@@ -260,7 +260,7 @@ export default function LoginPage() {
                     <line x1="12" y1="9" x2="12" y2="13" />
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
-                  <p style={{ fontSize: 14, color: 'rgba(252,165,165,0.9)' }}>{error}</p>
+                  <p style={{ fontSize: '0.875rem', color: 'rgba(252,165,165,0.9)' }}>{error}</p>
                 </div>
               )}
 
@@ -268,7 +268,7 @@ export default function LoginPage() {
               <div style={{ marginBottom: 20 }}>
                 <label
                   htmlFor="username"
-                  style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(147,197,253,0.45)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}
+                  style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'rgba(147,197,253,0.45)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}
                 >
                   Username
                 </label>
@@ -289,7 +289,7 @@ export default function LoginPage() {
                       paddingLeft: 16,
                       paddingRight: 44,
                       color: 'white',
-                      fontSize: 14,
+                      fontSize: '0.875rem',
                       background: 'transparent',
                       border: 'none',
                       borderBottom: '2px solid rgba(255,255,255,0.12)',
@@ -320,7 +320,7 @@ export default function LoginPage() {
               <div style={{ marginBottom: 32 }}>
                 <label
                   htmlFor="password"
-                  style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(147,197,253,0.45)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}
+                  style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'rgba(147,197,253,0.45)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}
                 >
                   Password
                 </label>
@@ -339,7 +339,7 @@ export default function LoginPage() {
                       paddingLeft: 16,
                       paddingRight: 44,
                       color: 'white',
-                      fontSize: 14,
+                      fontSize: '0.875rem',
                       background: 'transparent',
                       border: 'none',
                       borderBottom: '2px solid rgba(255,255,255,0.12)',
@@ -394,7 +394,7 @@ export default function LoginPage() {
                   height: 50,
                   color: 'white',
                   fontWeight: 600,
-                  fontSize: 15,
+                  fontSize: '0.9375rem',
                   borderRadius: 12,
                   border: 'none',
                   cursor: isLoggingIn || !username.trim() || !password.trim() ? 'not-allowed' : 'pointer',
@@ -445,7 +445,7 @@ export default function LoginPage() {
           justifyContent: 'space-between',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8125rem', color: 'rgba(255,255,255,0.25)' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="2" y1="12" x2="22" y2="12" />
@@ -453,7 +453,7 @@ export default function LoginPage() {
           </svg>
           <span style={{ letterSpacing: '0.04em' }}>Shore Fleet Management System</span>
         </div>
-        <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.04em' }}>
+        <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.04em' }}>
           Maritime Shore Office &copy; {new Date().getFullYear()}
         </p>
       </div>

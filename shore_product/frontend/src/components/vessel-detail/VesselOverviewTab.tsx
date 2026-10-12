@@ -69,9 +69,9 @@ const Card: React.FC<{
   title: string; icon: React.ReactNode; actions?: React.ReactNode; className?: string; children: React.ReactNode;
 }> = ({ title, icon, actions, className = '', children }) => (
   <section className={`flex min-w-0 flex-col overflow-hidden rounded-md border border-grid-strong bg-surface ${className}`}>
-    <header className="flex items-center gap-2 border-b border-grid px-4 py-2.5">
+    <header className="flex items-center gap-2 border-b border-grid-strong bg-accent-soft px-4 py-2.5">
       <span className="text-primary [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
+      <h3 className="text-sm font-bold text-primary">{title}</h3>
       {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
     </header>
     {children}
@@ -82,9 +82,9 @@ const Card: React.FC<{
 const InfoList: React.FC<{ rows: [string, React.ReactNode][] }> = ({ rows }) => (
   <dl className="divide-y divide-grid">
     {rows.map(([label, value]) => (
-      <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2 text-[13px]">
-        <dt className="text-ink-muted">{label}</dt>
-        <dd className={`text-right tabular-nums ${value ? 'font-semibold text-ink' : 'text-ink-light'}`}>{value || '—'}</dd>
+      <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2 text-sm">
+        <dt className="font-semibold text-ink-muted">{label}</dt>
+        <dd className={`text-right tabular-nums ${value ? 'font-bold text-ink' : 'text-ink-light'}`}>{value || '—'}</dd>
       </div>
     ))}
   </dl>
@@ -96,9 +96,9 @@ const StatusItem: React.FC<{
   <div className="flex min-w-0 items-center gap-3 px-4 py-3">
     <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md [&>svg]:h-[18px] [&>svg]:w-[18px] ${tone}`}>{icon}</span>
     <div className="min-w-0">
-      <p className="text-xs font-medium text-ink-muted">{label}</p>
-      <p className="truncate text-sm font-semibold text-ink">{value}</p>
-      {sub && <p className="truncate text-xs text-ink-muted">{sub}</p>}
+      <p className="text-sm font-semibold text-ink-muted">{label}</p>
+      <p className="truncate text-sm font-bold text-ink">{value}</p>
+      {sub && <p className="truncate text-sm font-semibold text-ink-muted">{sub}</p>}
     </div>
   </div>
 );
@@ -188,16 +188,16 @@ export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => 
             <div className="grid grid-cols-2 gap-px bg-grid">
               {tanks.map(t => (
                 <div key={t.label} className="bg-surface px-4 py-3">
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-ink-muted">
                     <Droplets className={`h-3.5 w-3.5 ${t.tone}`} aria-hidden="true" />{t.label}
                   </p>
                   <p className={`mt-0.5 text-base font-bold tabular-nums ${t.value ? 'text-ink' : 'text-ink-light'}`}>
-                    {t.value ? <>{t.value.toLocaleString('vi-VN')} <span className="text-xs font-medium text-ink-muted">m³</span></> : '—'}
+                    {t.value ? <>{t.value.toLocaleString('vi-VN')} <span className="text-sm font-medium text-ink-muted">m³</span></> : '—'}
                   </p>
                 </div>
               ))}
             </div>
-            <p className="border-t border-grid px-4 py-2 text-xs text-ink-muted">
+            <p className="border-t border-grid px-4 py-2 text-sm text-ink-muted">
               Dung tích tối đa theo thiết kế. Lượng còn trên tàu (ROB) sẽ hiện khi tàu gửi báo cáo.
             </p>
           </Card>
@@ -219,7 +219,7 @@ export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => 
             ['Chỉ số EEXI', null],
             ['Báo cáo EU MRV', null],
           ]} />
-          <p className="border-t border-grid px-4 py-2 text-xs text-ink-muted">Chưa có dữ liệu phát thải từ tàu.</p>
+          <p className="border-t border-grid px-4 py-2 text-sm text-ink-muted">Chưa có dữ liệu phát thải từ tàu.</p>
         </Card>
 
         <AlertsSection vesselId={vessel.id} className="col-span-2" />
@@ -289,7 +289,7 @@ const AlertsSection: React.FC<{ vesselId: string; className?: string }> = ({ ves
       actions={
         <>
           {summary && summary.activeAlerts > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2 py-0.5 text-sm font-semibold text-red-700">
               <i className="h-1.5 w-1.5 rounded-full bg-red-500" /> {summary.activeAlerts} đang hoạt động
             </span>
           )}
@@ -306,7 +306,7 @@ const AlertsSection: React.FC<{ vesselId: string; className?: string }> = ({ ves
     >
       {open && (
         loading && !summary ? (
-          <p className="px-4 py-8 text-center text-[13px] text-ink-muted">Đang tải cảnh báo...</p>
+          <p className="px-4 py-8 text-center text-sm text-ink-muted">Đang tải cảnh báo...</p>
         ) : (
           <div>
             {stats.length > 0 && (
@@ -314,7 +314,7 @@ const AlertsSection: React.FC<{ vesselId: string; className?: string }> = ({ ves
                 {stats.map(s => (
                   <div key={s.label} className="px-4 py-2.5">
                     <p className={`text-lg font-bold tabular-nums ${s.tone}`}>{s.value}</p>
-                    <p className="text-xs text-ink-muted">{s.label}</p>
+                    <p className="text-sm font-semibold text-ink-muted">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -323,22 +323,22 @@ const AlertsSection: React.FC<{ vesselId: string; className?: string }> = ({ ves
             <div className="grid grid-cols-2 divide-x divide-grid">
               {/* Cảnh báo đang hoạt động */}
               <div className="min-w-0 p-3">
-                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Cảnh báo đang hoạt động</p>
+                <p className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-ink-muted">Cảnh báo đang hoạt động</p>
                 {activeAlerts.length === 0 ? (
-                  <p className="px-1 py-4 text-[13px] text-ink-muted">Không có cảnh báo nào.</p>
+                  <p className="px-1 py-4 text-sm text-ink-muted">Không có cảnh báo nào.</p>
                 ) : (
                   <ul className="max-h-72 space-y-2 overflow-y-auto">
                     {activeAlerts.map(alert => {
                       const sev = sevOf(alert.severity);
                       return (
                         <li key={alert.id} className={`rounded-md border px-3 py-2 ${sev.tone}`}>
-                          <p className="flex items-center gap-2 text-[13px] font-semibold">
+                          <p className="flex items-center gap-2 text-sm font-semibold">
                             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                             <span className="truncate">{alert.alarmType}</span>
-                            <span className="ml-auto shrink-0 text-xs font-medium">{sev.label}</span>
+                            <span className="ml-auto shrink-0 text-sm font-medium">{sev.label}</span>
                           </p>
-                          {alert.description && <p className="mt-0.5 text-[13px] text-ink">{alert.description}</p>}
-                          <p className="mt-0.5 text-xs text-ink-muted">
+                          {alert.description && <p className="mt-0.5 text-sm text-ink">{alert.description}</p>}
+                          <p className="mt-0.5 text-sm text-ink-muted">
                             {timeAgo(alert.timestamp)} · {fmtDateTime(alert.timestamp)}{alert.location ? ` · ${alert.location}` : ''}
                           </p>
                         </li>
@@ -350,22 +350,22 @@ const AlertsSection: React.FC<{ vesselId: string; className?: string }> = ({ ves
 
               {/* Sự kiện động cơ */}
               <div className="min-w-0 p-3">
-                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">Sự kiện động cơ (72 giờ)</p>
+                <p className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-ink-muted">Sự kiện động cơ (72 giờ)</p>
                 {events.length === 0 ? (
-                  <p className="px-1 py-4 text-[13px] text-ink-muted">Không có sự kiện nào.</p>
+                  <p className="px-1 py-4 text-sm text-ink-muted">Không có sự kiện nào.</p>
                 ) : (
                   <ul className="divide-y divide-grid">
                     {events.slice(0, 8).map(evt => {
                       const start = evt.eventType === 'START';
                       return (
-                        <li key={evt.id} className="flex items-center gap-2.5 px-1 py-2 text-[13px]">
+                        <li key={evt.id} className="flex items-center gap-2.5 px-1 py-2 text-sm">
                           <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${start ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
                             {start ? <Power className="h-3.5 w-3.5" aria-hidden="true" /> : <PowerOff className="h-3.5 w-3.5" aria-hidden="true" />}
                           </span>
                           <span className={`font-semibold ${start ? 'text-emerald-700' : 'text-ink'}`}>{start ? 'Khởi động' : 'Dừng máy'}</span>
-                          <span className="truncate font-mono text-xs text-ink-muted">{evt.engineId}</span>
-                          {evt.rpmAtEvent != null && <span className="text-xs text-ink-muted">{evt.rpmAtEvent} RPM</span>}
-                          <span className="ml-auto shrink-0 text-xs text-ink-muted">{timeAgo(evt.timestamp)}</span>
+                          <span className="truncate font-mono text-sm text-ink-muted">{evt.engineId}</span>
+                          {evt.rpmAtEvent != null && <span className="text-sm text-ink-muted">{evt.rpmAtEvent} RPM</span>}
+                          <span className="ml-auto shrink-0 text-sm text-ink-muted">{timeAgo(evt.timestamp)}</span>
                         </li>
                       );
                     })}

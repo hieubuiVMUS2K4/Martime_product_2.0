@@ -136,7 +136,7 @@ public class LogbookController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Broadcast update to Edge node outbox
-            await _syncOutbox.BroadcastAsync("crew_logbook_entry", entry.Id.ToString(), SyncActionType.CREATE, entry);
+            await _syncOutbox.EnqueueForCrewAsync(crewMemberId, "crew_logbook_entry", entry.Id.ToString(), SyncActionType.CREATE, entry);
 
             _logger.LogInformation("Successfully created logbook entry {Id} for crew {CrewId}", entry.Id, crewMemberId);
             return Created($"/api/crew/{crewMemberId}/logbook/{entry.Id}", entry);
@@ -199,7 +199,7 @@ public class LogbookController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Broadcast update to Edge node outbox
-            await _syncOutbox.BroadcastAsync("crew_logbook_entry", existing.Id.ToString(), SyncActionType.UPDATE, existing);
+            await _syncOutbox.EnqueueForCrewAsync(crewMemberId, "crew_logbook_entry", existing.Id.ToString(), SyncActionType.UPDATE, existing);
 
             _logger.LogInformation("Successfully updated logbook entry {Id} for crew {CrewId}", entryId, crewMemberId);
             return Ok(existing);
@@ -231,7 +231,7 @@ public class LogbookController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Broadcast deletion to Edge node outbox
-            await _syncOutbox.BroadcastAsync("crew_logbook_entry", entryId.ToString(), SyncActionType.DELETE, new { Id = entryId });
+            await _syncOutbox.EnqueueForCrewAsync(crewMemberId, "crew_logbook_entry", entryId.ToString(), SyncActionType.DELETE, new { Id = entryId });
 
             _logger.LogInformation("Successfully deleted logbook entry {Id} for crew {CrewId}", entryId, crewMemberId);
             return Ok(new { message = "Logbook entry deleted successfully" });
@@ -296,7 +296,7 @@ public class LogbookController : ControllerBase
     {
         try
         {
-            var entry = await _context.CrewLogbookEntries
+            var entry = await _context.CrewLogbookEntries.AsTracking()
                 .FirstOrDefaultAsync(e => e.Id == entryId && e.CrewMemberId == crewMemberId);
             if (entry == null) return NotFound(new { error = "Không tìm thấy kỳ phục vụ" });
             if (entry.RecordStatus != "PENDING_APPROVAL")
@@ -319,7 +319,8 @@ public class LogbookController : ControllerBase
             AppendApprovalHistory(entry, "APPROVED", dto.ApprovedBy, dto.Note);
 
             // Trả thuyền viên về danh bạ chung
-            var crew = await _context.CrewMembers.FirstOrDefaultAsync(c => c.Id == crewMemberId);
+            // AsTracking: DbContext mặc định NoTracking — thiếu nó thì việc cho rời tàu không được lưu.
+            var crew = await _context.CrewMembers.AsTracking().FirstOrDefaultAsync(c => c.Id == crewMemberId);
             string? targetNode = null;
             if (crew != null)
             {
@@ -359,7 +360,7 @@ public class LogbookController : ControllerBase
             if (string.IsNullOrWhiteSpace(dto.Reason))
                 return BadRequest(new { error = "Phải ghi lý do từ chối để tàu biết cần sửa gì" });
 
-            var entry = await _context.CrewLogbookEntries
+            var entry = await _context.CrewLogbookEntries.AsTracking()
                 .FirstOrDefaultAsync(e => e.Id == entryId && e.CrewMemberId == crewMemberId);
             if (entry == null) return NotFound(new { error = "Không tìm thấy kỳ phục vụ" });
             if (entry.RecordStatus != "PENDING_APPROVAL")

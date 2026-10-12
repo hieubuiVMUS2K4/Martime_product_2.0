@@ -345,16 +345,16 @@ function TimelineEventRow({ event: ev, compact }: { event: CockpitTimelineEvent;
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-gray-900 text-sm">{ev.title}</span>
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${cfg.bg} ${cfg.color}`}>
+          <span className={`px-1.5 py-0.5 rounded text-xs font-semibold uppercase ${cfg.bg} ${cfg.color}`}>
             {t(cfg.labelKey)}
           </span>
           {ev.planLegSequence != null && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
               {t('voyage.cockpit.leg')} {ev.planLegSequence}
             </span>
           )}
           {ev.reportStatus && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">
+            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
               {ev.reportStatus}
             </span>
           )}

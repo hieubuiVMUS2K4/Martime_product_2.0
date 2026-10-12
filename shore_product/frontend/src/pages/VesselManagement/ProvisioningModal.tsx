@@ -225,7 +225,7 @@ export const ProvisioningModal: React.FC<ProvisioningModalProps> = ({ vesselId, 
             Rotate Key
           </button>
 
-          <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+          <div style={{ fontSize: '0.8125rem', color: '#94a3b8', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
             <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>
               Sau khi Provision hoặc Rotate, tải Provisioning Package và import vào Edge UI

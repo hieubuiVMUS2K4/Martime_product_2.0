@@ -51,10 +51,7 @@ public static class SyncConstants
     public const string TABLE_RANKS = "ranks";
     public const string TABLE_RANK_CERTIFICATES = "rank_certificates";
     public const string TABLE_COUNTRY_CERTIFICATES = "country_certificates";
-    public const string TABLE_TRAVEL_DOCUMENTS = "travel_documents";
-    public const string TABLE_SEAFARER_DOCUMENTS = "seafarer_documents";
-    public const string TABLE_EMPLOYMENT_DOCUMENTS = "employment_documents";
-    public const string TABLE_HEALTH_DOCUMENTS = "health_documents";
+    public const string TABLE_CREW_MEMBER_DOCUMENTS = "crew_member_documents";
     public const string TABLE_SERVICE_RECORDS = "service_records";
 
     // Default node identifiers

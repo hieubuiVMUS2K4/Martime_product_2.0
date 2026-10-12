@@ -260,9 +260,11 @@ export function ReportDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showTransmitModal, setShowTransmitModal] = useState(false);
   const [transmitting, setTransmitting] = useState(false);
   const [approvalData, setApprovalData] = useState({ masterSignature: '', approvalRemarks: '' });
   const [rejectionReason, setRejectionReason] = useState('');
+  const [transmitData, setTransmitData] = useState({ transmissionMethod: 'EMAIL', recipientEmails: '' });
 
   useEffect(() => {
     if (!id) {
@@ -341,10 +343,13 @@ export function ReportDetailPage() {
     setTransmitting(true);
     try {
       await ReportingService.transmitReport(id, {
-        transmissionMethod: 'API',
+        transmissionMethod: transmitData.transmissionMethod,
+        recipientEmails: transmitData.recipientEmails.split(';').map((email) => email.trim()).filter(Boolean),
         includeAttachments: false,
       });
-      toast.success('Report queued for delivery to Shore');
+      setShowTransmitModal(false);
+      setTransmitData({ transmissionMethod: 'EMAIL', recipientEmails: '' });
+      toast.success('Report transmitted successfully');
       await reloadAll();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to transmit report');
@@ -737,12 +742,12 @@ export function ReportDetailPage() {
             {report.status === 'APPROVED' && !report.isTransmitted && (
               <PermissionGate permission="reporting.update"><button
                 type="button"
-                onClick={handleTransmit}
+                onClick={() => setShowTransmitModal(true)}
                 disabled={transmitting}
                 className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
               >
                 <Send className="h-4 w-4" />
-                {transmitting ? 'Transmitting...' : 'Transmit'}
+                Transmit
               </button></PermissionGate>
             )}
 
@@ -853,7 +858,7 @@ export function ReportDetailPage() {
       {/* ── Approval modal ───────────────────────────────────────── */}
       {showApproveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
               <CheckCircle className="h-4 w-4 text-blue-600" />
               Approve report
@@ -898,7 +903,7 @@ export function ReportDetailPage() {
       {/* ── Rejection modal ──────────────────────────────────────── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
               <XCircle className="h-4 w-4 text-rose-600" />
               Reject report
@@ -931,6 +936,56 @@ export function ReportDetailPage() {
         </div>
       )}
 
+      {/* ── Transmit modal ───────────────────────────────────────── */}
+      {showTransmitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+              <Send className="h-4 w-4 text-emerald-600" />
+              Transmit report
+            </h3>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Method</label>
+                <select
+                  value={transmitData.transmissionMethod}
+                  onChange={(event) => setTransmitData({ ...transmitData, transmissionMethod: event.target.value })}
+                  className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
+                >
+                  <option value="EMAIL">Email</option>
+                  <option value="TELEX">Telex</option>
+                  <option value="INMARSAT">Inmarsat</option>
+                  <option value="VSAT">VSAT</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Recipient emails</label>
+                <input
+                  type="text"
+                  value={transmitData.recipientEmails}
+                  onChange={(event) => setTransmitData({ ...transmitData, recipientEmails: event.target.value })}
+                  placeholder="ops@example.com; fleet@example.com"
+                  className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:bg-white"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setShowTransmitModal(false)}
+                className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <PermissionGate permission="reporting.update"><button
+                onClick={handleTransmit}
+                className="flex-1 rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"
+              >
+                Send transmission
+              </button></PermissionGate>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

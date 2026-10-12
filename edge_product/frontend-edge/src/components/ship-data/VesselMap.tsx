@@ -71,7 +71,7 @@ function VietnameseLabels() {
       L.marker([lat, lng], {
         icon: L.divIcon({
           className: 'vn-label',
-          html: `<div style="font-weight:bold;color:#000000;text-shadow:0 0 4px white,0 0 4px white;font-size:13px;white-space:nowrap;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:4px;border:1.5px solid #000000;">${name}</div>`,
+          html: `<div style="font-weight:bold;color:#000000;text-shadow:0 0 4px white,0 0 4px white;font-size:14px;white-space:nowrap;background:rgba(255,255,255,0.9);padding:2px 8px;border-radius:4px;border:1.5px solid #000000;">${name}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         }),

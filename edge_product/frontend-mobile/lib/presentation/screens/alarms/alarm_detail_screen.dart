@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,11 +24,11 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
     final l10n = AppLocalizations.of(context);
     Color severityColor;
     if (widget.alarm.isCritical) {
-      severityColor = Colors.red;
+      severityColor = MaritimeTheme.error;
     } else if (widget.alarm.isWarning) {
-      severityColor = Colors.orange;
+      severityColor = MaritimeTheme.warning;
     } else {
-      severityColor = Colors.blue;
+      severityColor = MaritimeTheme.accent;
     }
 
     return Scaffold(
@@ -97,18 +98,18 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.2),
+                        color: MaritimeTheme.accent.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.notification_important,
-                              color: Colors.blue),
+                              color: MaritimeTheme.accent),
                           const SizedBox(width: 8),
                           Text(
                             l10n.needsAcknowledgment,
                             style: const TextStyle(
-                              color: Colors.blue,
+                              color: MaritimeTheme.accent,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -178,7 +179,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
+                        color: MaritimeTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -226,7 +227,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
                 if (!widget.alarm.isAcknowledged)
                   FloatingActionButton.extended(
                     onPressed: _isProcessing ? null : _acknowledgeAlarm,
-                    backgroundColor: Colors.green,
+                    backgroundColor: MaritimeTheme.success,
                     icon: _isProcessing
                         ? const SizedBox(
                             width: 20,
@@ -243,7 +244,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
                   const SizedBox(height: 12),
                   FloatingActionButton.extended(
                     onPressed: _isProcessing ? null : _resolveAlarm,
-                    backgroundColor: Colors.blue,
+                    backgroundColor: MaritimeTheme.accent,
                     icon: _isProcessing
                         ? const SizedBox(
                             width: 20,
@@ -267,9 +268,9 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: MaritimeTheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: MaritimeTheme.border!),
       ),
       child: Row(
         children: [
@@ -279,7 +280,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: Colors.blue, size: 24),
+            child: Icon(icon, color: MaritimeTheme.accent, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -289,7 +290,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: MaritimeTheme.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -307,7 +308,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: MaritimeTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -337,7 +338,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context).alarmAcknowledged),
-              backgroundColor: Colors.green,
+              backgroundColor: MaritimeTheme.success,
             ),
           );
           if (mounted) {
@@ -347,7 +348,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context).failedToAcknowledgeAlarm),
-              backgroundColor: Colors.red,
+              backgroundColor: MaritimeTheme.error,
             ),
           );
         }
@@ -357,7 +358,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${AppLocalizations.of(context).error}: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
           ),
         );
       }
@@ -383,7 +384,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            style: ElevatedButton.styleFrom(backgroundColor: MaritimeTheme.accent),
             child: Text(l10n.confirm),
           ),
         ],
@@ -403,7 +404,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.alarmResolved),
-              backgroundColor: Colors.green,
+              backgroundColor: MaritimeTheme.success,
             ),
           );
           if (mounted) {
@@ -413,7 +414,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.failedToResolveAlarm),
-              backgroundColor: Colors.red,
+              backgroundColor: MaritimeTheme.error,
             ),
           );
         }
@@ -423,7 +424,7 @@ class _AlarmDetailScreenState extends State<AlarmDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${AppLocalizations.of(context).error}: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
           ),
         );
       }

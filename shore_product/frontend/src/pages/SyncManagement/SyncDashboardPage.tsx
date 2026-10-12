@@ -4,6 +4,7 @@ import {
   RefreshCw, Search, Send, ServerCog, Ship, ShieldCheck, WifiOff, X, XCircle,
 } from 'lucide-react';
 import { syncApi } from '../../services/sync.service';
+import type { SyncScope } from '../../services/sync.service';
 import type {
   SyncStatusResponse,
   SyncLogPage,
@@ -33,6 +34,9 @@ const TABLE_TO_LABEL: Record<string, string> = {
   country_certificate: 'Chứng chỉ theo quốc gia',
   service_record: 'Lý lịch công tác',
   service_records: 'Lý lịch công tác',
+  crew_member_document: 'Tài liệu thuyền viên',
+  crew_member_documents: 'Tài liệu thuyền viên',
+  crew_roster: 'Danh sách thuyền viên của tàu',
   travel_document: 'Giấy tờ đi lại',
   travel_documents: 'Giấy tờ đi lại',
   seafarer_document: 'Sổ thuyền viên',
@@ -124,35 +128,50 @@ const Card: React.FC<{ title: string; icon: React.ReactNode; aside?: React.React
     <header className="flex items-center gap-2 border-b border-grid px-4 py-2.5">
       <span className="text-primary [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
       <h2 className="text-sm font-semibold text-ink">{title}</h2>
-      {aside && <span className="ml-auto text-[13px] text-ink-muted">{aside}</span>}
+      {aside && <span className="ml-auto text-xs text-ink-muted">{aside}</span>}
     </header>
     {children}
   </section>
 );
 
 // ============================================================
-// Hộp xác nhận: tạo lại hàng chờ bờ → tàu
+// Gửi dữ liệu bờ → tàu theo nhóm
 // ============================================================
+const SCOPES: { key: SyncScope; title: string; detail: string; perShip: boolean }[] = [
+  { key: 'Catalog', title: 'Danh mục', perShip: false,
+    detail: 'Dữ liệu chung của công ty: loại chứng chỉ, chức danh, cảng, quốc gia, vật tư công ty, loại báo cáo.' },
+  { key: 'Crew', title: 'Thuyền viên', perShip: true,
+    detail: 'Thuyền viên đang thuộc tàu kèm chứng chỉ, giấy tờ, sổ thuyền viên. Tàu gỡ người không thuộc tàu (dữ liệu gốc vẫn ở bờ).' },
+  { key: 'Vessel', title: 'Thông tin & vật tư tàu', perShip: true,
+    detail: 'Thông số của chính tàu đó và vật tư riêng của tàu.' },
+  { key: 'Equipment', title: 'Thiết bị tàu', perShip: true,
+    detail: 'Thiết bị và lịch bảo dưỡng của chính tàu đó.' },
+  { key: 'Voyages', title: 'Chuyến đi', perShip: true,
+    detail: 'Chuyến đi của chính tàu đó kèm kế hoạch chặng, cảng ghé, hàng hoá, nhiên liệu, chi phí.' },
+  { key: 'Reports', title: 'Báo cáo', perShip: true,
+    detail: 'Báo cáo chính tàu đó đã gửi lên bờ (tàu chỉ nhận lại báo cáo còn thiếu).' },
+  { key: 'Sms', title: 'SMS', perShip: false, detail: 'Dữ liệu chung: yếu tố ISM, quy trình, biểu mẫu.' },
+];
+const SCOPE_TITLE = Object.fromEntries(SCOPES.map(s => [s.key, s.title])) as Record<SyncScope, string>;
+
 function ShoreConfirmModal({
   data, queue, syncing, onConfirm, onClose,
 }: {
   data: SyncStatusResponse | null;
   queue: SyncOutboxPage | null;
   syncing: boolean;
-  onConfirm: (target: string) => void;
+  onConfirm: (target: string, scopes: SyncScope[]) => void;
   onClose: () => void;
 }) {
   const allNodes = data?.nodes ?? [];
   const onlineNodes = allNodes.filter(n => n.isOnline);
   const [selected, setSelected] = useState<string>('ALL');
+  const [scopes, setScopes] = useState<SyncScope[]>(SCOPES.map(s => s.key));
+  const allScopes = scopes.length === SCOPES.length;
+  const toggleScope = (key: SyncScope) =>
+    setScopes(cur => (cur.includes(key) ? cur.filter(k => k !== key) : SCOPES.map(s => s.key).filter(k => k === key || cur.includes(k))));
 
-  const groups = (queue?.groups ?? []).map(g => ({
-    label: getVietLabel(g.tableName),
-    target: g.node === '*' ? 'Mọi tàu' : g.node,
-    total: g.pending,
-  }));
   const totalPending = queue?.total ?? 0;
-  const maxGroup = Math.max(1, ...groups.map(g => g.total));
   const targetNode = selected === 'ALL' ? undefined : allNodes.find(n => n.nodeId === selected);
   const targetOnline = selected === 'ALL' ? onlineNodes.length > 0 : (targetNode?.isOnline ?? false);
 
@@ -177,12 +196,14 @@ function ShoreConfirmModal({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-ink">{title}</span>
-          <span className="block truncate text-[13px] text-ink-muted">{sub}</span>
+          <span className="block truncate text-xs text-ink-muted">{sub}</span>
         </span>
         {on && <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />}
       </button>
     );
   };
+
+  const receiver = selected === 'ALL' ? `${allNodes.length} tàu` : (targetNode?.shipName ?? selected);
 
   return (
     <Modal
@@ -190,20 +211,21 @@ function ShoreConfirmModal({
       onClose={onClose}
       size="lg"
       icon={<Send />}
-      title="Gửi lại dữ liệu xuống tàu"
-      subtitle="Tạo lại bản chụp thuyền viên, chứng chỉ và danh mục liên quan cho tàu nhận."
+      title="Đồng bộ dữ liệu xuống tàu"
+      subtitle="Chọn tàu nhận và nhóm dữ liệu. Mỗi tàu chỉ nhận dữ liệu của chính nó; danh mục dùng chung thì tàu nào cũng nhận."
       busy={syncing}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={syncing}>Hủy</Button>
-          <Button icon={<Send className="h-4 w-4" />} loading={syncing} onClick={() => onConfirm(selected)}>
-            {selected === 'ALL' ? `Gửi cho ${allNodes.length} tàu` : `Gửi cho ${targetNode?.shipName ?? selected}`}
+          <Button icon={<Send className="h-4 w-4" />} loading={syncing} disabled={scopes.length === 0 || allNodes.length === 0}
+            onClick={() => onConfirm(selected, scopes)}>
+            {allScopes ? `Đồng bộ tất cả cho ${receiver}` : `Đồng bộ ${scopes.length} nhóm cho ${receiver}`}
           </Button>
         </>
       }
     >
       {!targetOnline && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
           {selected === 'ALL'
             ? 'Hiện không có tàu nào trực tuyến. Dữ liệu sẽ chờ trong hàng đợi tới khi tàu kết nối.'
@@ -213,12 +235,12 @@ function ShoreConfirmModal({
 
       <div className="grid grid-cols-2 gap-5">
         <div className="min-w-0">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Chọn tàu nhận</p>
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">1. Tàu nhận</p>
           <div className="space-y-2">
             {option('ALL', 'Tất cả tàu', `${onlineNodes.length} trực tuyến / ${allNodes.length} tàu`, null)}
-            <div className="max-h-64 space-y-2 overflow-y-auto">
+            <div className="max-h-72 space-y-2 overflow-y-auto">
               {allNodes.length === 0
-                ? <p className="py-4 text-center text-[13px] text-ink-muted">Chưa có tàu nào kết nối.</p>
+                ? <p className="py-4 text-center text-sm text-ink-muted">Chưa có tàu nào kết nối.</p>
                 : allNodes.map(n => option(
                   n.nodeId,
                   n.shipName ?? n.nodeId,
@@ -230,35 +252,40 @@ function ShoreConfirmModal({
         </div>
 
         <div className="min-w-0">
-          <p className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            Hàng chờ hiện tại của bờ
-            <span className="normal-case tracking-normal text-ink">{totalPending.toLocaleString('vi-VN')} bản ghi</span>
+          <p className="mb-2 flex items-center justify-between text-sm font-semibold uppercase tracking-wide text-ink-muted">
+            2. Nhóm dữ liệu
+            <button type="button" disabled={syncing} onClick={() => setScopes(allScopes ? [] : SCOPES.map(s => s.key))}
+              className="text-sm font-semibold normal-case tracking-normal text-primary hover:underline">
+              {allScopes ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </button>
           </p>
-          {groups.length === 0 ? (
-            <div className="flex flex-col items-center gap-1 rounded-md border border-dashed border-grid-strong py-8 text-[13px] text-ink-muted">
-              <CheckCircle2 className="h-6 w-6 text-emerald-500" aria-hidden="true" />
-              Hàng chờ trống
-            </div>
-          ) : (
-            <ul className="space-y-2.5">
-              {groups.map(g => (
-                <li key={`${g.label}:${g.target}`}>
-                  <div className="mb-1 flex items-center justify-between gap-2 text-[13px]">
-                    <span className="truncate text-ink">{g.label} <span className="text-ink-muted">· {g.target}</span></span>
-                    <strong className="tabular-nums text-ink">{g.total}</strong>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-canvas">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, Math.round((g.total / maxGroup) * 100))}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="space-y-2">
+            {SCOPES.map(sc => {
+              const on = scopes.includes(sc.key);
+              return (
+                <label key={sc.key}
+                  className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 transition-colors ${on ? 'border-primary bg-primary-soft' : 'border-line hover:bg-primary-soft/50'}`}>
+                  <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[rgb(var(--rgb-primary))]" checked={on} disabled={syncing}
+                    onChange={() => toggleScope(sc.key)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                      {sc.title}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${sc.perShip ? 'bg-amber-50 text-amber-800' : 'bg-canvas text-ink-muted'}`}>
+                        {sc.perShip ? 'Riêng từng tàu' : 'Dùng chung'}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-sm text-ink-muted">{sc.detail}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <p className="mt-4 border-t border-grid pt-3 text-[13px] text-ink-muted">
-        Tàu lấy dữ liệu ở lần kết nối tới. Việc gửi chỉ được tính là hoàn tất khi tàu xác nhận đã nhận.
+      <p className="mt-4 border-t border-grid pt-3 text-sm text-ink-muted">
+        Hàng chờ hiện tại của bờ: <strong className="text-ink">{totalPending.toLocaleString('vi-VN')}</strong> bản ghi.
+        Tàu lấy dữ liệu ở lần kết nối tới; việc gửi chỉ hoàn tất khi tàu xác nhận đã nhận.
       </p>
     </Modal>
   );
@@ -449,22 +476,16 @@ export const SyncDashboardPage: React.FC = () => {
     (logs?.summary ?? [])
       .filter((s) => values.includes(s.status.toUpperCase()))
       .reduce((sum, s) => sum + s.count, 0);
-  const handleForcePush = async (target: string) => {
+  const handleForcePush = async (target: string, scopes: SyncScope[]) => {
     setSyncing(true);
     setError(null);
     setNotice('');
     try {
-      if (target === 'ALL') {
-        const result = await syncApi.forcePushAll();
-        setNotice(
-          `Đã tạo hàng chờ ${result.totalQueuedItems ?? result.queuedItems ?? 0} bản ghi cho ${result.nodeCount ?? 0} tàu. Chờ tàu nhận và xác nhận.`,
-        );
-      } else {
-        const result = await syncApi.forcePush(target);
-        setNotice(
-          `Đã tạo hàng chờ ${result.queuedItems} bản ghi cho ${nodes.find((n) => n.nodeId === target)?.shipName || target}. Chờ tàu nhận và xác nhận.`,
-        );
-      }
+      const result = await syncApi.push(target, scopes);
+      const perShip = result.nodes
+        .map(n => `${n.shipName || n.nodeId}: ${Object.entries(n.queued).map(([k, v]) => `${SCOPE_TITLE[k as SyncScope] ?? k} ${v}`).join(', ')}`)
+        .join(' · ');
+      setNotice(`Đã xếp hàng ${result.total.toLocaleString('vi-VN')} bản ghi — ${perShip}. Chờ tàu nhận và xác nhận.`);
       setShowSyncModal(false);
       setRefresh((n) => n + 1);
     } catch (err) {
@@ -560,7 +581,7 @@ export const SyncDashboardPage: React.FC = () => {
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md [&>svg]:h-[18px] [&>svg]:w-[18px] ${tone}`}>{icon}</span>
       <div className="min-w-0">
         <p className="text-lg font-bold tabular-nums leading-6 text-ink">{value}</p>
-        <p className="truncate text-[13px] text-ink-muted">{label}</p>
+        <p className="truncate text-xs text-ink-muted">{label}</p>
       </div>
     </div>
   );
@@ -581,7 +602,7 @@ export const SyncDashboardPage: React.FC = () => {
         description={<>Bờ ↔ đội tàu · cập nhật lúc {formatTime(data?.serverTime)}</>}
         actions={
           <>
-            <label className="inline-flex items-center gap-2 text-[13px] text-ink">
+            <label className="inline-flex items-center gap-2 text-xs text-ink">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
               Tự làm mới
             </label>
@@ -590,21 +611,21 @@ export const SyncDashboardPage: React.FC = () => {
             </select>
             <Button variant="secondary" icon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />} onClick={() => setRefresh(n => n + 1)}>Làm mới</Button>
             <Button icon={<Send className="h-4 w-4" />} disabled={syncing || !data || nodes.length === 0} onClick={() => setShowSyncModal(true)}>
-              Gửi lại dữ liệu xuống tàu
+              Đồng bộ xuống tàu
             </Button>
           </>
         }
       />
 
       {error && (
-        <div className="mb-3 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700" role="alert">
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
           <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">{error}</span>
           <Button size="sm" variant="secondary" onClick={() => setRefresh(n => n + 1)}>Thử lại</Button>
         </div>
       )}
       {notice && (
-        <div className="mb-3 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800" role="status">
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800" role="status">
           <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">{notice}</span>
           <button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo" className="rounded p-0.5 hover:bg-emerald-100"><X className="h-4 w-4" /></button>
@@ -679,11 +700,11 @@ export const SyncDashboardPage: React.FC = () => {
                     <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm loại dữ liệu, tàu, ID, nội dung lỗi..."
                       className="h-9 w-full rounded-md border border-line bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-ink-light focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
                   </label>
-                  <span className="text-[13px] text-ink-muted">Từ</span>
+                  <span className="text-xs text-ink-muted">Từ</span>
                   <input aria-label="Từ thời điểm" title="Từ thời điểm" type="datetime-local" value={from} onChange={e => { setFrom(e.target.value); setLogPage(1); }} className={filterCls} />
-                  <span className="text-[13px] text-ink-muted">đến</span>
+                  <span className="text-xs text-ink-muted">đến</span>
                   <input aria-label="Đến thời điểm" title="Đến thời điểm" type="datetime-local" value={to} onChange={e => { setTo(e.target.value); setLogPage(1); }} className={filterCls} />
-                  {hasLogFilter && <button type="button" onClick={clearLogFilters} className="text-[13px] font-medium text-primary hover:underline">Bỏ lọc</button>}
+                  {hasLogFilter && <button type="button" onClick={clearLogFilters} className="text-xs font-medium text-primary hover:underline">Bỏ lọc</button>}
                 </div>
               }
             />
@@ -709,7 +730,7 @@ export const SyncDashboardPage: React.FC = () => {
               toolbarLeft={
                 <div className="flex flex-wrap items-center gap-2">
                   {nodeSelect}
-                  <span className="text-[13px] text-ink-muted">Bản ghi gửi cho mọi tàu được tính theo xác nhận của từng tàu.</span>
+                  <span className="text-xs text-ink-muted">Bản ghi gửi cho mọi tàu được tính theo xác nhận của từng tàu.</span>
                 </div>
               }
             />
@@ -733,7 +754,7 @@ export const SyncDashboardPage: React.FC = () => {
                       <i className={`h-2.5 w-2.5 shrink-0 rounded-full ${n.isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} aria-hidden="true" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-ink">{n.shipName || n.nodeId}</span>
-                        <span className="block truncate text-[13px] text-ink-muted">
+                        <span className="block truncate text-xs text-ink-muted">
                           {n.isOnline ? 'Trực tuyến' : 'Ngoại tuyến'} · {n.currentNetworkType || 'chưa báo mạng'}
                         </span>
                       </span>
@@ -744,11 +765,11 @@ export const SyncDashboardPage: React.FC = () => {
                   </li>
                 );
               })}
-              {!nodes.length && <li className="px-4 py-6 text-center text-[13px] text-ink-muted">Chưa có tàu nào kết nối.</li>}
+              {!nodes.length && <li className="px-4 py-6 text-center text-xs text-ink-muted">Chưa có tàu nào kết nối.</li>}
             </ul>
             {selectedNode && (
               <div className="border-t border-grid bg-canvas/60 px-4 py-3">
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
                   <dt className="text-ink-muted">Mã node</dt><dd className="truncate font-mono text-xs text-ink" title={selectedNode.nodeId}>{selectedNode.nodeId}</dd>
                   <dt className="text-ink-muted">Liên lạc cuối</dt><dd className="text-ink">{formatTime(selectedNode.health.lastHeartbeat)}</dd>
                   <dt className="text-ink-muted">Tàu gửi lên</dt><dd className="text-ink">{formatTime(selectedNode.push.lastAt)}</dd>
@@ -759,7 +780,7 @@ export const SyncDashboardPage: React.FC = () => {
                   <dd className="text-ink">{selectedNode.security.isRevoked ? 'Đã thu hồi' : selectedNode.security.isRegistered ? 'Đã đăng ký' : 'Chưa đăng ký'}</dd>
                 </dl>
                 {selectedNode.health.lastError && (
-                  <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[13px] text-red-700">
+                  <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-700">
                     {selectedNode.health.lastError}
                     <span className="mt-0.5 block text-xs text-red-600/80">{formatTime(selectedNode.health.lastErrorAt)}</span>
                   </p>
@@ -774,7 +795,7 @@ export const SyncDashboardPage: React.FC = () => {
                 <li key={`${g.node}:${g.tableName}`} className="flex items-center gap-3 px-4 py-2.5">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-ink">{getVietLabel(g.tableName)}</span>
-                    <span className="block truncate text-[13px] text-ink-muted">
+                    <span className="block truncate text-xs text-ink-muted">
                       {g.node === '*' ? 'Mọi tàu' : shipName(g.node)} · từ {fmtRelative(g.oldestAt)}
                     </span>
                   </span>
@@ -782,7 +803,7 @@ export const SyncDashboardPage: React.FC = () => {
                 </li>
               ))}
               {!queue?.groups.length && (
-                <li className="px-4 py-6 text-center text-[13px] text-ink-muted">
+                <li className="px-4 py-6 text-center text-xs text-ink-muted">
                   {queueError || (queueLoading ? 'Đang tải...' : 'Hàng chờ trống')}
                 </li>
               )}
@@ -797,7 +818,7 @@ export const SyncDashboardPage: React.FC = () => {
               <Button variant="secondary" fullWidth icon={<RefreshCw className={`h-4 w-4 ${reconciling ? 'animate-spin' : ''}`} />} onClick={reconcile} disabled={reconciling}>
                 {reconciling ? 'Đang đối soát...' : 'Đưa dữ liệu chưa đồng bộ vào hàng chờ'}
               </Button>
-              <p className="text-[13px] text-ink-muted">Áp dụng cho thuyền viên và chứng chỉ ở bờ.</p>
+              <p className="text-xs text-ink-muted">Áp dụng cho thuyền viên và chứng chỉ ở bờ.</p>
               {integrity && (
                 <div className={`rounded-md border px-3 py-2.5 ${integrity.healthy ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
                   <p className={`flex items-center gap-1.5 text-sm font-semibold ${integrity.healthy ? 'text-emerald-800' : 'text-amber-800'}`}>
@@ -805,7 +826,7 @@ export const SyncDashboardPage: React.FC = () => {
                     {integrity.healthy ? 'Dữ liệu ổn' : 'Cần kiểm tra thêm'}
                     <span className="ml-auto text-xs font-normal text-ink-muted">{formatTime(integrity.timestamp)}</span>
                   </p>
-                  <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[13px]">
+                  <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs">
                     <dt className="text-ink-muted">Thuyền viên chưa đồng bộ</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.unsyncedCrew}</dd>
                     <dt className="text-ink-muted">Chứng chỉ chưa đồng bộ</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.unsyncedCerts}</dd>
                     <dt className="text-ink-muted">Chứng chỉ không có thuyền viên</dt><dd className="font-semibold tabular-nums text-ink">{integrity.syncGaps.orphanCertificates}</dd>
@@ -833,7 +854,7 @@ export const SyncDashboardPage: React.FC = () => {
       >
         {detail && (
           <div className="space-y-4">
-            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-2 text-[13px]">
+            <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-2 text-xs">
               <dt className="text-ink-muted">Hướng</dt><dd><DirectionPill value={detail.direction} /></dd>
               <dt className="text-ink-muted">Nguồn</dt><dd className="text-ink">{shipName(detail.originNode)} <span className="font-mono text-xs text-ink-muted">({detail.originNode})</span></dd>
               <dt className="text-ink-muted">Loại dữ liệu</dt><dd className="text-ink">{getVietLabel(detail.tableName)} <span className="font-mono text-xs text-ink-muted">({detail.tableName})</span></dd>

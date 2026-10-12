@@ -1,14 +1,13 @@
 .onboarding-detail {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: clamp(12px, 1.2vw, 20px) 1.5%;
+  width: 100%; min-width: 0;
 }
 
 .onboarding-detail .back-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #6b7280;
+  color: #374151;
   font-size: 0.875rem;
   cursor: pointer;
   margin-bottom: 16px;
@@ -40,7 +39,7 @@
 
 .onboarding-header h2 {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #1e293b;
   margin: 0;
 }
@@ -49,8 +48,8 @@
   display: flex;
   gap: 20px;
   margin-top: 8px;
-  font-size: 0.85rem;
-  color: #6b7280;
+  font-size: 0.875rem;
+  color: #374151;
 }
 
 .onboarding-header .meta span {
@@ -68,7 +67,7 @@
 .onboarding-actions button {
   padding: 6px 14px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid #d1d5db;
@@ -128,7 +127,7 @@
 }
 
 .progress-summary .progress-label {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: #374151;
 }
 
@@ -139,7 +138,7 @@
 /* Checklist */
 .checklist-section h3 {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #1e293b;
   margin-bottom: 12px;
 }
@@ -186,7 +185,7 @@
   flex-shrink: 0;
   width: 24px;
   height: 24px;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 .checklist-item.completed .checklist-icon {
@@ -209,8 +208,8 @@
 }
 
 .checklist-content .subtitle {
-  font-size: 0.8rem;
-  color: #9ca3af;
+  font-size: 0.875rem;
+  color: #6b7280;
   margin-top: 2px;
 }
 
@@ -222,8 +221,8 @@
 }
 
 .mandatory-badge {
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
   background: #fef3c7;
@@ -239,7 +238,7 @@
   padding: 4px 10px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   cursor: pointer;
   background: #fff;
   color: #374151;

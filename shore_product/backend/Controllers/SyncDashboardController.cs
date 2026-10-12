@@ -605,72 +605,20 @@ public class SyncDashboardController : ControllerBase
     }
 
     /// <summary>
-    /// POST /api/sync/dashboard/resync/{nodeId} — Force re-sync all crew/cert data to a specific ship.
+    /// POST /api/sync/dashboard/resync/{nodeId} — gửi lại danh mục và thuyền viên CỦA TÀU ĐÓ.
+    /// Cùng luồng với POST /api/sync/push (ShoreSyncPushService).
     /// </summary>
     [HttpPost("resync/{nodeId}")]
-    public async Task<IActionResult> ForceResync(
-        string nodeId,
-        [FromServices] ISyncOutboxService syncOutbox)
+    public async Task<IActionResult> ForceResync(string nodeId, [FromServices] IShoreSyncPushService push)
     {
         try
         {
-            if (string.IsNullOrEmpty(nodeId))
-                return BadRequest(new { error = "nodeId is required" });
-
-            var crewMembers = await _context.CrewMembers
-                .Include(c => c.Rank)
-                .ToListAsync();
-
-            var certificates = await _context.CrewCertificateTypes.ToListAsync();
-            var countries = await _context.Countries.ToListAsync();
-            var ranks = await _context.Ranks.ToListAsync();
-
-            int enqueued = 0;
-
-            // Re-send master data
-            foreach (var cert in certificates)
-            {
-                await syncOutbox.EnqueueAsync(nodeId, "certificate", cert.Id.ToString(),
-                    Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, cert);
-                enqueued++;
-            }
-            foreach (var country in countries)
-            {
-                await syncOutbox.EnqueueAsync(nodeId, "country", country.Id.ToString(),
-                    Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, country);
-                enqueued++;
-            }
-            foreach (var rank in ranks)
-            {
-                await syncOutbox.EnqueueAsync(nodeId, "rank", rank.Id.ToString(),
-                    Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, rank);
-                enqueued++;
-            }
-
-            // Re-send crew members
-            foreach (var crew in crewMembers)
-            {
-                await syncOutbox.EnqueueAsync(nodeId, "crew_member", crew.Id.ToString(),
-                    Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, crew);
-                enqueued++;
-            }
-
-            // Re-send crew certificates
-            var crewCerts = await _context.CrewCertificates
-                .Include(cc => cc.Certificate)
-                .Include(cc => cc.Country)
-                .ToListAsync();
-
-            foreach (var cc in crewCerts)
-            {
-                await syncOutbox.EnqueueAsync(nodeId, "crew_certificate", cc.Id.ToString(),
-                    Maritime.Shared.Models.Sync.SyncActionType.SNAPSHOT, cc);
-                enqueued++;
-            }
-
-            _logger.LogInformation("Force resync to {NodeId}: {Count} items enqueued", nodeId, enqueued);
-
-            return Ok(new { message = $"Enqueued {enqueued} items for resync to {nodeId}" });
+            var result = await push.PushAsync(nodeId, [SyncScope.Catalog, SyncScope.Crew]);
+            return Ok(new { message = $"Enqueued {result.Total} items for resync to {nodeId}", result });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
         }
         catch (Exception ex)
         {

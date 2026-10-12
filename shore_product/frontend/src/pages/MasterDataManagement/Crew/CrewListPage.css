@@ -33,7 +33,7 @@
 .cl-page {
   display: flex; flex-direction: column; gap: 6px;
   padding: 8px 10px; min-height: 100%;
-  background: #f5f7fa; font-size: 12.5px; color: var(--moc-text);
+  background: #f5f7fa; font-size: 0.875rem; color: var(--moc-text);
 }
 
 /* --- Spin animation --- */
@@ -45,7 +45,7 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; padding: 60px; color: var(--moc-muted);
 }
-.cl-loading p { font-size: 13px; }
+.cl-loading p { font-size: 0.875rem; }
 
 /* --- Header --- */
 .cl-header {
@@ -55,14 +55,14 @@
 .cl-header-left { display: flex; align-items: center; gap: 8px; }
 .cl-header-icon { color: var(--moc-blue); }
 .cl-title {
-  font-size: 15px; font-weight: 700; color: var(--moc-text);
+  font-size: 0.9375rem; font-weight: 800; color: var(--moc-text);
   letter-spacing: -0.01em; margin: 0;
 }
 .cl-count-badge {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 22px; height: 20px; padding: 0 6px;
   background: var(--moc-blue); color: #fff;
-  border-radius: 10px; font-size: 11px; font-weight: 700;
+  border-radius: 10px; font-size: 0.875rem; font-weight: 800;
 }
 .cl-header-right { display: flex; align-items: center; gap: 6px; }
 
@@ -71,7 +71,7 @@
   display: inline-flex; align-items: center; gap: 5px;
   padding: 5px 14px; border: 1px solid var(--moc-border);
   border-radius: var(--moc-radius); background: #fff;
-  color: var(--moc-text); font-size: 12px; font-weight: 500;
+  color: var(--moc-text); font-size: 0.875rem; font-weight: 500;
   cursor: pointer; transition: all .12s; white-space: nowrap;
   line-height: 1.4;
 }
@@ -83,7 +83,7 @@
 .cl-btn--ghost:hover { background: #eaf1fa; }
 .cl-link-btn {
   background: none; border: none; color: var(--moc-blue);
-  font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline;
+  font-size: 0.875rem; font-weight: 700; cursor: pointer; text-decoration: underline;
 }
 
 /* --- Stats bar --- */
@@ -95,20 +95,20 @@
   padding: 5px 14px;
   background: #fff; border: 1px solid var(--moc-border);
   border-radius: var(--moc-radius);
-  font-size: 12px; cursor: pointer; transition: all .12s;
+  font-size: 0.875rem; cursor: pointer; transition: all .12s;
   color: var(--moc-muted);
 }
 .cl-stat:hover { background: #eef2f7; }
 .cl-stat--active {
   background: var(--moc-head-bg); border-color: var(--moc-blue);
-  color: var(--moc-blue); font-weight: 600;
+  color: var(--moc-blue); font-weight: 700;
 }
-.cl-stat-val { font-weight: 700; color: var(--moc-text); font-size: 13px; }
+.cl-stat-val { font-weight: 800; color: var(--moc-text); font-size: 0.875rem; }
 .cl-stat--active .cl-stat-val { color: var(--moc-blue); }
-.cl-stat-lbl { font-size: 11.5px; }
+.cl-stat-lbl { font-size: 0.875rem; }
 
 .cl-stat--onboard svg { color: var(--moc-success); }
-.cl-stat--pool svg { color: #64748b; }
+.cl-stat--pool svg { color: #334155; }
 .cl-stat--pending svg { color: var(--moc-warn); }
 .cl-stat--warn svg { color: #d97706; }
 
@@ -117,7 +117,7 @@
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px;
   background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--moc-radius);
-  color: var(--moc-danger); font-size: 12px;
+  color: var(--moc-danger); font-size: 0.875rem;
 }
 
 /* --- Table card --- */
@@ -131,7 +131,7 @@
 /* --- Table --- */
 .cl-table {
   width: 100%; border-collapse: collapse;
-  table-layout: fixed; font-size: 12.5px;
+  table-layout: fixed; font-size: 0.875rem;
 }
 
 /* Label row */
@@ -139,7 +139,7 @@
   background: var(--moc-head-bg);
   padding: 7px 10px;
   text-align: left;
-  font-size: 11.5px; font-weight: 700; color: var(--moc-text);
+  font-size: 0.875rem; font-weight: 800; color: var(--moc-text);
   text-transform: uppercase; letter-spacing: 0.03em;
   white-space: nowrap;
   border-bottom: 1px solid var(--moc-border);
@@ -157,13 +157,13 @@
   width: 100%; padding: 4px 8px 4px 24px;
   border: 1px solid var(--moc-border); border-radius: 4px;
   background: #fff; color: var(--moc-text);
-  font-size: 11.5px; outline: none; transition: border .12s;
+  font-size: 0.875rem; outline: none; transition: border .12s;
 }
 .cl-cf:focus { border-color: var(--moc-blue); }
-.cl-cf::placeholder { color: #94a3b8; }
+.cl-cf::placeholder { color: #64748b; }
 /* Search icon via CSS */
 .cl-search-wrap::before {
-  content: '\1F50D'; font-size: 10px;
+  content: '\1F50D'; font-size: 0.875rem;
   position: absolute; left: 7px; top: 50%; transform: translateY(-50%);
   pointer-events: none; opacity: 0.45;
 }
@@ -182,7 +182,7 @@
 
 .cl-table tbody td {
   padding: 5px 10px; vertical-align: middle;
-  color: var(--moc-text); font-size: 12.5px;
+  color: var(--moc-text); font-size: 0.875rem;
 }
 
 /* Kẻ dọc giữa các cột. Đặt ở đây một lần cho MỌI bảng dùng .cl-table thay vì gắn
@@ -228,18 +228,18 @@
   background: #1b4c7e;
   width: 30px; height: 30px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 10.5px; font-weight: 700; flex-shrink: 0;
+  color: #fff; font-size: 0.875rem; font-weight: 800; flex-shrink: 0;
   overflow: hidden;
 }
 .cl-av img { width: 100%; height: 100%; object-fit: cover; }
-.cl-name { font-weight: 600; color: var(--moc-text); font-size: 12.5px; }
-.cl-code { font-size: 11px; color: var(--moc-muted); }
-.cl-muted { color: var(--moc-muted); font-size: 12px; }
+.cl-name { font-weight: 700; color: var(--moc-text); font-size: 0.875rem; }
+.cl-code { font-size: 0.875rem; color: var(--moc-muted); }
+.cl-muted { color: var(--moc-muted); font-size: 0.875rem; }
 
 /* Vessel tag */
 .cl-vessel-tag {
   display: inline-flex; align-items: center; gap: 3px;
-  color: var(--moc-muted); font-size: 12px;
+  color: var(--moc-muted); font-size: 0.875rem;
 }
 .cl-vessel-tag svg { color: var(--moc-blue); }
 
@@ -247,7 +247,7 @@
 .cl-status-badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 2px 9px 2px 7px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 500;
+  font-size: 0.875rem; font-weight: 500;
   white-space: nowrap;
 }
 .cl-status-badge__dot {
@@ -258,7 +258,7 @@
 /* Ở bờ, chưa gán tàu — đây là trạng thái TRUNG TÍNH, không phải tin cần làm nổi.
    Trước đây để xanh ngọc nên đứng cạnh "Onboard" xanh lá là hai viên xanh na ná
    nhau, người đọc phải dừng lại phân biệt. Xám để nó lùi lại phía sau. */
-.cl-status-badge--off { background: #eef2f7; color: #475569; }
+.cl-status-badge--off { background: #eef2f7; color: #27313f; }
 .cl-status-badge--off .cl-status-badge__dot { background: #94a3b8; }
 .cl-status-badge--pending { background: #fef3c7; color: #92400e; }
 .cl-status-badge--pending .cl-status-badge__dot { background: #f59e0b; }
@@ -279,8 +279,8 @@
   margin-left: 6px;
   background: #ef4444;
   color: #fff;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   border-radius: 9px;
   line-height: 1;
   animation: cl-badge-pulse 2s ease-in-out infinite;
@@ -293,7 +293,7 @@
 /* --- Empty --- */
 .cl-empty {
   text-align: center; padding: 48px 20px;
-  color: var(--moc-muted); font-size: 13px;
+  color: var(--moc-muted); font-size: 0.875rem;
 }
 .cl-empty svg { opacity: .3; margin-bottom: 8px; }
 .cl-empty p { margin: 6px 0; }
@@ -303,14 +303,14 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 0;
 }
-.cl-footer-info { font-size: 12px; color: var(--moc-muted); }
+.cl-footer-info { font-size: 0.875rem; color: var(--moc-muted); }
 .cl-pagi-btns { display: flex; align-items: center; gap: 2px; }
 .cl-pagi-btn {
   min-width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid transparent; background: transparent;
   color: var(--moc-muted); border-radius: 4px;
-  font-size: 12px; font-weight: 500; cursor: pointer; transition: all .1s;
+  font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all .1s;
 }
 .cl-pagi-btn:hover:not(:disabled) { background: #e0f0ea; color: var(--moc-text); }
 .cl-pagi-btn:disabled { opacity: .3; cursor: not-allowed; }
@@ -331,7 +331,7 @@
   display: flex; align-items: center; gap: 8px;
   width: 100%; padding: 7px 14px;
   background: none; border: none;
-  color: var(--moc-text); font-size: 12.5px;
+  color: var(--moc-text); font-size: 0.875rem;
   cursor: pointer; text-align: left; transition: background .08s;
 }
 .cl-ctx-item:hover { background: var(--moc-row-hover); }
@@ -355,12 +355,12 @@
   from { opacity: 0; transform: translateX(-50%) translateY(12px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
-.cl-selbar-count { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.cl-selbar-count { color: #fff; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
 .cl-selbar-actions { display: flex; gap: 6px; }
 .cl-selbar-btn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 12px; border-radius: var(--moc-radius); border: none;
-  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-size: 0.875rem; font-weight: 500; cursor: pointer;
   transition: all .12s; color: #fff;
 }
 .cl-selbar-btn--assign { background: #1b4c7e; }
@@ -377,7 +377,7 @@
 /* --- Responsive --- */
 @media (max-width: 1024px) {
   .cl-stats { flex-wrap: wrap; }
-  .cl-table { font-size: 12px; }
+  .cl-table { font-size: 0.875rem; }
   .cl-cert-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .cl-cert-compliance-grid { grid-template-columns: repeat(3, 1fr); }
 }
@@ -411,8 +411,8 @@
 .cl-cert-kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .cl-cert-kpi--active { border-color: var(--moc-blue); background: var(--moc-head-bg); }
 
-.cl-cert-kpi-val { font-size: 18px; font-weight: 800; line-height: 1; }
-.cl-cert-kpi-lbl { font-size: 11px; color: var(--moc-muted); }
+.cl-cert-kpi-val { font-size: 1.125rem; font-weight: 800; line-height: 1; }
+.cl-cert-kpi-lbl { font-size: 0.875rem; color: var(--moc-muted); }
 
 .cl-cert-kpi--total svg { color: var(--moc-blue); }
 .cl-cert-kpi--total .cl-cert-kpi-val { color: var(--moc-blue); }
@@ -437,43 +437,43 @@
 .cl-cert-search {
   width: 100%; padding: 6px 28px 6px 30px;
   border: 1px solid var(--moc-border); border-radius: var(--moc-radius);
-  font-size: 12px; background: #fff; color: var(--moc-text);
+  font-size: 0.875rem; background: #fff; color: var(--moc-text);
   outline: none; transition: border-color .12s;
 }
 .cl-cert-search:focus { border-color: var(--moc-blue); }
 .cl-cert-search-clear {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; font-size: 16px;
+  background: none; border: none; font-size: 1rem;
   color: var(--moc-muted); cursor: pointer; line-height: 1;
 }
 .cl-cert-days-select {
   padding: 6px 10px; border: 1px solid var(--moc-border);
-  border-radius: var(--moc-radius); font-size: 12px;
+  border-radius: var(--moc-radius); font-size: 0.875rem;
   background: #fff; color: var(--moc-text); cursor: pointer;
 }
 .cl-cert-days-select:focus { outline: none; border-color: var(--moc-blue); }
 
 /* --- Cert Table rows --- */
 .cl-cert-table td { padding: 6px 10px !important; }
-.cl-cert-crew-name { font-weight: 600; }
-.cl-cert-name { font-weight: 500; display: block; font-size: 12.5px; }
+.cl-cert-crew-name { font-weight: 700; }
+.cl-cert-name { font-weight: 500; display: block; font-size: 0.875rem; }
 .cl-cert-cat {
-  font-size: 10px; background: var(--moc-head-bg);
+  font-size: 0.875rem; background: var(--moc-head-bg);
   padding: 0 4px; border-radius: 3px;
   color: var(--moc-muted); margin-top: 1px; display: inline-block;
 }
 .cl-cert-num {
-  font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 11px; color: var(--moc-muted);
+  font-family: var(--font-family); font-variant-numeric: tabular-nums;
+  font-size: 0.875rem; color: var(--moc-muted);
 }
-.cl-cert-days { font-weight: 600; font-size: 12px; }
+.cl-cert-days { font-weight: 700; font-size: 0.875rem; }
 .cl-cert-days--danger { color: var(--moc-danger); }
 .cl-cert-days--warning { color: var(--moc-warn); }
 
 /* Cert status badge */
 .cl-cert-status-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 600;
+  font-size: 0.875rem; font-weight: 700;
   padding: 2px 9px; border-radius: 20px; white-space: nowrap;
 }
 .cl-cert-status-badge.cl-cert-valid { background: #d1fae5; color: #059669; }
@@ -486,7 +486,7 @@
 
 .cl-cert-empty {
   display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 48px 20px; color: var(--moc-muted); font-size: 13px;
+  gap: 8px; padding: 48px 20px; color: var(--moc-muted); font-size: 0.875rem;
 }
 
 /* --- Cert Compliance --- */
@@ -496,7 +496,7 @@
 }
 .cl-cert-compliance-title {
   display: flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 700; color: var(--moc-blue);
+  font-size: 0.875rem; font-weight: 800; color: var(--moc-blue);
   margin: 0 0 10px;
 }
 .cl-cert-compliance-grid {
@@ -504,8 +504,8 @@
   gap: 8px; text-align: center;
 }
 .cl-cert-comp-item { display: flex; flex-direction: column; gap: 1px; }
-.cl-cert-comp-val { font-size: 17px; font-weight: 800; color: var(--moc-text); }
-.cl-cert-comp-lbl { font-size: 11px; color: var(--moc-muted); }
+.cl-cert-comp-val { font-size: 1.0625rem; font-weight: 800; color: var(--moc-text); }
+.cl-cert-comp-lbl { font-size: 0.875rem; color: var(--moc-muted); }
 .cl-cert-comp--green .cl-cert-comp-val { color: var(--moc-success); }
 .cl-cert-comp--yellow .cl-cert-comp-val { color: var(--moc-warn); }
 .cl-cert-comp--red .cl-cert-comp-val { color: var(--moc-danger); }
@@ -525,6 +525,6 @@
 /* Ô tick đặt cạnh nút trên thanh tiêu đề */
 .cl-inline-check {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--moc-muted); white-space: nowrap;
+  font-size: 0.875rem; color: var(--moc-muted); white-space: nowrap;
   margin-right: 4px; cursor: pointer;
 }

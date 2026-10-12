@@ -1,12 +1,11 @@
 .verification-page {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: clamp(12px, 1.2vw, 20px) 1.5%;
+  width: 100%; min-width: 0;
 }
 
 .verification-page h1 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 20px;
   color: #1e293b;
 }
@@ -70,14 +69,14 @@
 }
 
 .verification-card-content .doc-type {
-  font-weight: 600;
+  font-weight: 700;
   color: #1e293b;
   font-size: 0.9rem;
 }
 
 .verification-card-content .crew-info {
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: 0.875rem;
+  color: #374151;
   margin-top: 2px;
 }
 
@@ -92,8 +91,8 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
@@ -113,13 +112,13 @@
 }
 
 .due-info {
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: 0.875rem;
+  color: #374151;
 }
 
 .due-info.overdue {
   color: #dc2626;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .verification-card-actions {
@@ -131,7 +130,7 @@
 .verification-card-actions button {
   padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   border: 1px solid #d1d5db;

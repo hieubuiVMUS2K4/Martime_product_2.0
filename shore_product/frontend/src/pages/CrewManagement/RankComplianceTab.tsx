@@ -27,7 +27,7 @@ const GAP_W = 80;
 const MAX_VISIBLE_CERTS = 10;
 const MIN_CERT_W = 76;
 
-const thBase = 'h-10 border-b border-r border-b-grid-strong border-r-grid bg-canvas px-2 text-[13px] font-semibold text-ink';
+const thBase = 'h-10 border-b border-r border-b-grid-strong border-r-grid bg-canvas px-2 text-xs font-semibold text-ink';
 const tdBase = 'border-b border-r border-grid px-2 py-1.5';
 
 /**
@@ -154,7 +154,7 @@ export const RankComplianceTab: React.FC = () => {
 
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-ink-muted">
+      <div className="flex items-center justify-center gap-2 py-16 text-xs text-ink-muted">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Đang tính tuân thủ chứng chỉ...
       </div>
     );
@@ -196,8 +196,8 @@ export const RankComplianceTab: React.FC = () => {
 
         <div className="ml-auto flex flex-wrap items-center gap-3">
           {(Object.keys(STATUS_STYLE) as ComplianceStatus[]).map(k => (
-            <span key={k} className="inline-flex items-center gap-1.5 text-[13px] text-ink-muted">
-              <span className={`inline-flex h-5 w-5 items-center justify-center rounded border text-[11px] font-bold ${STATUS_STYLE[k].tone}`}>
+            <span key={k} className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
+              <span className={`inline-flex h-5 w-5 items-center justify-center rounded border text-xs font-bold ${STATUS_STYLE[k].tone}`}>
                 {STATUS_STYLE[k].short}
               </span>
               {STATUS_STYLE[k].label}
@@ -211,7 +211,7 @@ export const RankComplianceTab: React.FC = () => {
 
       <div ref={areaRef} className="space-y-3">
         {blocks.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-md border border-grid-strong bg-surface py-14 text-[13px] text-ink-muted">
+          <div className="flex flex-col items-center gap-2 rounded-md border border-grid-strong bg-surface py-14 text-xs text-ink-muted">
             <Users className="h-6 w-6 text-ink-light" aria-hidden="true" />
             {selRanks.size === 0 ? 'Chưa chọn chức danh nào để hiển thị.'
               : view === 'gaps' ? 'Không có thuyền viên nào đang thiếu chứng chỉ.'
@@ -235,14 +235,14 @@ export const RankComplianceTab: React.FC = () => {
                 } ${rank.gapCount > 0 ? 'bg-red-50/40' : 'bg-canvas'}`}
               >
                 {open ? <ChevronDown className="h-4 w-4 text-ink-muted" aria-hidden="true" /> : <ChevronRight className="h-4 w-4 text-ink-muted" aria-hidden="true" />}
-                <span className="font-mono text-[13px] font-bold text-primary">{rank.rankCode}</span>
+                <span className="font-mono text-xs font-bold text-primary">{rank.rankCode}</span>
                 <span className="text-sm font-semibold text-ink">{rank.rankName}</span>
                 {rank.department && (
                   <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs text-ink-muted">
                     {DEPARTMENT_LABELS[rank.department] || rank.department}
                   </span>
                 )}
-                <span className="ml-auto flex items-center gap-4 text-[13px]">
+                <span className="ml-auto flex items-center gap-4 text-xs">
                   <span className="text-ink-muted">
                     {crew.length} người · {certs.length} loại chứng chỉ{scrolls ? ' (kéo ngang để xem thêm)' : ''}
                   </span>
@@ -263,7 +263,7 @@ export const RankComplianceTab: React.FC = () => {
                 <div className={scrolls ? 'overflow-x-auto' : 'overflow-hidden'}>
                   {/* border-separate: ô ghim (sticky) mới giữ được nền và viền khi cuộn ngang. */}
                   <table
-                    className="table-fixed border-separate border-spacing-0 text-[13px] text-ink"
+                    className="table-fixed border-separate border-spacing-0 text-xs text-ink"
                     style={{ width: NAME_W + GAP_W + certs.length * colW }}
                   >
                     <colgroup>
@@ -336,7 +336,7 @@ export const RankComplianceTab: React.FC = () => {
         })}
       </div>
 
-      <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
+      <p className="mt-3 text-xs leading-relaxed text-ink-muted">
         Bấm vào một ô để thao tác ngay: ô trống thì thêm chứng chỉ, ô hết hạn thì gia hạn trên chính bản ghi đó,
         ô còn hiệu lực thì sửa thông tin. Cột là bộ chứng chỉ khai báo cho chức danh ở <strong>Danh mục → Loại chứng chỉ</strong>.
         Dấu <span className="text-red-600">*</span> là loại bắt buộc theo luật.

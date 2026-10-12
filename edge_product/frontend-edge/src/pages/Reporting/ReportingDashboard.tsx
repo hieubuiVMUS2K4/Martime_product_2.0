@@ -222,7 +222,7 @@ export function ReportingDashboard() {
                     <div className="w-full rounded-sm bg-blue-600" style={{ height: `${Math.max(8, (count / maxDailyCount) * 100)}%` }} />
                   </div>
                   <span className="text-xs font-semibold text-slate-700">{count}</span>
-                  <span className="text-[9px] text-slate-400">
+                  <span className="text-xs text-slate-400">
                     {new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                   </span>
                 </div>

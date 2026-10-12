@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/task_provider.dart';
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               syncProvider.isOnline
                   ? Icons.wifi
                   : Icons.wifi_off,
-              color: syncProvider.isOnline ? Colors.green : Colors.red,
+              color: syncProvider.isOnline ? MaritimeTheme.success : MaritimeTheme.error,
             ),
           ),
         ],
@@ -126,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.smart_toy, color: Colors.blue),
+              leading: const Icon(Icons.smart_toy, color: MaritimeTheme.accent),
               title: Text(
                 l10n.aiAssistant,
                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -139,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.notifications_active, color: Colors.red),
+              leading: const Icon(Icons.notifications_active, color: MaritimeTheme.error),
               title: Text(
                 l10n.safetyAlarms,
                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -285,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (context, auth, _) => Text(
                     auth.fullName ?? l10n.crewMember,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade600,
+                          color: MaritimeTheme.textSecondary,
                           fontSize: 14,
                         ),
                     maxLines: 1,
@@ -338,16 +339,16 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: MaritimeTheme.errorSoft,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.red.shade200, width: 1),
+        border: Border.all(color: MaritimeTheme.errorBorder, width: 1),
       ),
       child: InkWell(
         onTap: () => _onItemTapped(1),
         borderRadius: BorderRadius.circular(10),
         child: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 22),
+            Icon(Icons.warning_amber_rounded, color: MaritimeTheme.error, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -357,18 +358,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     l10n.urgentAttention,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.red.shade900,
+                      color: MaritimeTheme.error,
                       fontSize: 12,
                     ),
                   ),
                   Text(
                     l10n.overdueTasksCount(taskProvider.overdueTasks.length),
-                    style: TextStyle(color: Colors.red.shade700, fontSize: 11),
+                    style: TextStyle(color: MaritimeTheme.error, fontSize: 11),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.red.shade700, size: 12),
+            Icon(Icons.arrow_forward_ios, color: MaritimeTheme.error, size: 12),
           ],
         ),
       ),
@@ -404,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _buildStatCard(
                 l10n.statusPending,
                 taskProvider.dueTasks.length.toString(),
-                Colors.blue,
+                MaritimeTheme.accent,
                 Icons.pending_actions,
               ),
             ),
@@ -414,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _buildStatCard(
                 l10n.statusOverdue,
                 taskProvider.overdueTasks.length.toString(),
-                Colors.red,
+                MaritimeTheme.error,
                 Icons.warning,
               ),
             ),
@@ -424,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _buildStatCard(
                 l10n.statusInProgress,
                 taskProvider.inProgressTasks.length.toString(),
-                Colors.orange,
+                MaritimeTheme.warning,
                 Icons.play_circle,
               ),
             ),
@@ -434,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _buildStatCard(
                 l10n.statusCompleted,
                 taskProvider.completedTasks.length.toString(),
-                Colors.green,
+                MaritimeTheme.success,
                 Icons.check_circle,
               ),
             ),
@@ -463,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 l10n.safetyAlarms,
                 Icons.notifications_active,
-                Colors.red,
+                MaritimeTheme.error,
                 '/alarms',
               ),
             ),
@@ -474,7 +475,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 l10n.myTasks,
                 Icons.task_alt,
-                Colors.blue,
+                MaritimeTheme.accent,
                 null,
                 onTap: () => _onItemTapped(1),
               ),
@@ -486,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 l10n.watchSchedule,
                 Icons.access_time,
-                Colors.orange,
+                MaritimeTheme.warning,
                 null,
                 onTap: () => _onItemTapped(2),
               ),
@@ -502,18 +503,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final l10n = AppLocalizations.of(context);
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.orange.shade50,
+      color: MaritimeTheme.warningSoft,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            Icon(Icons.cloud_upload, color: Colors.orange.shade700, size: 18),
+            Icon(Icons.cloud_upload, color: MaritimeTheme.warning, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 l10n.itemsPending(syncProvider.queueSize),
                 style: TextStyle(
-                  color: Colors.orange.shade900,
+                  color: MaritimeTheme.warning,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -580,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label,
                 style: TextStyle(
                   fontSize: 9,
-                  color: Colors.grey.shade700,
+                  color: MaritimeTheme.textSecondary,
                   fontWeight: FontWeight.w500,
                   height: 1.1,
                 ),
@@ -630,7 +631,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade800,
+                    color: MaritimeTheme.textPrimary,
                     height: 1.1,
                   ),
                   maxLines: 2,

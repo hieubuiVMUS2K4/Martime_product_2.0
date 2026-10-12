@@ -48,7 +48,7 @@ public class AbstractLogController : ControllerBase
             var result = await _service.CreateAsync(dto);
             return CreatedAtAction(nameof(GetDetail), new { id = result.Id }, result);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -119,7 +119,7 @@ public class AbstractLogController : ControllerBase
             var result = await _service.CreateLegAsync(id, dto);
             return Created($"/api/logbooks/abstract-log/{id}/legs/{result.Id}", result);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }
@@ -154,7 +154,7 @@ public class AbstractLogController : ControllerBase
             var result = await _service.CreateDailyEntryAsync(legId, dto);
             return Created($"/api/logbooks/abstract-log/entries/{result.Id}", result);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             return BadRequest(new { error = "An internal error occurred." });
         }

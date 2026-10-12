@@ -16,7 +16,7 @@ loại: nếu một component chỉ phục vụ **một** page duy nhất, nó t
 | `settings/` | `SettingsButton`, `SettingsDialog` (Radix Dialog) — điều khiển theme/font/ngôn ngữ | Không |
 | `ui/` | `alert.tsx`, `badge.tsx`, `card.tsx`, `tabs.tsx` — wrapper phong cách shadcn/ui trên nền Radix + `cva` + `cn()` | Không (nguyên tử) |
 | `common/` | `LogbookGrid`, `MaritimeInput`, `Pagination`, `CoordinatePicker`, `VirtualizedTable` (dựa `react-window`) — atomic dùng khắp `pages/logbooks`, form nhập liệu | Không (nguyên tử) |
-| `ship-data/` | 9 tab dữ liệu tàu (`BasicDataTab`...`TanksCargoTab`) + `ShipDataFields`, `VesselMap` (react-leaflet) | Không |
+| `ship-data/` | `particularsConfig` (tab → nhóm → trường của trang Dữ liệu tàu), `VesselMap` (react-leaflet) | Không |
 | `drill/` | `DrillEditModal`, `DocumentPreviewModal`, `DocumentUploadZone` — phục vụ `pages/Safety/DrillTimelinePage` | Không |
 | **`crew/`** | 5 modal quản lý thuyền viên (thêm mới, tài liệu, sức khoẻ, xem ảnh, chứng chỉ) | **Có** — `components/crew/README.md` |
 | **`editor/`** | `RichTextEditor` (tiptap) — trình soạn thảo rich text dùng cho tài liệu SMS | **Có** — `components/editor/README.md` |

@@ -29,3 +29,6 @@ a {
     outline-offset: 1px;
   }
 }
+
+/* Mã/số (font-mono) dùng chung font Inter, chỉ giữ số thẳng cột */
+.font-mono { font-variant-numeric: tabular-nums; letter-spacing: 0; }

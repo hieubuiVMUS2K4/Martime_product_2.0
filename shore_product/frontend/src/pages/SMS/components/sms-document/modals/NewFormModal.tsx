@@ -34,7 +34,7 @@ export function NewFormModal(props: NewFormModalProps) {
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-sm">Tạo biểu mẫu mới vào thư viện</h3>
-              <p className="text-[10px] text-slate-500">Thiết kế cấu trúc checklist hoặc form báo cáo điện tử</p>
+              <p className="text-xs text-slate-500">Thiết kế cấu trúc checklist hoặc form báo cáo điện tử</p>
             </div>
           </div>
           <button
@@ -50,7 +50,7 @@ export function NewFormModal(props: NewFormModalProps) {
           {/* Form Code & Title */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mã biểu mẫu</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mã biểu mẫu</label>
               <input
                 type="text"
                 placeholder="VD: BM-07-08"
@@ -60,7 +60,7 @@ export function NewFormModal(props: NewFormModalProps) {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tiêu đề biểu mẫu</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tiêu đề biểu mẫu</label>
               <input
                 type="text"
                 placeholder="VD: Checklist an toàn cháy nổ"
@@ -73,7 +73,7 @@ export function NewFormModal(props: NewFormModalProps) {
 
           {/* Procedure Association */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Quy trình (SOP) liên kết bắt buộc</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quy trình (SOP) liên kết bắt buộc</label>
             <select
               value={newFormProcedureId}
               onChange={(e) => setNewFormProcedureId(e.target.value)}
@@ -89,17 +89,17 @@ export function NewFormModal(props: NewFormModalProps) {
           {/* Dynamic Fields Builder */}
           <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase">Cấu trúc các trường ({formBuilderData.fields.length})</span>
+              <span className="text-xs font-bold text-slate-500 uppercase">Cấu trúc các trường ({formBuilderData.fields.length})</span>
               <button
                 onClick={addFormField}
-                className="flex items-center gap-1 text-[10px] font-bold text-accent hover:text-primary transition"
+                className="flex items-center gap-1 text-xs font-bold text-accent hover:text-primary transition"
               >
                 <Plus className="w-3 h-3" /> Thêm trường
               </button>
             </div>
 
             {formBuilderData.fields.length === 0 && (
-              <div className="text-[10px] text-slate-400 italic py-4 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+              <div className="text-xs text-slate-400 italic py-4 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
                 Chưa có trường nào. Nhấn "Thêm trường" để bắt đầu thiết kế form.
               </div>
             )}
@@ -113,12 +113,12 @@ export function NewFormModal(props: NewFormModalProps) {
                       placeholder="Tên trường"
                       value={field.label}
                       onChange={(e) => updateFormField(idx, 'label', e.target.value)}
-                      className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
+                      className="px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                     />
                     <select
                       value={field.type}
                       onChange={(e) => updateFormField(idx, 'type', e.target.value)}
-                      className="px-2 py-1.5 text-[11px] rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
+                      className="px-2 py-1.5 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-accent"
                     >
                       <option value="text">Văn bản</option>
                       <option value="textarea">Đoạn văn</option>
@@ -134,7 +134,7 @@ export function NewFormModal(props: NewFormModalProps) {
                         onChange={(e) => updateFormField(idx, 'required', e.target.checked)}
                         className="rounded border-slate-300 text-accent focus:ring-accent w-3.5 h-3.5"
                       />
-                      <span className="text-[10px] text-slate-500">Bắt buộc</span>
+                      <span className="text-xs text-slate-500">Bắt buộc</span>
                     </label>
                   </div>
                   <button
@@ -150,18 +150,18 @@ export function NewFormModal(props: NewFormModalProps) {
             {/* Options for Select field type */}
             {formBuilderData.fields.some((f: any) => f.type === 'select') && (
               <div className="space-y-1.5 p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
-                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Các tùy chọn (phân cách bằng dấu phẩy):</span>
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Các tùy chọn (phân cách bằng dấu phẩy):</span>
                 {formBuilderData.fields.filter((f: any) => f.type === 'select').map((field: any) => {
                   const originalIdx = formBuilderData.fields.indexOf(field);
                   return (
                     <div key={field.id} className="flex items-center gap-2">
-                      <span className="text-[10px] text-amber-600 font-mono w-20 truncate">{field.label || 'Chưa đặt tên'}</span>
+                      <span className="text-xs text-amber-600 font-mono w-20 truncate">{field.label || 'Chưa đặt tên'}</span>
                       <input
                         type="text"
                         placeholder="VD: Đạt, Không đạt, N/A"
                         value={field.options || ''}
                         onChange={(e) => updateFormField(originalIdx, 'options', e.target.value)}
-                        className="flex-1 px-2 py-1 text-[11px] rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-amber-500"
+                        className="flex-1 px-2 py-1 text-xs rounded border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </div>
                   );

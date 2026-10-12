@@ -798,7 +798,7 @@ export const WeatherRoutingPage: React.FC = () => {
               return (
                 <span key={k} className="inline-flex items-center gap-1.5">
                   <span
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] text-white"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full text-xs text-white"
                     style={{ backgroundColor: s.color }}
                   >
                     {s.icon}

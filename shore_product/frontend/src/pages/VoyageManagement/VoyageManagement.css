@@ -12,7 +12,7 @@
   min-height: 100%;
   background: #f5f7fa;
   color: #132d2b;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-family: inherit;
   animation: vmFadeIn 0.25s ease;
 }
@@ -53,14 +53,14 @@
 }
 
 .vm-title {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   color: #132d2b;
   margin: 0;
 }
 
 .vm-subtitle {
-  font-size: 11.5px;
+  font-size: 0.875rem;
   color: #4f847a;
   margin: 0 0 0 4px;
 }
@@ -68,8 +68,8 @@
 .vm-count-badge {
   background: #0d7377;
   color: #fff;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   padding: 2px 8px;
   border-radius: 12px;
   line-height: 18px;
@@ -95,7 +95,7 @@
   border: 1px solid #b5e3da;
   border-radius: 5px;
   background: #fff;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #132d2b;
   outline: none;
   width: 200px;
@@ -114,7 +114,7 @@
   border: 1px solid #b5e3da;
   background: #fff;
   color: #132d2b;
-  font-size: 12px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -140,7 +140,7 @@
   border: none;
   background: transparent;
   color: #0d7377;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .vm-btn--ghost:hover { background: #e6f5f3; }
@@ -158,8 +158,8 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   letter-spacing: 0.03em;
   background: #edf1f5;
   color: #3d5a71;
@@ -227,8 +227,8 @@
 
 .vm-card__name {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   color: #132d2b;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -237,7 +237,7 @@
 
 .vm-card__meta {
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: #4f847a;
 }
 
@@ -260,7 +260,7 @@
 }
 
 .vm-card__stat-val {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   color: #0c2b29;
 }
@@ -268,18 +268,18 @@
 .vm-card__stat-val--active { color: #0d6e3f; }
 
 .vm-card__stat-lbl {
-  font-size: 10px;
+  font-size: 0.875rem;
   color: #4f847a;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .vm-card__route {
   padding: 6px 16px;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #0d7377;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .vm-card__footer {
@@ -289,9 +289,9 @@
   padding: 10px 16px;
   background: #f7f9fb;
   border-top: 1px solid #eef2f6;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #0d7377;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* === Summary Bar === */
@@ -316,15 +316,15 @@
 }
 
 .vm-summary-item span {
-  font-size: 10px;
+  font-size: 0.875rem;
   color: #4f847a;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .vm-summary-item strong {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   color: #0c2b29;
 }
@@ -348,16 +348,16 @@
 }
 
 .vm-kpi span {
-  font-size: 10px;
+  font-size: 0.875rem;
   color: #4f847a;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .vm-kpi strong {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 800;
   color: #0c2b29;
 }
 
@@ -379,17 +379,17 @@
   padding: 10px 14px;
   text-align: left;
   vertical-align: middle;
-  font-size: 12.5px;
+  font-size: 0.875rem;
   border-bottom: 1px solid #eef2f6;
 }
 
 .vm-table th {
   background: #f4f7fa;
   color: #5e7388;
-  font-size: 10.5px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-weight: 700;
+  font-weight: 800;
   border-bottom: 2px solid #ddf0eb;
   white-space: nowrap;
 }
@@ -403,12 +403,12 @@
 .vm-table tbody tr:last-child td { border-bottom: none; }
 
 .vm-cell-primary {
-  font-weight: 600;
+  font-weight: 700;
   color: #132d2b;
 }
 
 .vm-cell-sub {
-  font-size: 11px;
+  font-size: 0.875rem;
   color: #4f847a;
   margin-top: 1px;
 }
@@ -454,7 +454,7 @@
   gap: 8px;
   padding: 40px;
   color: #4f847a;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .vm-empty {
@@ -465,7 +465,7 @@
   gap: 8px;
   padding: 48px 20px;
   color: #6fb0a0;
-  font-size: 13px;
+  font-size: 0.875rem;
   text-align: center;
 }
 
@@ -483,7 +483,7 @@
   min-height: 100%;
   background: #f5f7fa;
   color: #132d2b;
-  font-size: 13px;
+  font-size: 0.875rem;
   animation: vmFadeIn 0.25s ease;
 }
 
@@ -508,14 +508,14 @@
 }
 
 .vd-header-title h1 {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 1.125rem;
+  font-weight: 800;
   color: #132d2b;
   margin: 0;
 }
 
 .vd-header-meta {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #4f847a;
   display: flex;
   flex-wrap: wrap;
@@ -548,8 +548,8 @@
   border-radius: 6px;
   background: transparent;
   color: #4f847a;
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -577,8 +577,8 @@
   padding: 0 4px;
   border-radius: 999px;
   background: rgba(0,0,0,0.1);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
 }
 
 .vd-tab-btn.is-active .vd-tab-count {
@@ -602,17 +602,17 @@
 
 .vd-kpi span {
   display: block;
-  font-size: 10px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #4f847a;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 3px;
 }
 
 .vd-kpi strong {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 800;
   color: #0c2b29;
 }
 
@@ -637,8 +637,8 @@
 }
 
 .vd-panel__title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   color: #132d2b;
   margin: 0;
   display: flex;
@@ -677,16 +677,16 @@
 
 .vd-info-item span {
   display: block;
-  font-size: 10px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #4f847a;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 2px;
 }
 
 .vd-info-item strong {
-  font-size: 13px;
+  font-size: 0.875rem;
   color: #132d2b;
 }
 
@@ -699,7 +699,7 @@
 .vd-mini-table th,
 .vd-mini-table td {
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 0.875rem;
   text-align: left;
   border-bottom: 1px solid #eef2f6;
 }
@@ -707,10 +707,10 @@
 .vd-mini-table th {
   background: #f8fafc;
   color: #5e7388;
-  font-size: 10px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .vd-mini-table tbody tr:last-child td { border-bottom: none; }
@@ -731,8 +731,8 @@
 }
 
 .vd-list-item__main { flex: 1; }
-.vd-list-item__main strong { display: block; font-size: 12px; color: #132d2b; }
-.vd-list-item__main span { font-size: 11px; color: #4f847a; }
+.vd-list-item__main strong { display: block; font-size: 0.875rem; color: #132d2b; }
+.vd-list-item__main span { font-size: 0.875rem; color: #4f847a; }
 
 /* === Timeline === */
 .vd-timeline {
@@ -786,14 +786,14 @@
   padding: 1px 6px;
   border-radius: 999px;
   color: #fff;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
-.vd-tl-type { font-weight: 700; font-size: 12px; color: #132d2b; }
-.vd-tl-time { font-size: 11px; color: #6fb0a0; margin-left: auto; }
-.vd-tl-desc { font-size: 12px; color: #4a6578; }
+.vd-tl-type { font-weight: 800; font-size: 0.875rem; color: #132d2b; }
+.vd-tl-time { font-size: 0.875rem; color: #6fb0a0; margin-left: auto; }
+.vd-tl-desc { font-size: 0.875rem; color: #4a6578; }
 
 /* === Performance === */
 .vd-perf-score {
@@ -804,14 +804,14 @@
 }
 
 .vd-perf-score strong {
-  font-size: 40px;
+  font-size: 2.5rem;
   font-weight: 800;
   color: #0c2b29;
   line-height: 1;
 }
 
 .vd-perf-score span {
-  font-size: 16px;
+  font-size: 1rem;
   color: #6fb0a0;
 }
 
@@ -830,24 +830,24 @@
 
 .vd-perf-card h4 {
   margin: 0 0 8px;
-  font-size: 10px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #4f847a;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .vd-perf-row {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #4f847a;
   padding: 3px 0;
   border-bottom: 1px solid #f4f7fa;
 }
 
 .vd-perf-row:last-child { border-bottom: none; }
-.vd-perf-row strong { color: #132d2b; font-weight: 700; }
+.vd-perf-row strong { color: #132d2b; font-weight: 800; }
 
 /* === Review === */
 .vd-review-form {
@@ -864,8 +864,8 @@
 }
 
 .vd-form-row label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   color: #5e7388;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -883,8 +883,8 @@
   border-radius: 999px;
   background: #edf2f7;
   color: #2d4a63;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -902,7 +902,7 @@
   min-height: 100%;
   background: #f5f7fa;
   color: #132d2b;
-  font-size: 13px;
+  font-size: 0.875rem;
   animation: vmFadeIn 0.25s ease;
 }
 
@@ -924,8 +924,8 @@
 }
 
 .vf-header h1 {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   color: #132d2b;
   margin: 0;
 }
@@ -936,7 +936,7 @@
   border: 1px solid #fcd5d0;
   border-radius: 8px;
   color: #b02a1a;
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 /* Section tabs */
@@ -956,8 +956,8 @@
   border-radius: 6px;
   background: transparent;
   color: #4f847a;
-  font-weight: 600;
-  font-size: 11.5px;
+  font-weight: 700;
+  font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
@@ -979,8 +979,8 @@
 }
 
 .vf-form h2 {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   color: #132d2b;
   margin: 0 0 12px;
 }
@@ -1004,8 +1004,8 @@
 .vf-group--full { grid-column: 1 / -1; }
 
 .vf-group label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   color: #5e7388;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1017,7 +1017,7 @@
   padding: 6px 10px;
   border: 1px solid #b5e3da;
   border-radius: 5px;
-  font-size: 12.5px;
+  font-size: 0.875rem;
   color: #132d2b;
   background: #fff;
   outline: none;
@@ -1050,8 +1050,8 @@
 }
 
 .vf-sub-header span {
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: 800;
+  font-size: 0.875rem;
   color: #132d2b;
 }
 
@@ -1089,7 +1089,7 @@
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #5e7388;
 }
 
@@ -1099,14 +1099,14 @@
   border-top: 2px solid #b8e6dd;
   margin-top: 4px;
   padding-top: 6px;
-  font-weight: 700;
+  font-weight: 800;
   color: #132d2b;
 }
 
 /* Empty hint */
 .vf-empty {
   color: #6fb0a0;
-  font-size: 12px;
+  font-size: 0.875rem;
   font-style: italic;
   padding: 8px 0;
 }

@@ -191,17 +191,9 @@ public class CrewMember : ISyncableEntity
     [JsonIgnore]
     public List<CrewCertificate> Certificates { get; set; } = new();
 
+    /// <summary>Tài liệu định danh + sức khoẻ (bảng chung crew_member_documents, phân nhóm theo Category).</summary>
     [JsonIgnore]
-    public List<TravelDocument> TravelDocuments { get; set; } = new();
-
-    [JsonIgnore]
-    public List<SeafarerDocument> SeafarerDocuments { get; set; } = new();
-
-    [JsonIgnore]
-    public List<EmploymentDocument> EmploymentDocuments { get; set; } = new();
-
-    [JsonIgnore]
-    public List<HealthDocument> HealthDocuments { get; set; } = new();
+    public List<CrewMemberDocument> Documents { get; set; } = new();
 
     [JsonIgnore]
     public List<ServiceRecord> ServiceRecords { get; set; } = new();

@@ -132,8 +132,8 @@ export const CrewBasicInfo: React.FC<Props> = ({
     return { sm: (2 - (used2 % 2)) % 2, lg: (4 - (used4 % 4)) % 4 };
   };
 
-  const labelCls = 'mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-ink-muted';
-  const valueCls = 'min-h-[24px] whitespace-pre-line break-words text-[15px] leading-6';
+  const labelCls = 'mb-1.5 flex items-center gap-1.5 text-xs font-medium text-ink-muted';
+  const valueCls = 'min-h-[24px] whitespace-pre-line break-words text-[0.9375rem] leading-6';
   const cellCls = 'min-w-0 bg-surface px-4 py-3';
 
   return (
@@ -148,7 +148,7 @@ export const CrewBasicInfo: React.FC<Props> = ({
               {section.id === 'employment' && editing && (
                 <div className="flex items-center gap-3">
                 <button type="button" onClick={() => onManualOverrideChange(!manualOverride)}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[13px] font-medium ${
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
                     manualOverride ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-line bg-surface text-ink-muted hover:text-primary'
                   }`}>
                   {manualOverride ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
@@ -189,7 +189,7 @@ export const CrewBasicInfo: React.FC<Props> = ({
                         </div>
                       )}
                       {change && (
-                        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[13px] text-red-700">
+                        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-red-700">
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
                           Tàu đã sửa: <s className="text-ink-light">{change.oldValue || '(trống)'}</s> → <strong>{change.newValue || '(trống)'}</strong>
                         </p>

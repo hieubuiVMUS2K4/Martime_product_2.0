@@ -42,8 +42,8 @@ export function UserMenu() {
           {initial}
         </span>
         <span className="hidden flex-col items-start leading-tight xl:flex">
-          <span className="text-[13px] font-semibold text-white">{user.username}</span>
-          {user.role && <span className="text-[11px] uppercase tracking-wide text-white/60">{user.role}</span>}
+          <span className="text-xs font-semibold text-white">{user.username}</span>
+          {user.role && <span className="text-xs uppercase tracking-wide text-white/60">{user.role}</span>}
         </span>
         <ChevronDown className={`h-4 w-4 text-white/60 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
@@ -55,7 +55,7 @@ export function UserMenu() {
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-ink">{user.username}</div>
               {user.role && (
-                <span className="mt-0.5 inline-flex items-center gap-1 rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                <span className="mt-0.5 inline-flex items-center gap-1 rounded bg-primary-soft px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                   <ShieldCheck className="h-3 w-3" aria-hidden="true" /> {user.role}
                 </span>
               )}

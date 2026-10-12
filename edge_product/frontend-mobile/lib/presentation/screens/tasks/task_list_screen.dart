@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../providers/task_provider.dart';
@@ -368,7 +369,7 @@ class _TaskListScreenState extends State<TaskListScreen>
                         SnackBar(
                           content: Text('${task.statusText} - Công việc chưa đến thời điểm thực hiện'),
                           duration: const Duration(seconds: 2),
-                          backgroundColor: Colors.blueGrey.shade700,
+                          backgroundColor: MaritimeTheme.textSecondary,
                         ),
                       );
                       return;
@@ -380,7 +381,7 @@ class _TaskListScreenState extends State<TaskListScreen>
                           content: Text(AppLocalizations.of(context).pendingApproval +
                               ' – Công việc đang chờ thuyền trưởng phê duyệt'),
                           duration: const Duration(seconds: 2),
-                          backgroundColor: Colors.amber.shade700,
+                          backgroundColor: MaritimeTheme.warning,
                         ),
                       );
                       return;
@@ -391,7 +392,7 @@ class _TaskListScreenState extends State<TaskListScreen>
                         SnackBar(
                           content: Text(AppLocalizations.of(context).alreadyCompletedCanUpdate),
                           duration: const Duration(seconds: 2),
-                          backgroundColor: Colors.green.shade700,
+                          backgroundColor: MaritimeTheme.success,
                         ),
                       );
                       return;

@@ -1,7 +1,6 @@
 .rulesets-page {
-  padding: 24px;
-  max-width: 1100px;
-  margin: 0 auto;
+  padding: clamp(12px, 1.2vw, 20px) 1.5%;
+  width: 100%; min-width: 0;
 }
 
 .rulesets-header {
@@ -14,8 +13,8 @@
 
 .rulesets-header h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 1.375rem;
+  font-weight: 700;
   color: #1e293b;
   flex: 1;
 }
@@ -34,8 +33,8 @@
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  color: #475569;
-  font-size: 13px;
+  color: #27313f;
+  font-size: 0.875rem;
   cursor: pointer;
 }
 
@@ -47,8 +46,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: #334155;
   cursor: pointer;
 }
 
@@ -87,40 +86,40 @@
 
 .ruleset-info h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 700;
   color: #1e293b;
 }
 
 .ruleset-code {
-  font-size: 11px;
-  font-family: monospace;
+  font-size: 0.875rem;
+  font-family: var(--font-family); font-variant-numeric: tabular-nums;
   background: #f1f5f9;
   padding: 2px 6px;
   border-radius: 4px;
-  color: #475569;
+  color: #27313f;
 }
 
 .ruleset-authority {
-  font-size: 12px;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
 }
 
 .badge-inactive {
-  font-size: 10px;
+  font-size: 0.875rem;
   background: #fef3c7;
   color: #92400e;
   padding: 1px 6px;
   border-radius: 8px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .ruleset-meta {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
   white-space: nowrap;
 }
 
@@ -129,8 +128,8 @@
   color: #0a7068;
   padding: 2px 8px;
   border-radius: 10px;
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: 700;
+  font-size: 0.875rem;
 }
 
 .icon-btn {
@@ -143,7 +142,7 @@
   border-radius: 6px;
   cursor: pointer;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .icon-btn:hover {
@@ -162,15 +161,15 @@
 }
 
 .ruleset-desc {
-  font-size: 13px;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: #334155;
   margin: 12px 0;
 }
 
 .loading-inline,
 .empty-inline {
-  font-size: 13px;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
   padding: 12px 0;
 }
 
@@ -178,16 +177,16 @@
 .rules-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 0.875rem;
   margin-top: 8px;
 }
 
 .rules-table th {
   text-align: left;
   padding: 6px 8px;
-  color: #64748b;
-  font-weight: 600;
-  font-size: 10px;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid #e2e8f0;
@@ -201,8 +200,8 @@
 }
 
 .rule-desc {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
   margin-top: 2px;
 }
 
@@ -210,8 +209,8 @@
   display: inline-block;
   padding: 1px 6px;
   border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .severity-badge.blocker { background: #fee2e2; color: #991b1b; }
@@ -229,7 +228,7 @@
 
 .create-form h3 {
   margin: 0 0 16px;
-  font-size: 16px;
+  font-size: 1rem;
   color: #1e293b;
 }
 
@@ -250,8 +249,8 @@
 }
 
 .form-group label {
-  font-size: 12px;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: #334155;
   font-weight: 500;
 }
 
@@ -261,7 +260,7 @@
   padding: 8px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   color: #1e293b;
   background: #fff;
 }
@@ -291,7 +290,7 @@
   color: #fff;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
 }
@@ -311,7 +310,7 @@
   color: #334155;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
 }

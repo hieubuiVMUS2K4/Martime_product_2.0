@@ -1,11 +1,9 @@
-import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { CoordinatePicker } from '../../components/common/CoordinatePicker';
 import { toast } from 'sonner';
-import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { BallastWaterRecordResponseDto } from '../../types/logbook.types';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -98,7 +96,7 @@ export const BallastWaterPage: React.FC = () => {
     show: boolean;
     entryId: string | null;
   }>({ show: false, entryId: null });
-
+  const [masterSignature, setMasterSignature] = useState('Captain');
 
   const handleSignEntry = (entryId: string, alreadySigned: boolean) => {
     if (alreadySigned) {
@@ -109,14 +107,14 @@ export const BallastWaterPage: React.FC = () => {
   };
 
   const confirmSign = async () => {
-    if (!signModal.entryId) {
+    if (!signModal.entryId || !masterSignature.trim()) {
       toast.error('Master signature is required');
       return;
     }
 
     try {
       const signData = {
-        signature: '',
+        signature: masterSignature.trim(),
         signedAt: new Date().toISOString()
       };
 
@@ -124,10 +122,11 @@ export const BallastWaterPage: React.FC = () => {
       toast.success(t('logbooks.common.signSuccess'));
       
       setSignModal({ show: false, entryId: null });
+      setMasterSignature('Captain');
       fetchEntries();
     } catch (error: any) {
       console.error(error);
-      reportSigningError(error, t('logbooks.common.signFailed'));
+      toast.error(error.response?.data?.error || t('logbooks.common.signFailed'));
     }
   };
 
@@ -289,7 +288,7 @@ export const BallastWaterPage: React.FC = () => {
               setShowForm(true);
             }
           }}
-          className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700 "
+          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.ballastWater.newEntry')}
         </button></PermissionGate>
@@ -316,8 +315,8 @@ export const BallastWaterPage: React.FC = () => {
 
         {/* Step 1: Select Operation */}
         {step === 1 && (
-          <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-            <h2 className="operations-section-title text-blue-600 dark:text-blue-400 font-sans text-sm font-bold mb-6">
+          <div className="bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+            <h2 className="text-blue-600 dark:text-blue-400 font-sans text-xl font-bold mb-6">
               {t('logbooks.ballastWater.step1Title')}
             </h2>
             <div className="flex flex-col gap-3">
@@ -348,8 +347,8 @@ export const BallastWaterPage: React.FC = () => {
 
         {/* Step 2: Enter Details */}
         {step === 2 && selectedOperation && (
-          <div className="bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-            <h2 className="operations-section-title text-blue-600 dark:text-blue-400 font-sans text-sm font-bold mb-4">
+          <div className="bg-white dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
+            <h2 className="text-blue-600 dark:text-blue-400 font-sans text-xl font-bold mb-4">
               {t('logbooks.ballastWater.step2Title')}
             </h2>
             
@@ -360,7 +359,7 @@ export const BallastWaterPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
               {/* Tank & Volume */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MaritimeInput
@@ -576,7 +575,7 @@ export const BallastWaterPage: React.FC = () => {
                 </button>
                 <PermissionGate permission={editingId ? 'logbooks.ballast.update' : 'logbooks.ballast.create'}><button
                   onClick={handleSave}
-                  className="bg-green-600 text-white font-semibold py-1.5 px-8 rounded-lg shadow-none hover:bg-green-700 "
+                  className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-md hover:bg-green-700 "
                 >
                   {t('voyageLog.saveEntry')}
                 </button></PermissionGate>
@@ -589,7 +588,7 @@ export const BallastWaterPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto mt-6 shadow-sm">
-        <table className="operations-table w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('voyageLog.dateTime')}</th>
@@ -653,8 +652,7 @@ export const BallastWaterPage: React.FC = () => {
                   </td>
                   <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
                   <td className="p-4">
-                    <SigningControls module="log-ballast" recordKey={entry.id} permission="logbooks.ballast.approve" signed={!!entry.masterSignature} />
-{entry.masterSignature ? (
+                    {entry.masterSignature ? (
                       <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
                         {t('logbooks.deckLog.signed')}
                       </span>
@@ -700,32 +698,40 @@ export const BallastWaterPage: React.FC = () => {
       {/* Sign Confirmation Modal */}
       {signModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-4 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full mx-4">
             <h3 className="text-xl font-bold text-blue-600 font-sans mb-4">
               🖊 {t('logbooks.deckLog.sign')} {t('logbooks.ballastWater.title')}
             </h3>
             <p className="text-gray-700 font-sans mb-4">
               By signing this entry, you confirm that all information is accurate and complete.
-              Sửa đổi sau ký sẽ giữ lại phiên bản và lịch sử xác nhận.
+              This action cannot be undone.
             </p>
             <div className="mb-6">
               <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
                 Master Signature *
               </label>
-              <p className="text-sm">Người ký và chức danh được lấy từ tài khoản. Nhập lại mật khẩu ở bước xác nhận.</p>
+              <input
+                type="text"
+                value={masterSignature}
+                onChange={e => setMasterSignature(e.target.value)}
+                className="w-full bg-white border-2 border-gray-200 text-gray-900 font-sans p-3 focus:border-blue-500 focus:outline-none"
+                placeholder="Enter master's name"
+                autoFocus
+              />
             </div>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setSignModal({ show: false, entryId: null });
+                  setMasterSignature('Captain');
                 }}
-                className="px-6 py-1.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
+                className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-sans font-semibold rounded hover:bg-gray-50"
               >
                 {t('common.cancel')}
               </button>
               <PermissionGate permission="logbooks.ballast.approve"><button
                 onClick={confirmSign}
-                className="px-6 py-1.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
+                className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded hover:bg-green-700"
               >
                 ✓ {t('logbooks.deckLog.sign')}
               </button></PermissionGate>

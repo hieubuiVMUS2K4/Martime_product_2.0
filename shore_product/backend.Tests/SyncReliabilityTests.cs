@@ -267,6 +267,7 @@ public partial class SyncReliabilityTests
     {
         await using var db = await Database();
         var outbox = Outbox(db);
+        await BindNode(db, "A"); // dữ liệu riêng tàu (safety_alarm) chỉ gửi được tới node đã gắn tàu
         await outbox.EnqueueAsync("A", "rank", "1", SyncActionType.SNAPSHOT, new { Id = 1 });
         await outbox.EnqueueAsync("A", "safety_alarm", "2", SyncActionType.SNAPSHOT, new { Id = 2 });
         Assert.Empty((await outbox.GetPendingItemsAsync("A", null, null, 50, NetworkType.None)).Items);
@@ -306,11 +307,11 @@ public partial class SyncReliabilityTests
         {
             db.SuppressAutoOutbox = true;
             var crew = new Maritime.Shared.Models.Crew.CrewMember { Id = Guid.NewGuid(), CrewId = "TEST", FullName = "Test" };
-            var document = new Maritime.Shared.Models.Documents.TravelDocument { Id = Guid.NewGuid(), CrewMemberId = crew.Id, DocumentNumber = "P1", DocumentType = "PASSPORT", FileUrl = "base.bin" };
-            db.CrewMembers.Add(crew); db.TravelDocuments.Add(document); await db.SaveChangesAsync();
+            var document = new Maritime.Shared.Models.Documents.CrewMemberDocument { Id = Guid.NewGuid(), CrewMemberId = crew.Id, Category = "travel", DocumentNumber = "P1", DocumentType = "PASSPORT", FileUrl = "base.bin" };
+            db.CrewMembers.Add(crew); db.CrewMemberDocuments.Add(document); await db.SaveChangesAsync();
             recordKey = document.Id.ToString(); files["base.bin"] = [90, 91, 92, 93, 5, 6, 7, 8, 94, 95, 96, 97];
         }
-        var request = new SyncFileTransferRequestDto { RequestId = Guid.NewGuid(), ManifestId = Guid.NewGuid(), RequesterNodeId = "SHORE", SupplierNodeId = "A", TableName = delta ? "travel_document" : "test_file", RecordKey = recordKey, FileRole = "attachment", FileName = "test.bin", SizeBytes = content.Length, Sha256 = Hash(content) };
+        var request = new SyncFileTransferRequestDto { RequestId = Guid.NewGuid(), ManifestId = Guid.NewGuid(), RequesterNodeId = "SHORE", SupplierNodeId = "A", TableName = delta ? "crew_member_document" : "test_file", RecordKey = recordKey, FileRole = "attachment", FileName = "test.bin", SizeBytes = content.Length, Sha256 = Hash(content) };
         Assert.True((await Service().RegisterRequestAsync(request, default)).Success);
         var negotiate = new SyncFileChunkSessionDto { RequestId = request.RequestId, ManifestId = request.ManifestId, RequesterNodeId = "SHORE", SupplierNodeId = "A", TableName = request.TableName, RecordKey = request.RecordKey, FileRole = request.FileRole, FileName = request.FileName, SizeBytes = content.Length, Sha256 = Hash(content), ChunkSizeBytes = 4, TotalChunks = 2, IsDeltaSession = delta, RequestedChunkIndexes = delta ? [0, 2] : [], ReceiverBaseSha256 = delta ? Hash(files["base.bin"]) : null };
         if (missingBase) files.Remove("base.bin");
@@ -355,7 +356,7 @@ public partial class SyncReliabilityTests
         storage.Setup(files => files.ComputeSha256HexAsync("source.pdf", It.IsAny<CancellationToken>())).ReturnsAsync(hash);
         storage.Setup(files => files.GetFileSize("source.pdf")).Returns(3);
         var outbox = new SyncOutboxService(db, NullLogger<SyncOutboxService>.Instance, storage.Object);
-        await outbox.BroadcastAsync("travel_document", Guid.NewGuid().ToString(), SyncActionType.SNAPSHOT, new { FileUrl = "source.pdf" });
+        await outbox.BroadcastAsync("sms_procedures", Guid.NewGuid().ToString(), SyncActionType.SNAPSHOT, new { FileUrl = "source.pdf" });
         var a = Assert.Single(Assert.Single((await outbox.GetPendingItemsAsync("A", null, null, 50)).Items).FileRefs);
         var b = Assert.Single(Assert.Single((await outbox.GetPendingItemsAsync("B", null, null, 50)).Items).FileRefs);
         Assert.NotEqual(a.FileId, b.FileId);

@@ -49,7 +49,7 @@ export function VesselMaterialImportModal({ vesselId, onClose, onSuccess }: { ve
         {!!rows.length && (
           <div className="overflow-auto rounded-md border border-line">
             <table className="w-full text-sm">
-              <thead className="bg-primary-soft text-left text-[13px] text-primary">
+              <thead className="bg-primary-soft text-left text-xs text-primary">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Mã vật tư</th>
                   <th className="px-3 py-2 font-semibold">Tên vật tư</th>

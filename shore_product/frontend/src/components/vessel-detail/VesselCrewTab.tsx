@@ -43,20 +43,28 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/*
+  Trạng thái của một thuyền viên ĐANG GẮN với tàu này (crew_members.VesselId = tàu):
+  - Trên tàu: thuyền trưởng đã nhận (IsOnboard).
+  - Chờ thuyền trưởng duyệt / Tạm giữ / Từ chối: bờ vừa gán, tàu chưa nhận.
+  - Đã rời tàu: tàu báo không còn trên tàu (vd. kết thúc chuyến) nhưng bờ chưa làm thủ tục
+    cho xuống tàu — người này vẫn tính là của tàu cho tới khi bờ bấm "Cho xuống tàu".
+*/
 const statusOf = (c: CrewMember) =>
   c.isOnboard ? 'Trên tàu'
-    : c.onboardStatus === 'PendingReview' ? 'Đang duyệt'
+    : c.onboardStatus === 'PendingReview' ? 'Chờ thuyền trưởng duyệt'
       : c.onboardStatus === 'OnHold' ? 'Tạm giữ'
         : c.onboardStatus === 'Rejected' ? 'Từ chối'
-          : 'Trên bờ';
+          : 'Đã rời tàu';
 
 const STATUS_TONE: Record<string, string> = {
   'Trên tàu': 'bg-emerald-50 text-emerald-700',
-  'Đang duyệt': 'bg-amber-50 text-amber-700',
+  'Chờ thuyền trưởng duyệt': 'bg-amber-50 text-amber-700',
   'Tạm giữ': 'bg-orange-50 text-orange-700',
   'Từ chối': 'bg-red-50 text-red-700',
-  'Trên bờ': 'bg-slate-100 text-slate-600',
+  'Đã rời tàu': 'bg-slate-100 text-slate-700',
 };
+const STATUS_ORDER = ['Trên tàu', 'Chờ thuyền trưởng duyệt', 'Tạm giữ', 'Từ chối', 'Đã rời tàu'];
 
 const rankOf = (c: CrewMember) => c.rank?.rankName || c.rank?.name || '';
 const hasEdgeChanges = (c: CrewMember) => !!c.edgeChanges && !c.edgeChangesViewed;
@@ -115,9 +123,9 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
   const handleViewCrew = (c: CrewMember) => navigate(`/vessels/${vesselId}/crew/${c.id}`);
 
   const columns: Column<CrewMember>[] = [
-    { key: 'crewId', header: 'Mã TV', width: 110, value: c => c.crewId, className: 'font-mono text-ink-muted' },
+    { key: 'crewId', header: 'Mã TV', width: 105, value: c => c.crewId, className: 'font-mono font-semibold text-ink' },
     {
-      key: 'name', header: 'Họ và tên', width: 240, value: c => c.fullName,
+      key: 'name', header: 'Họ và tên', width: 250, value: c => c.fullName,
       render: c => (
         <span className="inline-flex max-w-full items-center gap-1.5 font-semibold text-primary">
           <span className="truncate">{c.fullName}</span>
@@ -127,24 +135,24 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
         </span>
       ),
     },
-    { key: 'rank', header: 'Chức danh', width: 190, value: rankOf },
-    { key: 'country', header: 'Quốc tịch', width: 140, value: c => c.countryName ?? '' },
+    { key: 'rank', header: 'Chức danh', width: 200, value: rankOf },
+    { key: 'country', header: 'Quốc tịch', width: 150, value: c => c.countryName ?? '' },
     {
-      key: 'embark', header: 'Ngày lên tàu', width: 120, align: 'center', value: c => c.embarkDate ?? '',
+      key: 'embark', header: 'Ngày lên tàu', width: 125, align: 'center', value: c => c.embarkDate ?? '',
       filter: c => formatDateVi(c.embarkDate), exportValue: c => formatDateVi(c.embarkDate),
       render: c => formatDateVi(c.embarkDate) || '—',
     },
     {
-      key: 'contract', header: 'Hết hợp đồng', width: 120, align: 'center', value: c => c.contractEnd ?? '',
+      key: 'contract', header: 'Hết hợp đồng', width: 125, align: 'center', value: c => c.contractEnd ?? '',
       filter: c => formatDateVi(c.contractEnd), exportValue: c => formatDateVi(c.contractEnd),
       render: c => formatDateVi(c.contractEnd) || '—',
     },
     {
-      key: 'status', header: 'Trạng thái', width: 120, align: 'center', value: statusOf,
-      render: c => <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[statusOf(c)]}`}>{statusOf(c)}</span>,
+      key: 'status', header: 'Trạng thái', width: 160, align: 'center', value: statusOf,
+      render: c => <span className={`inline-block rounded-full px-2.5 py-0.5 text-sm font-medium ${STATUS_TONE[statusOf(c)]}`}>{statusOf(c)}</span>,
     },
     {
-      key: 'actions', header: 'Thao tác', width: 150, align: 'center',
+      key: 'actions', header: 'Thao tác', width: 125, align: 'center',
       render: c => (
         <TableActions>
           <TableIconButton label={`Xem hồ sơ ${c.fullName}`} icon={<Eye />} onClick={() => handleViewCrew(c)} />
@@ -161,7 +169,7 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
   return (
     <div className="flex flex-col gap-3">
       {unviewedChangesCount > 0 && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-800">
+        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">
             {unviewedChangesCount} thuyền viên đã được chỉnh sửa bởi tàu (chấm đỏ cạnh tên). Mở hồ sơ để xem từng thay đổi,
@@ -189,6 +197,14 @@ export function VesselCrewTab({ vesselId, vesselName }: VesselCrewTabProps) {
           </Button>
         }
         onRowClick={handleViewCrew}
+        toolbarLeft={crew.length > 0 && (
+          <span className="flex flex-wrap items-center gap-1.5">
+            {STATUS_ORDER.map(st => {
+              const n = crew.filter(c => statusOf(c) === st).length;
+              return n > 0 && <span key={st} className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${STATUS_TONE[st]}`}>{n} {st.toLowerCase()}</span>;
+            })}
+          </span>
+        )}
         minWidth={1100}
       />
 

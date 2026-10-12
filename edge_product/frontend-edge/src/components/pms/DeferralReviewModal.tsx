@@ -81,7 +81,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
@@ -122,10 +122,10 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
                   {/* Top row: task code + badges */}
                   <div className="flex items-center gap-2.5 mb-2">
                     <span className="font-semibold text-sm text-gray-900">{d.taskCode}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-800 rounded border border-yellow-300">
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded border border-yellow-300">
                       PENDING
                     </span>
-                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                    <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${
                       d.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
                       d.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-600'
@@ -133,7 +133,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
                       {d.priority}
                     </span>
                     {d.isCmsItem && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
                         <Shield className="w-3 h-3" /> CMS
                       </span>
                     )}
@@ -185,7 +185,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
       {/* ── Review Confirm Sub-modal ── */}
       {selected && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60]" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-2xl max-w-xl w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="p-5">
               <h3 className="text-base font-semibold text-gray-900 mb-3">
                 {reviewAction === 'APPROVE' ? 'Duyệt yêu cầu hoãn' : 'Từ chối yêu cầu hoãn'}

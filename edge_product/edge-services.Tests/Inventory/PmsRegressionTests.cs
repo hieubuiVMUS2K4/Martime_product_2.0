@@ -22,7 +22,9 @@ public sealed class PmsDatabaseFixture : IAsyncLifetime
         var builder = new DbContextOptionsBuilder<EdgeDbContext>();
         var connection = Environment.GetEnvironmentVariable("PMS_TEST_CONNECTION_STRING");
         if (string.IsNullOrWhiteSpace(connection))
-            builder.UseInMemoryDatabase("pms-tests-" + Guid.NewGuid());
+            // InMemory không có transaction: bỏ qua cảnh báo thay vì ném lỗi (import mở transaction).
+            builder.UseInMemoryDatabase("pms-tests-" + Guid.NewGuid())
+                .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning));
         else
         {
             var parsed = new NpgsqlConnectionStringBuilder(connection);

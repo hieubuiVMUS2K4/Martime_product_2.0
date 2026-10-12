@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Plus, Upload, Download, Search, Package, Trash2, ChevronDown, ChevronRight, FolderOpen, X, Pencil } from 'lucide-react';
 import { getOnboardCrew, type CrewMember } from '@/services/crew.service';
 import { EquipmentAssetsTable } from '@/components/pms/EquipmentAssetsTable';
-import { emptyEquipmentFilters, matchesEquipmentFilters, type EquipmentFilters } from '@/components/pms/equipment-assets-filters';
 import { equipmentAssetService, getCachedEquipmentTree } from '@/services/equipment-asset.service';
 import { ImportAssetsModal } from '@/components/pms/ImportAssetsModal';
 import { materialService, type EquipmentMaterialLink, type MaterialCatalogItem } from '@/services/materialService';
@@ -66,10 +65,7 @@ export default function AssetsPage() {
   const [inlineName, setInlineName] = useState('');
   const contextMenuRef = useRef<HTMLDivElement>(null);
   // Table state (view mode)
-  const [filters, setFilters] = useState<EquipmentFilters>({ ...emptyEquipmentFilters });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(25);
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
   const [equipmentMaterials, setEquipmentMaterials] = useState<EquipmentMaterialLink[]>([]);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [showAssignMaterialModal, setShowAssignMaterialModal] = useState(false);
@@ -128,7 +124,7 @@ export default function AssetsPage() {
     });
   }, []);
 
-  /** Filtered + paginated assets for table (view mode) */
+  /** Thiết bị thuộc nhánh cây đang chọn — bảng tự tìm, lọc cột và phân trang. */
   const filteredAssets = useMemo(() => {
     let data = assets.filter(a => !isFolderNode(a));
     
@@ -144,19 +140,11 @@ export default function AssetsPage() {
       data = data.filter(a => ids.has(a.id));
     }
     
-    return data.filter(asset => matchesEquipmentFilters(asset, filters));
-  }, [assets, selectedNodeId, filters, childrenByParent]);
+    return data;
+  }, [assets, selectedNodeId, childrenByParent]);
 
-  const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
-  const paginatedAssets = useMemo(() => filteredAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredAssets, currentPage, itemsPerPage]);
+  useEffect(() => { setSelectedRows(new Set()); }, [selectedNodeId]);
 
-  useEffect(() => { setCurrentPage(1); setSelectedRows(new Set()); }, [filters, selectedNodeId]);
-
-  const toggleRow = (id: string) => setSelectedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const toggleAllRows = () => {
-    if (paginatedAssets.every(a => selectedRows.has(a.id))) setSelectedRows(new Set());
-    else setSelectedRows(new Set(paginatedAssets.map(a => a.id)));
-  };
   const handleBulkDelete = async () => {
     if (selectedRows.size === 0) return;
     toast(t('pms.assets.confirmBulkDelete', { count: selectedRows.size }), {
@@ -165,7 +153,7 @@ export default function AssetsPage() {
         onClick: async () => {
           try {
             const count = selectedRows.size;
-            await Promise.all([...selectedRows].map(id => equipmentAssetService.delete(id)));
+            await Promise.all([...selectedRows].map(id => equipmentAssetService.delete(String(id))));
             setSelectedRows(new Set());
             await loadAssets();
             toast.success(t('pms.assets.deleteManySuccess', { count }));
@@ -347,7 +335,7 @@ export default function AssetsPage() {
             {node.assetName}
           </span>
           {childCount > 0 && (
-            <span className="text-gray-400 text-[10px] flex-shrink-0">{childCount}</span>
+            <span className="text-gray-400 text-xs flex-shrink-0">{childCount}</span>
           )}
         </div>
 
@@ -527,30 +515,11 @@ export default function AssetsPage() {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <EquipmentAssetsTable
-            assets={paginatedAssets} allAssets={assets} selectedRows={selectedRows}
-            rowOffset={(currentPage - 1) * itemsPerPage}
-            filters={filters}
-            onFilter={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-            onToggleRow={toggleRow} onToggleAll={toggleAllRows}
+            assets={filteredAssets}
+            selectedRows={selectedRows}
+            onSelectionChange={setSelectedRows}
             onMaterials={setMaterialAsset} onEdit={setEditingAsset} onDelete={handleDelete}
           />
-              {/* Pagination */}
-              <div className="flex items-center justify-center px-4 py-2 border-t border-gray-200 bg-white flex-shrink-0 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">‹</button>
-                  {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                    let page: number;
-                    if (totalPages <= 5) page = i + 1;
-                    else if (currentPage <= 3) page = i + 1;
-                    else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-                    else page = currentPage - 2 + i;
-                    return (
-                      <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 flex items-center justify-center border rounded text-xs ${currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-50'}`}>{page}</button>
-                    );
-                  })}
-                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40">›</button>
-                </div>
-              </div>
         </div>
       </div>
 
@@ -742,7 +711,7 @@ function EditAssetModal({ asset, onDelete, onClose, onSuccess }: EditAssetModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <div>
             <h2 className="text-base font-semibold text-slate-900">{t('pms.assets.edit')} {asset.assetName}</h2>
@@ -914,7 +883,7 @@ function CreateAssetModal({ mode, assets, defaultParentId, onClose, onSuccess }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="create-equipment-title" className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-equipment-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h2 id="create-equipment-title" className="text-base font-semibold text-slate-900">{title}</h2>
@@ -1246,7 +1215,7 @@ function AssignEquipmentMaterialModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-900">Gán vật tư yêu cầu</h2>

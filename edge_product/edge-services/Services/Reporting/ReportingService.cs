@@ -302,7 +302,7 @@ public class ReportingService : IReportingService
         var noonReport = await _context.NoonReports
             .AsNoTracking()
             .Include(n => n.MaritimeReport)
-            .FirstOrDefaultAsync(n => n.MaritimeReportId == reportId && n.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(n => n.MaritimeReportId == reportId && n.MaritimeReport!.DeletedAt == null);
 
         if (noonReport == null)
             return null;
@@ -313,7 +313,7 @@ public class ReportingService : IReportingService
         var dto = _mapper.Map<NoonReportDto>(noonReport);
 
         // Get voyage number if linked
-        if (noonReport.MaritimeReport.VoyageId.HasValue)
+        if (noonReport.MaritimeReport!.VoyageId.HasValue)
         {
             var voyage = await _context.VoyageRecords
                 .Where(v => v.Id == noonReport.MaritimeReport.VoyageId.Value)
@@ -560,7 +560,7 @@ public class ReportingService : IReportingService
         var departureReport = await _context.DepartureReports
             .AsNoTracking()
             .Include(d => d.MaritimeReport)
-            .FirstOrDefaultAsync(d => d.MaritimeReportId == reportId && d.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(d => d.MaritimeReportId == reportId && d.MaritimeReport!.DeletedAt == null);
 
         if (departureReport == null)
             return null;
@@ -675,7 +675,7 @@ public class ReportingService : IReportingService
         var arrivalReport = await _context.ArrivalReports
             .AsNoTracking()
             .Include(a => a.MaritimeReport)
-            .FirstOrDefaultAsync(a => a.MaritimeReportId == reportId && a.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(a => a.MaritimeReportId == reportId && a.MaritimeReport!.DeletedAt == null);
 
         if (arrivalReport == null)
             return null;
@@ -799,7 +799,7 @@ public class ReportingService : IReportingService
         var bunkerReport = await _context.BunkerReports
             .AsNoTracking()
             .Include(b => b.MaritimeReport)
-            .FirstOrDefaultAsync(b => b.MaritimeReportId == reportId && b.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(b => b.MaritimeReportId == reportId && b.MaritimeReport!.DeletedAt == null);
 
         if (bunkerReport == null)
             return null;
@@ -807,7 +807,7 @@ public class ReportingService : IReportingService
         var dto = _mapper.Map<BunkerReportDto>(bunkerReport);
         
         // Extract additional data from ReportData JSON if needed
-        if (!string.IsNullOrWhiteSpace(bunkerReport.MaritimeReport.ReportData))
+        if (!string.IsNullOrWhiteSpace(bunkerReport.MaritimeReport!.ReportData))
         {
             try
             {
@@ -921,7 +921,7 @@ public class ReportingService : IReportingService
         var positionReport = await _context.PositionReports
             .AsNoTracking()
             .Include(p => p.MaritimeReport)
-            .FirstOrDefaultAsync(p => p.MaritimeReportId == reportId && p.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(p => p.MaritimeReportId == reportId && p.MaritimeReport!.DeletedAt == null);
 
         if (positionReport == null)
             return null;

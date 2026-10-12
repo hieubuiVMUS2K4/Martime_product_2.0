@@ -72,7 +72,7 @@ export function StockAdjustmentModal({
         <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative w-full max-w-lg bg-white rounded-lg shadow-xl">
+        <div className="relative w-full max-w-xl bg-white rounded-lg shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
             <h2 className="text-xl font-semibold text-gray-900">{t('materials.stock.adjustStock')}</h2>

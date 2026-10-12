@@ -132,7 +132,7 @@ public partial class SyncReliabilityTests
             {
                 downloads++;
                 return Task.FromResult(Response(JsonSerializer.Serialize(new SyncFileContentDto { RequestId = requestId, ManifestId = manifestId, FileId = manifestId,
-                    RequesterNodeId = "TEST-FILE", SupplierNodeId = "SHORE", TableName = "travel_document", RecordKey = "missing", FileRole = "attachment",
+                    RequesterNodeId = "TEST-FILE", SupplierNodeId = "SHORE", TableName = "crew_member_document", RecordKey = "missing", FileRole = "attachment",
                     FileName = "test.bin", SizeBytes = bytes.Length, Sha256 = hash, Base64Content = Convert.ToBase64String(bytes) })));
             }
             if (path.EndsWith("file-ack")) return Task.FromResult(++acks == 1 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) :
@@ -142,7 +142,7 @@ public partial class SyncReliabilityTests
         using (services)
         {
             var db = services.GetRequiredService<EdgeDbContext>();
-            db.SyncFileManifests.Add(new() { Id = manifestId, OwnerNodeId = "SHORE", ReceiverNodeId = "TEST-FILE", TableName = "travel_document", RecordKey = "missing",
+            db.SyncFileManifests.Add(new() { Id = manifestId, OwnerNodeId = "SHORE", ReceiverNodeId = "TEST-FILE", TableName = "crew_member_document", RecordKey = "missing",
                 FileRole = "attachment", FileName = "test.bin", SizeBytes = bytes.Length, Sha256 = hash });
             db.SyncFileTransferRequests.Add(new() { Id = requestId, ManifestId = manifestId, RequesterNodeId = "TEST-FILE", SupplierNodeId = "SHORE" });
             await db.SaveChangesAsync(); await sync.ExecuteFileTransfersAsync(default); db.ChangeTracker.Clear();

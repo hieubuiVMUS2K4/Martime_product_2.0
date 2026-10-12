@@ -1,4 +1,5 @@
 import { apiClient, getAuthToken } from './api.client'
+import { API_CONFIG } from '@/config/app.config'
 import type {
   PositionData,
   NavigationData,
@@ -815,6 +816,36 @@ export interface EdgeProvisioningHistoryItem {
   lastHandshakeError?: string
 }
 
+export interface EdgeVesselSwitchCheck {
+  requiresReset: boolean
+  currentVesselName?: string
+  currentVesselImo?: string
+  newVesselName?: string
+  newVesselImo?: string
+  pendingUploads: number
+}
+
+/** Gói dữ liệu tàu (.zip): toàn bộ dữ liệu tàu cũ, tạo TRƯỚC khi đổi tàu / làm sạch. */
+export interface EdgeVesselDataPackage {
+  fileName: string
+  vesselImo?: string
+  vesselName?: string
+  shoreVesselId?: string
+  createdAt: string
+  sizeBytes: number
+  rows: number
+  pendingUploads: number
+  files: number
+}
+
+export interface EdgeVesselDataImportResult {
+  inserted: number
+  updated: number
+  requeued: number
+  files: number
+  tables: number
+}
+
 export const provisioningService = {
   getStatus: () => apiClient.get<EdgeProvisioningStatus>('/edge/provisioning/status'),
 
@@ -830,11 +861,43 @@ export const provisioningService = {
       { profileId }
     ),
 
-  activate: (profileId: number) =>
-    apiClient.post<{ activated: boolean; previousProfileId?: number }>(
+  /** Gói của tàu khác: tàu sẽ xoá toàn bộ dữ liệu tàu hiện tại rồi nhận lại từ bờ. */
+  switchCheck: (profileId: number) =>
+    apiClient.get<EdgeVesselSwitchCheck>(`/edge/provisioning/${profileId}/switch-check`),
+
+  activate: (profileId: number, confirmReset = false) =>
+    apiClient.post<{ activated: boolean; previousProfileId?: number; reset: boolean; wipedRows: number; fullSyncRequested: boolean; dataPackage?: EdgeVesselDataPackage }>(
       '/edge/provisioning/activate',
-      { profileId }
+      { profileId, confirmReset }
     ),
+
+  /** Làm sạch tàu đang chạy và nhận lại toàn bộ dữ liệu từ bờ. */
+  resetFromShore: (confirmImo: string) =>
+    apiClient.post<{ reset: boolean; wipedRows: number; fullSyncRequested: boolean; dataPackage?: EdgeVesselDataPackage }>('/edge/provisioning/reset', { confirmImo }),
+
+  listDataPackages: () => apiClient.get<EdgeVesselDataPackage[]>('/edge/provisioning/data-packages'),
+
+  /** Tải gói dữ liệu về máy (file .zip). */
+  downloadDataPackage: async (fileName: string) => {
+    const token = getAuthToken()
+    const resp = await fetch(`${API_CONFIG.BASE_URL}/edge/provisioning/data-packages/${encodeURIComponent(fileName)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!resp.ok) throw new Error('Không tải được gói dữ liệu')
+    const url = URL.createObjectURL(await resp.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  },
+
+  /** Nhập gói dữ liệu của tàu đang chạy để bù phần bờ còn thiếu. */
+  importDataPackage: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post<EdgeVesselDataImportResult>('/edge/provisioning/data-packages/import', formData)
+  },
 
   getHistory: () => apiClient.get<EdgeProvisioningHistoryItem[]>('/edge/provisioning/history'),
 }
@@ -889,15 +952,26 @@ export interface AuditLogStats {
   topEntities: { entityType: string; count: number }[]
 }
 
+export interface AuditLogFilterOptions {
+  success: boolean
+  categories: string[]
+  actions: string[]
+  levels: string[]
+  entityTypes: string[]
+  usernames: string[]
+  messages: string[]
+}
+
 export const auditLogService = {
   getLogs: (params?: {
     page?: number
     pageSize?: number
-    category?: string
-    action?: string
-    level?: string
-    entityType?: string
-    username?: string
+    category?: string | string[]
+    action?: string | string[]
+    level?: string | string[]
+    entityType?: string | string[]
+    username?: string | string[]
+    message?: string | string[]
     search?: string
     from?: string
     to?: string
@@ -905,9 +979,11 @@ export const auditLogService = {
     const searchParams = new URLSearchParams()
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          searchParams.append(key, String(value))
-        }
+        // Mảng gửi thành nhiều tham số cùng tên (?level=INFO&level=WARNING)
+        const values = Array.isArray(value) ? value : [value]
+        values.forEach(v => {
+          if (v !== undefined && v !== null && v !== '') searchParams.append(key, String(v))
+        })
       })
     }
     const qs = searchParams.toString()
@@ -920,6 +996,8 @@ export const auditLogService = {
     const qs = params.toString()
     return apiClient.get<AuditLogStats>(`/audit-logs/stats${qs ? `?${qs}` : ''}`)
   },
+  getFilterOptions: () =>
+    apiClient.get<AuditLogFilterOptions>('/audit-logs/filter-options'),
   getEntityTypes: () =>
     apiClient.get<{ success: boolean; entityTypes: string[] }>('/audit-logs/entity-types'),
   getById: (id: number) =>

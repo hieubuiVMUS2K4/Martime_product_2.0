@@ -1,50 +1,9 @@
-.voyage-list-table th {
-  padding: 10px 12px;
-  border-right: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  background: #eff6ff;
-  color: #4b5563;
-  text-align: left;
-  font-weight: 600;
-}
-.voyage-list-table th:first-child {
-  text-align: center;
-}
-.voyage-list-table th:last-child,
-.voyage-list-table td:last-child {
-  border-right: 0;
-}
-.voyage-list-row td {
-  padding: 10px 12px;
-  border-right: 1px solid #f3f4f6;
-  border-bottom: 1px solid #f3f4f6;
-}
-.voyage-list-row:nth-child(even) {
-  background: #f8fafc;
-}
-.voyage-list-row:hover {
-  background: #eff6ff;
-}
 /* Match the small panels and flat surfaces used by PMS. */
 .voyage-page .rounded-xl {
   border-radius: 6px;
 }
 .voyage-page .shadow-sm {
   box-shadow: none;
-}
-.dark .voyage-list-table th {
-  background: #1e3a5f;
-  color: #d1d5db;
-  border-color: #374151;
-}
-.dark .voyage-list-row td {
-  border-color: #374151;
-}
-.dark .voyage-list-row:nth-child(even) {
-  background: #111827;
-}
-.dark .voyage-list-row:hover {
-  background: #1e3a5f;
 }
 
 .voyage-form-overlay {
@@ -79,8 +38,8 @@
   border-bottom: 1px solid #e5e7eb;
 }
 .voyage-form-header h2 {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 .voyage-form-icon {
   display: flex;
@@ -92,7 +51,7 @@
 .voyage-form-close {
   padding: 6px;
   border-radius: 6px;
-  color: #64748b;
+  color: #334155;
 }
 .voyage-form-close:hover {
   background: #f1f5f9;
@@ -115,8 +74,8 @@
   background: #fff;
 }
 .voyage-form-section-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   color: #1e293b;
 }
 .voyage-form-grid {
@@ -127,8 +86,8 @@
 .voyage-form-label {
   display: block;
   margin-bottom: 6px;
-  color: #475569;
-  font-size: 13px;
+  color: #27313f;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 .voyage-form-input {
@@ -139,7 +98,7 @@
   border-radius: 4px;
   background: #fff;
   color: #0f172a;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 .voyage-form-input:focus {
   outline: none;
@@ -163,12 +122,12 @@
   gap: 8px;
   padding: 9px 18px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 .voyage-form-cancel {
   border: 1px solid #cbd5e1;
-  color: #475569;
+  color: #27313f;
 }
 .voyage-form-save {
   background: #2563eb;

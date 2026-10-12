@@ -19,17 +19,17 @@ public class PositionReportGenerator : ReportGeneratorBase<CreatePositionReportD
         _mapper = mapper;
     }
 
-    protected override async Task<ValidationResult> ValidateReportAsync(CreatePositionReportDto dto)
+    protected override Task<ValidationResult> ValidateReportAsync(CreatePositionReportDto dto)
     {
         var errors = new List<string>();
         if (dto.Latitude < -90 || dto.Latitude > 90) errors.Add("Invalid latitude");
         if (dto.Longitude < -180 || dto.Longitude > 180) errors.Add("Invalid longitude");
-        return errors.Count > 0 ? ValidationResult.Failure(errors.ToArray()) : ValidationResult.Success();
+        return Task.FromResult(errors.Count > 0 ? ValidationResult.Failure(errors.ToArray()) : ValidationResult.Success());
     }
 
-    protected override async Task<DuplicateCheckResult> CheckForDuplicatesAsync(CreatePositionReportDto dto, ReportType reportType)
+    protected override Task<DuplicateCheckResult> CheckForDuplicatesAsync(CreatePositionReportDto dto, ReportType reportType)
     {
-        return DuplicateCheckResult.Success(); // Allow continuous tracking
+        return Task.FromResult(DuplicateCheckResult.Success()); // Allow continuous tracking
     }
 
     protected override string GetReportRemarks(CreatePositionReportDto dto) => dto.Remarks ?? string.Empty;
@@ -79,7 +79,7 @@ public class PositionReportGenerator : ReportGeneratorBase<CreatePositionReportD
         var report = await Context.PositionReports
             .AsNoTracking()
             .Include(p => p.MaritimeReport)
-            .FirstOrDefaultAsync(p => p.MaritimeReportId == reportId && p.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(p => p.MaritimeReportId == reportId && p.MaritimeReport!.DeletedAt == null);
         return report != null ? _mapper.Map<PositionReportDto>(report) : null;
     }
 

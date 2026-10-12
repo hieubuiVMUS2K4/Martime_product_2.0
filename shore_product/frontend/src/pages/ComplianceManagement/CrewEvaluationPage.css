@@ -1,7 +1,6 @@
 .eval-page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: clamp(12px, 1.2vw, 20px) 1.5%;
+  width: 100%; min-width: 0;
 }
 
 /* Header */
@@ -19,14 +18,14 @@
 
 .eval-header-info h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 1.375rem;
+  font-weight: 700;
   color: #1e293b;
 }
 
 .vessel-label {
-  font-size: 13px;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: #334155;
 }
 
 .eval-header-actions {
@@ -39,7 +38,7 @@
   padding: 7px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   color: #334155;
   background: #fff;
 }
@@ -52,8 +51,8 @@
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  color: #475569;
-  font-size: 13px;
+  color: #27313f;
+  font-size: 0.875rem;
   cursor: pointer;
 }
 
@@ -68,7 +67,7 @@
   color: #334155;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
 }
@@ -81,7 +80,7 @@
   color: #fff;
   border: none;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
 }
@@ -89,7 +88,7 @@
 .btn-primary:hover { background: #0d9488; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-sm { padding: 5px 10px; font-size: 0.875rem; }
 
 /* Summary banner */
 .eval-summary {
@@ -120,14 +119,14 @@
 }
 
 .eval-result-label {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   color: #1e293b;
 }
 
 .eval-meta {
-  font-size: 12px;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: #334155;
 }
 
 .eval-counts {
@@ -136,8 +135,8 @@
 }
 
 .eval-counts .count {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -160,32 +159,32 @@
 }
 
 .sim-label {
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: #475569;
+  color: #27313f;
 }
 
 .sim-bar input[type="date"] {
   padding: 5px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 /* Items table */
 .eval-items-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .eval-items-table th {
   text-align: left;
   padding: 10px 12px;
   background: #f8fafc;
-  color: #64748b;
-  font-weight: 600;
-  font-size: 11px;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid #e2e8f0;
@@ -202,14 +201,14 @@
 .item-row.expiring { background: #fffbeb; }
 
 .item-message {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #f59e0b;
   margin-top: 2px;
 }
 
 .item-explain {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
   margin-top: 2px;
 }
 
@@ -221,19 +220,19 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .item-badge.met { background: #dcfce7; color: #166534; }
 .item-badge.expiring { background: #fef3c7; color: #92400e; }
 .item-badge.not-met { background: #fee2e2; color: #991b1b; }
 .item-badge.waived { background: #ccfbf1; color: #096b5e; }
-.item-badge.na { background: #f1f5f9; color: #94a3b8; }
+.item-badge.na { background: #f1f5f9; color: #64748b; }
 
 .days-urgent {
   color: #ef4444;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 /* States */
@@ -242,7 +241,7 @@
   align-items: center;
   justify-content: center;
   min-height: 40vh;
-  color: #64748b;
+  color: #334155;
 }
 
 .error-state {
@@ -259,7 +258,7 @@
   align-items: center;
   justify-content: center;
   min-height: 30vh;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 

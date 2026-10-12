@@ -158,9 +158,9 @@ public class CrewService : ICrewService
         var dto = MapToDetailDto(crew, vesselName);
 
         // Load passport info from travel documents
-        var passport = await _context.TravelDocuments
+        var passport = await _context.CrewMemberDocuments
             .AsNoTracking()
-            .Where(d => d.CrewMemberId == id && d.DocumentType == "passport")
+            .Where(d => d.CrewMemberId == id && d.Category == CrewDocumentCategory.Travel && d.DocumentType == "passport")
             .OrderByDescending(d => d.ExpiryDate)
             .FirstOrDefaultAsync();
 
@@ -171,9 +171,9 @@ public class CrewService : ICrewService
         }
 
         // Load seaman book
-        var seamanBook = await _context.SeafarerDocuments
+        var seamanBook = await _context.CrewMemberDocuments
             .AsNoTracking()
-            .Where(d => d.CrewMemberId == id && d.DocumentType == "seaman_book")
+            .Where(d => d.CrewMemberId == id && d.Category == CrewDocumentCategory.Seafarer && d.DocumentType == "seaman_book")
             .OrderByDescending(d => d.ExpiryDate)
             .FirstOrDefaultAsync();
 
@@ -254,7 +254,7 @@ public class CrewService : ICrewService
             {
                 try
                 {
-                    await _syncOutbox.BroadcastAsync("crew_member", crew.Id.ToString(), SyncActionType.CREATE, crew);
+                    await _syncOutbox.EnqueueForVesselAsync(crew.VesselId, "crew_member", crew.Id.ToString(), SyncActionType.CREATE, crew);
                 }
                 catch (Exception ex)
                 {
@@ -342,12 +342,12 @@ public class CrewService : ICrewService
 
         await _context.SaveChangesAsync();
 
-        // Upsert seaman book number into SeafarerDocuments
+        // Upsert seaman book number (tài liệu nhóm seafarer)
         if (!string.IsNullOrWhiteSpace(request.SeamanBookNumber))
         {
-            var existingSeamanBook = await _context.SeafarerDocuments
+            var existingSeamanBook = await _context.CrewMemberDocuments
                 .AsTracking()
-                .Where(d => d.CrewMemberId == id && d.DocumentType == "seaman_book")
+                .Where(d => d.CrewMemberId == id && d.Category == CrewDocumentCategory.Seafarer && d.DocumentType == "seaman_book")
                 .FirstOrDefaultAsync();
 
             if (existingSeamanBook != null)
@@ -357,9 +357,10 @@ public class CrewService : ICrewService
             }
             else
             {
-                _context.SeafarerDocuments.Add(new SeafarerDocument
+                _context.CrewMemberDocuments.Add(new CrewMemberDocument
                 {
                     CrewMemberId = id,
+                    Category = CrewDocumentCategory.Seafarer,
                     DocumentType = "seaman_book",
                     DocumentNumber = request.SeamanBookNumber,
                     CreatedAt = DateTime.UtcNow,
@@ -375,7 +376,7 @@ public class CrewService : ICrewService
         {
             try
             {
-                await _syncOutbox.BroadcastAsync("crew_member", crew.Id.ToString(), SyncActionType.UPDATE, crew);
+                await _syncOutbox.EnqueueForVesselAsync(crew.VesselId, "crew_member", crew.Id.ToString(), SyncActionType.UPDATE, crew);
             }
             catch (Exception ex)
             {
@@ -400,7 +401,7 @@ public class CrewService : ICrewService
         {
             try
             {
-                await _syncOutbox.BroadcastAsync("crew_member", crew.Id.ToString(), SyncActionType.DELETE, new { crew.Id });
+                await _syncOutbox.EnqueueForVesselAsync(crew.VesselId, "crew_member", crew.Id.ToString(), SyncActionType.DELETE, new { crew.Id });
             }
             catch (Exception ex)
             {
@@ -427,6 +428,16 @@ public class CrewService : ICrewService
 
         var vessel = await _context.Vessels.AsNoTracking().FirstOrDefaultAsync(v => v.Id == vesselId);
         if (vessel == null) throw new ArgumentException($"Vessel with ID '{vesselId}' not found");
+
+        // Đang thuộc tàu khác thì phải cho xuống tàu đó trước. Gán thẳng sang tàu mới thì tàu cũ
+        // không được báo, vẫn giữ người này "trên tàu" — một người xuất hiện ở hai tàu cùng lúc.
+        if (crew.VesselId.HasValue && crew.VesselId.Value != vesselId)
+        {
+            var currentName = await _context.Vessels.AsNoTracking()
+                .Where(v => v.Id == crew.VesselId.Value).Select(v => v.Name).FirstOrDefaultAsync();
+            throw new ArgumentException(
+                $"Thuyền viên {crew.FullName} đang thuộc tàu {currentName ?? crew.VesselId.ToString()}. Cho xuống tàu đó trước rồi mới gán sang tàu khác.");
+        }
 
         crew.VesselId = vesselId;
         crew.IsOnboard = false;
@@ -481,22 +492,10 @@ public class CrewService : ICrewService
                     await _syncOutbox.EnqueueAsync(targetNode, "crew_certificate", cc.Id.ToString(), SyncActionType.SNAPSHOT, cc);
                 }
 
-                // Sync all documents for this crew member
-                var travelDocs = await _context.TravelDocuments.AsNoTracking().Where(d => d.CrewMemberId == crewId).ToListAsync();
-                foreach (var d in travelDocs)
-                    await _syncOutbox.EnqueueAsync(targetNode, "travel_document", d.Id.ToString(), SyncActionType.SNAPSHOT, d);
-
-                var seafarerDocs = await _context.SeafarerDocuments.AsNoTracking().Where(d => d.CrewMemberId == crewId).ToListAsync();
-                foreach (var d in seafarerDocs)
-                    await _syncOutbox.EnqueueAsync(targetNode, "seafarer_document", d.Id.ToString(), SyncActionType.SNAPSHOT, d);
-
-                var employmentDocs = await _context.EmploymentDocuments.AsNoTracking().Where(d => d.CrewMemberId == crewId).ToListAsync();
-                foreach (var d in employmentDocs)
-                    await _syncOutbox.EnqueueAsync(targetNode, "employment_document", d.Id.ToString(), SyncActionType.SNAPSHOT, d);
-
-                var healthDocs = await _context.HealthDocuments.AsNoTracking().Where(d => d.CrewMemberId == crewId).ToListAsync();
-                foreach (var d in healthDocs)
-                    await _syncOutbox.EnqueueAsync(targetNode, "health_document", d.Id.ToString(), SyncActionType.SNAPSHOT, d);
+                // Toàn bộ tài liệu (định danh + sức khoẻ) của thuyền viên
+                var documents = await _context.CrewMemberDocuments.AsNoTracking().Where(d => d.CrewMemberId == crewId).ToListAsync();
+                foreach (var d in documents)
+                    await _syncOutbox.EnqueueAsync(targetNode, CrewMemberDocument.SyncTable, d.Id.ToString(), SyncActionType.SNAPSHOT, d);
             }
             catch (Exception ex) { _logger.LogWarning(ex, "Failed to sync crew assign data for {CrewId} to vessel {IMO}", crew.CrewId, vessel.IMO); }
         }
@@ -730,69 +729,32 @@ public class CrewService : ICrewService
     {
         if (string.IsNullOrWhiteSpace(category))
             throw new ArgumentNullException(nameof(category));
+        var cat = CrewDocumentCategory.Normalize(category);
+        if (cat == null) return new List<DocumentDto>();
 
-        return category.ToLower() switch
-        {
-            "travel" => (await _context.TravelDocuments
-                .AsNoTracking()
-                .Include(d => d.Country)
-                .Where(d => d.CrewMemberId == crewId)
-                .OrderByDescending(d => d.ExpiryDate)
-                .ToListAsync())
-                .Select(d => new DocumentDto
-                {
-                    Id = d.Id, CrewMemberId = d.CrewMemberId, DocumentType = d.DocumentType,
-                    DocumentNumber = d.DocumentNumber, IssueDate = d.IssueDate, ExpiryDate = d.ExpiryDate,
-                    CountryId = d.CountryId, CountryName = d.Country?.CountryName,
-                    FileUrl = d.FileUrl, Notes = d.Notes, Category = "travel",
-                    CreatedAt = d.CreatedAt, UpdatedAt = d.UpdatedAt
-                }).ToList(),
+        var docs = await _context.CrewMemberDocuments
+            .AsNoTracking()
+            .Include(d => d.Country)
+            .Where(d => d.CrewMemberId == crewId && d.Category == cat)
+            .OrderByDescending(d => d.ExpiryDate)
+            .ToListAsync();
+        return docs.Select(ToDocumentDto).ToList();
+    }
 
-            "seafarer" => (await _context.SeafarerDocuments
-                .AsNoTracking()
-                .Include(d => d.Country)
-                .Where(d => d.CrewMemberId == crewId)
-                .OrderByDescending(d => d.ExpiryDate)
-                .ToListAsync())
-                .Select(d => new DocumentDto
-                {
-                    Id = d.Id, CrewMemberId = d.CrewMemberId, DocumentType = d.DocumentType,
-                    DocumentNumber = d.DocumentNumber, IssueDate = d.IssueDate, ExpiryDate = d.ExpiryDate,
-                    CountryId = d.CountryId, CountryName = d.Country?.CountryName,
-                    FileUrl = d.FileUrl, Notes = d.Notes, Category = "seafarer",
-                    CreatedAt = d.CreatedAt, UpdatedAt = d.UpdatedAt
-                }).ToList(),
+    private static DocumentDto ToDocumentDto(CrewMemberDocument d) => new()
+    {
+        Id = d.Id, CrewMemberId = d.CrewMemberId, DocumentType = d.DocumentType,
+        DocumentNumber = d.DocumentNumber, IssueDate = d.IssueDate, ExpiryDate = d.ExpiryDate,
+        CountryId = d.CountryId, CountryName = d.Country?.CountryName,
+        FileUrl = d.FileUrl, Notes = d.Notes, Category = d.Category,
+        CreatedAt = d.CreatedAt, UpdatedAt = d.UpdatedAt
+    };
 
-            "employment" => (await _context.EmploymentDocuments
-                .AsNoTracking()
-                .Include(d => d.Country)
-                .Where(d => d.CrewMemberId == crewId)
-                .OrderByDescending(d => d.ExpiryDate)
-                .ToListAsync())
-                .Select(d => new DocumentDto
-                {
-                    Id = d.Id, CrewMemberId = d.CrewMemberId, DocumentType = d.DocumentType,
-                    DocumentNumber = d.DocumentNumber, IssueDate = d.IssueDate, ExpiryDate = d.ExpiryDate,
-                    CountryId = d.CountryId, CountryName = d.Country?.CountryName,
-                    FileUrl = d.FileUrl, Notes = d.Notes, Category = "employment",
-                    CreatedAt = d.CreatedAt, UpdatedAt = d.UpdatedAt
-                }).ToList(),
-
-            "health" => (await _context.HealthDocuments
-                .AsNoTracking()
-                .Where(d => d.CrewMemberId == crewId)
-                .OrderByDescending(d => d.ExpiryDate)
-                .ToListAsync())
-                .Select(d => new DocumentDto
-                {
-                    Id = d.Id, CrewMemberId = d.CrewMemberId, DocumentType = d.DocumentType,
-                    DocumentNumber = d.DocumentNumber, IssueDate = d.IssueDate, ExpiryDate = d.ExpiryDate,
-                    FileUrl = d.FileUrl, Notes = d.Notes, Category = "health",
-                    CreatedAt = d.CreatedAt, UpdatedAt = d.UpdatedAt
-                }).ToList(),
-
-            _ => new List<DocumentDto>()
-        };
+    private async Task SyncDocumentAsync(Guid crewId, Guid documentId, SyncActionType action, object payload)
+    {
+        if (_syncOutbox == null) return;
+        try { await _syncOutbox.EnqueueForCrewAsync(crewId, CrewMemberDocument.SyncTable, documentId.ToString(), action, payload); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to queue crew document sync {Action} for {Id}", action, documentId); }
     }
 
     public async Task<DocumentDto> AddCrewDocumentAsync(Guid crewId, CreateIdentityDocumentDto request)
@@ -800,113 +762,23 @@ public class CrewService : ICrewService
         var crewExists = await _context.CrewMembers.AnyAsync(c => c.Id == crewId);
         if (!crewExists)
             throw new ArgumentException($"Crew member {crewId} not found");
+        var cat = CrewDocumentCategory.Normalize(request.Category ?? CrewDocumentCategory.Travel)
+            ?? throw new ArgumentException($"Unknown document category: {request.Category}");
 
         var now = DateTime.UtcNow;
-        DocumentDto result;
-
-        switch ((request.Category ?? "travel").ToLower())
+        var doc = new CrewMemberDocument
         {
-            case "travel":
-                var travel = new TravelDocument
-                {
-                    CrewMemberId = crewId, DocumentType = request.DocumentType,
-                    DocumentNumber = request.DocumentNumber, IssueDate = ToUtc(request.IssueDate),
-                    ExpiryDate = ToUtc(request.ExpiryDate), CountryId = request.CountryId,
-                    Notes = request.Notes, CreatedAt = now, UpdatedAt = now
-                };
-                _context.TravelDocuments.Add(travel);
-                await _context.SaveChangesAsync();
-                result = new DocumentDto
-                {
-                    Id = travel.Id, CrewMemberId = crewId, DocumentType = travel.DocumentType,
-                    DocumentNumber = travel.DocumentNumber, IssueDate = travel.IssueDate,
-                    ExpiryDate = travel.ExpiryDate, CountryId = travel.CountryId,
-                    Notes = travel.Notes, Category = "travel", CreatedAt = travel.CreatedAt, UpdatedAt = travel.UpdatedAt
-                };
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("travel_document", travel.Id.ToString(), SyncActionType.CREATE, travel); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast travel_document sync for {Id}", travel.Id); }
-                }
-                break;
-
-            case "seafarer":
-                var seafarer = new SeafarerDocument
-                {
-                    CrewMemberId = crewId, DocumentType = request.DocumentType,
-                    DocumentNumber = request.DocumentNumber, IssueDate = ToUtc(request.IssueDate),
-                    ExpiryDate = ToUtc(request.ExpiryDate), CountryId = request.CountryId,
-                    Notes = request.Notes, CreatedAt = now, UpdatedAt = now
-                };
-                _context.SeafarerDocuments.Add(seafarer);
-                await _context.SaveChangesAsync();
-                result = new DocumentDto
-                {
-                    Id = seafarer.Id, CrewMemberId = crewId, DocumentType = seafarer.DocumentType,
-                    DocumentNumber = seafarer.DocumentNumber, IssueDate = seafarer.IssueDate,
-                    ExpiryDate = seafarer.ExpiryDate, CountryId = seafarer.CountryId,
-                    Notes = seafarer.Notes, Category = "seafarer", CreatedAt = seafarer.CreatedAt, UpdatedAt = seafarer.UpdatedAt
-                };
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("seafarer_document", seafarer.Id.ToString(), SyncActionType.CREATE, seafarer); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast seafarer_document sync for {Id}", seafarer.Id); }
-                }
-                break;
-
-            case "employment":
-                var employment = new EmploymentDocument
-                {
-                    CrewMemberId = crewId, DocumentType = request.DocumentType,
-                    DocumentNumber = request.DocumentNumber, IssueDate = ToUtc(request.IssueDate),
-                    ExpiryDate = ToUtc(request.ExpiryDate), CountryId = request.CountryId,
-                    Notes = request.Notes, CreatedAt = now, UpdatedAt = now
-                };
-                _context.EmploymentDocuments.Add(employment);
-                await _context.SaveChangesAsync();
-                result = new DocumentDto
-                {
-                    Id = employment.Id, CrewMemberId = crewId, DocumentType = employment.DocumentType,
-                    DocumentNumber = employment.DocumentNumber, IssueDate = employment.IssueDate,
-                    ExpiryDate = employment.ExpiryDate, CountryId = employment.CountryId,
-                    Notes = employment.Notes, Category = "employment", CreatedAt = employment.CreatedAt, UpdatedAt = employment.UpdatedAt
-                };
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("employment_document", employment.Id.ToString(), SyncActionType.CREATE, employment); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast employment_document sync for {Id}", employment.Id); }
-                }
-                break;
-
-            case "health":
-                var health = new HealthDocument
-                {
-                    CrewMemberId = crewId, DocumentType = request.DocumentType,
-                    DocumentNumber = request.DocumentNumber, IssueDate = ToUtc(request.IssueDate),
-                    ExpiryDate = ToUtc(request.ExpiryDate),
-                    Notes = request.Notes, CreatedAt = now, UpdatedAt = now
-                };
-                _context.HealthDocuments.Add(health);
-                await _context.SaveChangesAsync();
-                result = new DocumentDto
-                {
-                    Id = health.Id, CrewMemberId = crewId, DocumentType = health.DocumentType,
-                    DocumentNumber = health.DocumentNumber, IssueDate = health.IssueDate,
-                    ExpiryDate = health.ExpiryDate,
-                    Notes = health.Notes, Category = "health", CreatedAt = health.CreatedAt, UpdatedAt = health.UpdatedAt
-                };
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("health_document", health.Id.ToString(), SyncActionType.CREATE, health); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast health_document sync for {Id}", health.Id); }
-                }
-                break;
-
-            default:
-                throw new ArgumentException($"Unknown document category: {request.Category}");
-        }
-
-        return result;
+            CrewMemberId = crewId, Category = cat, DocumentType = request.DocumentType,
+            DocumentNumber = request.DocumentNumber, IssueDate = ToUtc(request.IssueDate),
+            ExpiryDate = ToUtc(request.ExpiryDate),
+            // Tài liệu sức khoẻ không gắn quốc gia
+            CountryId = cat == CrewDocumentCategory.Health ? null : request.CountryId,
+            Notes = request.Notes, CreatedAt = now, UpdatedAt = now
+        };
+        _context.CrewMemberDocuments.Add(doc);
+        await _context.SaveChangesAsync();
+        await SyncDocumentAsync(crewId, doc.Id, SyncActionType.CREATE, doc);
+        return ToDocumentDto(doc);
     }
 
     /// <summary>
@@ -916,186 +788,35 @@ public class CrewService : ICrewService
     /// </summary>
     public async Task<DocumentDto?> UpdateCrewDocumentAsync(Guid crewId, Guid documentId, CreateIdentityDocumentDto request)
     {
-        var now = DateTime.UtcNow;
+        var cat = CrewDocumentCategory.Normalize(request.Category ?? CrewDocumentCategory.Travel)
+            ?? throw new ArgumentException($"Unknown document category: {request.Category}");
+        var doc = await _context.CrewMemberDocuments.AsTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId && d.Category == cat);
+        if (doc == null) return null;
 
-        switch ((request.Category ?? "travel").ToLower())
-        {
-            case "travel":
-            {
-                var doc = await _context.TravelDocuments.AsTracking()
-                    .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (doc == null) return null;
-
-                doc.DocumentType = request.DocumentType;
-                doc.DocumentNumber = request.DocumentNumber;
-                doc.IssueDate = ToUtc(request.IssueDate);
-                doc.ExpiryDate = ToUtc(request.ExpiryDate);
-                doc.CountryId = request.CountryId;
-                doc.Notes = request.Notes;
-                doc.UpdatedAt = now;
-                await _context.SaveChangesAsync();
-
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("travel_document", doc.Id.ToString(), SyncActionType.UPDATE, doc); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast travel_document sync for {Id}", doc.Id); }
-                }
-
-                return new DocumentDto
-                {
-                    Id = doc.Id, CrewMemberId = crewId, DocumentType = doc.DocumentType,
-                    DocumentNumber = doc.DocumentNumber, IssueDate = doc.IssueDate,
-                    ExpiryDate = doc.ExpiryDate, CountryId = doc.CountryId,
-                    Notes = doc.Notes, Category = "travel", CreatedAt = doc.CreatedAt, UpdatedAt = doc.UpdatedAt
-                };
-            }
-
-            case "seafarer":
-            {
-                var doc = await _context.SeafarerDocuments.AsTracking()
-                    .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (doc == null) return null;
-
-                doc.DocumentType = request.DocumentType;
-                doc.DocumentNumber = request.DocumentNumber;
-                doc.IssueDate = ToUtc(request.IssueDate);
-                doc.ExpiryDate = ToUtc(request.ExpiryDate);
-                doc.CountryId = request.CountryId;
-                doc.Notes = request.Notes;
-                doc.UpdatedAt = now;
-                await _context.SaveChangesAsync();
-
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("seafarer_document", doc.Id.ToString(), SyncActionType.UPDATE, doc); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast seafarer_document sync for {Id}", doc.Id); }
-                }
-
-                return new DocumentDto
-                {
-                    Id = doc.Id, CrewMemberId = crewId, DocumentType = doc.DocumentType,
-                    DocumentNumber = doc.DocumentNumber, IssueDate = doc.IssueDate,
-                    ExpiryDate = doc.ExpiryDate, CountryId = doc.CountryId,
-                    Notes = doc.Notes, Category = "seafarer", CreatedAt = doc.CreatedAt, UpdatedAt = doc.UpdatedAt
-                };
-            }
-
-            case "employment":
-            {
-                var doc = await _context.EmploymentDocuments.AsTracking()
-                    .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (doc == null) return null;
-
-                doc.DocumentType = request.DocumentType;
-                doc.DocumentNumber = request.DocumentNumber;
-                doc.IssueDate = ToUtc(request.IssueDate);
-                doc.ExpiryDate = ToUtc(request.ExpiryDate);
-                doc.CountryId = request.CountryId;
-                doc.Notes = request.Notes;
-                doc.UpdatedAt = now;
-                await _context.SaveChangesAsync();
-
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("employment_document", doc.Id.ToString(), SyncActionType.UPDATE, doc); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast employment_document sync for {Id}", doc.Id); }
-                }
-
-                return new DocumentDto
-                {
-                    Id = doc.Id, CrewMemberId = crewId, DocumentType = doc.DocumentType,
-                    DocumentNumber = doc.DocumentNumber, IssueDate = doc.IssueDate,
-                    ExpiryDate = doc.ExpiryDate, CountryId = doc.CountryId,
-                    Notes = doc.Notes, Category = "employment", CreatedAt = doc.CreatedAt, UpdatedAt = doc.UpdatedAt
-                };
-            }
-
-            case "health":
-            {
-                // HealthDocument không có CountryId — bỏ qua trường này thay vì cố gán.
-                var doc = await _context.HealthDocuments.AsTracking()
-                    .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (doc == null) return null;
-
-                doc.DocumentType = request.DocumentType;
-                doc.DocumentNumber = request.DocumentNumber;
-                doc.IssueDate = ToUtc(request.IssueDate);
-                doc.ExpiryDate = ToUtc(request.ExpiryDate);
-                doc.Notes = request.Notes;
-                doc.UpdatedAt = now;
-                await _context.SaveChangesAsync();
-
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("health_document", doc.Id.ToString(), SyncActionType.UPDATE, doc); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast health_document sync for {Id}", doc.Id); }
-                }
-
-                return new DocumentDto
-                {
-                    Id = doc.Id, CrewMemberId = crewId, DocumentType = doc.DocumentType,
-                    DocumentNumber = doc.DocumentNumber, IssueDate = doc.IssueDate,
-                    ExpiryDate = doc.ExpiryDate,
-                    Notes = doc.Notes, Category = "health", CreatedAt = doc.CreatedAt, UpdatedAt = doc.UpdatedAt
-                };
-            }
-
-            default:
-                throw new ArgumentException($"Unknown document category: {request.Category}");
-        }
+        doc.DocumentType = request.DocumentType;
+        doc.DocumentNumber = request.DocumentNumber;
+        doc.IssueDate = ToUtc(request.IssueDate);
+        doc.ExpiryDate = ToUtc(request.ExpiryDate);
+        doc.CountryId = cat == CrewDocumentCategory.Health ? null : request.CountryId;
+        doc.Notes = request.Notes;
+        doc.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        await SyncDocumentAsync(crewId, doc.Id, SyncActionType.UPDATE, doc);
+        return ToDocumentDto(doc);
     }
 
     public async Task<bool> DeleteCrewDocumentAsync(Guid crewId, Guid documentId, string category)
     {
-        switch ((category ?? string.Empty).ToLower())
-        {
-            case "travel":
-                var t = await _context.TravelDocuments.AsTracking().FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (t == null) return false;
-                _context.TravelDocuments.Remove(t);
-                await _context.SaveChangesAsync();
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("travel_document", documentId.ToString(), SyncActionType.DELETE, new { Id = documentId }); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast travel_document delete sync for {Id}", documentId); }
-                }
-                return true;
-            case "seafarer":
-                var s = await _context.SeafarerDocuments.AsTracking().FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (s == null) return false;
-                _context.SeafarerDocuments.Remove(s);
-                await _context.SaveChangesAsync();
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("seafarer_document", documentId.ToString(), SyncActionType.DELETE, new { Id = documentId }); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast seafarer_document delete sync for {Id}", documentId); }
-                }
-                return true;
-            case "employment":
-                var e = await _context.EmploymentDocuments.AsTracking().FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (e == null) return false;
-                _context.EmploymentDocuments.Remove(e);
-                await _context.SaveChangesAsync();
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("employment_document", documentId.ToString(), SyncActionType.DELETE, new { Id = documentId }); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast employment_document delete sync for {Id}", documentId); }
-                }
-                return true;
-            case "health":
-                var h = await _context.HealthDocuments.AsTracking().FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                if (h == null) return false;
-                _context.HealthDocuments.Remove(h);
-                await _context.SaveChangesAsync();
-                if (_syncOutbox != null)
-                {
-                    try { await _syncOutbox.BroadcastAsync("health_document", documentId.ToString(), SyncActionType.DELETE, new { Id = documentId }); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to broadcast health_document delete sync for {Id}", documentId); }
-                }
-                return true;
-            default:
-                return false;
-        }
+        var cat = CrewDocumentCategory.Normalize(category);
+        if (cat == null) return false;
+        var doc = await _context.CrewMemberDocuments.AsTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId && d.Category == cat);
+        if (doc == null) return false;
+        _context.CrewMemberDocuments.Remove(doc);
+        await _context.SaveChangesAsync();
+        await SyncDocumentAsync(crewId, documentId, SyncActionType.DELETE, new { Id = documentId });
+        return true;
     }
 
     // ============================================================

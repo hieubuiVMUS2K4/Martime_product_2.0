@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import './CrewDetailPage.css';
 import {
   ArrowLeft, Upload, CheckCircle, XCircle, AlertTriangle,
-  Ship, MapPin, Calendar, Eye, ClipboardList, FileCheck, History, ScrollText, Plus, Pencil, Trash2,
+  Ship, MapPin, Calendar, Eye, ClipboardList, FileCheck, History, ScrollText, Pencil, Trash2,
 } from 'lucide-react';
 import { useCrewDetail, useCrewCertificates, useVessels } from '../../hooks/useCrew';
 import { useCrewOnboarding, useCrewDocumentSubmissions, useCrewStatusHistory, useCrewAuditLog } from '../../hooks/useCrewManagement';
@@ -23,13 +23,18 @@ import { CrewBasicInfo } from './profile/CrewBasicInfo';
 import { ALL_FIELD_KEYS } from './profile/crewProfileFields';
 import { buildBioData } from './bio-data/bioData';
 import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../../components/common';
+import { Button, DataTable, TableActions, TableIconButton, type Column } from '../../components/common';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/common/ConfirmDialog';
 
 type TabType = 'basic-data' | 'documents' | 'voyage-history' | 'onboarding' | 'doc-workflow' | 'status-history' | 'audit' | 'logbook';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+
+/** Số ngày còn tới hạn (âm = đã quá hạn); không có ngày hết hạn thì undefined. */
+const daysLeft = (d?: string) => d ? Math.floor((new Date(d).getTime() - Date.now()) / 86400000) : undefined;
+
+const DOC_CATEGORY_LABEL: Record<string, string> = { travel: 'Đi lại', seafarer: 'Thuyền viên', employment: 'Lao động', health: 'Y tế' };
 
 const calcAge = (dob?: string) => {
   if (!dob) return '';
@@ -118,7 +123,7 @@ export const CrewDetailPage: React.FC = () => {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
-        <span style={{ fontSize: 11, color: '#dc2626' }}>
+        <span style={{ fontSize: '0.8125rem', color: '#dc2626' }}>
           Modified from ship: <s style={{ color: '#9ca3af' }}>{c.oldValue || '(empty)'}</s> → <strong style={{ color: '#b91c1c' }}>{c.newValue}</strong>
         </span>
       </div>
@@ -445,90 +450,131 @@ export const CrewDetailPage: React.FC = () => {
     docFileInputRef.current?.click();
   };
 
-  /**
-   * Bảng tài liệu dùng chung cho giấy tờ định danh và tài liệu y tế.
-   * `showCountry` tắt với bảng y tế vì HealthDocument không có CountryId — cột đó luôn rỗng.
-   */
-  const DocTable = ({ docs, showCountry = true }: { docs: CrewDocument[]; showCountry?: boolean }) => (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
-        <thead className="cd-table-thead">
-          <tr>
-            <th style={{ width: showCountry ? '22%' : '28%' }}>Name</th>
-            <th style={{ width: '16%' }}>Number</th>
-            <th style={{ width: '13%' }}>Issue Date</th>
-            <th style={{ width: '13%' }}>Expiry Date</th>
-            {showCountry && <th style={{ width: '14%' }}>Country</th>}
-            <th style={{ width: '8%', textAlign: 'center' }}>File</th>
-            <th style={{ width: '14%', textAlign: 'center' }}>Thao tác</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {docs.length === 0 ? (
-            <tr><td colSpan={showCountry ? 7 : 6} className="px-4 py-6 text-center text-gray-400">No documents</td></tr>
-          ) : docs.map(doc => (
-            <tr key={doc.id} className="hover:bg-gray-50">
-              <td className="px-4 py-2 font-medium text-gray-800 truncate">
-                {doc.documentType}
-              </td>
-              <td className="px-4 py-2 text-gray-600 truncate">{doc.documentNumber || '--'}</td>
-              <td className="px-4 py-2 text-gray-600">{fmt(doc.issueDate)}</td>
-              <td className="px-4 py-2 text-gray-600">{fmt(doc.expiryDate)}</td>
-              {showCountry && <td className="px-4 py-2 text-gray-600 truncate">{doc.countryName || '--'}</td>}
-              <td className="px-4 py-2 text-center">
-                <div className="inline-flex items-center gap-1 justify-center">
-                  {doc.fileUrl && (
-                    <button
-                      onClick={() => {
-                        setImageViewerUrl(doc.fileUrl!);
-                        setImageViewerCertId(null);
-                        setImageViewerDocTarget({ docId: doc.id, category: doc.category });
-                        setIsImageViewerOpen(true);
-                      }}
-                      title="View file"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#0b2545] hover:bg-[#16375f] text-white"
-                      style={{ border: 'none', cursor: 'pointer' }}>
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {!doc.fileUrl && (
-                    <button
-                      onClick={() => triggerDocFileUpload(doc.id, doc.category)}
-                      disabled={uploadingDocFile}
-                      title="Upload image/file"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded text-white bg-gray-400 hover:bg-gray-500"
-                      style={{ border: 'none', cursor: 'pointer' }}>
-                      <Upload className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-2 text-center">
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-                  <button
-                    onClick={() => openEditDoc(doc)}
-                    title="Edit"
-                    style={{ background: 'none', border: '1px solid #d6dee8', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                  >
-                    <Pencil className="w-3.5 h-3.5" style={{ color: '#64748b' }} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteDocument(doc)}
-                    title="Delete"
-                    style={{ background: 'none', border: '1px solid #fecaca', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" style={{ color: '#dc2626' }} />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+  /** Ô "Tệp": xem tệp đã đính kèm hoặc tải tệp lên. */
+  const docFileCell = (doc: CrewDocument) => (
+    <TableActions>
+      {doc.fileUrl ? (
+        <TableIconButton label="Xem tệp" icon={<Eye />} onClick={() => {
+          setImageViewerUrl(doc.fileUrl!);
+          setImageViewerCertId(null);
+          setImageViewerDocTarget({ docId: doc.id, category: doc.category });
+          setIsImageViewerOpen(true);
+        }} />
+      ) : (
+        <TableIconButton label="Tải tệp lên" icon={<Upload />} disabled={uploadingDocFile}
+          onClick={() => triggerDocFileUpload(doc.id, doc.category)} />
+      )}
+    </TableActions>
   );
 
+  /**
+   * Cột bảng tài liệu — dùng chung cho giấy tờ định danh và tài liệu y tế.
+   * `identity`: có cột Nhóm và Quốc gia (tài liệu y tế không gắn quốc gia, cột đó luôn rỗng).
+   */
+  const docColumns = (identity: boolean): Column<CrewDocument>[] => [
+    ...(identity ? [{
+      key: 'category', header: 'Nhóm', width: 110, align: 'center' as const,
+      value: (d: CrewDocument) => DOC_CATEGORY_LABEL[d.category] ?? d.category,
+    }] : []),
+    { key: 'type', header: 'Loại giấy tờ', width: 200, value: d => d.documentType, className: 'font-semibold text-ink' },
+    { key: 'number', header: 'Số', width: 150, value: d => d.documentNumber ?? '', render: d => d.documentNumber || '—', className: 'font-mono' },
+    {
+      key: 'issue', header: 'Ngày cấp', width: 110, align: 'center', value: d => d.issueDate ?? '',
+      filter: d => fmt(d.issueDate), exportValue: d => fmt(d.issueDate), render: d => fmt(d.issueDate),
+    },
+    {
+      key: 'expiry', header: 'Ngày hết hạn', width: 110, align: 'center', value: d => d.expiryDate ?? '',
+      filter: d => fmt(d.expiryDate), exportValue: d => fmt(d.expiryDate), render: d => fmt(d.expiryDate),
+    },
+    {
+      key: 'days', header: 'Còn (ngày)', width: 90, numeric: true, filter: false,
+      value: d => daysLeft(d.expiryDate),
+      render: d => {
+        const n = daysLeft(d.expiryDate);
+        return n === undefined ? '—' : <span className={n < 0 ? 'font-semibold text-red-600' : n < 90 ? 'font-semibold text-amber-600' : ''}>{n}</span>;
+      },
+    },
+    ...(identity ? [{ key: 'country', header: 'Quốc gia', width: 130, value: (d: CrewDocument) => d.countryName ?? '' }] : []),
+    { key: 'file', header: 'Tệp', width: 60, align: 'center', render: docFileCell },
+    {
+      key: 'actions', header: 'Thao tác', width: 90, align: 'center',
+      render: d => (
+        <TableActions>
+          <TableIconButton label={`Sửa ${d.documentType}`} icon={<Pencil />} onClick={() => openEditDoc(d)} />
+          <TableIconButton label={`Xóa ${d.documentType}`} icon={<Trash2 />} variant="danger" onClick={() => handleDeleteDocument(d)} />
+        </TableActions>
+      ),
+    },
+  ];
 
+  const certColumns: Column<CrewCertificate>[] = [
+    {
+      key: 'name', header: 'Tên chứng chỉ', width: 220, value: c => c.certificateName || c.certificateCode || '',
+      render: c => (
+        <span className="block truncate">
+          <span className="font-semibold text-ink">{c.certificateName || c.certificateCode}</span>
+          {c.category && <span className="ml-1.5 text-xs text-ink-muted">· {c.category}</span>}
+        </span>
+      ),
+    },
+    { key: 'number', header: 'Số CC', width: 130, value: c => c.certificateNumber ?? '', render: c => c.certificateNumber || '—', className: 'font-mono' },
+    {
+      key: 'issue', header: 'Ngày cấp', width: 105, align: 'center', value: c => c.issueDate ?? '',
+      filter: c => fmt(c.issueDate), exportValue: c => fmt(c.issueDate), render: c => fmt(c.issueDate),
+    },
+    {
+      key: 'expiry', header: 'Ngày hết hạn', width: 105, align: 'center', value: c => c.expiryDate ?? '',
+      filter: c => fmt(c.expiryDate), exportValue: c => fmt(c.expiryDate), render: c => fmt(c.expiryDate),
+    },
+    {
+      key: 'days', header: 'Còn (ngày)', width: 85, numeric: true, filter: false,
+      value: c => daysLeft(c.expiryDate),
+      render: c => {
+        const n = daysLeft(c.expiryDate);
+        return n === undefined ? '—' : <span className={n < 0 ? 'font-semibold text-red-600' : n < 90 ? 'font-semibold text-amber-600' : ''}>{n}</span>;
+      },
+    },
+    { key: 'authority', header: 'Cơ quan cấp', width: 150, value: c => c.issuingAuthority ?? '', render: c => c.issuingAuthority || '—' },
+    {
+      key: 'status', header: 'Trạng thái', width: 120, align: 'center', value: c => getCertStatus(c.expiryDate).label,
+      render: c => {
+        const st = getCertStatus(c.expiryDate);
+        return (
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${st.bg} ${st.color}`}>
+            <st.Icon className="h-3 w-3" />{st.label}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'file', header: 'Tệp', width: 60, align: 'center',
+      render: c => {
+        const fileUrl = c.documentFilePath || c.fileUrl;
+        return (
+          <TableActions>
+            <TableIconButton
+              label={fileUrl ? 'Xem tệp' : 'Tải tệp lên'}
+              icon={fileUrl ? <Eye /> : <Upload />}
+              disabled={uploadingCertId === c.id}
+              onClick={() => fileUrl ? handleViewCertificateImage(fileUrl, c.id) : handleCertificateFileUpload(c.id)}
+            />
+          </TableActions>
+        );
+      },
+    },
+    {
+      key: 'actions', header: 'Thao tác', width: 90, align: 'center',
+      render: c => (
+        <TableActions>
+          <TableIconButton label="Sửa chứng chỉ" icon={<Pencil />} onClick={() => { setEditingCert(c); setShowAddCertModal(true); }} />
+          <TableIconButton label="Xóa chứng chỉ" icon={<Trash2 />} variant="danger" onClick={() => handleDeleteCertificate(c.id)} />
+        </TableActions>
+      ),
+    },
+  ];
+
+  const identityDocs = [...travelDocs, ...seafarerDocs, ...employmentDocs];
+  const crewLabel = `${crew.crewId}-${crew.fullName}`;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -559,16 +605,16 @@ export const CrewDetailPage: React.FC = () => {
         }}>
           <AlertTriangle className="h-5 w-5 flex-shrink-0" style={{ color: '#ea580c', marginTop: 2 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#c2410c', marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#c2410c', marginBottom: 4 }}>
             Tàu yêu cầu bổ sung tài liệu cho thuyền viên này
             </div>
             {crew.reviewNotes && (
-              <div style={{ fontSize: 13, color: '#9a3412', background: '#ffedd5', borderRadius: 6, padding: '8px 12px', marginTop: 4 }}>
+              <div style={{ fontSize: '0.8125rem', color: '#9a3412', background: '#ffedd5', borderRadius: 6, padding: '8px 12px', marginTop: 4 }}>
                 <strong>Ghi chú từ tàu:</strong> {crew.reviewNotes}
               </div>
             )}
             {crew.onboardStatusChangedBy && (
-              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>
+              <div style={{ fontSize: '0.8125rem', color: '#94a3b8', marginTop: 6 }}>
                 Bởi: {crew.onboardStatusChangedBy}
                 {crew.onboardStatusChangedAt && ` • ${new Date(crew.onboardStatusChangedAt).toLocaleString('vi-VN')}`}
               </div>
@@ -579,11 +625,11 @@ export const CrewDetailPage: React.FC = () => {
       {/* Edge Changes Banner */}
       {hasUnviewedChanges && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px', background: '#fef2f2', borderBottom: '2px solid #fca5a5' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#991b1b' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 11 }}>{edgeChanges.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.8125rem', color: '#991b1b' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 6px', background: '#ef4444', color: '#fff', fontSize: '0.8125rem', fontWeight: 700, borderRadius: 11 }}>{edgeChanges.length}</span>
             <span>Tàu đã chỉnh sửa <strong>{edgeChanges.length}</strong> trường. Các trường thay đổi được tô <span style={{ color: '#ef4444', fontWeight: 700 }}>màu đỏ</span> trong tab Thông tin cơ bản.</span>
           </div>
-          <button onClick={handleMarkViewed} style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, color: '#fff', background: '#0b2545', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button>
+          <button onClick={handleMarkViewed} style={{ padding: '5px 14px', fontSize: '0.8125rem', fontWeight: 600, color: '#fff', background: '#0b2545', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓ Đã xem</button>
         </div>
       )}
       {/* Tabs */}
@@ -647,153 +693,65 @@ export const CrewDetailPage: React.FC = () => {
         {/* ════════ DOCUMENTS ════════ */}
         {activeTab === 'documents' && (
           <>
-            {docsLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
+            <section className="cd-section">
+              <div className="cd-section-header">
+                <h3 className="cd-section-title">Giấy tờ định danh ({identityDocs.length})</h3>
               </div>
-            ) : (
-              <>
-                {/* Identity Documents */}
-                <div className="cd-section">
-                  <div className="cd-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 className="cd-section-title">
-                    Giấy tờ định danh ({travelDocs.length + seafarerDocs.length + employmentDocs.length})
-                    </h3>
-                    <button
-                      onClick={() => setIsAddDocModalOpen(true)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-                    >
-                      <Plus className="w-4 h-4" /> Thêm tài liệu
-                    </button>
-                  </div>
-                  <DocTable docs={[...travelDocs, ...seafarerDocs, ...employmentDocs]} />
-                </div>
+              <DataTable
+                flush
+                columns={docColumns(true)}
+                data={identityDocs}
+                rowKey={d => d.id}
+                loading={docsLoading}
+                itemLabel="giấy tờ"
+                emptyMessage="Chưa có giấy tờ định danh."
+                searchPlaceholder="Tìm theo loại, số, quốc gia..."
+                onAdd={() => setIsAddDocModalOpen(true)}
+                addLabel="Thêm giấy tờ"
+                exportOptions={{ fileName: `giay-to-${crewLabel}`, title: `GIẤY TỜ ĐỊNH DANH — ${crew.fullName.toUpperCase()}` }}
+                pageSize={10}
+              />
+            </section>
 
-                {/* Health Documents */}
-                <div className="cd-section">
-                  <div className="cd-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 className="cd-section-title">
-                    Tài liệu y tế ({healthDocs.length})
-                    </h3>
-                    <button
-                      onClick={() => setIsAddHealthDocModalOpen(true)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-                    >
-                      <Plus className="w-4 h-4" /> Thêm tài liệu y tế
-                    </button>
-                  </div>
-                  <DocTable docs={healthDocs} showCountry={false} />
-                </div>
+            <section className="cd-section">
+              <div className="cd-section-header">
+                <h3 className="cd-section-title">Tài liệu y tế ({healthDocs.length})</h3>
+              </div>
+              <DataTable
+                flush
+                columns={docColumns(false)}
+                data={healthDocs}
+                rowKey={d => d.id}
+                loading={docsLoading}
+                itemLabel="tài liệu"
+                emptyMessage="Chưa có tài liệu y tế."
+                searchPlaceholder="Tìm theo loại, số..."
+                onAdd={() => setIsAddHealthDocModalOpen(true)}
+                addLabel="Thêm tài liệu y tế"
+                exportOptions={{ fileName: `y-te-${crewLabel}`, title: `TÀI LIỆU Y TẾ — ${crew.fullName.toUpperCase()}` }}
+                pageSize={10}
+              />
+            </section>
 
-                {/* Certificates */}
-                <div className="cd-section">
-                  <div className="cd-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 className="cd-section-title">
-                    Chứng chỉ ({certificates?.length ?? 0})
-                    </h3>
-                    <button
-                      onClick={() => { setEditingCert(null); setShowAddCertModal(true); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#0b2545', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
-                    >
-                      <Plus className="w-4 h-4" /> Thêm chứng chỉ
-                    </button>
-                  </div>
-                  {certsLoading ? (
-                    <div className="flex items-center justify-center py-10">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
-                    </div>
-                  ) : !certificates || certificates.length === 0 ? (
-                    <div className="text-center py-10 text-gray-400">
-                      <p>Chưa có chứng chỉ nào</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
-                        <thead className="cd-table-thead">
-                          <tr>
-                            <th style={{ width: '20%' }}>Tên chứng chỉ</th>
-                            <th style={{ width: '12%' }}>Số CC</th>
-                            <th style={{ width: '11%' }}>Ngày cấp</th>
-                            <th style={{ width: '11%' }}>Ngày hết hạn</th>
-                            <th style={{ width: '14%' }}>Cơ quan cấp</th>
-                            <th style={{ width: '10%' }}>Trạng thái</th>
-                            <th style={{ width: '8%', textAlign: 'center' }}>File</th>
-                            <th style={{ width: '14%', textAlign: 'center' }}>Thao tác</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {certificates.map(cert => {
-                            const s = getCertStatus(cert.expiryDate);
-                            const fileUrl = cert.documentFilePath || cert.fileUrl;
-                            return (
-                              <tr key={cert.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-2">
-                                  <div className="font-medium text-gray-900 truncate">{cert.certificateName || cert.certificateCode}</div>
-                                  {cert.category && <div className="text-xs text-gray-400">{cert.category}</div>}
-                                </td>
-                                <td className="px-4 py-2 font-mono text-xs text-gray-700 truncate">{cert.certificateNumber || '�'}</td>
-                                <td className="px-4 py-2 text-gray-600">{fmt(cert.issueDate)}</td>
-                                <td className="px-4 py-2 text-gray-700">
-                                  <div className="font-medium">{fmt(cert.expiryDate)}</div>
-                                  {s.days !== undefined && <div className={`text-xs ${s.color}`}>{s.days} days</div>}
-                                </td>
-                                <td className="px-4 py-2 text-gray-600 truncate">{cert.issuingAuthority || '�'}</td>
-                                <td className="px-4 py-2">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${s.bg} ${s.color}`}>
-                                    <s.Icon className="w-3 h-3" />
-                                    {s.label}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-2 text-center">
-                                  <button
-                                    onClick={() => fileUrl
-                                      ? handleViewCertificateImage(fileUrl, cert.id)
-                                      : handleCertificateFileUpload(cert.id)}
-                                    disabled={uploadingCertId === cert.id}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                                    title={fileUrl ? 'View file' : 'Upload file'}
-                                  >
-                                    {uploadingCertId === cert.id ? (
-                                      <div className="animate-spin" style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #0b2545', borderTopColor: 'transparent', display: 'inline-block' }} />
-                                    ) : fileUrl ? (
-                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-[#0b2545] hover:bg-[#16375f] text-white">
-                                        <Eye className="w-3.5 h-3.5" />
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-gray-200 hover:bg-gray-300 text-gray-500">
-                                        <Upload className="w-3.5 h-3.5" />
-                                      </span>
-                                    )}
-                                  </button>
-                                </td>
-                                <td className="px-4 py-2 text-center">
-                                  <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-                                    <button
-                                      onClick={() => { setEditingCert(cert); setShowAddCertModal(true); }}
-                                      title="Edit"
-                                      style={{ background: 'none', border: '1px solid #d6dee8', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" style={{ color: '#64748b' }} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteCertificate(cert.id)}
-                                      title="Delete"
-                                      style={{ background: 'none', border: '1px solid #fecaca', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" style={{ color: '#dc2626' }} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+            <section className="cd-section">
+              <div className="cd-section-header">
+                <h3 className="cd-section-title">Chứng chỉ ({certificates?.length ?? 0})</h3>
+              </div>
+              <DataTable
+                flush
+                columns={certColumns}
+                data={certificates ?? []}
+                rowKey={c => c.id}
+                loading={certsLoading}
+                itemLabel="chứng chỉ"
+                emptyMessage="Chưa có chứng chỉ nào."
+                searchPlaceholder="Tìm theo tên, số, cơ quan cấp..."
+                onAdd={() => { setEditingCert(null); setShowAddCertModal(true); }}
+                addLabel="Thêm chứng chỉ"
+                exportOptions={{ fileName: `chung-chi-${crewLabel}`, title: `CHỨNG CHỈ — ${crew.fullName.toUpperCase()}` }}
+                pageSize={10}
+              />
+            </section>
           </>
         )}
 
@@ -805,7 +763,7 @@ export const CrewDetailPage: React.FC = () => {
                 <Ship className="w-4 h-4" style={{ color: '#0b2545' }} />
                 <h3 className="cd-section-title">Service Records</h3>
               </div>
-              <span style={{ fontSize: 12, color: '#64748b' }}>{serviceRecords.length} record(s)</span>
+              <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>{serviceRecords.length} record(s)</span>
             </div>
 
             {recordsLoading ? (
@@ -1093,7 +1051,7 @@ export const CrewDetailPage: React.FC = () => {
       {/* Thanh lưu dính dưới đáy khi đang sửa hồ sơ */}
       {editing && (
         <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-line bg-surface/95 px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] backdrop-blur">
-          <span className={`text-[13px] ${isDirty ? 'font-medium text-amber-700' : 'text-ink-muted'}`}>
+          <span className={`text-xs ${isDirty ? 'font-medium text-amber-700' : 'text-ink-muted'}`}>
             {isDirty ? '● Có thay đổi chưa lưu' : 'Đang sửa hồ sơ — chưa có thay đổi'}
           </span>
           <div className="flex gap-2">

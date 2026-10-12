@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import '../../../data/models/maintenance_task.dart';
 import 'priority_badge.dart';
 import 'status_badge.dart';
@@ -23,7 +24,7 @@ class TaskCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: task.isOverdue && !task.isCompleted
-            ? BorderSide(color: Colors.red.shade700, width: 2)
+            ? BorderSide(color: MaritimeTheme.error, width: 2)
             : BorderSide.none,
       ),
       child: InkWell(
@@ -33,7 +34,7 @@ class TaskCard extends StatelessWidget {
           decoration: task.isOverdue && !task.isCompleted
               ? BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.red.shade50,
+                  color: MaritimeTheme.errorSoft,
                 )
               : null,
           padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
@@ -68,7 +69,7 @@ class TaskCard extends StatelessWidget {
               Text(
                 'Task ID: ${task.taskId}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                      color: MaritimeTheme.textSecondary,
                       fontSize: isSmallScreen ? 11 : 12,
                     ),
               ),
@@ -116,19 +117,19 @@ class TaskCard extends StatelessWidget {
     String text;
 
     if (isOverdue) {
-      color = Colors.red.shade700;
+      color = MaritimeTheme.error;
       icon = Icons.warning;
       text = isSmallScreen 
           ? '${daysUntilDue.abs()}d late'
           : '${daysUntilDue.abs()} days overdue';
     } else if (isDueSoon) {
-      color = Colors.orange.shade700;
+      color = MaritimeTheme.warning;
       icon = Icons.schedule;
       text = isSmallScreen 
           ? '${daysUntilDue}d left'
           : '$daysUntilDue days left';
     } else {
-      color = Colors.grey.shade600;
+      color = MaritimeTheme.textSecondary;
       icon = Icons.calendar_today;
       text = isSmallScreen 
           ? '${daysUntilDue}d'

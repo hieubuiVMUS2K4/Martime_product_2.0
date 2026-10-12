@@ -1,10 +1,8 @@
-import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { toast } from 'sonner';
-import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { VoyageLogEntryResponseDto } from '../../types/logbook.types';
 import { VOYAGE_LOG_EVENT_TYPES } from '../../types/logbook.types';
@@ -28,7 +26,7 @@ export const VoyageLogDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showSignature, setShowSignature] = useState(false);
   const [signing, setSigning] = useState(false);
-
+  const [masterSignature, setMasterSignature] = useState('Captain');
 
   useEffect(() => {
     if (id) {
@@ -61,7 +59,7 @@ export const VoyageLogDetailPage: React.FC = () => {
       fetchEntry();
     } catch (error) {
       console.error(error);
-      reportSigningError(error, 'Không thể ký nhật ký hành trình. Vui lòng thử lại.');
+      toast.error('Failed to sign entry');
     } finally {
       setSigning(false);
     }
@@ -145,15 +143,14 @@ export const VoyageLogDetailPage: React.FC = () => {
         </div>
       }
     >
-      <div className="w-full space-y-4">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Status Banner */}
         <div className={`p-4 rounded-lg flex items-center gap-3 ${
           entry.masterSignature 
             ? 'bg-green-50 border border-green-200' 
             : 'bg-yellow-50 border border-yellow-200'
         }`}>
-          <SigningControls module="log-voyage" recordKey={entry.id} permission="logbooks.voyage.approve" signed={!!entry.masterSignature} />
-{entry.masterSignature ? (
+          {entry.masterSignature ? (
             <>
               <CheckCircle className="w-6 h-6 text-green-600" />
               <div>
@@ -176,7 +173,7 @@ export const VoyageLogDetailPage: React.FC = () => {
 
         {/* Event Header */}
         <div 
-          className="bg-white rounded-lg border-l-4 p-4 shadow-sm"
+          className="bg-white rounded-lg border-l-4 p-6 shadow-sm"
           style={{ borderLeftColor: eventInfo?.color || '#6b7280' }}
         >
           <div className="flex items-start gap-4">
@@ -194,7 +191,7 @@ export const VoyageLogDetailPage: React.FC = () => {
                 >
                   {entry.eventType}
                 </span>
-                <h2 className="operations-section-title text-sm font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-gray-900">
                   {eventInfo?.nameEn || entry.eventType}
                 </h2>
               </div>
@@ -204,9 +201,9 @@ export const VoyageLogDetailPage: React.FC = () => {
         </div>
 
         {/* Main Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Date & Time Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <Clock className="w-5 h-5 text-blue-600" />
               <h3 className="font-semibold text-gray-900">Date & Time</h3>
@@ -230,7 +227,7 @@ export const VoyageLogDetailPage: React.FC = () => {
           </div>
 
           {/* Position Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <MapPin className="w-5 h-5 text-blue-600" />
               <h3 className="font-semibold text-gray-900">Position</h3>
@@ -256,7 +253,7 @@ export const VoyageLogDetailPage: React.FC = () => {
 
           {/* Port Information (if applicable) */}
           {(entry.portName || entry.portLocode) && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <Anchor className="w-5 h-5 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">Port Information</h3>
@@ -292,7 +289,7 @@ export const VoyageLogDetailPage: React.FC = () => {
 
           {/* Navigation Info (if applicable) */}
           {(entry.courseOverGround || entry.speedOverGround || entry.distanceToGo || entry.distanceFromLast) && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <Compass className="w-5 h-5 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">Navigation</h3>
@@ -334,7 +331,7 @@ export const VoyageLogDetailPage: React.FC = () => {
 
           {/* Pilot Information (if applicable) */}
           {(entry.pilotName || entry.pilotStation) && (
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <User className="w-5 h-5 text-blue-600" />
                 <h3 className="font-semibold text-gray-900">Pilot Information</h3>
@@ -357,7 +354,7 @@ export const VoyageLogDetailPage: React.FC = () => {
           )}
 
           {/* Officer & Entry Info */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <Ship className="w-5 h-5 text-blue-600" />
               <h3 className="font-semibold text-gray-900">Entry Information</h3>
@@ -393,7 +390,7 @@ export const VoyageLogDetailPage: React.FC = () => {
 
         {/* Remarks */}
         {entry.remarks && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3">Remarks</h3>
             <div className="bg-gray-50 rounded-lg p-4 text-gray-700 whitespace-pre-wrap">
               {entry.remarks}
@@ -403,7 +400,7 @@ export const VoyageLogDetailPage: React.FC = () => {
 
         {/* Signature Section */}
         {entry.masterSignature && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-3">Master's Signature</h3>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center gap-4">
@@ -430,7 +427,7 @@ export const VoyageLogDetailPage: React.FC = () => {
       {/* Signature Modal */}
       {showSignature && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4 font-sans">Sign Voyage Log Entry</h3>
             
             <div className="mb-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800 font-sans">
@@ -442,24 +439,36 @@ export const VoyageLogDetailPage: React.FC = () => {
               <label className="text-blue-600 font-sans text-sm font-semibold block mb-2">
                 Master Signature *
               </label>
-              <p className="text-sm">Người ký và chức danh được lấy từ tài khoản. Nhập lại mật khẩu ở bước xác nhận.</p>
+              <input
+                type="text"
+                value={masterSignature}
+                onChange={e => setMasterSignature(e.target.value)}
+                className="w-full bg-white border border-gray-300 text-gray-900 font-sans p-3 rounded-lg focus:border-blue-500 focus:outline-none"
+                placeholder="Enter master's name"
+                autoFocus
+              />
             </div>
             
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowSignature(false);
+                  setMasterSignature('Captain');
                 }}
-                className="px-6 py-1.5 border border-gray-300 text-gray-700 font-sans font-semibold rounded-lg hover:bg-gray-50"
+                className="px-6 py-2.5 border border-gray-300 text-gray-700 font-sans font-semibold rounded-lg hover:bg-gray-50"
                 disabled={signing}
               >
                 Cancel
               </button>
               <PermissionGate permission="logbooks.voyage.approve"><button
                 onClick={() => {
-                  handleSign('');
+                  if (!masterSignature.trim()) {
+                    toast.error("Master signature is required");
+                    return;
+                  }
+                  handleSign(masterSignature.trim());
                 }}
-                className="px-6 py-1.5 bg-green-600 text-white font-sans font-semibold rounded-lg hover:bg-green-700"
+                className="px-6 py-2.5 bg-green-600 text-white font-sans font-semibold rounded-lg hover:bg-green-700"
                 disabled={signing}
               >
                 ✓ Sign Entry

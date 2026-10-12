@@ -14,7 +14,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
 
   return (
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full border border-slate-205 dark:border-slate-700 shadow-2xl flex flex-col">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full border border-slate-205 dark:border-slate-700 shadow-2xl flex flex-col">
           
           {/* Modal Header */}
           <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
@@ -24,7 +24,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">Gán biểu mẫu vào quy trình</h3>
-                <p className="text-[10px] text-slate-500">Sao chép biểu mẫu này sang quy trình hoạt động khác</p>
+                <p className="text-xs text-slate-500">Sao chép biểu mẫu này sang quy trình hoạt động khác</p>
               </div>
             </div>
             <button
@@ -38,7 +38,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
           {/* Modal Body */}
           <div className="p-5 space-y-3">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chọn quy trình nhận biểu mẫu</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Chọn quy trình nhận biểu mẫu</label>
               <select
                 value={assignProcedureId}
                 onChange={(e) => setAssignProcedureId(e.target.value)}

@@ -122,10 +122,10 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
                   {/* Top row: task code + badges */}
                   <div className="flex items-center gap-2.5 mb-2">
                     <span className="font-semibold text-sm text-gray-900">{d.taskCode}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-800 rounded border border-yellow-300">
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded border border-yellow-300">
                       PENDING
                     </span>
-                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                    <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${
                       d.priority === 'HIGH' ? 'bg-orange-100 text-orange-700' :
                       d.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-600'
@@ -133,7 +133,7 @@ export default function DeferralReviewModal({ open, onClose, taskId, onReviewed 
                       {d.priority}
                     </span>
                     {d.isCmsItem && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-[#dce9f8] text-[#16375f] rounded">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium bg-[#dce9f8] text-[#16375f] rounded">
                         <Shield className="w-3 h-3" /> CMS
                       </span>
                     )}

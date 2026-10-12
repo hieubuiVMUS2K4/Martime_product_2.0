@@ -85,7 +85,7 @@ public class NoonReportGenerator : ReportGeneratorBase<CreateNoonReportDto, Noon
         var existingReport = await Context.NoonReports
             .AsNoTracking()
             .Where(n => n.ReportDate.Date == reportDate &&
-                       (dto.VoyageId == null || n.MaritimeReport.VoyageId == dto.VoyageId))
+                       (dto.VoyageId == null || n.MaritimeReport!.VoyageId == dto.VoyageId))
             .FirstOrDefaultAsync();
 
         if (existingReport != null)
@@ -199,7 +199,7 @@ public class NoonReportGenerator : ReportGeneratorBase<CreateNoonReportDto, Noon
         var noonReport = await Context.NoonReports
             .AsNoTracking()
             .Include(n => n.MaritimeReport)
-            .FirstOrDefaultAsync(n => n.MaritimeReportId == reportId && n.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(n => n.MaritimeReportId == reportId && n.MaritimeReport!.DeletedAt == null);
 
         if (noonReport == null) return null;
 

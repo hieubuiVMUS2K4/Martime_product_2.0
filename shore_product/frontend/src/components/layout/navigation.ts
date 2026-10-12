@@ -1,5 +1,5 @@
 import {
-  Anchor, Award, FolderOpen, Globe, RefreshCw, Route, Satellite, ShieldCheck, Ship, ShieldAlert, Users,
+  Anchor, Award, FolderOpen, Globe, Package, RefreshCw, Route, Satellite, ShieldCheck, Ship, ShieldAlert, Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -36,6 +36,7 @@ export const NAVIGATION: NavEntry[] = [
       { path: '/categories?tab=ranks', label: 'Chức danh', icon: Award, description: 'Chức danh theo bộ phận' },
       { path: '/categories?tab=countries', label: 'Quốc gia', icon: Globe, description: 'Quốc tịch, quốc gia của cảng' },
       { path: '/categories?tab=ports', label: 'Cảng', icon: Anchor, description: 'Danh mục cảng UN/LOCODE' },
+      { path: '/categories?tab=materials', label: 'Vật tư', icon: Package, description: 'Vật tư công ty cung cấp được cho các tàu' },
     ],
   },
   { kind: 'link', path: '/crew', label: 'Thuyền viên', icon: Users },

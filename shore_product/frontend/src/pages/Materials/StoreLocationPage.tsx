@@ -235,7 +235,7 @@ export default function StoreLocationPage() {
           <span className="flex-1 text-left leading-snug marquee-cell">
             <span className="marquee-text">{node.name}</span>
           </span>
-          <span className="text-gray-400 text-[10px] flex-shrink-0">(SL:{childCount})</span>
+          <span className="text-gray-400 text-xs flex-shrink-0">(SL:{childCount})</span>
         </button>
         {isExpanded && node.children?.map(child => renderTreeNode(child, depth + 1))}
       </div>

@@ -186,7 +186,7 @@ export default function AddDocumentModal({ isOpen, crewMemberId, onClose, onSucc
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h2 className="text-base font-semibold text-gray-800">{isEditing ? 'Edit Identity Document' : 'Add Identity Document'}</h2>
           <button

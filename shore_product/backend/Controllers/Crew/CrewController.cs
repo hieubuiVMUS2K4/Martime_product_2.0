@@ -1,3 +1,4 @@
+using Maritime.Shared.Models.Documents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -232,10 +233,7 @@ public class CrewController : ControllerBase
             var crew = await _crewService.UpdateCrewAsync(id, request);
             if (crew == null) return NotFound(new { error = "Crew member not found" });
 
-            // Broadcast crew update to all edge nodes so they can pull the latest data
-            var entity = await _context.CrewMembers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
-            if (entity != null)
-                await _syncOutbox.BroadcastAsync("crew_member", id.ToString(), SyncActionType.UPDATE, entity);
+            // CrewService.UpdateCrewAsync đã gửi bản cập nhật xuống đúng tàu của thuyền viên.
 
             return Ok(crew);
         }
@@ -462,92 +460,25 @@ public class CrewController : ControllerBase
             if (file.Length > 10 * 1024 * 1024)
                 return BadRequest(new { error = "File size must not exceed 10MB" });
 
-            var cat = (category ?? "travel").ToLower();
-            string? oldFileUrl = null;
-            string relativePath;
+            var cat = CrewDocumentCategory.Normalize(category ?? CrewDocumentCategory.Travel);
+            if (cat == null) return BadRequest(new { error = $"Unknown document category: {category}" });
             var fileName = $"doc_{crewId}_{documentId}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
+            var relativePath = $"/uploads/crew/documents/{fileName}";
 
-            switch (cat)
+            var doc = await _context.CrewMemberDocuments.AsTracking()
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId && d.Category == cat);
+            if (doc == null) return NotFound(new { error = "Document not found" });
+            if (!string.IsNullOrEmpty(doc.FileUrl))
+                await _syncFileStorageService.DeleteIfExistsAsync(doc.FileUrl, HttpContext.RequestAborted);
+            await using (var buf = new MemoryStream())
             {
-                case "travel":
-                {
-                    var doc = await _context.TravelDocuments.AsTracking()
-                        .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                    if (doc == null) return NotFound(new { error = "Document not found" });
-                    oldFileUrl = doc.FileUrl;
-                    relativePath = $"/uploads/crew/documents/{fileName}";
-                    if (!string.IsNullOrEmpty(oldFileUrl))
-                        await _syncFileStorageService.DeleteIfExistsAsync(oldFileUrl, HttpContext.RequestAborted);
-                    await using var buf = new MemoryStream();
-                    await file.CopyToAsync(buf, HttpContext.RequestAborted);
-                    await _syncFileStorageService.WriteAllBytesAsync(relativePath, buf.ToArray(), HttpContext.RequestAborted);
-                    doc.FileUrl = relativePath;
-                    doc.UpdatedAt = DateTime.UtcNow;
-                    _context.TravelDocuments.Update(doc);
-                    await _context.SaveChangesAsync();
-                    await _syncOutbox.BroadcastAsync("travel_document", documentId.ToString(), SyncActionType.UPDATE, doc);
-                    break;
-                }
-                case "seafarer":
-                {
-                    var doc = await _context.SeafarerDocuments.AsTracking()
-                        .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                    if (doc == null) return NotFound(new { error = "Document not found" });
-                    oldFileUrl = doc.FileUrl;
-                    relativePath = $"/uploads/crew/documents/{fileName}";
-                    if (!string.IsNullOrEmpty(oldFileUrl))
-                        await _syncFileStorageService.DeleteIfExistsAsync(oldFileUrl, HttpContext.RequestAborted);
-                    await using var buf = new MemoryStream();
-                    await file.CopyToAsync(buf, HttpContext.RequestAborted);
-                    await _syncFileStorageService.WriteAllBytesAsync(relativePath, buf.ToArray(), HttpContext.RequestAborted);
-                    doc.FileUrl = relativePath;
-                    doc.UpdatedAt = DateTime.UtcNow;
-                    _context.SeafarerDocuments.Update(doc);
-                    await _context.SaveChangesAsync();
-                    await _syncOutbox.BroadcastAsync("seafarer_document", documentId.ToString(), SyncActionType.UPDATE, doc);
-                    break;
-                }
-                case "employment":
-                {
-                    var doc = await _context.EmploymentDocuments.AsTracking()
-                        .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                    if (doc == null) return NotFound(new { error = "Document not found" });
-                    oldFileUrl = doc.FileUrl;
-                    relativePath = $"/uploads/crew/documents/{fileName}";
-                    if (!string.IsNullOrEmpty(oldFileUrl))
-                        await _syncFileStorageService.DeleteIfExistsAsync(oldFileUrl, HttpContext.RequestAborted);
-                    await using var buf = new MemoryStream();
-                    await file.CopyToAsync(buf, HttpContext.RequestAborted);
-                    await _syncFileStorageService.WriteAllBytesAsync(relativePath, buf.ToArray(), HttpContext.RequestAborted);
-                    doc.FileUrl = relativePath;
-                    doc.UpdatedAt = DateTime.UtcNow;
-                    _context.EmploymentDocuments.Update(doc);
-                    await _context.SaveChangesAsync();
-                    await _syncOutbox.BroadcastAsync("employment_document", documentId.ToString(), SyncActionType.UPDATE, doc);
-                    break;
-                }
-                case "health":
-                {
-                    var doc = await _context.HealthDocuments.AsTracking()
-                        .FirstOrDefaultAsync(d => d.Id == documentId && d.CrewMemberId == crewId);
-                    if (doc == null) return NotFound(new { error = "Document not found" });
-                    oldFileUrl = doc.FileUrl;
-                    relativePath = $"/uploads/crew/documents/{fileName}";
-                    if (!string.IsNullOrEmpty(oldFileUrl))
-                        await _syncFileStorageService.DeleteIfExistsAsync(oldFileUrl, HttpContext.RequestAborted);
-                    await using var buf = new MemoryStream();
-                    await file.CopyToAsync(buf, HttpContext.RequestAborted);
-                    await _syncFileStorageService.WriteAllBytesAsync(relativePath, buf.ToArray(), HttpContext.RequestAborted);
-                    doc.FileUrl = relativePath;
-                    doc.UpdatedAt = DateTime.UtcNow;
-                    _context.HealthDocuments.Update(doc);
-                    await _context.SaveChangesAsync();
-                    await _syncOutbox.BroadcastAsync("health_document", documentId.ToString(), SyncActionType.UPDATE, doc);
-                    break;
-                }
-                default:
-                    return BadRequest(new { error = $"Unknown document category: {category}" });
+                await file.CopyToAsync(buf, HttpContext.RequestAborted);
+                await _syncFileStorageService.WriteAllBytesAsync(relativePath, buf.ToArray(), HttpContext.RequestAborted);
             }
+            doc.FileUrl = relativePath;
+            doc.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            await _syncOutbox.EnqueueForCrewAsync(crewId, CrewMemberDocument.SyncTable, documentId.ToString(), SyncActionType.UPDATE, doc);
 
             _logger.LogInformation("Uploaded document file for crew {CrewId}, category {Category}, doc {DocId}", crewId, category, documentId);
             return Ok(new { message = "Document file uploaded successfully", fileUrl = $"/uploads/crew/documents/{fileName}" });
@@ -704,7 +635,7 @@ public class CrewController : ControllerBase
             _logger.LogInformation("Uploaded avatar for crew: {Id}", id);
 
             // Broadcast crew member update to edge so avatar syncs
-            await _syncOutbox.BroadcastAsync("crew_member", id.ToString(), SyncActionType.UPDATE, crew);
+            await _syncOutbox.EnqueueForVesselAsync(crew.VesselId, "crew_member", id.ToString(), SyncActionType.UPDATE, crew);
 
             var dto = await _crewService.GetCrewByIdAsync(id);
             return Ok(new

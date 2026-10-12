@@ -426,7 +426,7 @@ export const VesselDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-muted">
+      <div className="flex h-full items-center justify-center gap-2 text-xs text-ink-muted">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Đang tải dữ liệu tàu...
       </div>
     );
@@ -434,7 +434,7 @@ export const VesselDetailPage: React.FC = () => {
 
   if (error || !vessel) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-[13px] text-ink-muted">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-xs text-ink-muted">
         <AlertCircle className="h-7 w-7 text-red-600" aria-hidden="true" />
         <span>{error ?? 'Không tìm thấy tàu'}</span>
         <Button variant="secondary" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/vessels')}>Về danh sách tàu</Button>
@@ -466,13 +466,13 @@ export const VesselDetailPage: React.FC = () => {
           <div className="min-w-0">
             <h1 className="flex items-center gap-2.5 text-lg font-bold leading-7 text-ink">
               <span className="truncate">{vessel.name}</span>
-              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-sm font-medium ${
                 vessel.isActive ? 'bg-emerald-50 text-emerald-700 [&>i]:bg-emerald-500' : 'bg-slate-100 text-slate-600 [&>i]:bg-slate-400'
               }`}>
                 <i className="h-1.5 w-1.5 rounded-full" />{vessel.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
               </span>
             </h1>
-            <p className="truncate text-[13px] text-ink-muted">
+            <p className="truncate text-sm font-semibold text-ink-muted">
               {meta.map((m, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span className="mx-1.5 text-ink-light">·</span>}
@@ -494,14 +494,14 @@ export const VesselDetailPage: React.FC = () => {
                 role="tab"
                 aria-selected={on}
                 onClick={() => selectGroup(group)}
-                className={`-mb-px inline-flex h-10 shrink-0 items-center gap-2 border-b-2 px-3.5 text-sm transition-colors [&>svg]:h-4 [&>svg]:w-4 ${
+                className={`-mb-px inline-flex h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-base transition-colors [&>svg]:h-[18px] [&>svg]:w-[18px] ${
                   on ? 'border-primary font-semibold text-primary' : 'border-transparent text-ink-muted hover:border-line hover:text-ink'
                 }`}
               >
                 {group.icon}
                 {group.label}
                 {group.items.length > 1 && (
-                  <span className={`rounded-full px-1.5 text-xs tabular-nums ${on ? 'bg-primary-soft text-primary' : 'bg-canvas text-ink-light'}`}>
+                  <span className={`rounded-full px-2 text-[0.9375rem] tabular-nums ${on ? 'bg-primary-soft text-primary' : 'bg-canvas text-ink-light'}`}>
                     {group.items.length}
                   </span>
                 )}
@@ -524,7 +524,7 @@ export const VesselDetailPage: React.FC = () => {
                 role="tab"
                 aria-selected={on}
                 onClick={() => selectTab(tabId)}
-                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-[13px] transition-colors ${
+                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-[0.9375rem] transition-colors ${
                   on ? 'bg-primary text-white font-semibold' : 'text-ink-muted hover:bg-primary-soft hover:text-ink'
                 }`}
               >
@@ -533,7 +533,7 @@ export const VesselDetailPage: React.FC = () => {
             );
           })}
           {isParticularsTab(activeTab) && (
-            <span className="ml-auto hidden shrink-0 items-center gap-1.5 pl-4 text-[13px] text-ink-muted md:inline-flex">
+            <span className="ml-auto hidden shrink-0 items-center gap-1.5 pl-4 text-xs text-ink-muted md:inline-flex">
               <ArrowLeftRight className="h-4 w-4" aria-hidden="true" /> Bờ và tàu cùng sửa được, tự đồng bộ hai chiều
             </span>
           )}

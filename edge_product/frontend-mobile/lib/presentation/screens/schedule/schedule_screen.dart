@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/task_provider.dart';
@@ -165,14 +166,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> with SingleTickerProvid
                         l10n.overdue,
                         filteredTasks.where((t) => t.isOverdue).length,
                         Icons.error,
-                        color: Colors.red,
+                        color: MaritimeTheme.error,
                       ),
                       _buildStatItem(
                         context,
                         l10n.dueSoon,
                         filteredTasks.where((t) => t.isDueSoon).length,
                         Icons.warning,
-                        color: Colors.orange,
+                        color: MaritimeTheme.warning,
                       ),
                     ],
                   ),

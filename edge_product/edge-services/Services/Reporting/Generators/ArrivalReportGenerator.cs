@@ -38,7 +38,7 @@ public class ArrivalReportGenerator : ReportGeneratorBase<CreateArrivalReportDto
         {
             var exists = await Context.ArrivalReports
                 .AsNoTracking()
-                .AnyAsync(a => a.VoyageId == dto.VoyageId.Value && a.MaritimeReport.DeletedAt == null);
+                .AnyAsync(a => a.VoyageId == dto.VoyageId.Value && a.MaritimeReport!.DeletedAt == null);
             if (exists) return DuplicateCheckResult.Failure("Arrival report already exists for this voyage.");
         }
         return DuplicateCheckResult.Success();
@@ -98,7 +98,7 @@ public class ArrivalReportGenerator : ReportGeneratorBase<CreateArrivalReportDto
         var report = await Context.ArrivalReports
             .AsNoTracking()
             .Include(a => a.MaritimeReport)
-            .FirstOrDefaultAsync(a => a.MaritimeReportId == reportId && a.MaritimeReport.DeletedAt == null);
+            .FirstOrDefaultAsync(a => a.MaritimeReportId == reportId && a.MaritimeReport!.DeletedAt == null);
         return report != null ? _mapper.Map<ArrivalReportDto>(report) : null;
     }
 

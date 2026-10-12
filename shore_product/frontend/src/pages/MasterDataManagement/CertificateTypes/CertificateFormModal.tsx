@@ -170,7 +170,7 @@ export const CertificateFormModal: React.FC<Props> = ({ cert, onClose, onSubmit,
                     value={form.certificateCode}
                     onChange={e => setForm(p => ({ ...p, certificateCode: e.target.value }))}
                     placeholder="VD: BST, COC_II_1..."
-                    style={{ fontFamily: 'monospace' }}
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
                   />
                   <span className="cfl-hint">Mã định danh duy nhất cho loại chứng chỉ</span>
                 </div>

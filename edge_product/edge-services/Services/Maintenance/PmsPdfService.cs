@@ -16,7 +16,6 @@ namespace MaritimeEdge.Services.Maintenance;
 public class PmsPdfService
 {
     // Navy blue used for section headers, matching MPC card style
-    private static readonly string NavyBlue = "#1a3a5c";
 
     // ─── ĐGRR ───────────────────────────────────────────────────────────────────
 

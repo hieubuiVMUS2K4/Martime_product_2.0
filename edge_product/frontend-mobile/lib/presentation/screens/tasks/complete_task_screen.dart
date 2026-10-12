@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -35,6 +36,12 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _runningHoursController = TextEditingController();
+
+  /// Giờ chạy máy chỉ bắt buộc khi chu kỳ bảo dưỡng tính theo giờ chạy.
+  bool get _requiresRunningHours {
+    final type = widget.task.taskType.toUpperCase();
+    return type == 'RUNNING_HOURS' || type == 'HYBRID' || (type != 'CALENDAR' && widget.task.intervalHours != null);
+  }
   final _sparePartsController = TextEditingController();
   final _notesController = TextEditingController();
   final _actualDurationController = TextEditingController();
@@ -439,7 +446,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                 ),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: MaritimeTheme.success,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -457,7 +464,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_getSubmissionErrorMessage(e, AppLocalizations.of(context))),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -495,7 +502,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   const SnackBar(
                     content: Text('Đã lưu nháp'),
                     duration: Duration(seconds: 1),
-                    backgroundColor: Colors.blue,
+                    backgroundColor: MaritimeTheme.accent,
                   ),
                 );
               }
@@ -513,7 +520,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               icon: Badge(
                 label: Text('$completedCount/${_checklistItems.length}'),
                 backgroundColor: completedCount == _checklistItems.length && _checklistItems.isNotEmpty
-                    ? Colors.green : Colors.orange,
+                    ? MaritimeTheme.success : MaritimeTheme.warning,
                 child: const Icon(Icons.checklist, size: 20),
               ),
               text: 'Kiểm tra',
@@ -543,18 +550,18 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Colors.amber.shade50,
+                    color: MaritimeTheme.warningSoft,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 16),
+                        Icon(Icons.warning_amber_rounded, color: MaritimeTheme.warning, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Công việc này yêu cầu điền '
                             '${[if (widget.task.requireRiskAssessment) 'ĐGRR', if (widget.task.requireInspectionReport) 'BBKT'].join(' và ')} '
                             'trên giao diện web trước khi hoàn thành.',
-                            style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                            style: TextStyle(fontSize: 12, color: MaritimeTheme.warning),
                           ),
                         ),
                       ],
@@ -566,15 +573,15 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Colors.orange.shade50,
+                    color: MaritimeTheme.warningSoft,
                     child: Row(
                       children: [
-                        Icon(Icons.cloud_off, color: Colors.orange.shade700, size: 16),
+                        Icon(Icons.cloud_off, color: MaritimeTheme.warning, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             l10n.offlineTaskWillSync,
-                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                            style: TextStyle(fontSize: 12, color: MaritimeTheme.warning),
                           ),
                         ),
                       ],
@@ -636,7 +643,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: MaritimeTheme.success,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
@@ -656,7 +663,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        border: Border(bottom: BorderSide(color: MaritimeTheme.divider)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,7 +674,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               Expanded(
                 child: Text(
                   task.taskId,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: 12, color: MaritimeTheme.textSecondary, fontWeight: FontWeight.w500),
                 ),
               ),
               Container(
@@ -709,12 +716,12 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           if (task.equipmentId != null || task.equipmentName != null)
             Row(
               children: [
-                Icon(Icons.settings, size: 14, color: Colors.grey.shade500),
+                Icon(Icons.settings, size: 14, color: MaritimeTheme.textTertiary),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     '${task.equipmentId ?? ''} — ${task.equipmentName ?? ''}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: MaritimeTheme.textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -725,22 +732,22 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           // Due date + Report date
           Row(
             children: [
-              Icon(Icons.event, size: 14, color: Colors.grey.shade500),
+              Icon(Icons.event, size: 14, color: MaritimeTheme.textTertiary),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   '${l10n.dueDate}: ${_formatDate(task.nextDueAt)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: MaritimeTheme.textSecondary),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade500),
+              Icon(Icons.calendar_today, size: 14, color: MaritimeTheme.textTertiary),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   'Ngày BĐ: ${_dateFormat.format(DateTime.now())}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: MaritimeTheme.textSecondary),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -767,24 +774,25 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: MaritimeTheme.surfaceLight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: MaritimeTheme.divider),
             ),
             width: double.infinity,
             child: Text(
               widget.task.taskDescription.isNotEmpty 
                   ? widget.task.taskDescription 
                   : '—',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.5),
+              style: TextStyle(fontSize: 14, color: MaritimeTheme.textSecondary, height: 1.5),
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // Running Hours Field
+          // Running Hours Field — chỉ BẮT BUỘC với công việc tính theo giờ chạy máy (RUNNING_HOURS / HYBRID).
+          // Công việc theo lịch (CALENDAR) vẫn nhập được nếu muốn, nhưng không bắt thuyền viên điền số bịa.
           Text(
-            l10n.runningHoursRequired,
+            _requiresRunningHours ? l10n.runningHoursRequired : l10n.runningHoursRequired.replaceAll('*', '').trim(),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -803,7 +811,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
             ],
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return l10n.pleaseEnterRunningHours;
+                return _requiresRunningHours ? l10n.pleaseEnterRunningHours : null;
               }
               final hours = double.tryParse(value);
               if (hours == null || hours < 0) {
@@ -880,9 +888,9 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.checklist, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.checklist, size: 64, color: MaritimeTheme.border),
             const SizedBox(height: 12),
-            Text(l10n.noChecklistYet, style: TextStyle(color: Colors.grey.shade500)),
+            Text(l10n.noChecklistYet, style: TextStyle(color: MaritimeTheme.textTertiary)),
           ],
         ),
       );
@@ -894,16 +902,16 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            color: MaritimeTheme.surfaceLight,
+            border: Border(bottom: BorderSide(color: MaritimeTheme.divider)),
           ),
           child: Row(
             children: [
-              _buildChecklistStat('Đạt', completedCount, Colors.green),
+              _buildChecklistStat('Đạt', completedCount, MaritimeTheme.success),
               const SizedBox(width: 16),
-              _buildChecklistStat('Chưa KT', notCheckedCount, Colors.grey),
+              _buildChecklistStat('Chưa KT', notCheckedCount, MaritimeTheme.textTertiary),
               const SizedBox(width: 16),
-              _buildChecklistStat('Bất thường', abnormalCount, Colors.red),
+              _buildChecklistStat('Bất thường', abnormalCount, MaritimeTheme.error),
               const Spacer(),
               // Progress
               Text(
@@ -911,7 +919,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: completedCount == _checklistItems.length ? Colors.green : Colors.orange,
+                  color: completedCount == _checklistItems.length ? MaritimeTheme.success : MaritimeTheme.warning,
                 ),
               ),
             ],
@@ -956,8 +964,8 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
         ? (item.isAbnormal ? 'Bất thường' : 'Đạt')
         : 'Chưa kiểm tra';
     final statusColor = item.isCompleted
-        ? (item.isAbnormal ? Colors.red : Colors.green)
-        : Colors.grey;
+        ? (item.isAbnormal ? MaritimeTheme.error : MaritimeTheme.success)
+        : MaritimeTheme.textTertiary;
 
     return InkWell(
       onTap: _isTogglingChecklist ? null : () => _toggleChecklistItem(index),
@@ -969,8 +977,8 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: item.isCompleted
-                ? (item.isAbnormal ? Colors.red.shade200 : Colors.green.shade200)
-                : Colors.grey.shade200,
+                ? (item.isAbnormal ? MaritimeTheme.errorBorder : MaritimeTheme.successBorder)
+                : MaritimeTheme.divider,
           ),
           boxShadow: [
             BoxShadow(
@@ -1008,14 +1016,14 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                     children: [
                       Text(
                         item.assetCode,
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                        style: TextStyle(fontSize: 11, color: MaritimeTheme.textTertiary, fontWeight: FontWeight.w500),
                       ),
                       Text(
                         item.assetName,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: item.isCompleted ? Colors.grey.shade600 : Colors.black87,
+                          color: item.isCompleted ? MaritimeTheme.textSecondary : Colors.black87,
                           decoration: item.isCompleted ? TextDecoration.lineThrough : null,
                         ),
                       ),
@@ -1024,7 +1032,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
                             item.checkpointDescription!,
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                            style: TextStyle(fontSize: 12, color: MaritimeTheme.textTertiary),
                           ),
                         ),
                     ],
@@ -1052,13 +1060,13 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: item.readingValue != null
-                            ? (item.isAbnormal ? Colors.red.shade50 : Colors.blue.shade50)
-                            : Colors.grey.shade100,
+                            ? (item.isAbnormal ? MaritimeTheme.errorSoft : MaritimeTheme.accentSoft)
+                            : MaritimeTheme.surface,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: item.readingValue != null
-                              ? (item.isAbnormal ? Colors.red.shade300 : Colors.blue.shade300)
-                              : Colors.grey.shade300,
+                              ? (item.isAbnormal ? MaritimeTheme.errorBorder : MaritimeTheme.accentBorder)
+                              : MaritimeTheme.border,
                         ),
                       ),
                       child: Column(
@@ -1069,7 +1077,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.straighten, size: 14,
-                                color: item.isAbnormal ? Colors.red : Colors.blue,
+                                color: item.isAbnormal ? MaritimeTheme.error : MaritimeTheme.accent,
                               ),
                               const SizedBox(width: 4),
                               Flexible(
@@ -1080,7 +1088,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
-                                    color: item.isAbnormal ? Colors.red : Colors.blue.shade700,
+                                    color: item.isAbnormal ? MaritimeTheme.error : MaritimeTheme.primary,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1091,7 +1099,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                             const SizedBox(height: 2),
                             Text(
                               '(${item.minValue}-${item.maxValue})',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                              style: TextStyle(fontSize: 10, color: MaritimeTheme.textTertiary),
                             ),
                           ],
                         ],
@@ -1120,16 +1128,16 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: MaritimeTheme.errorSoft,
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.red.shade300),
+                      border: Border.all(color: MaritimeTheme.errorBorder),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.warning_amber, size: 12, color: Colors.red),
+                        Icon(Icons.warning_amber, size: 12, color: MaritimeTheme.error),
                         SizedBox(width: 2),
-                        Text('BT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red)),
+                        Text('BT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: MaritimeTheme.error)),
                       ],
                     ),
                   ),
@@ -1141,12 +1149,12 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade100,
+                      color: MaritimeTheme.errorSoft,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       l10n.required,
-                      style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 10, color: MaritimeTheme.error, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -1158,12 +1166,12 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(Icons.comment, size: 14, color: Colors.grey.shade400),
+                  Icon(Icons.comment, size: 14, color: MaritimeTheme.textTertiary),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       item.remarks!,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                      style: TextStyle(fontSize: 12, color: MaritimeTheme.textSecondary, fontStyle: FontStyle.italic),
                     ),
                   ),
                 ],
@@ -1274,7 +1282,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.errorPrefix(e.toString())),
-              backgroundColor: Colors.red,
+              backgroundColor: MaritimeTheme.error,
             ),
           );
         }
@@ -1305,7 +1313,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               builder: (confirmCtx) => AlertDialog(
                 title: Row(
                   children: [
-                    Icon(Icons.warning_amber, color: Colors.orange.shade700),
+                    Icon(Icons.warning_amber, color: MaritimeTheme.warning),
                     const SizedBox(width: 8),
                     Flexible(child: Text(l10n.abnormalValue)),
                   ],
@@ -1322,15 +1330,15 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                     if (item.minValue != null && item.maxValue != null)
                       Text(
                         l10n.allowedRange(item.minValue.toString(), item.maxValue.toString(), item.unit ?? ''),
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: MaritimeTheme.textSecondary),
                       ),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
+                        color: MaritimeTheme.warningSoft,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade300),
+                        border: Border.all(color: MaritimeTheme.warningBorder),
                       ),
                       child: Text(
                         l10n.confirmAbnormalValue,
@@ -1347,7 +1355,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                   ElevatedButton(
                     onPressed: () => Navigator.pop(confirmCtx, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: MaritimeTheme.warning,
                     ),
                     child: Text(l10n.confirmRecord),
                   ),
@@ -1420,14 +1428,14 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.valueOutOfRangeWarning(readingValue.toString(), item.minValue?.toString() ?? '', item.maxValue?.toString() ?? '')),
-            backgroundColor: Colors.orange,
+            backgroundColor: MaritimeTheme.warning,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.errorMessage(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.errorMessage(e.toString())), backgroundColor: MaritimeTheme.error),
         );
       }
     } finally {
@@ -1446,7 +1454,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
     final l10n = AppLocalizations.of(context);
 
     return Card(
-      color: Colors.blue.shade50,
+      color: MaritimeTheme.accentSoft,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1454,14 +1462,14 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.list_alt, color: Colors.blue.shade700, size: 20),
+                Icon(Icons.list_alt, color: MaritimeTheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l10n.sparePartsReference,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
+                          color: MaritimeTheme.primary,
                         ),
                   ),
                 ),
@@ -1491,7 +1499,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
         children: [
           Icon(
             isMandatory ? Icons.warning_amber : Icons.inventory_2,
-            color: isMandatory ? Colors.red : Colors.grey,
+            color: isMandatory ? MaritimeTheme.error : MaritimeTheme.textTertiary,
             size: 16,
           ),
           const SizedBox(width: 8),
@@ -1506,7 +1514,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                 if (materialCode.isNotEmpty)
                   Text(
                     l10n.materialCodeQuantity(materialCode, quantityRequired.toString()),
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 10, color: MaritimeTheme.textSecondary),
                   ),
               ],
             ),
@@ -1515,12 +1523,12 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.red.shade100,
+                color: MaritimeTheme.errorSoft,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 l10n.required,
-                style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 10, color: MaritimeTheme.error, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -1532,7 +1540,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
   Widget _buildActuallyUsedSparePartsSection(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Card(
-      color: Colors.amber.shade50,
+      color: MaritimeTheme.warningSoft,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1540,14 +1548,14 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           children: [
             Row(
               children: [
-                Icon(Icons.build, color: Colors.amber.shade700, size: 20),
+                Icon(Icons.build, color: MaritimeTheme.warning, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l10n.sparePartsActuallyUsed,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade900,
+                          color: MaritimeTheme.warning,
                         ),
                   ),
                 ),
@@ -1558,7 +1566,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               l10n.selectMaterialFromInventory,
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.amber.shade800,
+                color: MaritimeTheme.warning,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -1578,7 +1586,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               label: Text(l10n.addUsedMaterial),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                side: BorderSide(color: Colors.amber.shade700),
+                side: BorderSide(color: MaritimeTheme.warning),
               ),
             ),
           ],
@@ -1601,7 +1609,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber.shade200),
+        border: Border.all(color: MaritimeTheme.warningBorder),
       ),
       child: Row(
         children: [
@@ -1617,7 +1625,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                 ),
                 Text(
                   l10n.materialCodeStock(materialCode, onHand.toString(), unit),
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 10, color: MaritimeTheme.textSecondary),
                 ),
                 const SizedBox(height: 4),
                 Wrap(
@@ -1629,7 +1637,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade100,
+                        color: MaritimeTheme.warningSoft,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -1637,7 +1645,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade900,
+                          color: MaritimeTheme.warning,
                         ),
                       ),
                     ),
@@ -1649,7 +1657,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           IconButton(
             icon: const Icon(Icons.edit, size: 20),
             onPressed: () => _showEditQuantityDialog(index, item),
-            color: Colors.blue,
+            color: MaritimeTheme.accent,
           ),
           IconButton(
             icon: const Icon(Icons.delete, size: 20),
@@ -1659,7 +1667,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
               });
               _saveDraftSpareParts(); // Auto-save after removal
             },
-            color: Colors.red,
+            color: MaritimeTheme.error,
           ),
         ],
       ),
@@ -1698,7 +1706,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(l10n.stockOnHand(onHand.toString(), unit), style: TextStyle(color: Colors.grey.shade600)),
+            Text(l10n.stockOnHand(onHand.toString(), unit), style: TextStyle(color: MaritimeTheme.textSecondary)),
             const SizedBox(height: 16),
             TextField(
               controller: quantityController,
@@ -1760,7 +1768,7 @@ class _CompleteTaskScreenState extends State<CompleteTaskScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(l10n.stockOnHand(onHand.toString(), unit), style: TextStyle(color: Colors.grey.shade600)),
+            Text(l10n.stockOnHand(onHand.toString(), unit), style: TextStyle(color: MaritimeTheme.textSecondary)),
             const SizedBox(height: 16),
             TextField(
               controller: quantityController,
@@ -1901,7 +1909,7 @@ class _MaterialSelectionSheetState extends State<_MaterialSelectionSheet> {
           children: [
             Row(
               children: [
-                const Icon(Icons.inventory_2, color: Colors.amber),
+                const Icon(Icons.inventory_2, color: MaritimeTheme.warning),
                 const SizedBox(width: 8),
                 Text(
                   l10n.selectFromGallery.replaceAll('Gallery', 'Inventory'),
@@ -1951,27 +1959,27 @@ class _MaterialSelectionSheetState extends State<_MaterialSelectionSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: MaritimeTheme.warningSoft,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
+                  border: Border.all(color: MaritimeTheme.warningBorder),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.wifi_off, color: Colors.orange.shade700, size: 18),
+                    Icon(Icons.wifi_off, color: MaritimeTheme.warning, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Offline mode - using cached data',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.orange.shade800,
+                          color: MaritimeTheme.warning,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            Text(l10n.materialsCount(filtered.length), style: TextStyle(color: Colors.grey.shade600)),
+            Text(l10n.materialsCount(filtered.length), style: TextStyle(color: MaritimeTheme.textSecondary)),
             const SizedBox(height: 8),
             Expanded(
               child: _isLoading
@@ -1990,7 +1998,7 @@ class _MaterialSelectionSheetState extends State<_MaterialSelectionSheet> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
+                              const Icon(Icons.inventory_2_outlined, size: 48, color: MaritimeTheme.textTertiary),
                               const SizedBox(height: 16),
                               Text(
                                 _showRequiredOnly
@@ -2032,13 +2040,13 @@ class _MaterialSelectionSheetState extends State<_MaterialSelectionSheet> {
                             return ListTile(
                               leading: Icon(
                                 Icons.inventory_2,
-                                color: alreadyAdded ? Colors.grey : Colors.amber.shade700,
+                                color: alreadyAdded ? MaritimeTheme.textTertiary : MaritimeTheme.warning,
                               ),
                               title: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis),
                               subtitle: Text(l10n.materialCode(code, onHand.toString(), unit)),
                               trailing: alreadyAdded
-                                  ? const Icon(Icons.check, color: Colors.green)
-                                  : Icon(Icons.add_circle, color: Colors.amber.shade700),
+                                  ? const Icon(Icons.check, color: MaritimeTheme.success)
+                                  : Icon(Icons.add_circle, color: MaritimeTheme.warning),
                               onTap: alreadyAdded
                                   ? null
                                   : () => widget.onMaterialSelected(material),
@@ -2149,7 +2157,7 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   widget.item.checkpointDescription!,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  style: TextStyle(color: MaritimeTheme.textSecondary, fontSize: 14),
                 ),
               ),
             
@@ -2160,23 +2168,23 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: MaritimeTheme.accentSoft,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: MaritimeTheme.accentBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                        Icon(Icons.info_outline, size: 16, color: MaritimeTheme.primary),
                         const SizedBox(width: 6),
                         Text(
                           l10n.allowedRange('', '', '').split(':')[0],
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
+                            color: MaritimeTheme.primary,
                           ),
                         ),
                       ],
@@ -2187,7 +2195,7 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Colors.blue.shade900,
+                        color: MaritimeTheme.primary,
                       ),
                     ),
                   ],
@@ -2202,24 +2210,24 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                 suffixText: widget.item.unit ?? '',
                 border: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: _isAbnormal ? Colors.orange : Colors.grey,
+                    color: _isAbnormal ? MaritimeTheme.warning : MaritimeTheme.textTertiary,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: _isAbnormal ? Colors.orange : Colors.grey.shade400,
+                    color: _isAbnormal ? MaritimeTheme.warning : MaritimeTheme.textTertiary,
                     width: _isAbnormal ? 2 : 1,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: _isAbnormal ? Colors.orange : Colors.blue,
+                    color: _isAbnormal ? MaritimeTheme.warning : MaritimeTheme.accent,
                     width: 2,
                   ),
                 ),
                 errorText: _errorMessage,
                 errorBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 2),
+                  borderSide: BorderSide(color: MaritimeTheme.error, width: 2),
                 ),
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -2233,14 +2241,14 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                 margin: const EdgeInsets.only(top: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: MaritimeTheme.warningSoft,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade300),
+                  border: Border.all(color: MaritimeTheme.warningBorder),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                    Icon(Icons.warning_amber, color: MaritimeTheme.warning, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -2250,7 +2258,7 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                             l10n.valueOutOfRange,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade900,
+                              color: MaritimeTheme.warning,
                               fontSize: 13,
                             ),
                           ),
@@ -2258,7 +2266,7 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
                           Text(
                             _buildAbnormalReason(l10n),
                             style: TextStyle(
-                              color: Colors.orange.shade800,
+                              color: MaritimeTheme.warning,
                               fontSize: 12,
                             ),
                           ),
@@ -2281,7 +2289,7 @@ class _ReadingInputDialogState extends State<_ReadingInputDialog> {
               ? null
               : () => widget.onSubmit(_currentValue!, _isAbnormal),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _isAbnormal ? Colors.orange : null,
+            backgroundColor: _isAbnormal ? MaritimeTheme.warning : null,
           ),
           child: Text(_isAbnormal ? l10n.confirmRecord : l10n.confirm),
         ),

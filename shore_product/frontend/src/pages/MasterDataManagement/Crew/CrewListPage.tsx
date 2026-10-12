@@ -175,7 +175,7 @@ export const CrewListPage: React.FC = () => {
       key: 'name', header: 'Thuyền viên', filter: false, value: m => m.fullName,
       render: m => (
         <span className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-[11px] font-bold text-primary">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft text-xs font-bold text-primary">
             {m.avatarUrl ? <ProtectedImage src={m.avatarUrl} alt="" className="h-full w-full object-cover" /> : getInitials(m.fullName)}
           </span>
           <span className="min-w-0">
@@ -206,7 +206,7 @@ export const CrewListPage: React.FC = () => {
               <i className="h-1.5 w-1.5 rounded-full" />{s}
             </span>
             {changes > 0 && (
-              <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white" title={`${changes} thay đổi từ tàu chưa xem`}>{changes}</span>
+              <span className="rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white" title={`${changes} thay đổi từ tàu chưa xem`}>{changes}</span>
             )}
           </span>
         );
@@ -244,13 +244,13 @@ export const CrewListPage: React.FC = () => {
         ]}
       />
       {crewStats.pendingReview > 0 && (
-        <p className="-mt-1 mb-3 flex items-center gap-1.5 text-[13px] text-amber-700">
+        <p className="-mt-1 mb-3 flex items-center gap-1.5 text-xs text-amber-700">
           <Clock className="h-4 w-4" aria-hidden="true" /> {crewStats.pendingReview} thuyền viên đang chờ duyệt lên tàu.
         </p>
       )}
 
       {unviewed.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-800">
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">
             {unviewed.length} thuyền viên có thay đổi từ tàu chưa xem (số màu cam ở cột Trạng thái). Mở hồ sơ để xem từng thay đổi,

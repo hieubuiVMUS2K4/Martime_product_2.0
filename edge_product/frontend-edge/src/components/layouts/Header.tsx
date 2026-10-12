@@ -11,16 +11,17 @@ export function Header() {
   const { t } = useTranslationSafe()
 
   return (
-    <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
-      <div className="flex items-center space-x-4">
-        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">
+    <header className="h-16 shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4 px-[clamp(12px,1.5vw,24px)]">
+      {/* Tiêu đề co lại và cắt "…" khi hẹp, không bị cụm bên phải đè lên */}
+      <div className="flex min-w-0 items-center">
+        <h1 className="truncate text-xl font-semibold text-gray-800 dark:text-white">
           {t('header.title')}
         </h1>
       </div>
 
-      <div className="flex items-center space-x-4">
-        {/* Sync Status */}
-        <div className="flex items-center space-x-2 text-sm">
+      <div className="flex shrink-0 items-center gap-[clamp(8px,1vw,16px)]">
+        {/* Sync Status — ẩn trên màn hẹp */}
+        <div className="hidden xl:flex items-center gap-2 text-sm whitespace-nowrap">
           {isSyncing ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin text-yellow-500" />
@@ -34,16 +35,16 @@ export function Header() {
         </div>
 
         {/* Connection Status */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2 whitespace-nowrap" title={isOnline ? t('header.online') : t('header.offline')}>
           {isOnline ? (
             <>
               <Wifi className="w-5 h-5 text-green-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('header.online')}</span>
+              <span className="hidden md:inline text-sm text-gray-600 dark:text-gray-300">{t('header.online')}</span>
             </>
           ) : (
             <>
               <WifiOff className="w-5 h-5 text-red-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('header.offline')}</span>
+              <span className="hidden md:inline text-sm text-gray-600 dark:text-gray-300">{t('header.offline')}</span>
             </>
           )}
         </div>
@@ -55,12 +56,12 @@ export function Header() {
         <SyncNotificationBell />
 
         {/* Current Time */}
-        <div className="text-sm text-gray-600 dark:text-gray-300">
+        <div className="hidden lg:block whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
           {format(new Date(), 'dd MMM yyyy HH:mm')}
         </div>
 
         {/* User Menu / Logout */}
-        <div className="border-l border-gray-200 dark:border-gray-700 pl-4 ml-1">
+        <div className="border-l border-gray-200 dark:border-gray-700 pl-[clamp(8px,1vw,16px)]">
           <UserMenu />
         </div>
       </div>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final String message;
@@ -27,13 +28,13 @@ class EmptyStateWidget extends StatelessWidget {
             Icon(
               icon ?? Icons.inbox_outlined,
               size: 80,
-              color: Colors.grey.shade300,
+              color: MaritimeTheme.border,
             ),
             const SizedBox(height: 16),
             Text(
               message,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.grey.shade700,
+                    color: MaritimeTheme.textSecondary,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -42,7 +43,7 @@ class EmptyStateWidget extends StatelessWidget {
               Text(
                 subtitle!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey.shade500,
+                      color: MaritimeTheme.textTertiary,
                     ),
                 textAlign: TextAlign.center,
               ),

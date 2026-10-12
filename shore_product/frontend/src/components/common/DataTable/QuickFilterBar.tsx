@@ -31,7 +31,7 @@ export function QuickFilterBar<K extends string>({ items, active, onChange }: {
             aria-selected={on}
             disabled={item.disabled}
             onClick={() => onChange(item.key)}
-            className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-[13px] transition-colors disabled:cursor-default disabled:opacity-60 ${
+            className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors disabled:cursor-default disabled:opacity-60 ${
               on ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface text-ink-muted hover:bg-primary-soft'
             }`}
           >

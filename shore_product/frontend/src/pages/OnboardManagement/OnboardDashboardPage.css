@@ -1,7 +1,6 @@
 .onboard-dashboard {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: clamp(12px, 1.2vw, 20px) 1.5%;
+  width: 100%; min-width: 0;
 }
 
 .page-header {
@@ -13,7 +12,7 @@
 
 .page-header h1 {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #1e293b;
   margin: 0;
 }
@@ -30,7 +29,7 @@
   border-radius: 8px;
   padding: 8px;
   cursor: pointer;
-  color: #64748b;
+  color: #334155;
   transition: all 0.2s;
 }
 
@@ -60,7 +59,7 @@
 
 .btn-secondary {
   background: #f1f5f9;
-  color: #475569;
+  color: #27313f;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 8px 16px;
@@ -109,7 +108,7 @@
   justify-content: center;
   background: #f1f5f9;
   border-radius: 8px;
-  color: #64748b;
+  color: #334155;
 }
 
 .stat-card.active .stat-icon {
@@ -124,13 +123,13 @@
 
 .stat-count {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #1e293b;
 }
 
 .stat-label {
-  font-size: 0.75rem;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
 }
 
 /* Search */
@@ -172,9 +171,9 @@
 .data-table th {
   padding: 10px 14px;
   text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #334155;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid #e2e8f0;
@@ -193,7 +192,7 @@
 
 .empty-cell {
   text-align: center;
-  color: #94a3b8;
+  color: #64748b;
   padding: 32px 14px !important;
 }
 
@@ -204,7 +203,7 @@
 
 .btn-sm {
   padding: 4px 10px;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   border-radius: 6px;
   border: none;
   cursor: pointer;
@@ -223,7 +222,7 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
@@ -231,13 +230,13 @@
 .badge-info { background: #ccfbf1; color: #0a7068; }
 .badge-warning { background: #fef3c7; color: #92400e; }
 .badge-danger { background: #fee2e2; color: #991b1b; }
-.badge-secondary { background: #f1f5f9; color: #64748b; }
+.badge-secondary { background: #f1f5f9; color: #334155; }
 .badge-correction { background: #fae8ff; color: #86198f; }
 
 /* Loading / Error */
 .loading-text {
   text-align: center;
-  color: #94a3b8;
+  color: #64748b;
   padding: 32px;
 }
 
@@ -273,7 +272,7 @@
 
 .modal-content h2 {
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 20px;
   color: #1e293b;
 }
@@ -289,9 +288,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: #475569;
+  color: #27313f;
 }
 
 .form-grid input,

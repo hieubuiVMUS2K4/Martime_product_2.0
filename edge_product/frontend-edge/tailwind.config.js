@@ -7,6 +7,13 @@ export default {
   ],
   theme: {
     extend: {
+      // Chữ đậm hơn một bậc cho dễ đọc: semibold 600→700, bold 700→800 (Inter tải sẵn 400–800)
+      fontWeight: { semibold: '700', bold: '800' },
+      // Chỉ đổi MÀU CHỮ xám (không đổi viền/nền): đậm lên một bậc, chữ chính gần đen
+      textColor: {
+        gray: { 400: '#6b7280', 500: '#4b5563', 600: '#374151', 700: '#1f2937', 800: '#111827', 900: '#0a0a0a' },
+        slate: { 400: '#64748b', 500: '#475569', 600: '#334155', 700: '#1e293b', 800: '#0f172a', 900: '#020617' },
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -81,6 +88,8 @@ export default {
         sans: ['Inter', 'Roboto', 'system-ui', 'sans-serif'],
       },
       fontSize: {
+        // Cỡ nhỏ nhất của app: 14px (mặc định Tailwind 12px) — không chữ nào nhỏ hơn. Đổi cỡ nhỏ nhất chỉ sửa ở đây.
+        xs: ['0.875rem', { lineHeight: '1.25rem' }],
         // Large touch-friendly sizes
         'touch-sm': ['1.125rem', { lineHeight: '1.75rem' }],
         'touch-base': ['1.25rem', { lineHeight: '2rem' }],

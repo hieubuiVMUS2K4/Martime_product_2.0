@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 
 class LoadingWidget extends StatelessWidget {
   final String? message;
@@ -24,7 +25,7 @@ class LoadingWidget extends StatelessWidget {
             Text(
               message!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
+                    color: MaritimeTheme.textSecondary,
                   ),
               textAlign: TextAlign.center,
             ),

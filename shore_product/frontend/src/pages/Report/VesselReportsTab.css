@@ -8,7 +8,7 @@
   height: calc(100vh - 48px);
   overflow: hidden;
   background: #f1f5f9;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-family: inherit;
   color: #1e293b;
 }
@@ -29,7 +29,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #1b4c7e;
   cursor: pointer;
   background: none;
@@ -43,8 +43,8 @@
 .vessel-report__divider { color: #cbd5e1; flex-shrink: 0; }
 
 .vessel-report__title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 800;
   color: #0f172a;
   margin: 0;
   flex: 1;
@@ -55,8 +55,8 @@
 }
 
 .vessel-report__title-meta {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  color: #64748b;
   font-weight: 400;
   margin-left: 6px;
 }
@@ -78,7 +78,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 0.875rem;
   white-space: nowrap;
 }
 
@@ -89,8 +89,8 @@
   flex-shrink: 0;
 }
 
-.stat-chip__label { color: #64748b; }
-.stat-chip__value { font-weight: 700; color: #0f172a; }
+.stat-chip__label { color: #334155; }
+.stat-chip__value { font-weight: 800; color: #0f172a; }
 
 .stat-chip__divider {
   width: 1px;
@@ -118,7 +118,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #f8fafc;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #334155;
   outline: none;
 }
@@ -140,7 +140,7 @@
   border: 1px solid #e2e8f0;
   background: #fff;
   color: #334155;
-  font-size: 12px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.12s;
@@ -161,8 +161,8 @@
   padding: 0 12px;
   border: none;
   background: #f8fafc;
-  font-size: 12px;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: #334155;
   cursor: pointer;
   font-weight: 500;
   display: flex;
@@ -191,7 +191,7 @@
 .report-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 0.875rem;
 }
 
 .report-table th {
@@ -200,11 +200,11 @@
   background: #f8fafc;
   padding: 9px 12px;
   text-align: left;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #64748b;
+  color: #334155;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
   z-index: 1;
@@ -230,8 +230,8 @@
 .report-type-badge {
   display: inline-flex;
   align-items: center;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
   white-space: nowrap;
@@ -243,19 +243,19 @@
 .report-type-badge--BUNKER    { background: #ffedd5; color: #c2410c; }
 .report-type-badge--POSITION  { background: #dce9f8; color: #16375f; }
 .report-type-badge--NO_REPORT { background: #fee2e2; color: #be123c; }
-.report-type-badge--default   { background: #f1f5f9; color: #475569; }
+.report-type-badge--default   { background: #f1f5f9; color: #27313f; }
 
 /* Status badge */
 .status-badge {
   display: inline-block;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
 }
 .status-badge--APPROVED    { background: #f7f9fc; color: #15803d; }
 .status-badge--SUBMITTED   { background: #dce9f8; color: #16375f; }
-.status-badge--DRAFT       { background: #f1f5f9; color: #475569; }
+.status-badge--DRAFT       { background: #f1f5f9; color: #27313f; }
 .status-badge--REJECTED    { background: #fee2e2; color: #be123c; }
 .status-badge--TRANSMITTED { background: #d1fae5; color: #065f46; }
 .status-badge--NO_REPORT   { background: #fee2e2; color: #be123c; }
@@ -270,7 +270,7 @@
   background: #fafbfc;
   gap: 8px;
 }
-.report-pagination__info { font-size: 11.5px; color: #64748b; }
+.report-pagination__info { font-size: 0.875rem; color: #334155; }
 .report-pagination__btns { display: flex; gap: 3px; }
 
 .page-btn {
@@ -280,7 +280,7 @@
   border-radius: 6px;
   border: 1px solid #e2e8f0;
   background: #fff;
-  font-size: 11.5px;
+  font-size: 0.875rem;
   color: #334155;
   cursor: pointer;
   display: flex;
@@ -310,8 +310,8 @@
 }
 
 .calendar-nav__title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 800;
   color: #0f172a;
 }
 
@@ -327,7 +327,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #fff;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #334155;
   outline: none;
 }
@@ -342,7 +342,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #334155;
   transition: all 0.12s;
 }
 .calendar-nav__btn:hover { border-color: #1b4c7e; color: #1b4c7e; background: #f7f9fc; }
@@ -355,9 +355,9 @@
 .calendar-dow {
   padding: 7px;
   text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #94a3b8;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   background: #f8fafc;
@@ -379,9 +379,9 @@
 .calendar-cell--no-report      { background: #fff8f8; }
 
 .calendar-cell__day {
-  font-size: 13px;
-  font-weight: 700;
-  color: #475569;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #27313f;
   margin-bottom: 3px;
   width: 22px;
   height: 22px;
@@ -394,7 +394,7 @@
 .calendar-cell--no-report .calendar-cell__day { color: #dc2626; }
 
 .calendar-event {
-  font-size: 12px;
+  font-size: 0.875rem;
   padding: 2px 5px;
   border-radius: 4px;
   margin-bottom: 2px;
@@ -402,7 +402,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
 }
 .calendar-event--NOON      { background: #fef9c3; color: #854d0e; }
 .calendar-event--DEPARTURE { background: #dce9f8; color: #16375f; }
@@ -410,15 +410,15 @@
 .calendar-event--DAILY     { background: #dcfce7; color: #15803d; }
 .calendar-event--BUNKER    { background: #ffedd5; color: #c2410c; }
 .calendar-event--POSITION  { background: #dce9f8; color: #16375f; }
-.calendar-event--default   { background: #f1f5f9; color: #475569; }
+.calendar-event--default   { background: #f1f5f9; color: #27313f; }
 
 .calendar-no-report-dot {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #dc2626;
-  font-weight: 700;
+  font-weight: 800;
   margin-top: 2px;
 }
 
@@ -429,8 +429,8 @@
   justify-content: center;
   min-height: 200px;
   gap: 8px;
-  color: #64748b;
-  font-size: 13px;
+  color: #334155;
+  font-size: 0.875rem;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -23,7 +23,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-sm">Gán biểu mẫu vào quy trình</h3>
-              <p className="text-[10px] text-slate-500">Sao chép biểu mẫu này sang quy trình hoạt động khác</p>
+              <p className="text-xs text-slate-500">Sao chép biểu mẫu này sang quy trình hoạt động khác</p>
             </div>
           </div>
           <button
@@ -37,7 +37,7 @@ export function AssignModal({ assignProcedureId, setAssignProcedureId, treeData,
         {/* Modal Body */}
         <div className="p-5 space-y-3">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chọn quy trình nhận biểu mẫu</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Chọn quy trình nhận biểu mẫu</label>
             <select
               value={assignProcedureId}
               onChange={(e) => setAssignProcedureId(e.target.value)}

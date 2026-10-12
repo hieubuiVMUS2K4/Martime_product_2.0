@@ -170,7 +170,7 @@ export const VesselReportsTab: React.FC<{ vesselId: string; view: ReportsView }>
   const calNext = () => { if (calMonth === 12) { setCalYear(y => y + 1); setCalMonth(1); } else setCalMonth(m => m + 1); };
 
   const navBtn = 'flex h-8 w-8 items-center justify-center rounded-md border border-line text-ink-muted hover:border-accent/40 hover:bg-primary-soft hover:text-primary';
-  const selectCls = 'h-8 rounded-md border border-line bg-surface px-2 text-[13px] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25';
+  const selectCls = 'h-8 rounded-md border border-line bg-surface px-2 text-xs text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25';
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">

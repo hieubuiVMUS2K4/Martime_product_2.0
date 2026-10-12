@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import '../../core/storage/server_config_storage.dart';
@@ -103,7 +104,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Server URL updated to: $url'),
-            backgroundColor: Colors.green,
+            backgroundColor: MaritimeTheme.success,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -114,7 +115,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving URL: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
           ),
         );
       }
@@ -193,7 +194,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                 // Header
                 Row(
                   children: [
-                    Icon(Icons.settings, color: Colors.blue.shade700),
+                    Icon(Icons.settings, color: MaritimeTheme.primary),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
@@ -259,13 +260,13 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: _testResult!.startsWith('✓')
-                          ? Colors.green.shade50
-                          : Colors.orange.shade50,
+                          ? MaritimeTheme.successSoft
+                          : MaritimeTheme.warningSoft,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: _testResult!.startsWith('✓')
-                            ? Colors.green
-                            : Colors.orange,
+                            ? MaritimeTheme.success
+                            : MaritimeTheme.warning,
                       ),
                     ),
                     child: Row(
@@ -275,8 +276,8 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                               ? Icons.check_circle
                               : Icons.warning,
                           color: _testResult!.startsWith('✓')
-                              ? Colors.green
-                              : Colors.orange,
+                              ? MaritimeTheme.success
+                              : MaritimeTheme.warning,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -285,8 +286,8 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                             _testResult!,
                             style: TextStyle(
                               color: _testResult!.startsWith('✓')
-                                  ? Colors.green.shade900
-                                  : Colors.orange.shade900,
+                                  ? MaritimeTheme.success
+                                  : MaritimeTheme.warning,
                             ),
                           ),
                         ),
@@ -299,7 +300,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: MaritimeTheme.accentSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -307,14 +308,14 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                          Icon(Icons.info_outline, size: 16, color: MaritimeTheme.primary),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'How to connect to Edge Server:',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade900,
+                                color: MaritimeTheme.primary,
                               ),
                             ),
                           ),

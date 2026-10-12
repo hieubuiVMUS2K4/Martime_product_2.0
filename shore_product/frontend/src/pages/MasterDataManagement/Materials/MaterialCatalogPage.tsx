@@ -26,24 +26,21 @@ export const MaterialCatalogPage: React.FC = () => {
 
   return (
     <div className="cl-page" style={{ padding: 0, minHeight: 'auto' }}>
-      {/* Tab bar (kiểu CrewPage của edge, màu theo theme shore) */}
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e5e7eb', padding: '0 4px' }}>
+      {/* Tab bar: Loại vật tư / Vật tư */}
+      <div className="flex gap-1 border-b border-line px-1">
         {TABS.map(t => {
           const active = activeTab === t.key;
           const Icon = t.icon;
           return (
             <button
               key={t.key}
+              type="button"
               onClick={() => setActiveTab(t.key)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px',
-                fontSize: 13, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer',
-                color: active ? 'var(--moc-blue)' : '#64748b',
-                borderBottom: active ? '2px solid var(--moc-blue)' : '2px solid transparent',
-                marginBottom: -1, transition: 'color 0.15s',
-              }}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-[0.9375rem] transition-colors ${
+                active ? 'border-primary font-semibold text-primary' : 'border-transparent text-ink-muted hover:text-ink'
+              }`}
             >
-              <Icon size={15} /> {t.label}
+              <Icon size={16} /> {t.label}
             </button>
           );
         })}

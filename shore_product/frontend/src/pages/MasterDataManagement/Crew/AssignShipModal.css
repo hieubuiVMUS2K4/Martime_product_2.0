@@ -42,11 +42,11 @@
 .asm-hicon--unassign { background: #fee2e2; color: #dc2626; }
 .asm-htitle { flex: 1; min-width: 0; }
 .asm-htitle h2 {
-  font-size: 16px; font-weight: 600;
+  font-size: 1rem; font-weight: 700;
   color: var(--color-text); margin: 0;
 }
 .asm-htitle span {
-  font-size: 13px; color: var(--color-text-secondary);
+  font-size: 0.875rem; color: var(--color-text-secondary);
 }
 .asm-x {
   width: 32px; height: 32px;
@@ -61,7 +61,7 @@
 
 .asm-label {
   display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 600; color: var(--color-text-secondary);
+  font-size: 0.875rem; font-weight: 700; color: var(--color-text-secondary);
   text-transform: uppercase; letter-spacing: 0.04em;
   margin-bottom: 10px;
 }
@@ -76,18 +76,18 @@
   padding: 6px 12px 6px 6px;
   background: var(--color-background);
   border: 1px solid var(--color-border);
-  border-radius: 999px; font-size: 13px;
+  border-radius: 999px; font-size: 0.875rem;
 }
 .asm-chip-av {
   width: 24px; height: 24px;
   border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 10px; font-weight: 600;
+  color: white; font-size: 0.875rem; font-weight: 700;
 }
 .asm-chip-name { font-weight: 500; color: var(--color-text); }
-.asm-chip-rank { font-size: 11px; color: var(--color-text-light); }
+.asm-chip-rank { font-size: 0.875rem; color: var(--color-text-light); }
 .asm-chip-tag {
-  font-size: 11px; padding: 1px 6px;
+  font-size: 0.875rem; padding: 1px 6px;
   background: #dce9f8; color: #16375f;
   border-radius: 4px;
 }
@@ -98,7 +98,7 @@
   width: 100%; padding: 10px 14px;
   border: 1px solid var(--color-border); border-radius: 10px;
   background: var(--color-surface); color: var(--color-text);
-  font-size: 14px; outline: none; transition: border .15s;
+  font-size: 0.875rem; outline: none; transition: border .15s;
   margin-bottom: 10px;
 }
 .asm-search:focus {
@@ -122,19 +122,19 @@
 .asm-vopt-icon { color: var(--color-text-light); flex-shrink: 0; }
 .asm-vopt--on .asm-vopt-icon { color: #1b4c7e; }
 .asm-vopt-name {
-  font-size: 14px; font-weight: 500; color: var(--color-text); flex: 1;
+  font-size: 0.875rem; font-weight: 500; color: var(--color-text); flex: 1;
 }
 .asm-vopt-imo {
-  font-size: 12px; color: var(--color-text-light);
+  font-size: 0.875rem; color: var(--color-text-light);
   font-family: var(--font-mono);
 }
 .asm-vopt-check { color: #1b4c7e; flex-shrink: 0; }
 .asm-empty {
   padding: 20px; text-align: center;
-  color: var(--color-text-light); font-size: 14px;
+  color: var(--color-text-light); font-size: 0.875rem;
 }
 .asm-loading {
-  padding: 16px; color: var(--color-text-secondary); font-size: 14px;
+  padding: 16px; color: var(--color-text-secondary); font-size: 0.875rem;
 }
 
 /* Warning box */
@@ -143,7 +143,7 @@
   padding: 14px 16px; margin-top: 8px;
   background: #fef3c7; border: 1px solid #fde68a;
   border-radius: 10px; color: #92400e;
-  font-size: 14px; line-height: 1.5;
+  font-size: 0.875rem; line-height: 1.5;
 }
 .asm-warn strong { color: #78350f; }
 
@@ -156,7 +156,7 @@
 .asm-fbtn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 10px 20px; border-radius: 10px;
-  font-size: 14px; font-weight: 500;
+  font-size: 0.875rem; font-weight: 500;
   cursor: pointer; transition: all .15s;
   border: 1px solid transparent;
 }
