@@ -6,8 +6,8 @@ import type { MaterialItem } from '@/types/maritime.types'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 
 /**
- * Tab "Danh mục vật tư của công ty" (material_items) — chỉ đọc.
- * Dữ liệu đồng bộ từ Shore xuống tàu, tàu không chỉnh sửa.
+ * Tab "Vật tư của tàu" (material_item_ship) — vật tư bờ cấp riêng cho tàu này (mã riêng của tàu, gán thiết bị).
+ * Danh mục vật tư CHUNG của công ty nằm ở tab CompanyMaterialCatalogTab.
  */
 export function MaterialCatalogTab() {
   const { t } = useTranslationSafe()
@@ -88,14 +88,14 @@ export function MaterialCatalogTab() {
         rowKey={r => r.id}
         loading={loading && items.length === 0}
         itemLabel="vật tư"
-        emptyMessage={items.length === 0 ? t('materials.catalog.emptyNotSynced') : t('materials.catalog.emptyFiltered')}
+        emptyMessage={items.length === 0 ? 'Tàu chưa có vật tư riêng nào (bờ chưa cấp / chưa đồng bộ nhóm Thông tin & vật tư tàu).' : t('materials.catalog.emptyFiltered')}
         searchPlaceholder="Tìm mã, tên vật tư, mã phụ tùng, thiết bị..."
-        exportOptions={{ fileName: 'danh-muc-vat-tu', title: 'DANH MỤC VẬT TƯ CỦA CÔNG TY' }}
+        exportOptions={{ fileName: 'vat-tu-cua-tau', title: 'VẬT TƯ CỦA TÀU' }}
         minWidth={1000}
         toolbarTitle={
           <span className="flex items-center gap-2">
             <Package className="h-4 w-4 text-blue-600" aria-hidden="true" />
-            <span className="text-sm font-semibold text-gray-700">{t('materials.catalog.title')}</span>
+            <span className="text-sm font-semibold text-gray-700">Vật tư của tàu</span>
             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">{items.length}</span>
             <span className="text-xs italic text-gray-400">{t('materials.catalog.syncNote')}</span>
           </span>

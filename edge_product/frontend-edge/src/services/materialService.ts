@@ -5,7 +5,12 @@ import type { MaterialCategory, MaterialItem } from '@/types/maritime.types'
 // Danh mục vật tư của công ty (material_items — đồng bộ từ Shore)
 export interface MaterialCatalogItem {
   id: string
+  /** Mã hiển thị trong ô chọn: mã riêng của tàu nếu tàu đã đặt, không thì mã công ty. */
   itemCode: string
+  /** Mã gốc trong danh mục công ty. */
+  catalogCode?: string
+  /** Mã riêng của tàu cho vật tư này (nếu có). */
+  shipItemCode?: string | null
   name: string
   categoryId: number
   categoryName?: string

@@ -335,13 +335,18 @@ public class MaterialController : ControllerBase
             var shipItems = await _context.MaterialItems.AsNoTracking().Where(s => s.IsActive && s.MaterialItemCode != null)
                 .OrderBy(s => s.ItemCode).Select(s => new { s.MaterialItemCode, s.ItemCode }).ToListAsync();
             var shipCodes = shipItems.GroupBy(s => s.MaterialItemCode!).ToDictionary(g => g.Key, g => g.First().ItemCode);
+            var categoryNames = await _context.MaterialCategories.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Name);
             var result = items.Select(i => new
             {
                 i.Id,
+                // Ô chọn vật tư (phiếu đề xuất/nhập) hiển thị mã của tàu nếu tàu đã đặt mã riêng.
                 ItemCode = shipCodes.GetValueOrDefault(i.ItemCode, i.ItemCode),
+                // Mã gốc trong danh mục công ty, và mã riêng của tàu (nếu có).
+                CatalogCode = i.ItemCode,
+                ShipItemCode = shipCodes.GetValueOrDefault(i.ItemCode),
                 i.Name,
                 i.CategoryId,
-                categoryName = "",
+                categoryName = categoryNames.GetValueOrDefault(i.CategoryId) ?? "",
                 i.UnitPrice,
                 i.IsActive,
                 i.CreatedAt,
