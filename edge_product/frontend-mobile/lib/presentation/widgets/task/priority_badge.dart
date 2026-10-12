@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 
 class PriorityBadge extends StatelessWidget {
   final String priority;
@@ -17,23 +18,23 @@ class PriorityBadge extends StatelessWidget {
 
     switch (priority.toUpperCase()) {
       case 'CRITICAL':
-        color = Colors.red.shade700;
+        color = MaritimeTheme.error;
         icon = Icons.priority_high;
         break;
       case 'HIGH':
-        color = Colors.orange.shade700;
+        color = MaritimeTheme.warning;
         icon = Icons.arrow_upward;
         break;
       case 'NORMAL':
-        color = Colors.blue.shade700;
+        color = MaritimeTheme.primary;
         icon = Icons.remove;
         break;
       case 'LOW':
-        color = Colors.grey.shade600;
+        color = MaritimeTheme.textSecondary;
         icon = Icons.arrow_downward;
         break;
       default:
-        color = Colors.grey.shade600;
+        color = MaritimeTheme.textSecondary;
         icon = Icons.help_outline;
     }
 

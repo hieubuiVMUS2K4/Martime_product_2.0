@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'task_checklist_item.dart';
 
 class MaintenanceTask extends Equatable {
@@ -356,28 +357,28 @@ class MaintenanceTask extends Equatable {
   Color get priorityColor {
     switch (priority) {
       case 'CRITICAL':
-        return Colors.red.shade700;
+        return MaritimeTheme.error;
       case 'HIGH':
-        return Colors.orange.shade700;
+        return MaritimeTheme.warning;
       case 'NORMAL':
-        return Colors.blue.shade700;
+        return MaritimeTheme.primary;
       case 'LOW':
-        return Colors.grey.shade600;
+        return MaritimeTheme.textSecondary;
       default:
-        return Colors.grey.shade600;
+        return MaritimeTheme.textSecondary;
     }
   }
   
   Color get statusColor {
-    if (isRectify) return Colors.orange.shade700;
-    if (isPendingApproval) return Colors.amber.shade700;
-    if (isOverdueStatus || (isOverdue && !isCompleted)) return Colors.red.shade700;
-    if (isInProgress) return Colors.blue.shade700;
-    if (isCompleted) return Colors.green.shade700;
-    if (isDue) return Colors.teal.shade700;
-    if (isUpcoming || isScheduled) return Colors.blueGrey.shade600;
+    if (isRectify) return MaritimeTheme.warning;
+    if (isPendingApproval) return MaritimeTheme.warning;
+    if (isOverdueStatus || (isOverdue && !isCompleted)) return MaritimeTheme.error;
+    if (isInProgress) return MaritimeTheme.primary;
+    if (isCompleted) return MaritimeTheme.success;
+    if (isDue) return MaritimeTheme.info;
+    if (isUpcoming || isScheduled) return MaritimeTheme.textSecondary;
     if (hasMissingStatus) return Colors.purple.shade600;
-    return Colors.grey.shade600;
+    return MaritimeTheme.textSecondary;
   }
   
   String get statusText {

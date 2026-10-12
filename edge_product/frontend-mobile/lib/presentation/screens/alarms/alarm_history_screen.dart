@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/safety_alarm.dart';
@@ -46,12 +47,12 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const Icon(Icons.error_outline, size: 64, color: MaritimeTheme.error),
                   const SizedBox(height: 16),
                   Text(
                     '${l10n.error}: ${provider.error}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(color: MaritimeTheme.error),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
@@ -72,7 +73,7 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                 // Time range selector
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: Colors.grey[100],
+                  color: MaritimeTheme.surface,
                   child: Row(
                     children: [
                       Text(
@@ -110,13 +111,13 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.history,
-                                  size: 64, color: Colors.grey[400]),
+                                  size: 64, color: MaritimeTheme.textTertiary),
                               const SizedBox(height: 16),
                               Text(
                                 l10n.noAlarmHistory,
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey[600],
+                                  color: MaritimeTheme.textSecondary,
                                 ),
                               ),
                             ],
@@ -143,11 +144,11 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
     final l10n = AppLocalizations.of(context);
     Color severityColor;
     if (alarm.isCritical) {
-      severityColor = Colors.red;
+      severityColor = MaritimeTheme.error;
     } else if (alarm.isWarning) {
-      severityColor = Colors.orange;
+      severityColor = MaritimeTheme.warning;
     } else {
-      severityColor = Colors.blue;
+      severityColor = MaritimeTheme.accent;
     }
 
     return Card(
@@ -203,7 +204,7 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                               .format(alarm.timestamp.toLocal()),
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: MaritimeTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -216,19 +217,19 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: MaritimeTheme.success.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green),
+                        border: Border.all(color: MaritimeTheme.success),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                          const Icon(Icons.check_circle, size: 14, color: MaritimeTheme.success),
                           const SizedBox(width: 4),
                           Text(
                             l10n.resolved,
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Colors.green,
+                              color: MaritimeTheme.success,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -242,19 +243,19 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: MaritimeTheme.accent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue),
+                        border: Border.all(color: MaritimeTheme.accent),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.check, size: 14, color: Colors.blue),
+                          const Icon(Icons.check, size: 14, color: MaritimeTheme.accent),
                           const SizedBox(width: 4),
                           Text(
                             l10n.acknowledged,
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Colors.blue,
+                              color: MaritimeTheme.accent,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -268,7 +269,7 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                 Text(
                   alarm.description!,
                   style: TextStyle(
-                    color: Colors.grey[700],
+                    color: MaritimeTheme.textSecondary,
                     fontSize: 14,
                   ),
                   maxLines: 2,
@@ -278,12 +279,12 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                  Icon(Icons.location_on, size: 14, color: MaritimeTheme.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     alarm.locationDisplay,
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: MaritimeTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),

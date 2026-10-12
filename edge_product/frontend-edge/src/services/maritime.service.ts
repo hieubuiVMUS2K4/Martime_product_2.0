@@ -1,4 +1,5 @@
 import { apiClient, getAuthToken } from './api.client'
+import { API_CONFIG } from '@/config/app.config'
 import type {
   PositionData,
   NavigationData,
@@ -824,6 +825,27 @@ export interface EdgeVesselSwitchCheck {
   pendingUploads: number
 }
 
+/** Gói dữ liệu tàu (.zip): toàn bộ dữ liệu tàu cũ, tạo TRƯỚC khi đổi tàu / làm sạch. */
+export interface EdgeVesselDataPackage {
+  fileName: string
+  vesselImo?: string
+  vesselName?: string
+  shoreVesselId?: string
+  createdAt: string
+  sizeBytes: number
+  rows: number
+  pendingUploads: number
+  files: number
+}
+
+export interface EdgeVesselDataImportResult {
+  inserted: number
+  updated: number
+  requeued: number
+  files: number
+  tables: number
+}
+
 export const provisioningService = {
   getStatus: () => apiClient.get<EdgeProvisioningStatus>('/edge/provisioning/status'),
 
@@ -844,14 +866,38 @@ export const provisioningService = {
     apiClient.get<EdgeVesselSwitchCheck>(`/edge/provisioning/${profileId}/switch-check`),
 
   activate: (profileId: number, confirmReset = false) =>
-    apiClient.post<{ activated: boolean; previousProfileId?: number; reset: boolean; wipedRows: number; fullSyncRequested: boolean }>(
+    apiClient.post<{ activated: boolean; previousProfileId?: number; reset: boolean; wipedRows: number; fullSyncRequested: boolean; dataPackage?: EdgeVesselDataPackage }>(
       '/edge/provisioning/activate',
       { profileId, confirmReset }
     ),
 
   /** Làm sạch tàu đang chạy và nhận lại toàn bộ dữ liệu từ bờ. */
   resetFromShore: (confirmImo: string) =>
-    apiClient.post<{ reset: boolean; wipedRows: number; fullSyncRequested: boolean }>('/edge/provisioning/reset', { confirmImo }),
+    apiClient.post<{ reset: boolean; wipedRows: number; fullSyncRequested: boolean; dataPackage?: EdgeVesselDataPackage }>('/edge/provisioning/reset', { confirmImo }),
+
+  listDataPackages: () => apiClient.get<EdgeVesselDataPackage[]>('/edge/provisioning/data-packages'),
+
+  /** Tải gói dữ liệu về máy (file .zip). */
+  downloadDataPackage: async (fileName: string) => {
+    const token = getAuthToken()
+    const resp = await fetch(`${API_CONFIG.BASE_URL}/edge/provisioning/data-packages/${encodeURIComponent(fileName)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!resp.ok) throw new Error('Không tải được gói dữ liệu')
+    const url = URL.createObjectURL(await resp.blob())
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  },
+
+  /** Nhập gói dữ liệu của tàu đang chạy để bù phần bờ còn thiếu. */
+  importDataPackage: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post<EdgeVesselDataImportResult>('/edge/provisioning/data-packages/import', formData)
+  },
 
   getHistory: () => apiClient.get<EdgeProvisioningHistoryItem[]>('/edge/provisioning/history'),
 }

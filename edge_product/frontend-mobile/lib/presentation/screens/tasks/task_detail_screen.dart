@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/maintenance_task.dart';
@@ -12,30 +13,6 @@ import 'create_deferral_screen.dart';
 import '../../../l10n/app_localizations.dart';
 
 // 🎨 Maritime Professional Color Palette
-class MaritimeColors {
-  // Primary - Navy Blue (vững chắc, đáng tin cậy)
-  static const primary = Color(0xFF1A3A52);        // Navy Blue
-  static const primaryLight = Color(0xFF2C5F7F);   // Lighter Navy
-  static const primaryDark = Color(0xFF0D1F2D);    // Darker Navy
-  
-  // Accent - Sage Green (trầm, chuyên nghiệp)
-  static const accent = Color(0xFF6B8E7F);         // Sage Green
-  static const accentLight = Color(0xFF8FA99D);    // Light Sage
-  
-  // Status Colors - Maritime theme
-  static const completed = Color(0xFF4A7C59);      // Deep Green
-  static const inProgress = Color(0xFFD97706);     // Amber
-  static const overdue = Color(0xFFC2410C);        // Deep Orange/Red
-  static const mandatory = Color(0xFFB91C1C);      // Deep Red
-  
-  // Neutral - Professional grays
-  static const surfaceLight = Color(0xFFF8FAFC);   // Very light gray
-  static const surface = Color(0xFFF1F5F9);        // Light gray
-  static const border = Color(0xFFCBD5E1);         // Gray border
-  static const textPrimary = Color(0xFF0F172A);    // Almost black
-  static const textSecondary = Color(0xFF475569);  // Medium gray
-  static const textTertiary = Color(0xFF94A3B8);   // Light gray text
-}
 
 class TaskDetailScreen extends StatefulWidget {
   final MaintenanceTask task;
@@ -149,7 +126,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context).failedToRefresh(e.toString())),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
           ),
         );
       }
@@ -199,7 +176,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               if (widget.task.isOverdue && !widget.task.isCompleted)
                 Container(
                   width: double.infinity,
-                  color: MaritimeColors.overdue,
+                  color: MaritimeTheme.overdue,
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                   child: Row(
                     children: [
@@ -223,17 +200,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               if (!widget.task.isPic)
                 Container(
                   width: double.infinity,
-                  color: Colors.blueGrey.shade50,
+                  color: MaritimeTheme.surfaceLight,
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   child: Row(
                     children: [
-                      Icon(Icons.visibility, color: Colors.blueGrey.shade400, size: 18),
+                      Icon(Icons.visibility, color: MaritimeTheme.textTertiary, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Vai trò: ${widget.task.crewRole} — Chỉ xem',
                           style: TextStyle(
-                            color: Colors.blueGrey.shade600,
+                            color: MaritimeTheme.textSecondary,
                             fontWeight: FontWeight.w500,
                             fontSize: 13,
                           ),
@@ -281,7 +258,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade900,
+                                color: MaritimeTheme.textPrimary,
                                 height: 1.2,
                               ),
                             ),
@@ -302,7 +279,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
+                              color: MaritimeTheme.surface,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -310,7 +287,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
+                                color: MaritimeTheme.textSecondary,
                               ),
                             ),
                           ),
@@ -320,7 +297,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                       
                       const SizedBox(height: 10),
-                      const Divider(height: 1, color: MaritimeColors.border),
+                      const Divider(height: 1, color: MaritimeTheme.border),
                       const SizedBox(height: 10),
                       
                       // Description (only show if not empty)
@@ -329,7 +306,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           widget.task.taskDescription,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey.shade600,
+                            color: MaritimeTheme.textSecondary,
                             height: 1.4,
                           ),
                         ),
@@ -365,7 +342,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
+                          color: MaritimeTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -394,7 +371,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
+                          color: MaritimeTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -434,7 +411,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 // PERFORMANCE: Use pre-computed taskTypeDisplay instead of replaceAll()
                 value: widget.task.taskTypeDisplay,
                 isSmallScreen: isSmallScreen,
-                color: MaritimeColors.primaryLight,
+                color: MaritimeTheme.primaryLight,
               ),
             ),
             if (widget.task.intervalDays != null || widget.task.intervalHours != null) ...[
@@ -446,7 +423,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ? l10n.daysValue(widget.task.intervalDays!.toInt())
                       : l10n.runningHoursValue(widget.task.intervalHours!.toInt()),
                   isSmallScreen: isSmallScreen,
-                  color: MaritimeColors.accent,
+                  color: MaritimeTheme.accent,
                 ),
               ),
             ],
@@ -464,25 +441,25 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               end: Alignment.bottomRight,
               colors: widget.task.isOverdue 
                 ? [
-                    Colors.red.withOpacity(0.1),
-                    Colors.red.withOpacity(0.05),
+                    MaritimeTheme.error.withOpacity(0.1),
+                    MaritimeTheme.error.withOpacity(0.05),
                   ]
                 : widget.task.isDueSoon
                   ? [
-                      Colors.orange.withOpacity(0.1),
-                      Colors.orange.withOpacity(0.05),
+                      MaritimeTheme.warning.withOpacity(0.1),
+                      MaritimeTheme.warning.withOpacity(0.05),
                     ]
                   : [
-                      Colors.blue.withOpacity(0.08),
-                      Colors.blue.withOpacity(0.03),
+                      MaritimeTheme.accent.withOpacity(0.08),
+                      MaritimeTheme.accent.withOpacity(0.03),
                     ],
             ),
             border: Border.all(
               color: widget.task.isOverdue
-                  ? Colors.red.shade200
+                  ? MaritimeTheme.errorBorder
                   : widget.task.isDueSoon
-                      ? Colors.orange.shade200
-                      : Colors.blue.shade100,
+                      ? MaritimeTheme.warningBorder
+                      : MaritimeTheme.accentSoft,
               width: 1,
             ),
           ),
@@ -497,7 +474,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       style: TextStyle(
                         fontSize: isSmallScreen ? 10 : 11,
                         fontWeight: FontWeight.w500,
-                        color: MaritimeColors.textTertiary,
+                        color: MaritimeTheme.textTertiary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -507,7 +484,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       style: TextStyle(
                         fontSize: isSmallScreen ? 13 : 14,
                         fontWeight: FontWeight.w700,
-                        color: MaritimeColors.textPrimary,
+                        color: MaritimeTheme.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -524,7 +501,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     style: TextStyle(
                       fontSize: isSmallScreen ? 10 : 11,
                       fontWeight: FontWeight.w500,
-                      color: MaritimeColors.textTertiary,
+                      color: MaritimeTheme.textTertiary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -534,10 +511,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       fontSize: isSmallScreen ? 13 : 14,
                       fontWeight: FontWeight.w700,
                       color: widget.task.isOverdue
-                          ? MaritimeColors.overdue
+                          ? MaritimeTheme.overdue
                           : widget.task.isDueSoon
-                              ? MaritimeColors.inProgress
-                              : MaritimeColors.completed,
+                              ? MaritimeTheme.inProgress
+                              : MaritimeTheme.completed,
                     ),
                   ),
                 ],
@@ -582,9 +559,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           Container(
             padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
             decoration: BoxDecoration(
-              color: MaritimeColors.completed.withOpacity(0.08),
+              color: MaritimeTheme.completed.withOpacity(0.08),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: MaritimeColors.completed.withOpacity(0.3)),
+              border: Border.all(color: MaritimeTheme.completed.withOpacity(0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,7 +572,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       width: isSmallScreen ? 18 : 20,
                       height: isSmallScreen ? 18 : 20,
                       decoration: const BoxDecoration(
-                        color: MaritimeColors.completed,
+                        color: MaritimeTheme.completed,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -610,7 +587,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       style: TextStyle(
                         fontSize: isSmallScreen ? 11 : 12,
                         fontWeight: FontWeight.w700,
-                        color: MaritimeColors.completed,
+                        color: MaritimeTheme.completed,
                       ),
                     ),
                   ],
@@ -654,7 +631,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     style: TextStyle(
                       fontSize: isSmallScreen ? 10 : 11,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
+                      color: MaritimeTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -662,7 +639,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     widget.task.notes!,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 10 : 11,
-                      color: Colors.grey.shade800,
+                      color: MaritimeTheme.textPrimary,
                     ),
                   ),
                 ],
@@ -711,7 +688,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             label,
             style: TextStyle(
               fontSize: fontSize,
-              color: Colors.grey.shade700,
+              color: MaritimeTheme.textSecondary,
               fontWeight: FontWeight.w500,
               height: 1.2,
             ),
@@ -724,7 +701,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             style: TextStyle(
               fontSize: valueFontSize,
               fontWeight: FontWeight.w700,
-              color: valueColor ?? Colors.grey.shade900,
+              color: valueColor ?? MaritimeTheme.textPrimary,
               height: 1.2,
             ),
             maxLines: fullWidth ? 2 : 1,
@@ -747,7 +724,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               label,
               style: TextStyle(
                 fontSize: isSmallScreen ? 10 : 11,
-                color: Colors.grey.shade600,
+                color: MaritimeTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -793,7 +770,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             label,
             style: TextStyle(
               fontSize: isSmallScreen ? 10 : 11,
-              color: Colors.grey.shade600,
+              color: MaritimeTheme.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -811,9 +788,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               margin: EdgeInsets.only(bottom: isSmallScreen ? 4 : 6),
               padding: EdgeInsets.all(isSmallScreen ? 8 : 10),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: MaritimeTheme.accentSoft,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade100),
+                border: Border.all(color: MaritimeTheme.accentSoft),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,7 +798,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   Icon(
                     Icons.inventory_2_outlined,
                     size: isSmallScreen ? 16 : 18,
-                    color: Colors.blue.shade600,
+                    color: MaritimeTheme.accent,
                   ),
                   SizedBox(width: isSmallScreen ? 6 : 8),
                   Expanded(
@@ -842,7 +819,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             l10n.materialCodeInfo(materialCode),
                             style: TextStyle(
                               fontSize: isSmallScreen ? 9 : 10,
-                              color: Colors.grey.shade600,
+                              color: MaritimeTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -855,7 +832,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       vertical: isSmallScreen ? 2 : 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade100,
+                      color: MaritimeTheme.successSoft,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -863,7 +840,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       style: TextStyle(
                         fontSize: isSmallScreen ? 10 : 11,
                         fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
+                        color: MaritimeTheme.success,
                       ),
                     ),
                   ),
@@ -893,16 +870,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const Icon(Icons.error_outline, color: MaritimeTheme.error, size: 48),
               const SizedBox(height: 8),
               Text(
                 l10n.errorLoadingChecklist,
-                style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
+                style: TextStyle(color: MaritimeTheme.error, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
                 _checklistError!,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: TextStyle(color: MaritimeTheme.textSecondary, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
@@ -923,16 +900,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              Icon(Icons.checklist, color: Colors.grey.shade400, size: 64),
+              Icon(Icons.checklist, color: MaritimeTheme.textTertiary, size: 64),
               const SizedBox(height: 12),
               Text(
                 l10n.noChecklistYet,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                style: TextStyle(color: MaritimeTheme.textSecondary, fontSize: 16),
               ),
               const SizedBox(height: 4),
               Text(
                 l10n.thisTaskHasNoDetails,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                style: TextStyle(color: MaritimeTheme.textTertiary, fontSize: 12),
               ),
             ],
           ),
@@ -949,20 +926,20 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.orange.shade50,
+              color: MaritimeTheme.warningSoft,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.shade200),
+              border: Border.all(color: MaritimeTheme.warningBorder),
             ),
             child: Row(
               children: [
-                Icon(Icons.wifi_off, color: Colors.orange.shade700, size: 18),
+                Icon(Icons.wifi_off, color: MaritimeTheme.warning, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Offline mode - changes will sync when online',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.orange.shade800,
+                      color: MaritimeTheme.warning,
                     ),
                   ),
                 ),
@@ -1009,7 +986,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: MaritimeColors.textSecondary,
+                color: MaritimeTheme.textSecondary,
               ),
             ),
             Text(
@@ -1018,8 +995,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: progress == 1.0 
-                    ? MaritimeColors.completed 
-                    : MaritimeColors.primary,
+                    ? MaritimeTheme.completed 
+                    : MaritimeTheme.primary,
               ),
             ),
           ],
@@ -1031,11 +1008,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: MaritimeColors.surface,
+              backgroundColor: MaritimeTheme.surface,
               valueColor: AlwaysStoppedAnimation<Color>(
                 progress == 1.0 
-                    ? MaritimeColors.completed 
-                    : MaritimeColors.primary,
+                    ? MaritimeTheme.completed 
+                    : MaritimeTheme.primary,
               ),
               minHeight: 6,
             ),
@@ -1072,8 +1049,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.green.withOpacity(0.08),
-                    Colors.green.withOpacity(0.03),
+                    MaritimeTheme.success.withOpacity(0.08),
+                    MaritimeTheme.success.withOpacity(0.03),
                   ],
                 )
               : null,
@@ -1090,8 +1067,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     height: 32,
                     decoration: BoxDecoration(
                       color: isCompleted 
-                          ? Colors.green 
-                          : Colors.blue.withOpacity(0.1),
+                          ? MaritimeTheme.success 
+                          : MaritimeTheme.accent.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -1106,7 +1083,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade700,
+                                color: MaritimeTheme.primary,
                               ),
                             ),
                     ),
@@ -1124,8 +1101,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: isCompleted 
-                                ? Colors.grey.shade600
-                                : Colors.grey.shade900,
+                                ? MaritimeTheme.textSecondary
+                                : MaritimeTheme.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1139,7 +1116,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.grey.shade600,
+                                  color: MaritimeTheme.textSecondary,
                                 ),
                               ),
                             ),
@@ -1153,8 +1130,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   Icon(
                     isCompleted ? Icons.visibility_outlined : Icons.chevron_right,
                     color: isCompleted
-                        ? (item.isAbnormal ? MaritimeColors.mandatory : MaritimeColors.completed)
-                        : Colors.grey.shade400,
+                        ? (item.isAbnormal ? MaritimeTheme.mandatory : MaritimeTheme.completed)
+                        : MaritimeTheme.textTertiary,
                     size: 20,
                   ),
                 ],
@@ -1206,7 +1183,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     Icon(
                       Icons.speed,
                       size: 14,
-                      color: Colors.grey.shade500,
+                      color: MaritimeTheme.textTertiary,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -1217,7 +1194,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade700,
+                          color: MaritimeTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -1239,19 +1216,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     switch (type) {
       case 'MEASUREMENT':
-        color = Colors.blue;
+        color = MaritimeTheme.accent;
         label = l10n.measurement;
         break;
       case 'CHECKLIST':
-        color = Colors.green;
+        color = MaritimeTheme.success;
         label = l10n.checklist;
         break;
       case 'INSPECTION':
-        color = Colors.orange;
+        color = MaritimeTheme.warning;
         label = l10n.inspection;
         break;
       default:
-        color = Colors.grey;
+        color = MaritimeTheme.textTertiary;
         label = type;
     }
 
@@ -1319,7 +1296,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: MaritimeColors.border,
+                          color: MaritimeTheme.border,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -1333,10 +1310,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: MaritimeColors.primary.withOpacity(0.15),
+                            color: MaritimeTheme.primary.withOpacity(0.15),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: MaritimeColors.primary.withOpacity(0.3),
+                              color: MaritimeTheme.primary.withOpacity(0.3),
                               width: 1.5,
                             ),
                           ),
@@ -1346,7 +1323,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
-                                color: MaritimeColors.primary,
+                                color: MaritimeTheme.primary,
                               ),
                             ),
                           ),
@@ -1361,7 +1338,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
-                                  color: MaritimeColors.textPrimary,
+                                  color: MaritimeTheme.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -1376,7 +1353,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: MaritimeColors.textSecondary,
+                                        color: MaritimeTheme.textSecondary,
                                       ),
                                     ),
                                   ),
@@ -1399,7 +1376,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
-                        color: MaritimeColors.textTertiary,
+                        color: MaritimeTheme.textTertiary,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1411,7 +1388,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             label: l10n.okPass,
                             icon: Icons.check_circle,
                             isSelected: checkResult == true,
-                            color: MaritimeColors.completed,
+                            color: MaritimeTheme.completed,
                             onTap: isAlreadyCompleted
                                 ? () {}
                                 : () {
@@ -1428,7 +1405,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             label: l10n.ngFail,
                             icon: Icons.cancel,
                             isSelected: checkResult == false,
-                            color: MaritimeColors.mandatory,
+                            color: MaritimeTheme.mandatory,
                             onTap: isAlreadyCompleted
                                 ? () {}
                                 : () {
@@ -1449,7 +1426,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
-                          color: MaritimeColors.textTertiary,
+                          color: MaritimeTheme.textTertiary,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -1461,7 +1438,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
-                          color: MaritimeColors.textPrimary,
+                          color: MaritimeTheme.textPrimary,
                           letterSpacing: 0.5,
                         ),
                         decoration: InputDecoration(
@@ -1469,7 +1446,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           hintStyle: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w400,
-                            color: MaritimeColors.textTertiary.withOpacity(0.3),
+                            color: MaritimeTheme.textTertiary.withOpacity(0.3),
                             letterSpacing: 2,
                           ),
                           suffix: Padding(
@@ -1479,31 +1456,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: MaritimeColors.textTertiary,
+                                color: MaritimeTheme.textTertiary,
                                 letterSpacing: 0.3,
                               ),
                             ),
                           ),
                           filled: true,
-                          fillColor: MaritimeColors.surface,
+                          fillColor: MaritimeTheme.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: const BorderSide(
-                              color: MaritimeColors.border,
+                              color: MaritimeTheme.border,
                               width: 1,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: const BorderSide(
-                              color: MaritimeColors.border,
+                              color: MaritimeTheme.border,
                               width: 1,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
                             borderSide: const BorderSide(
-                              color: MaritimeColors.primary,
+                              color: MaritimeTheme.primary,
                               width: 2,
                             ),
                           ),
@@ -1560,7 +1537,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
-                        color: MaritimeColors.textTertiary,
+                        color: MaritimeTheme.textTertiary,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1572,28 +1549,28 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         hintText: l10n.addNotesIfNeeded,
                         hintStyle: TextStyle(
                           fontSize: 13,
-                          color: MaritimeColors.textTertiary.withOpacity(0.4),
+                          color: MaritimeTheme.textTertiary.withOpacity(0.4),
                         ),
                         filled: true,
-                        fillColor: MaritimeColors.surface,
+                        fillColor: MaritimeTheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: const BorderSide(
-                            color: MaritimeColors.border,
+                            color: MaritimeTheme.border,
                             width: 1,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: const BorderSide(
-                            color: MaritimeColors.border,
+                            color: MaritimeTheme.border,
                             width: 1,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: const BorderSide(
-                            color: MaritimeColors.primary,
+                            color: MaritimeTheme.primary,
                             width: 1.5,
                           ),
                         ),
@@ -1612,7 +1589,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               side: const BorderSide(
-                                color: MaritimeColors.border,
+                                color: MaritimeTheme.border,
                                 width: 1.5,
                               ),
                               shape: RoundedRectangleBorder(
@@ -1624,7 +1601,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: MaritimeColors.textSecondary,
+                                color: MaritimeTheme.textSecondary,
                               ),
                             ),
                           ),
@@ -1645,7 +1622,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(l10n.pleaseEnterMeasuredValue),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: MaritimeTheme.error,
                                     ),
                                   );
                                   return;
@@ -1656,7 +1633,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(l10n.invalidValue),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: MaritimeTheme.error,
                                     ),
                                   );
                                   return;
@@ -1691,7 +1668,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                           Expanded(child: Text(l10n.savedItem(title))),
                                         ],
                                       ),
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: MaritimeTheme.success,
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -1706,14 +1683,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(l10n.errorMessage(e.toString())),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: MaritimeTheme.error,
                                     ),
                                   );
                                 }
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: MaritimeColors.primary,
+                              backgroundColor: MaritimeTheme.primary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,
@@ -1761,7 +1738,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           color: isSelected ? color.withOpacity(0.08) : Colors.white,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? color : MaritimeColors.border,
+            color: isSelected ? color : MaritimeTheme.border,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected ? [
@@ -1778,7 +1755,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             Icon(
               icon,
               size: 20,
-              color: isSelected ? color : MaritimeColors.textTertiary,
+              color: isSelected ? color : MaritimeTheme.textTertiary,
             ),
             const SizedBox(width: 8),
             Text(
@@ -1786,7 +1763,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? color : MaritimeColors.textSecondary,
+                color: isSelected ? color : MaritimeTheme.textSecondary,
                 letterSpacing: 0.2,
               ),
             ),
@@ -1821,47 +1798,47 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         
         switch (status) {
           case 'COMPLETED':
-            statusColor = MaritimeColors.completed;
+            statusColor = MaritimeTheme.completed;
             statusIcon = Icons.check_circle;
             break;
           case 'IN_PROGRESS':
-            statusColor = MaritimeColors.inProgress;
+            statusColor = MaritimeTheme.inProgress;
             statusIcon = Icons.play_circle_fill;
             break;
           case 'OVERDUE':
-            statusColor = MaritimeColors.overdue;
+            statusColor = MaritimeTheme.overdue;
             statusIcon = Icons.warning;
             break;
           case 'PENDING_APPROVAL':
-            statusColor = Colors.blue;
+            statusColor = MaritimeTheme.accent;
             statusIcon = Icons.pending;
             break;
           case 'RECTIFY':
-            statusColor = MaritimeColors.mandatory;
+            statusColor = MaritimeTheme.mandatory;
             statusIcon = Icons.build_circle;
             break;
           case 'SCHEDULED':
-            statusColor = Colors.blueGrey;
+            statusColor = MaritimeTheme.textTertiary;
             statusIcon = Icons.schedule;
             break;
           case 'DUE':
-            statusColor = Colors.orange;
+            statusColor = MaritimeTheme.warning;
             statusIcon = Icons.event;
             break;
           case 'DEFERRAL_PENDING':
-            statusColor = Colors.amber;
+            statusColor = MaritimeTheme.warning;
             statusIcon = Icons.hourglass_top;
             break;
           case 'DEFERRAL_APPROVED':
-            statusColor = Colors.teal;
+            statusColor = MaritimeTheme.info;
             statusIcon = Icons.check;
             break;
           case 'DEFERRAL_REJECTED':
-            statusColor = Colors.red;
+            statusColor = MaritimeTheme.error;
             statusIcon = Icons.close;
             break;
           default:
-            statusColor = Colors.grey;
+            statusColor = MaritimeTheme.textTertiary;
             statusIcon = Icons.circle;
         }
 
@@ -1879,7 +1856,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       flex: 1,
                       child: Container(
                         width: 2,
-                        color: isFirst ? Colors.transparent : Colors.grey.shade300,
+                        color: isFirst ? Colors.transparent : MaritimeTheme.border,
                       ),
                     ),
                     // Dot
@@ -1904,7 +1881,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       flex: 5,
                       child: Container(
                         width: 2,
-                        color: isLast ? Colors.transparent : Colors.grey.shade300,
+                        color: isLast ? Colors.transparent : MaritimeTheme.border,
                       ),
                     ),
                   ],
@@ -1937,7 +1914,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             Text(
                               dateFormat.format(DateTime.parse(changedAt)),
                               style: TextStyle(
-                                color: Colors.grey.shade500,
+                                color: MaritimeTheme.textTertiary,
                                 fontSize: 11,
                               ),
                             ),
@@ -1947,7 +1924,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       Text(
                         'By: $changedBy',
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: MaritimeTheme.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1957,14 +1934,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: MaritimeTheme.surfaceLight,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.grey.shade200),
+                            border: Border.all(color: MaritimeTheme.divider),
                           ),
                           child: Text(
                             remarks,
                             style: TextStyle(
-                              color: Colors.grey.shade800,
+                              color: MaritimeTheme.textPrimary,
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
                             ),
@@ -2044,7 +2021,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(l10n.taskRestartedForFix),
-                        backgroundColor: Colors.orange,
+                        backgroundColor: MaritimeTheme.warning,
                       ),
                     );
                     Navigator.pop(context);
@@ -2054,7 +2031,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(l10n.errorMessage(e.toString())),
-                        backgroundColor: Colors.red,
+                        backgroundColor: MaritimeTheme.error,
                       ),
                     );
                   }
@@ -2069,7 +2046,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange.shade600,
+          backgroundColor: MaritimeTheme.warning,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -2099,7 +2076,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     builder: (context) => AlertDialog(
                       icon: const Icon(
                         Icons.warning_rounded,
-                        color: MaritimeColors.overdue,
+                        color: MaritimeTheme.overdue,
                         size: 44,
                       ),
                       title: Text(l10n.taskOverdue),
@@ -2112,7 +2089,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context, true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: MaritimeColors.overdue,
+                            backgroundColor: MaritimeTheme.overdue,
                           ),
                           child: Text(l10n.startAnyway),
                         ),
@@ -2134,8 +2111,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             : l10n.taskStartedSuccessfully,
                         ),
                         backgroundColor: widget.task.isOverdue 
-                            ? MaritimeColors.inProgress 
-                            : MaritimeColors.completed,
+                            ? MaritimeTheme.inProgress 
+                            : MaritimeTheme.completed,
                       ),
                     );
                     Navigator.pop(context);
@@ -2145,7 +2122,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(l10n.failedToStartTask(e.toString())),
-                        backgroundColor: MaritimeColors.overdue,
+                        backgroundColor: MaritimeTheme.overdue,
                       ),
                     );
                   }
@@ -2161,7 +2138,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: widget.task.isOverdueStatus || widget.task.isOverdue
-              ? Colors.red 
+              ? MaritimeTheme.error 
               : Theme.of(context).primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -2195,7 +2172,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
+          backgroundColor: MaritimeTheme.success,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -2209,11 +2186,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Widget _buildRejectionInfoCard() {
     final l10n = AppLocalizations.of(context)!;
     return Card(
-      color: Colors.orange.shade50,
+      color: MaritimeTheme.warningSoft,
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.orange.shade200, width: 2),
+        side: BorderSide(color: MaritimeTheme.warningBorder, width: 2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -2222,14 +2199,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 24),
+                Icon(Icons.warning_amber_rounded, color: MaritimeTheme.warning, size: 24),
                 const SizedBox(width: 8),
                 Text(
                   l10n.taskRejectedTitle,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.orange.shade900,
+                    color: MaritimeTheme.warning,
                   ),
                 ),
               ],
@@ -2240,7 +2217,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.shade300),
+                border: Border.all(color: MaritimeTheme.warningBorder),
               ),
               child: Text(
                 widget.task.rejectionReason ?? 'No reason provided',
@@ -2268,18 +2245,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             margin: const EdgeInsets.only(top: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.red.shade50,
+              color: MaritimeTheme.errorSoft,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.shade300),
+              border: Border.all(color: MaritimeTheme.errorBorder),
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.red.shade700),
+                Icon(Icons.error_outline, color: MaritimeTheme.error),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l10n.multipleRejectionWarning,
-                    style: TextStyle(color: Colors.red.shade900, fontSize: 13),
+                    style: TextStyle(color: MaritimeTheme.error, fontSize: 13),
                   ),
                 ),
               ],
@@ -2295,7 +2272,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          Text(label, style: TextStyle(color: MaritimeTheme.textSecondary, fontSize: 13)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -2326,26 +2303,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
+        color: MaritimeTheme.warningSoft,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade300),
+        border: Border.all(color: MaritimeTheme.warningBorder),
       ),
       child: Column(
         children: [
-          Icon(Icons.pending_actions, size: 48, color: Colors.amber.shade700),
+          Icon(Icons.pending_actions, size: 48, color: MaritimeTheme.warning),
           const SizedBox(height: 8),
           Text(
             l10n.waitingForCEApproval,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.amber.shade900,
+              color: MaritimeTheme.warning,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             l10n.yourReportBeingReviewed,
-            style: TextStyle(color: Colors.amber.shade700),
+            style: TextStyle(color: MaritimeTheme.warning),
           ),
         ],
       ),
@@ -2355,11 +2332,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Widget _buildDeferralPendingCard(BuildContext context, TaskProvider taskProvider) {
     final l10n = AppLocalizations.of(context)!;
     return Card(
-      color: Colors.amber.shade50,
+      color: MaritimeTheme.warningSoft,
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.amber.shade200, width: 2),
+        side: BorderSide(color: MaritimeTheme.warningBorder, width: 2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -2368,14 +2345,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.schedule, color: Colors.amber.shade800, size: 24),
+                Icon(Icons.schedule, color: MaritimeTheme.warning, size: 24),
                 const SizedBox(width: 8),
                 Text(
                   l10n.deferralPendingApprovalTitle,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900,
+                    color: MaritimeTheme.warning,
                   ),
                 ),
               ],
@@ -2434,8 +2411,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 icon: const Icon(Icons.cancel_outlined),
                 label: Text(AppLocalizations.of(context).cancelRequest),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
+                  foregroundColor: MaritimeTheme.error,
+                  side: const BorderSide(color: MaritimeTheme.error),
                 ),
               ),
             ),

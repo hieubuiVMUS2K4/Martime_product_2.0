@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -89,30 +90,7 @@ class MyApp extends StatelessWidget {
               return const Locale('en');
             },
             
-            theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            brightness: Brightness.light,
-          ),
-          textTheme: GoogleFonts.interTextTheme(),
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            elevation: 0,
-          ),
-          cardTheme: const CardThemeData(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-          ),
-          inputDecorationTheme: InputDecorationTheme(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            filled: true,
-          ),
-        ),
+            theme: MaritimeTheme.lightTheme,
             home: const LoginScreen(),
             routes: {
               '/login': (context) => const LoginScreen(),

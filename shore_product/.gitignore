@@ -107,3 +107,6 @@ docker-compose.override.yml
 coverage/
 *.coverage
 .nyc_output/
+
+# Tệp người dùng tải lên (ảnh, scan giấy tờ) — dữ liệu thật, không đưa lên git
+backend/uploads/

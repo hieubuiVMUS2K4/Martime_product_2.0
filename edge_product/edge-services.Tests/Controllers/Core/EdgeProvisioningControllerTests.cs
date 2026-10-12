@@ -45,6 +45,7 @@ public class EdgeProvisioningControllerTests
             factory.Object,
             new EdgeVesselSwitchService(db, encryption.Object, factory.Object, NullLogger<EdgeVesselSwitchService>.Instance),
             Mock.Of<IServiceScopeFactory>(),
+            Mock.Of<IEdgeVesselDataPackageService>(),
             NullLogger<EdgeProvisioningController>.Instance);
     }
 
@@ -192,7 +193,7 @@ public class EdgeProvisioningControllerTests
         encryption.Setup(e => e.Encrypt(It.IsAny<string?>())).Returns((string? v) => v!);
         var controller = new EdgeProvisioningController(db, encryption.Object, Mock.Of<IEdgeRuntimeConfigService>(),
             Mock.Of<IHttpClientFactory>(), Mock.Of<IEdgeVesselSwitchService>(), Mock.Of<IServiceScopeFactory>(),
-            NullLogger<EdgeProvisioningController>.Instance);
+            Mock.Of<IEdgeVesselDataPackageService>(), NullLogger<EdgeProvisioningController>.Instance);
 
         Assert.IsType<OkObjectResult>(await controller.Import(file));
         Assert.Equal("1111111", (await db.ShipData.SingleAsync()).ImoNumber);

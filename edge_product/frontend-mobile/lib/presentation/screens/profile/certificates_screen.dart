@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/crew_member.dart';
 import '../../../data/repositories/crew_repository.dart';
@@ -170,16 +171,16 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
       profile.isPassportExpiring,
     ].where((e) => e).length;
 
-    Color bgColor = Colors.orange.shade50;
-    Color borderColor = Colors.orange.shade300;
-    Color textColor = Colors.orange.shade900;
+    Color bgColor = MaritimeTheme.warningSoft;
+    Color borderColor = MaritimeTheme.warningBorder;
+    Color textColor = MaritimeTheme.warning;
     IconData icon = Icons.warning_amber_rounded;
     String message = '';
 
     if (expiredCount > 0) {
-      bgColor = Colors.red.shade50;
-      borderColor = Colors.red.shade300;
-      textColor = Colors.red.shade900;
+      bgColor = MaritimeTheme.errorSoft;
+      borderColor = MaritimeTheme.errorBorder;
+      textColor = MaritimeTheme.error;
       icon = Icons.error_outline;
       message = l10n.certificatesExpired(expiredCount);
     } else if (expiringCount > 0) {
@@ -230,15 +231,15 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
     IconData? statusIcon;
 
     if (isExpired) {
-      statusColor = Colors.red.shade700;
+      statusColor = MaritimeTheme.error;
       statusText = l10n.expired.toUpperCase();
       statusIcon = Icons.error;
     } else if (isExpiring) {
-      statusColor = Colors.orange.shade700;
+      statusColor = MaritimeTheme.warning;
       statusText = l10n.expiringSoon.toUpperCase();
       statusIcon = Icons.warning;
     } else if (expiryDate != null) {
-      statusColor = Colors.green.shade700;
+      statusColor = MaritimeTheme.success;
       statusText = l10n.valid.toUpperCase();
       statusIcon = Icons.check_circle;
     }
@@ -329,7 +330,7 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: MaritimeTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -358,8 +359,8 @@ class _CertificatesScreenState extends State<CertificatesScreen> {
             l10n.daysRemaining(daysLeft),
             style: TextStyle(
               color: daysLeft <= 90
-                  ? Colors.orange.shade700
-                  : Colors.grey.shade600,
+                  ? MaritimeTheme.warning
+                  : MaritimeTheme.textSecondary,
               fontSize: 12,
               fontStyle: FontStyle.italic,
             ),

@@ -91,12 +91,19 @@ public class EdgeVesselSwitchService(
         };
     }
 
+    /// <summary>Thực thể dữ liệu riêng của tàu (mọi bảng trừ <see cref="KeptEntities"/>).</summary>
+    public static List<IEntityType> VesselEntities(IModel model) => model.GetEntityTypes()
+        .Where(e => !e.IsOwned() && e.GetTableName() != null && e.GetViewName() == null && !KeptEntities.Contains(e.ClrType))
+        .ToList();
+
+    /// <summary>Bảng dữ liệu riêng của tàu theo thứ tự XOÁ (bảng con trước). Đảo ngược = thứ tự CHÈN.</summary>
+    public static List<(string Name, string? Schema)> VesselTablesInDeleteOrder(IModel model) =>
+        DeleteOrder(VesselEntities(model)).Select(t => (t.Name, t.Schema)).ToList();
+
     public async Task<int> WipeVesselDataAsync(CancellationToken ct = default)
     {
         var model = context.Model;
-        var wiped = model.GetEntityTypes()
-            .Where(e => !e.IsOwned() && e.GetTableName() != null && e.GetViewName() == null && !KeptEntities.Contains(e.ClrType))
-            .ToList();
+        var wiped = VesselEntities(model);
         var wipedTables = wiped.Select(TableOf).ToHashSet();
 
         // 1) Tài khoản tự tạo cho thuyền viên đi cùng thuyền viên.

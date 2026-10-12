@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/watchkeeping_provider.dart';
 import '../../../data/models/watchkeeping_log.dart';
@@ -433,7 +434,7 @@ class _CreateWatchLogScreenState extends State<CreateWatchLogScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(provider.error ?? 'Failed to create watch log'),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
           ),
         );
       }

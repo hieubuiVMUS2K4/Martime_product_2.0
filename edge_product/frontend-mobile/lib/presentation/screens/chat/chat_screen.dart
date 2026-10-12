@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/chat_message.dart';
 import '../../../l10n/app_localizations.dart';
@@ -117,7 +118,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Text(
             l10n.chatWelcomeSubtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
+                  color: MaritimeTheme.textSecondary,
                 ),
             textAlign: TextAlign.center,
           ),
@@ -185,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
+            Icon(Icons.arrow_forward_ios, size: 14, color: MaritimeTheme.textTertiary),
           ],
         ),
       ),
@@ -265,7 +266,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         style: TextStyle(
                           color: isUser
                               ? colorScheme.onPrimary.withAlpha(180)
-                              : Colors.grey[500],
+                              : MaritimeTheme.textTertiary,
                           fontSize: 11,
                         ),
                       ),
@@ -294,7 +295,7 @@ class _ChatScreenState extends State<ChatScreen> {
     };
     if (label.isEmpty) return const SizedBox.shrink();
 
-    final color = source == 'gemini' ? Colors.blue : Colors.orange;
+    final color = source == 'gemini' ? MaritimeTheme.accent : MaritimeTheme.warning;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
@@ -359,7 +360,7 @@ class _ChatScreenState extends State<ChatScreen> {
           width: 8,
           height: 8,
           decoration: BoxDecoration(
-            color: Colors.grey[400]?.withAlpha((150 + (105 * value)).toInt()),
+            color: MaritimeTheme.textTertiary?.withAlpha((150 + (105 * value)).toInt()),
             shape: BoxShape.circle,
           ),
         );
@@ -416,7 +417,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(width: 8),
           Material(
             color: isLoading
-                ? Colors.grey
+                ? MaritimeTheme.textTertiary
                 : Theme.of(context).colorScheme.primary,
             borderRadius: BorderRadius.circular(24),
             child: InkWell(
@@ -445,12 +446,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Color _getCategoryColor(String category) {
     return switch (category) {
-      'Safety' => Colors.red,
-      'Navigation' => Colors.blue,
-      'Environmental' => Colors.green,
-      'Crew' => Colors.orange,
+      'Safety' => MaritimeTheme.error,
+      'Navigation' => MaritimeTheme.accent,
+      'Environmental' => MaritimeTheme.success,
+      'Crew' => MaritimeTheme.warning,
       'Maintenance' => Colors.purple,
-      _ => Colors.grey,
+      _ => MaritimeTheme.textTertiary,
     };
   }
 

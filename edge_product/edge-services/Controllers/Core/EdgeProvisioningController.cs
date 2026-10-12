@@ -29,6 +29,7 @@ public class EdgeProvisioningController : ControllerBase
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IEdgeVesselSwitchService _vesselSwitch;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IEdgeVesselDataPackageService _dataPackages;
     private readonly ILogger<EdgeProvisioningController> _logger;
 
     public EdgeProvisioningController(
@@ -38,6 +39,7 @@ public class EdgeProvisioningController : ControllerBase
         IHttpClientFactory httpClientFactory,
         IEdgeVesselSwitchService vesselSwitch,
         IServiceScopeFactory scopeFactory,
+        IEdgeVesselDataPackageService dataPackages,
         ILogger<EdgeProvisioningController> logger)
     {
         _context = context;
@@ -46,6 +48,7 @@ public class EdgeProvisioningController : ControllerBase
         _httpClientFactory = httpClientFactory;
         _vesselSwitch = vesselSwitch;
         _scopeFactory = scopeFactory;
+        _dataPackages = dataPackages;
         _logger = logger;
     }
 
@@ -301,6 +304,16 @@ public class EdgeProvisioningController : ControllerBase
             });
         }
 
+        // Trước khi xoá: đóng gói toàn bộ dữ liệu tàu cũ (.zip) — phần chưa kịp đồng bộ lên bờ không bị mất.
+        VesselDataPackageInfo? dataPackage = null;
+        if (check.RequiresReset)
+        {
+            var current = await _context.EdgeProvisioningProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.IsActive);
+            var (package, failure) = await CreateDataPackageAsync(current);
+            if (failure != null) return failure;
+            dataPackage = package;
+        }
+
         _context.SuppressSyncQueue = true;
         int? previousProfileId;
         var wipedRows = 0;
@@ -358,7 +371,7 @@ public class EdgeProvisioningController : ControllerBase
                 StartInitialPull();
         }
 
-        return Ok(new { activated = true, previousProfileId, reset = check.RequiresReset, wipedRows, fullSyncRequested });
+        return Ok(new { activated = true, previousProfileId, reset = check.RequiresReset, wipedRows, fullSyncRequested, dataPackage });
     }
 
     public class ResetRequest
@@ -379,6 +392,9 @@ public class EdgeProvisioningController : ControllerBase
             return BadRequest(new { error = "Chưa có gói cấu hình nào đang dùng." });
         if (!string.Equals(request.ConfirmImo?.Trim(), profile.VesselImo, StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { error = "IMO xác nhận không khớp tàu đang chạy." });
+
+        var (dataPackage, failure) = await CreateDataPackageAsync(profile);
+        if (failure != null) return failure;
 
         _context.SuppressSyncQueue = true;
         int wipedRows;
@@ -404,7 +420,68 @@ public class EdgeProvisioningController : ControllerBase
         if (fullSyncRequested)
             StartInitialPull();
         _logger.LogWarning("[VESSEL-SWITCH] Reset {NodeId} from shore: wiped {Rows} rows, fullSyncRequested={Requested}", profile.NodeId, wipedRows, fullSyncRequested);
-        return Ok(new { reset = true, wipedRows, fullSyncRequested });
+        return Ok(new { reset = true, wipedRows, fullSyncRequested, dataPackage });
+    }
+
+    /// <summary>Đóng gói dữ liệu tàu trước khi xoá. Lỗi → trả lỗi và KHÔNG xoá gì.</summary>
+    private async Task<(VesselDataPackageInfo? Package, IActionResult? Failure)> CreateDataPackageAsync(EdgeProvisioningProfile? current)
+    {
+        try
+        {
+            return (await _dataPackages.CreateAsync(current), null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[VESSEL-DATA] Không đóng gói được dữ liệu tàu — dừng, chưa xoá gì");
+            return (null, StatusCode(500, new { error = $"Không tạo được gói dữ liệu tàu cũ nên CHƯA xoá gì: {ex.Message}" }));
+        }
+    }
+
+    /// <summary>GET /api/edge/provisioning/data-packages — Các gói dữ liệu tàu đã tạo trên máy này.</summary>
+    [HttpGet("data-packages")]
+    public IActionResult ListDataPackages() => Ok(_dataPackages.List());
+
+    /// <summary>GET /api/edge/provisioning/data-packages/{fileName} — Tải gói dữ liệu (.zip).</summary>
+    [HttpGet("data-packages/{fileName}")]
+    public IActionResult DownloadDataPackage(string fileName)
+    {
+        var path = _dataPackages.ResolvePath(fileName);
+        return path == null
+            ? NotFound(new { error = "Không tìm thấy gói dữ liệu." })
+            : PhysicalFile(path, "application/zip", fileName);
+    }
+
+    /// <summary>
+    /// POST /api/edge/provisioning/data-packages/import — Nhập gói dữ liệu (.zip) của tàu ĐANG chạy để bù phần
+    /// bờ còn thiếu. Dòng đang có được giữ, trừ dòng tàu cũ chưa gửi lên bờ.
+    /// </summary>
+    [HttpPost("data-packages/import")]
+    [DisableRequestSizeLimit]
+    [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
+    public async Task<IActionResult> ImportDataPackage(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "Chưa chọn file gói dữ liệu (.zip)." });
+        if (!file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { error = "Gói dữ liệu phải là file .zip." });
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            return Ok(await _dataPackages.ImportAsync(stream));
+        }
+        catch (VesselDataPackageException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (System.IO.InvalidDataException)
+        {
+            return BadRequest(new { error = "File .zip hỏng hoặc không đọc được." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[VESSEL-DATA] Nhập gói dữ liệu thất bại");
+            return StatusCode(500, new { error = $"Nhập gói dữ liệu thất bại, dữ liệu không thay đổi: {ex.Message}" });
+        }
     }
 
     /// <summary>Kéo hết dữ liệu bờ vừa xếp hàng cho tàu mới, chạy nền để không giữ request.</summary>

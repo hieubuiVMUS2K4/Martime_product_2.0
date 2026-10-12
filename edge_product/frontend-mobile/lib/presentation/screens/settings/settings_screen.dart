@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
@@ -71,7 +72,7 @@ class SettingsScreen extends StatelessWidget {
                 subtitle: Text(authProvider.position ?? l10n.position),
                 trailing: Text(
                   '${l10n.crewId}: ${authProvider.crewId ?? l10n.notAvailable}',
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: MaritimeTheme.textSecondary),
                 ),
               ),
             ],
@@ -85,7 +86,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: Icon(
                   syncProvider.isOnline ? Icons.cloud_done : Icons.cloud_off,
-                  color: syncProvider.isOnline ? Colors.green : Colors.red,
+                  color: syncProvider.isOnline ? MaritimeTheme.success : MaritimeTheme.error,
                 ),
                 title: Text(l10n.syncStatus),
                 subtitle: Text(syncProvider.isOnline ? l10n.online : l10n.offline),
@@ -187,7 +188,7 @@ class SettingsScreen extends StatelessWidget {
                 _showLogoutDialog(context, authProvider);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: MaritimeTheme.error,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
@@ -268,7 +269,7 @@ class SettingsScreen extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: MaritimeTheme.error,
               foregroundColor: Colors.white,
             ),
             child: Text(l10n.confirm),
@@ -301,7 +302,7 @@ class SettingsScreen extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: MaritimeTheme.error,
               foregroundColor: Colors.white,
             ),
             child: Text(l10n.logout),

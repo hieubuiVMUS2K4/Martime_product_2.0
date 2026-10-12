@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/maintenance_task.dart';
@@ -119,7 +120,7 @@ class _CreateDeferralScreenState extends State<CreateDeferralScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.deferralRequestSent),
-            backgroundColor: Colors.green,
+            backgroundColor: MaritimeTheme.success,
           ),
         );
         Navigator.pop(context); // Close screen
@@ -142,7 +143,7 @@ class _CreateDeferralScreenState extends State<CreateDeferralScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.errorMessage(errorMsg)),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
             duration: const Duration(seconds: 5),
           ),
         );
@@ -193,7 +194,7 @@ class _CreateDeferralScreenState extends State<CreateDeferralScreen> {
           children: [
             // Task Info Summary
             Card(
-              color: Colors.grey.shade50,
+              color: MaritimeTheme.surfaceLight,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -208,7 +209,7 @@ class _CreateDeferralScreenState extends State<CreateDeferralScreen> {
                     if (isOverdue)
                       Text(
                         l10n.statusOverdue.toUpperCase(),
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: MaritimeTheme.error, fontWeight: FontWeight.bold),
                       ),
                   ],
                 ),
@@ -228,7 +229,7 @@ class _CreateDeferralScreenState extends State<CreateDeferralScreen> {
                 child: Text(
                   _proposedDate != null ? dateFormat.format(_proposedDate!) : l10n.selectDate,
                   style: TextStyle(
-                    color: _proposedDate != null ? Colors.black : Colors.grey,
+                    color: _proposedDate != null ? Colors.black : MaritimeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -326,7 +327,7 @@ class _CreateDeferralScreenState extends State<CreateDeferralScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   l10n.additionalInfoOverdue,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: MaritimeTheme.warning),
                 ),
               ),
               TextFormField(

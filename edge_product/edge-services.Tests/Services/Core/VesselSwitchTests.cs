@@ -24,7 +24,7 @@ namespace MaritimeEdge.Tests.Services.Core;
 /// (giữ danh mục dùng chung, tài khoản quản trị), rồi xin bờ gửi lại toàn bộ dữ liệu của tàu mới.
 /// Chạy trên PostgreSQL thật (xoá bằng SQL theo thứ tự khoá ngoại).
 /// </summary>
-public class VesselSwitchTests
+public partial class VesselSwitchTests
 {
     private const string OldImo = "1111111";
     private const string NewImo = "2222222";
@@ -93,7 +93,18 @@ public class VesselSwitchTests
         }
     }
 
-    private static (EdgeProvisioningController Controller, ShoreStub Shore) Controller(EdgeDbContext db, EdgeProvisioningProfile next, bool shoreOnline = true)
+    /// <summary>Thư mục gốc riêng cho mỗi test (gói dữ liệu + uploads/).</summary>
+    private static string TempRoot() => Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "edge-vessel-" + Guid.NewGuid().ToString("N")[..8])).FullName;
+
+    private static EdgeVesselDataPackageService Packages(EdgeDbContext db, string root)
+    {
+        var env = new Mock<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        env.Setup(e => e.ContentRootPath).Returns(root);
+        return new EdgeVesselDataPackageService(db, env.Object, NullLogger<EdgeVesselDataPackageService>.Instance);
+    }
+
+    private static (EdgeProvisioningController Controller, ShoreStub Shore) Controller(EdgeDbContext db, EdgeProvisioningProfile next, bool shoreOnline = true,
+        IEdgeVesselDataPackageService? packages = null)
     {
         var encryption = new Mock<IEdgeDataEncryptionService>();
         encryption.Setup(e => e.Decrypt(It.IsAny<string?>())).Returns((string? v) => v);
@@ -108,7 +119,8 @@ public class VesselSwitchTests
         var services = new ServiceCollection().AddSingleton(sync.Object).BuildServiceProvider();
 
         return (new EdgeProvisioningController(db, encryption.Object, Mock.Of<IEdgeRuntimeConfigService>(), factory.Object,
-            vesselSwitch, services.GetRequiredService<IServiceScopeFactory>(), NullLogger<EdgeProvisioningController>.Instance), shore);
+            vesselSwitch, services.GetRequiredService<IServiceScopeFactory>(), packages ?? Packages(db, TempRoot()),
+            NullLogger<EdgeProvisioningController>.Instance), shore);
     }
 
     private static EdgeProvisioningController.ProfileActionRequest Activate(EdgeProvisioningProfile p, bool confirm) =>

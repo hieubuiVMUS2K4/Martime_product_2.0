@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../l10n/app_localizations.dart';
@@ -85,7 +86,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Theme.of(context).colorScheme.primaryContainer
-                            : Colors.grey.shade100,
+                            : MaritimeTheme.surface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
@@ -105,7 +106,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                     subtitle: Text(
                       _getLanguageSubtitle(localeInfo.locale.languageCode),
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: MaritimeTheme.textSecondary,
                         fontSize: 13,
                       ),
                     ),
@@ -117,7 +118,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                           )
                         : Icon(
                             Icons.circle_outlined,
-                            color: Colors.grey.shade400,
+                            color: MaritimeTheme.textTertiary,
                             size: 28,
                           ),
                     onTap: () => _changeLanguage(
@@ -139,7 +140,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                 Icon(
                   Icons.info_outline,
                   size: 20,
-                  color: Colors.grey.shade600,
+                  color: MaritimeTheme.textSecondary,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -147,7 +148,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                     l10n.restartRequired,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: MaritimeTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -213,7 +214,7 @@ class LanguageSelectionScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.languageChanged),
-          backgroundColor: Colors.green,
+          backgroundColor: MaritimeTheme.success,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),

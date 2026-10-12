@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/alarm_provider.dart';
 import '../../../l10n/app_localizations.dart';
@@ -39,12 +40,12 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const Icon(Icons.error_outline, size: 64, color: MaritimeTheme.error),
                   const SizedBox(height: 16),
                   Text(
                     l10n.errorPrefix(provider.error ?? ''),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(color: MaritimeTheme.error),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
@@ -113,7 +114,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                         'Total',
                         '${stats.total}',
                         Icons.notifications,
-                        Colors.blue,
+                        MaritimeTheme.accent,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -122,7 +123,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                         'Active',
                         '${stats.active}',
                         Icons.warning_amber,
-                        Colors.orange,
+                        MaritimeTheme.warning,
                       ),
                     ),
                   ],
@@ -135,7 +136,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                         'Acknowledged',
                         '${stats.acknowledged}',
                         Icons.check_circle,
-                        Colors.green,
+                        MaritimeTheme.success,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -163,11 +164,11 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                 ...stats.bySeverity.map((item) {
                   Color color;
                   if (item.severity.toUpperCase() == 'CRITICAL') {
-                    color = Colors.red;
+                    color = MaritimeTheme.error;
                   } else if (item.severity.toUpperCase() == 'WARNING') {
-                    color = Colors.orange;
+                    color = MaritimeTheme.warning;
                   } else {
-                    color = Colors.blue;
+                    color = MaritimeTheme.accent;
                   }
                   
                   final percentage = stats.total > 0 
@@ -202,7 +203,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                     item.type,
                     item.count,
                     stats.total,
-                    Colors.indigo,
+                    MaritimeTheme.accent,
                     percentage,
                   );
                 }),
@@ -227,7 +228,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                       item.location,
                       item.count,
                       stats.total,
-                      Colors.teal,
+                      MaritimeTheme.info,
                       percentage,
                     );
                   }),
@@ -263,7 +264,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
               label,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey[600],
+                color: MaritimeTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -296,7 +297,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
                 '$count ($percentage%)',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: MaritimeTheme.textSecondary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -308,7 +309,7 @@ class _AlarmStatisticsScreenState extends State<AlarmStatisticsScreen> {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 12,
-              backgroundColor: Colors.grey[200],
+              backgroundColor: MaritimeTheme.divider,
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),

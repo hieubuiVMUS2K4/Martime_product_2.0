@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/server_config_dialog.dart';
@@ -65,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Login failed: ${authProvider.error}'),
-          backgroundColor: Colors.red,
+          backgroundColor: MaritimeTheme.error,
         ),
       );
     }
@@ -74,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue.shade50,
+      backgroundColor: MaritimeTheme.accentSoft,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -88,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(
                     Icons.sailing,
                     size: 100,
-                    color: Colors.blue.shade700,
+                    color: MaritimeTheme.primary,
                   ),
                   const SizedBox(height: 16),
                   
@@ -97,14 +98,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Maritime Crew App',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade900,
+                      color: MaritimeTheme.primary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Login to manage your tasks',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.grey.shade700,
+                      color: MaritimeTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 48),
@@ -198,21 +199,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: MaritimeTheme.accentSoft,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
+                        border: Border.all(color: MaritimeTheme.accentBorder),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.cloud, size: 16, color: Colors.blue.shade700),
+                          Icon(Icons.cloud, size: 16, color: MaritimeTheme.primary),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
                               _currentServerUrl,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.blue.shade900,
+                                color: MaritimeTheme.primary,
                                 fontWeight: FontWeight.w500,
                               ),
                               overflow: TextOverflow.ellipsis,

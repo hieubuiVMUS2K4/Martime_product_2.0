@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:maritime_crew_app/core/theme/maritime_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/api_constants.dart';
 
@@ -59,7 +60,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Server URL saved successfully! Please restart the app.'),
-            backgroundColor: Colors.green,
+            backgroundColor: MaritimeTheme.success,
             duration: Duration(seconds: 4),
           ),
         );
@@ -70,7 +71,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save URL: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: MaritimeTheme.error,
           ),
         );
       }
@@ -112,17 +113,17 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                   children: [
                     // Info Card
                     Card(
-                      color: Colors.blue.shade50,
+                      color: MaritimeTheme.accentSoft,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.blue.shade700),
+                            Icon(Icons.info_outline, color: MaritimeTheme.primary),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 'Configure the API server address. Make sure the server is accessible from your device.',
-                                style: TextStyle(color: Colors.blue.shade700),
+                                style: TextStyle(color: MaritimeTheme.primary),
                               ),
                             ),
                           ],
@@ -144,9 +145,9 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                       padding: const EdgeInsets.all(16),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: MaritimeTheme.surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: MaritimeTheme.border),
                       ),
                       child: Text(
                         _currentUrl.isEmpty ? 'Loading...' : _currentUrl,
@@ -218,17 +219,17 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
 
                     // Warning Card
                     Card(
-                      color: Colors.orange.shade50,
+                      color: MaritimeTheme.warningSoft,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                            Icon(Icons.warning_amber_rounded, color: MaritimeTheme.warning),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 'Changing the server URL requires app restart to take effect.',
-                                style: TextStyle(color: Colors.orange.shade900),
+                                style: TextStyle(color: MaritimeTheme.warning),
                               ),
                             ),
                           ],
@@ -271,7 +272,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: MaritimeTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
