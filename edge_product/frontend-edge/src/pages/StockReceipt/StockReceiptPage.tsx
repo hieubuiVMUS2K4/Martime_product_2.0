@@ -1,3 +1,5 @@
+import { CatalogSelect } from '@/components/common/CatalogSelect';
+import { UNITS_OF_MEASURE } from '@/config/catalogs';
 import { ApprovalHistory } from "@/components/ApprovalHistory";
 import { apiClient } from '@/services/api.client';
 import { PermissionGate } from '@/components/auth/PermissionGate'
@@ -845,7 +847,7 @@ export default function StockReceiptPage() {
                             {materialOptions.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                           </select>
                         </td>
-                        <td className="px-2 py-1.5"><input type="text" value={item.unit} onChange={e => updateFormItem(idx, 'unit', e.target.value)} className="w-full border border-gray-300 px-1 py-1 text-xs" /></td>
+                        <td className="px-2 py-1.5"><CatalogSelect options={UNITS_OF_MEASURE} value={item.unit} onChange={e => updateFormItem(idx, 'unit', e.target.value)} className="w-full border border-gray-300 px-1 py-1 text-xs" /></td>
                         <td className="px-2 py-1.5"><input type="number" min={0} value={item.quantityRequested} onChange={e => updateFormItem(idx, 'quantityRequested', Number(e.target.value))} className="w-full border border-gray-300 px-1 py-1 text-xs text-right" /></td>
                         <td className="px-2 py-1.5"><input type="number" min={0} value={item.quantityReceived} onChange={e => updateFormItem(idx, 'quantityReceived', Number(e.target.value))} className="w-full border border-gray-300 px-1 py-1 text-xs text-right" /></td>
                         <td className="px-2 py-1.5"><input type="number" min={0} step={0.01} value={item.unitCost ?? ''} onChange={e => updateFormItem(idx, 'unitCost', e.target.value ? Number(e.target.value) : null)} className="w-full border border-gray-300 px-1 py-1 text-xs text-right" /></td>

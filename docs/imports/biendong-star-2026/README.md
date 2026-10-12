@@ -1,6 +1,6 @@
 # Tách kế hoạch BIENDONG STAR 2026
 
-Nguồn: Copy of KHBQBD 2026 Biendong star - .xls, gồm May BD.star 2026 và BOONG BD STAR 2026. Chưa nhập dữ liệu vào database tàu.
+Nguồn: Copy of KHBQBD 2026 Biendong star - .xls, gồm May BD.star 2026 và BOONG BD STAR 2026. Ngày 12/10/2026 đã nhập cây thiết bị và danh mục vật tư tổng quát vào database Edge tàu BIENDONG STAR (IMO 9228289); chưa nhập lịch công việc bảo trì từ bộ file này. Chi tiết tại [database-import/README.md](database-import/README.md).
 
 - BIENDONG_STAR_2026_Thiet_bi.xlsx: sheet Equipment theo cột mẫu import hiện có (AssetCode, AssetName, Category, ParentAssetCode). 662 thiết bị và 91 tiêu đề/nhóm, gồm hai nhóm gốc Máy/Boong. Các nhóm cần được người dùng gán người phụ trách sau khi import.
 - BIENDONG_STAR_2026_Cong_viec_bao_tri.xlsx: 680 công việc. WorkCode giữ nguyên mã công việc nguồn, AssetCode liên kết file thiết bị. ScheduleCode là khóa import riêng theo sheet/dòng; không dùng mã công việc nguồn làm mã thiết bị.

@@ -1,3 +1,5 @@
+import { CatalogSelect } from '@/components/common/CatalogSelect';
+import { CARGO_TYPES } from '@/config/catalogs';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Arrival Report Creation Form
@@ -705,13 +707,12 @@ export function ArrivalReportForm() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cargo Description</label>
-                <input
+                <CatalogSelect
+                  options={CARGO_TYPES}
                   ref={setFieldRef('cargoDescription')}
-                  type="text"
                   value={formData.cargoDescription || ''}
                   onChange={(e) => handleChange('cargoDescription', e.target.value)}
                   className={getValidationInputClassName(fieldErrors, 'cargoDescription')}
-                  placeholder="Cargo carried on arrival"
                 />
                 {renderValidationFieldError(fieldErrors, 'cargoDescription')}
               </div>

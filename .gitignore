@@ -251,3 +251,11 @@ token.txt
 wr_job_latest.json
 shore_product/scripts/tmp-*
 
+# Local catalog audit backups, build outputs and verification artifacts
+/artifacts/catalog-audit-backend/
+/artifacts/catalog-audit-runtime-backup/
+/artifacts/catalog-audit-verification.json
+/artifacts/tmp-catalog-tests/
+/artifacts/database-backups/
+/scripts/database/__pycache__/
+

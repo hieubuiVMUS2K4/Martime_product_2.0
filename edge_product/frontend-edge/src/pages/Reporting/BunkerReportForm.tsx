@@ -1,3 +1,4 @@
+import { PortCombobox } from '@/components/common/PortCombobox';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Bunker Report Form
@@ -407,15 +408,10 @@ export function BunkerReportForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Port Name <span className="text-red-600">*</span>
               </label>
-              <input
-                ref={setFieldRef('portName')}
-                type="text"
-                value={formData.portName}
-                onChange={(e) => handleChange('portName', e.target.value)}
-                placeholder="e.g., Singapore"
-                className={getValidationInputClassName(fieldErrors, 'portName')}
-                required
-              />
+              <div ref={element => { fieldRefs.current.portName = element?.querySelector('input') ?? null; }}>
+                <PortCombobox portName={formData.portName || ''} portCode={formData.portCode || ''}
+                  onChange={(portName, portCode) => { handleChange('portName', portName); handleChange('portCode', portCode); }} required />
+              </div>
               {renderValidationFieldError(fieldErrors, 'portName')}
             </div>
 
@@ -424,7 +420,7 @@ export function BunkerReportForm() {
               <input
                 type="text"
                 value={formData.portCode || ''}
-                onChange={(e) => handleChange('portCode', e.target.value)}
+                readOnly
                 placeholder="e.g., SGSIN"
                 className={getValidationInputClassName(fieldErrors, 'portCode')}
                 maxLength={5}

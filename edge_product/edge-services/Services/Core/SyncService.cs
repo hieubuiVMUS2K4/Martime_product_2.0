@@ -230,6 +230,18 @@ public class SyncService : ISyncService
                 .Where(q => allowedPriorities.Contains(q.Priority))
                     .Where(q => q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)
                 .Where(q => !context.SyncQueue.Any(prior => prior.TableName == q.TableName && prior.RecordKey == q.RecordKey && prior.SyncedAt == null && prior.Id < q.Id))
+                // Filter before Take: a large import can fill every FIFO batch with
+                // children while their parent is queued later (UUID order). Wait
+                // for the parent's durable receipt, including during its cooldown.
+                .Where(q => q.TableName != "equipment_asset" || q.ActionType == SyncActionType.DELETE ||
+                    !context.EquipmentAssets.Any(asset => asset.Id.ToString() == q.RecordKey && asset.ParentId.HasValue &&
+                        (context.SyncQueue.Any(parent => parent.TableName == "equipment_asset" &&
+                            parent.RecordKey == asset.ParentId.Value.ToString() && parent.SyncedAt == null &&
+                            parent.ActionType != SyncActionType.DELETE) ||
+                         context.EquipmentAssets.Any(parentAsset => parentAsset.Id == asset.ParentId.Value && !parentAsset.IsSynced &&
+                            !context.SyncQueue.Any(delivered => delivered.TableName == "equipment_asset" &&
+                                delivered.RecordKey == parentAsset.Id.ToString() && delivered.SyncedAt != null &&
+                                (delivered.ActionType == SyncActionType.CREATE || delivered.ActionType == SyncActionType.SNAPSHOT))))))
                 .OrderBy(q => q.Priority) // Critical first
                 .ThenBy(q => q.CreatedAt) // FIFO
                 .Take(batchSize)
