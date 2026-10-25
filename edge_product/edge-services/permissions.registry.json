@@ -395,7 +395,8 @@
         "create",
         "update",
         "delete",
-        "export"
+        "export",
+        "approve"
       ]
     },
     {
@@ -419,6 +420,32 @@
       "actions": [
         "view",
         "update"
+      ]
+    },
+    {
+      "code": "hsqe.records",
+      "name": "Ký hồ sơ SMS",
+      "group": "HSQE",
+      "routes": [],
+      "actions": [
+        "view",
+        "sign",
+        "approve",
+        "reject"
+      ]
+    },
+    {
+      "code": "hsqe.permits",
+      "name": "Cấp phép làm việc",
+      "group": "HSQE",
+      "routes": [],
+      "actions": [
+        "view",
+        "check",
+        "issue",
+        "close",
+        "suspend",
+        "reject"
       ]
     }
   ],
@@ -2929,7 +2956,7 @@
       "controller": "Hsqe",
       "action": "ClosePermit",
       "grants": [
-        "hsqe.update"
+        "hsqe.permits.close"
       ]
     },
     {
@@ -2999,14 +3026,14 @@
       "controller": "Sms",
       "action": "SignRecord",
       "grants": [
-        "hsqe.approve"
+        "hsqe.records.sign"
       ]
     },
     {
       "controller": "Sms",
       "action": "ApproveRecord",
       "grants": [
-        "hsqe.approve"
+        "hsqe.records.approve"
       ]
     },
     {
@@ -3789,6 +3816,46 @@
       "action": "GetReport",
       "grants": [
         "pms.work.view"
+      ]
+    },
+    {
+      "controller": "Hsqe",
+      "action": "UpdateDraftPermit",
+      "grants": [
+        "hsqe.update"
+      ]
+    },
+    {
+      "controller": "Approvals",
+      "action": "Act",
+      "grants": [
+        "hsqe.records.sign",
+        "hsqe.records.approve",
+        "hsqe.records.reject",
+        "hsqe.permits.check",
+        "hsqe.permits.issue",
+        "hsqe.permits.close",
+        "hsqe.permits.suspend",
+        "hsqe.permits.reject",
+        "logbooks.abstract.approve"
+      ]
+    },
+    {
+      "controller": "Approvals",
+      "action": "History",
+      "grants": [
+        "hsqe.records.view",
+        "hsqe.permits.view"
+      ]
+    },
+    {
+      "controller": "Approvals",
+      "action": "Context",
+      "grants": [
+        "hsqe.records.view",
+        "hsqe.permits.view",
+        "pms.work.view",
+        "pms.receipts.view"
       ]
     }
   ]

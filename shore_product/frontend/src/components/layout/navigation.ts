@@ -45,6 +45,7 @@ export const NAVIGATION: NavEntry[] = [
   { kind: 'link', path: '/weather-routing', label: 'Tối ưu tuyến', icon: Route },
   { kind: 'link', path: '/sms', label: 'Hệ thống SMS', icon: ShieldAlert },
   { kind: 'link', path: '/sync', label: 'Đồng bộ', icon: RefreshCw },
+  { kind: 'link', path: '/approval-evidence', label: 'Hồ sơ ký', icon: RefreshCw },
 ];
 
 /**

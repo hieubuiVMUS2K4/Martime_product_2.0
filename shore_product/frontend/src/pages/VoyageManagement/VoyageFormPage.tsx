@@ -1,3 +1,5 @@
+import { CatalogSelect } from '@/components/common/CatalogSelect';
+import { CARGO_TYPES } from '@/config/catalogs';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, X } from 'lucide-react';
@@ -307,7 +309,7 @@ export const VoyageFormPage: React.FC = () => {
                   {CHARTER_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
               </G>
-              <G l="Loại hàng"><input value={form.cargoType} onChange={e => up('cargoType', e.target.value)} /></G>
+              <G l="Loại hàng"><CatalogSelect options={CARGO_TYPES} value={form.cargoType} onChange={e => up('cargoType', e.target.value)} /></G>
               <G l="Trọng lượng (MT)"><input type="number" step="0.1" value={form.cargoWeight} onChange={e => up('cargoWeight', e.target.value)} /></G>
               <G l="Chỉ thị hải trình" full><textarea value={form.voyageInstructions} onChange={e => up('voyageInstructions', e.target.value)} rows={2} /></G>
             </div>
@@ -457,7 +459,7 @@ export const VoyageFormPage: React.FC = () => {
                       {CARGO_OPS.map(t => <option key={t}>{t}</option>)}
                     </select>
                   </G>
-                  <G l="Loại hàng"><input value={cp.cargoType} onChange={e => setCargoPlans(prev => prev.map((x, j) => j === i ? { ...x, cargoType: e.target.value } : x))} /></G>
+                  <G l="Loại hàng"><CatalogSelect options={CARGO_TYPES} value={cp.cargoType} onChange={e => setCargoPlans(prev => prev.map((x, j) => j === i ? { ...x, cargoType: e.target.value } : x))} /></G>
                   <G l="Số lượng"><input type="number" step="0.01" value={cp.plannedQuantity} onChange={e => setCargoPlans(prev => prev.map((x, j) => j === i ? { ...x, plannedQuantity: parseFloat(e.target.value) || 0 } : x))} /></G>
                   <G l="Đơn vị"><input value={cp.unit || 'MT'} onChange={e => setCargoPlans(prev => prev.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} /></G>
                   <G l="Cảng"><input value={cp.portName || ''} onChange={e => setCargoPlans(prev => prev.map((x, j) => j === i ? { ...x, portName: e.target.value } : x))} /></G>

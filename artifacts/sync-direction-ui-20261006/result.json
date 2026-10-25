@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "baseUrl": "http://127.0.0.1:3002",
+  "rankReads": 7,
+  "errors": [],
+  "checks": [
+    "filters",
+    "requirements",
+    "refresh",
+    "error recovery",
+    "mobile",
+    "certificate tab refresh",
+    "read-only ports",
+    "Vietnamese",
+    "dark theme"
+  ],
+  "mockedApi": true
+}

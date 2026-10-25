@@ -6,6 +6,8 @@ import { PermissionGate } from '@/components/auth/PermissionGate'
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ReportFormError } from './ReportFormError';
+import { focusFirstValidationError } from './reportFormValidation';
 import { toast } from 'sonner';
 import { 
   Ship, 
@@ -429,14 +431,7 @@ export function NoonReportForm() {
 
   // Helper to scroll to first error field
   const scrollToFirstError = (fieldErrorsMap: Record<string, string>) => {
-    const firstErrorField = Object.keys(fieldErrorsMap)[0];
-    if (firstErrorField) {
-      const fieldRef = fieldRefs.current[firstErrorField];
-      if (fieldRef) {
-        fieldRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => fieldRef.focus(), 150);
-      }
-    }
+    focusFirstValidationError(fieldRefs, fieldErrorsMap);
   };
 
   const applyFieldErrors = (nextFieldErrors: Record<string, string>) => {
@@ -746,20 +741,7 @@ export function NoonReportForm() {
           </div>
         )}
 
-        {/* Error Message - Enhanced */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 rounded-r-xl p-4 mb-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-red-900 mb-1">Error</h3>
-                <p className="text-sm text-red-700 whitespace-pre-wrap">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        <ReportFormError error={error} />
 
         <form className="space-y-4">
           {/* Report Info - Compact */}

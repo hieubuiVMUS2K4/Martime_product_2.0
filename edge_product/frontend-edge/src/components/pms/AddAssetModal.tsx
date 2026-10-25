@@ -1,3 +1,4 @@
+import { maritimeService } from '@/services/maritime.service';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
@@ -14,10 +15,7 @@ const CATEGORIES = [
 
 const CRITICALITY_LEVELS = ['CRITICAL', 'HIGH', 'NORMAL', 'LOW'];
 
-const CREW_RANKS = [
-  'MASTER', 'C/E', 'C/O', '2/E', '3/E', '4/E', 'E/O', '2/O', '3/O',
-  'BOSUN', 'AB', 'OS', 'FITTER', 'OILER', 'COOK'
-];
+
 
 interface AddAssetModalProps {
   isOpen: boolean;
@@ -26,6 +24,13 @@ interface AddAssetModalProps {
 }
 
 export function AddAssetModal({ isOpen, onClose, onSuccess }: AddAssetModalProps) {
+  const [ranks, setRanks] = useState<{ rankCode: string; rankName: string }[]>([]);
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    maritimeService.ranks.getAll().then(data => { if (!cancelled) setRanks(data); }).catch(() => { if (!cancelled) toast.error('Kh?ng t?i ???c danh m?c ch?c danh'); });
+    return () => { cancelled = true; };
+  }, [isOpen]);
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
@@ -275,8 +280,8 @@ export function AddAssetModal({ isOpen, onClose, onSuccess }: AddAssetModalProps
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">None (Manual Assignment)</option>
-                {CREW_RANKS.map(rank => (
-                  <option key={rank} value={rank}>{rank}</option>
+                {ranks.map(rank => (
+                  <option key={rank.rankCode} value={rank.rankCode}>{rank.rankCode} ? {rank.rankName}</option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-500">
@@ -295,8 +300,8 @@ export function AddAssetModal({ isOpen, onClose, onSuccess }: AddAssetModalProps
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">None</option>
-                {CREW_RANKS.map(rank => (
-                  <option key={rank} value={rank}>{rank}</option>
+                {ranks.map(rank => (
+                  <option key={rank.rankCode} value={rank.rankCode}>{rank.rankCode} ? {rank.rankName}</option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-500">

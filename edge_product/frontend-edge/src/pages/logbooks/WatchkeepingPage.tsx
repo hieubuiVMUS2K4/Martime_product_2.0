@@ -1,9 +1,11 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
 import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { CoordinatePicker } from '../../components/common/CoordinatePicker';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { logbookService } from '../../services/logbook.service';
 import type { WatchkeepingLogResponseDto } from '../../types/logbook.types';
 import { useTranslationSafe } from '@/contexts/I18nContext';
@@ -354,7 +356,7 @@ export const WatchkeepingPage: React.FC = () => {
       fetchEntries();
     } catch (error) {
       console.error(error);
-      toast.error(t('logbooks.watchkeeping.signFailed'));
+      reportSigningError(error, t('logbooks.watchkeeping.signFailed'));
     }
   };
 
@@ -378,24 +380,24 @@ export const WatchkeepingPage: React.FC = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="bg-blue-600 text-white p-6 rounded-t-xl">
+          <div className="operations-section-title rounded-t-lg">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-2xl font-bold">{t('logbooks.watchkeeping.watchkeepingDetails')}</h2>
-                <p className="text-blue-100 mt-1">
+                <h2 className="text-sm font-semibold">{t('logbooks.watchkeeping.watchkeepingDetails')}</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {new Date(entry.watchDate).toLocaleDateString(isVi ? 'vi-VN' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <button
                 onClick={closeDetailModal}
-                className="text-white hover:bg-blue-700 rounded-full p-2 transition-colors"
+                className="text-gray-500 hover:bg-blue-100 dark:hover:bg-gray-700 rounded p-1.5 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="flex gap-3 mt-4">
+            <div className="flex flex-wrap gap-2 mt-3 text-white">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${entry.watchType === 'NAVIGATION' ? 'bg-blue-500' : 'bg-orange-500'}`}>
                 {entry.watchType === 'NAVIGATION' 
                   ? `🧭 ${t('logbooks.watchkeeping.navigationWatch')}` 
@@ -404,7 +406,8 @@ export const WatchkeepingPage: React.FC = () => {
               <span className="px-3 py-1 bg-blue-500 rounded-full text-sm font-medium">
                 ⏰ {entry.watchPeriod}
               </span>
-              {entry.masterSignature ? (
+              <SigningControls module="log-watchkeeping" recordKey={entry.id} permission="logbooks.watchkeeping.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                 <span className="px-3 py-1 bg-green-500 rounded-full text-sm font-medium">✓ {t('logbooks.watchkeeping.signed')}</span>
               ) : (
                 <span className="px-3 py-1 bg-yellow-500 text-black rounded-full text-sm font-medium">{t('logbooks.abstractLog.draft')}</span>
@@ -413,9 +416,9 @@ export const WatchkeepingPage: React.FC = () => {
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="p-4 space-y-4">
             {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-900 border-b pb-2">👤 {t('logbooks.watchkeeping.watchPersonnel')}</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -550,7 +553,7 @@ export const WatchkeepingPage: React.FC = () => {
             </div>
 
             {/* GMDSS & Fatigue */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-900 border-b pb-2">📡 {t('logbooks.watchkeeping.gmdssWatch')}</h3>
                 <div className="text-sm">
@@ -679,7 +682,7 @@ export const WatchkeepingPage: React.FC = () => {
                 </button></PermissionGate>
                 <PermissionGate permission="logbooks.watchkeeping.approve"><button
                   onClick={() => {
-                    handleSign(entry.id, 'Master Signature');
+                    handleSign(entry.id, '');
                     closeDetailModal();
                   }}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -714,19 +717,19 @@ export const WatchkeepingPage: React.FC = () => {
               setShowForm(true);
             }
           }}
-          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+          className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-none"
         >
           {showForm ? '✕ Cancel' : '+ New Watch'}
         </button></PermissionGate>
       }
     >
       {showForm && (
-        <div className="bg-white p-6 border border-blue-200 rounded-lg shadow-lg mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
+        <div className="bg-white p-4 border border-blue-200 rounded-lg shadow-lg mb-6">
+          <h2 className="operations-section-title text-sm font-semibold text-gray-900 mb-6">
             {editingId ? 'Edit Watch Details' : 'Record Watch Details'}
           </h2>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Left Column - Basic Info */}
             <div className="flex flex-col gap-4">
               <h3 className="text-sm font-semibold text-gray-700  border-b border-gray-200 pb-2">
@@ -1074,7 +1077,7 @@ export const WatchkeepingPage: React.FC = () => {
           </div>
 
           {/* GMDSS & Fatigue */}
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* GMDSS Watch */}
             <div className="p-4 border border-purple-200 rounded-lg bg-purple-50">
               <h3 className="text-purple-700 font-semibold text-sm border-b border-purple-200 pb-2 mb-4">
@@ -1197,7 +1200,7 @@ export const WatchkeepingPage: React.FC = () => {
             </button>
             <PermissionGate permission={editingId ? 'logbooks.watchkeeping.update' : 'logbooks.watchkeeping.create'}><button
               onClick={handleSubmit}
-              className="bg-green-600 text-white font-semibold py-2.5 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-md"
+              className="bg-green-600 text-white font-semibold py-1.5 px-8 rounded-lg hover:bg-green-700 transition-colors shadow-none"
             >
               {editingId ? 'Update Watch Entry' : 'Save Watch Entry'}
             </button></PermissionGate>
@@ -1207,7 +1210,7 @@ export const WatchkeepingPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-gray-700 font-semibold text-sm">
               <th className="p-4 border-b border-gray-200">Date</th>
@@ -1307,7 +1310,7 @@ export const WatchkeepingPage: React.FC = () => {
                         <PermissionGate permission="logbooks.watchkeeping.approve"><button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleSign(entry.id, 'Master Signature');
+                            handleSign(entry.id, '');
                           }}
                           className="text-green-600 hover:underline font-sans text-sm"
                         >
@@ -1324,9 +1327,9 @@ export const WatchkeepingPage: React.FC = () => {
       </div>
 
       {/* Notable Events Display */}
-      {entries.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Notable Events</h3>
+      {entries.some(entry => entry.notableEvents) && (
+        <div className="mt-4">
+          <h3 className="operations-section-title mb-3">Recent Notable Events</h3>
           <div className="space-y-3">
             {entries.filter(e => e.notableEvents).slice(0, 5).map(entry => (
               <div 

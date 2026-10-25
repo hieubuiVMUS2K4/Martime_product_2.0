@@ -129,11 +129,9 @@ namespace MaritimeEdge.DTOs.Logbooks
 
     public class SignBallastWaterDto
     {
-        [Required]
         [MaxLength(100)]
         public string MasterSignature { get; set; } = string.Empty;
         
-        [Required]
         public DateTime SignedAt { get; set; }
     }
 }

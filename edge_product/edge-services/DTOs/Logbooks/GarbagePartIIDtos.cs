@@ -149,11 +149,9 @@ namespace MaritimeEdge.DTOs.Logbooks
     /// </summary>
     public class SignGarbagePartIIDto
     {
-        [Required]
         [MaxLength(100)]
         public string MasterSignature { get; set; } = string.Empty;
 
-        [Required]
         public DateTime SignedAt { get; set; }
     }
 }

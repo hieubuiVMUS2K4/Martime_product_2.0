@@ -1,3 +1,7 @@
+import { CatalogSelect } from '@/components/common/CatalogSelect'
+import { UNITS_OF_MEASURE } from '@/config/catalogs'
+import { storeLocationService } from '@/services/store-location.service'
+import type { StoreLocation } from '@/types/pms.types'
 import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Trash2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Package, FileText, ClipboardList } from 'lucide-react'
 import type { MaterialItem, MaterialCategory } from '@/types/maritime.types'
@@ -58,6 +62,13 @@ export function ItemFormModal({
     notes: '',
     isActive: true,
   })
+  const [locations, setLocations] = useState<StoreLocation[]>([])
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    storeLocationService.getAll().then(data => { if (!cancelled) setLocations(data.filter(x => x.isActive)) }).catch(() => { if (!cancelled) setError('Kh?ng t?i ???c danh m?c kho. Vui l?ng m? l?i bi?u m?u.') })
+    return () => { cancelled = true }
+  }, [isOpen])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -256,7 +267,11 @@ export function ItemFormModal({
                         </div>
                         <div className="flex items-center">
                           <label className={lbl} style={{ width: 120 }}>Kho lưu trữ</label>
-                          <input type="text" maxLength={100} value={formData.location || ''} onChange={e => set('location', e.target.value)} className={cls} readOnly={ro} />
+                          <select value={formData.location || ''} onChange={e => set('location', e.target.value)} className={cls} disabled={ro}>
+                            <option value="">? Ch?n kho ?</option>
+                            {formData.location && !locations.some(l => l.locationCode === formData.location) && <option value={formData.location}>{formData.location}</option>}
+                            {locations.map(l => <option key={l.id} value={l.locationCode}>{l.locationCode} ? {l.name}</option>)}
+                          </select>
                         </div>
                         <div className="flex items-center">
                           <label className={lbl} style={{ width: 120 }}>Barcode</label>
@@ -268,7 +283,7 @@ export function ItemFormModal({
                       <div className="flex-1 space-y-2.5">
                         <div className="flex items-center">
                           <label className={lbl} style={{ width: 110 }}>Đơn vị <span className="text-red-500">*</span></label>
-                          <input type="text" required maxLength={20} value={formData.unit} onChange={e => set('unit', e.target.value)} className={cls} readOnly={ro} />
+                          <CatalogSelect options={UNITS_OF_MEASURE} required value={formData.unit} onChange={e => set('unit', e.target.value)} className={cls} disabled={ro} />
                         </div>
                         <div className="flex items-center">
                           <label className={lbl} style={{ width: 110 }}>Mô tả/Spec</label>

@@ -1,5 +1,7 @@
 # 📊 Sync Ownership Matrix: Shore ↔ Edge
 
+> Historical design (April 2026). Some entity names, permissions and conflict policies below differ from the current implementation. See [the October review](SYNC_LOGIC_REVIEW_2026-10-06.md) and [implemented fixes](SYNC_DIRECTION_FIXES_2026-10-06.md) before using this matrix as an implementation contract.
+
 **Version:** 1.0  
 **Date:** April 5, 2026  
 **Phase:** Phase 2.2 - Bidirectional Voyage Sync  

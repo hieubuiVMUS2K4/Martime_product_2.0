@@ -11,6 +11,9 @@ namespace ProductApi.Data
         {
         }
 
+        public DbSet<ApprovalDocument> ApprovalDocuments { get; set; } = null!;
+        public DbSet<ApprovalRevision> ApprovalRevisions { get; set; } = null!;
+        public DbSet<ApprovalAction> ApprovalActions { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Ship> Ships { get; set; } = null!;
         public DbSet<CrewMember> CrewMembers { get; set; } = null!;
@@ -201,6 +204,13 @@ namespace ProductApi.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<ApprovalDocument>().HasIndex(d => new { d.OriginNode, d.Module, d.RecordKey }).IsUnique();
+        modelBuilder.Entity<ApprovalRevision>().HasIndex(r => new { r.DocumentId, r.Revision }).IsUnique();
+        modelBuilder.Entity<ApprovalRevision>().HasOne<ApprovalDocument>().WithMany().HasForeignKey(r => r.DocumentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ApprovalAction>().HasIndex(a => new { a.OriginNode, a.ActorUserId, a.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<ApprovalAction>().HasOne<ApprovalDocument>().WithMany().HasForeignKey(a => a.DocumentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ApprovalAction>().HasOne<ApprovalRevision>().WithMany().HasForeignKey(a => a.RevisionId).OnDelete(DeleteBehavior.Restrict);
+
             ConfigureSensorAndDeferralMirrors(modelBuilder);
 
             // Configure Vessel

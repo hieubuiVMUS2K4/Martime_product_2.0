@@ -115,7 +115,7 @@ public class PeriodicTaskCycleTests
     public async Task TwoCycles_KeepTaskIdentityAndFreezeReportsBeforeReset()
     {
         await using var db = Database();
-        var now = new DateTime(2026, 10, 1, 10, 0, 0, DateTimeKind.Utc);
+        var now = DateTime.UtcNow;
         var asset = new EquipmentAsset { AssetCode = "ME", AssetName = "Main engine", Category = "ENGINE", CurrentRunningHours = 100 };
         var schedule = new MaintenanceSchedule { ScheduleCode = "CHECK", ScheduleName = "Check engine", EquipmentAssetId = asset.Id,
             MaintenanceCategory = "PERIODIC", IntervalType = "CALENDAR", IntervalDays = 30, IsActive = true, AutoGenerate = true };

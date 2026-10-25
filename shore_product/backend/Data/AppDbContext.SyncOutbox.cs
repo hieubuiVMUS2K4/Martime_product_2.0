@@ -14,8 +14,10 @@ public partial class AppDbContext
     private static readonly HashSet<string> OutgoingTables = new(StringComparer.OrdinalIgnoreCase)
     {
         "certificate", "country", "rank", "rank_certificate", "country_certificate", "port", "report_type",
-        "crew_member", "crew_certificate", "crew_logbook_entry", "crew_member_document", "ism_element", "sms_procedure", "sms_form_template",
-        "voyage_record", "voyage_plan_leg", "voyage_crew_assignment", "voyage_cargo_plan", "voyage_bunker_plan",
+        "crew_member", "crew_certificate", "crew_logbook_entry", "crew_member_document", "travel_document", "seafarer_document",
+        "employment_document", "health_document", "ism_element", "sms_procedure", "sms_form_template",
+        "voyage_record", "voyage_plan_leg", "port_call", "voyage_status_history", "voyage_crew_assignment",
+        "voyage_log_entry", "cargo_operation", "voyage_cargo_plan", "voyage_bunker_plan",
         "voyage_crew_change_plan", "voyage_cost_estimate", "voyage_revenue_estimate", "voyage_expense_request",
         "voyage_advance_payment", "voyage_disbursement", "voyage_actual_revenue", "voyage_settlement",
         "material_category", "material_item_catalog",
@@ -23,9 +25,9 @@ public partial class AppDbContext
         "equipment_asset", "maintenance_schedule"
     };
 
-    private List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey, Guid? PreviousVesselId)> CaptureOutgoingChanges()
+    private async Task<List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey, Guid? PreviousVesselId, string? VoyageTarget, string? VoyageImo)>> CaptureOutgoingChangesAsync(CancellationToken token)
     {
-        var result = new List<(object, string, SyncActionType, string?, string?, Guid?)>();
+        var result = new List<(object, string, SyncActionType, string?, string?, Guid?, string?, string?)>();
         if (SuppressAutoOutbox) return result;
         ChangeTracker.DetectChanges();
         foreach (var entry in ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList())
@@ -39,13 +41,34 @@ public partial class AppDbContext
             // Thuyền viên vừa rời tàu (VesselId → null) vẫn phải báo cho tàu cũ: giữ tàu trước khi sửa.
             Guid? previousVessel = entry.Entity is Maritime.Shared.Models.Crew.CrewMember && entry.State != EntityState.Added
                 ? entry.Property("VesselId").OriginalValue as Guid? : null;
+            string? voyageTarget = null;
+            string? voyageImo = null;
+            if (ProductApi.Services.Sync.VoyageSyncRouting.IsVoyageTable(table))
+            {
+                // Resolve before SaveChanges removes deleted parents from the tracker/database.
+                // Unassigned drafts retain a durable voyage:* route until a vessel is assigned.
+                var key = entry.Properties.First(p => p.Metadata.IsPrimaryKey()).CurrentValue?.ToString()
+                    ?? throw new InvalidOperationException("Cannot route a voyage event without a record key.");
+                voyageTarget = await ProductApi.Services.Sync.VoyageSyncRouting.ResolveTargetAsync(
+                    this, table, key, SerializeSyncScalars(entry.Entity), token);
+                voyageImo = await TargetVesselImoAsync(entry.Entity, table, previousVessel, token);
+            }
             result.Add((entry.Entity, table, deleting ? SyncActionType.DELETE : SyncActionType.SNAPSHOT,
                 deleting ? SerializeSyncScalars(entry.Entity) : null,
                 deleting ? entry.Properties.First(p => p.Metadata.IsPrimaryKey()).CurrentValue?.ToString() : null,
-                previousVessel));
+                previousVessel, voyageTarget, voyageImo));
         }
-        return result;
+        return result.OrderBy(change => change.Item3 == SyncActionType.DELETE
+            ? -OutgoingDependencyOrder(change.Item2) : OutgoingDependencyOrder(change.Item2)).ToList();
     }
+
+    private static int OutgoingDependencyOrder(string table) => table switch
+    {
+        "country" or "rank" or "certificate" or "report_type" or "ism_element" => 0,
+        "crew_member" or "voyage_record" => 10,
+        "voyage_plan_leg" or "sms_procedure" => 20,
+        _ => 30
+    };
 
     private string SerializeSyncScalars(object entity)
     {
@@ -53,7 +76,7 @@ public partial class AppDbContext
         return JsonSerializer.Serialize(values);
     }
 
-    private async Task AddCapturedOutboxAsync(List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey, Guid? PreviousVesselId)> changes, CancellationToken token)
+    private async Task AddCapturedOutboxAsync(List<(object Entity, string Table, SyncActionType Action, string? DeletedPayload, string? DeletedKey, Guid? PreviousVesselId, string? VoyageTarget, string? VoyageImo)> changes, CancellationToken token)
     {
         foreach (var change in changes)
         {
@@ -61,7 +84,12 @@ public partial class AppDbContext
             if (string.IsNullOrEmpty(key)) throw new InvalidOperationException("Cannot persist an outbox event without a record key.");
             var target = "*";
             string? stampImo = null;
-            if (!ProductApi.Services.Sync.SyncOutboxService.SharedCatalogTables.Contains(change.Table))
+            if (change.VoyageTarget != null)
+            {
+                target = change.VoyageTarget;
+                stampImo = change.VoyageImo;
+            }
+            else if (!ProductApi.Services.Sync.SyncOutboxService.SharedCatalogTables.Contains(change.Table))
             {
                 // Dữ liệu riêng của tàu: chỉ tới đúng một tàu. Không xác định được tàu (thuyền viên chưa thuộc tàu
                 // nào, chuyến đi chưa gắn tàu…) thì KHÔNG gửi đi đâu — tuyệt đối không phát cho mọi tàu.
@@ -91,7 +119,8 @@ public partial class AppDbContext
         else if (entity.GetType().GetProperty("VesselId")?.GetValue(entity) is Guid ownVessel)
             vesselId = ownVessel;
         else if (entity.GetType().GetProperty("VoyageId")?.GetValue(entity) is Guid voyageId)
-            return await VoyageRecords.Where(v => v.Id == voyageId).Select(v => v.VesselIMO).FirstOrDefaultAsync(token);
+            return ChangeTracker.Entries<ProductApi.Models.VoyageRecord>().FirstOrDefault(e => e.Entity.Id == voyageId)?.Entity.VesselIMO
+                ?? await VoyageRecords.Where(v => v.Id == voyageId).Select(v => v.VesselIMO).FirstOrDefaultAsync(token);
         else
             vesselId = null;
 
@@ -119,7 +148,7 @@ public partial class AppDbContext
     {
         await using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
             ? await Database.BeginTransactionAsync(cancellationToken) : null;
-        var outgoing = CaptureOutgoingChanges();
+        var outgoing = await CaptureOutgoingChangesAsync(cancellationToken);
         var result = await base.SaveChangesAsync(cancellationToken);
         if (outgoing.Count > 0)
         {

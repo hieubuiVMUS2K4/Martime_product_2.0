@@ -327,7 +327,9 @@ namespace MaritimeEdge
             // Add Controllers
             builder.Services.AddScoped<RankPermissionService>();
             builder.Services.AddScoped<RankPermissionFilter>();
-            builder.Services.AddControllers(options => options.Filters.AddService<RankPermissionFilter>())
+            builder.Services.AddScoped<ApprovalService>();
+            builder.Services.AddScoped<ApprovalActionFilter>();
+            builder.Services.AddControllers(options => { options.Filters.AddService<RankPermissionFilter>(); options.Filters.AddService<ApprovalActionFilter>(); })
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -551,6 +553,11 @@ namespace MaritimeEdge
             app.UseCors("AllowFrontend");
             
             // Configure static files with CORS headers explicitly
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.StartsWithSegments("/uploads/approval-evidence")) { context.Response.StatusCode = 404; return; }
+                await next();
+            });
             app.UseStaticFiles(new StaticFileOptions
             {
                 FileProvider = new PhysicalFileProvider(uploadsPath),

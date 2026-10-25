@@ -1,3 +1,5 @@
+import { prepareApproval } from "./approval";
+import { getAuthToken } from "./api.client";
 import axios from 'axios';
 import type { StockReceipt, CreateStockReceiptDto } from '@/types/pms.types';
 
@@ -25,17 +27,17 @@ export const stockReceiptService = {
   },
 
   async submit(id: number) {
-    const response = await axios.put(`${API}/${id}/submit`);
+    const response = await axios.put(`${API}/${id}/submit`, undefined, { headers: await prepareApproval(`${API}/${id}/submit`, undefined, getAuthToken()) });
     return response.data;
   },
 
   async approve(id: number) {
-    const response = await axios.put(`${API}/${id}/approve`);
+    const response = await axios.put(`${API}/${id}/approve`, undefined, { headers: await prepareApproval(`${API}/${id}/approve`, undefined, getAuthToken()) });
     return response.data;
   },
 
   async complete(id: number) {
-    const response = await axios.put(`${API}/${id}/complete`);
+    const response = await axios.put(`${API}/${id}/complete`, undefined, { headers: await prepareApproval(`${API}/${id}/complete`, undefined, getAuthToken()) });
     return response.data;
   },
 

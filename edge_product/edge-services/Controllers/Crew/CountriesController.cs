@@ -11,103 +11,31 @@ public class CountriesController : ControllerBase
 {
     private readonly EdgeDbContext _context;
 
-        public CountriesController(EdgeDbContext context)
-        {
-            _context = context;
-        }
+    public CountriesController(EdgeDbContext context) => _context = context;
 
-        // GET: api/countries
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Country>>> GetCountries()
-        {
-            return await _context.Countries
-                .Where(c => c.IsActive)
-                .OrderBy(c => c.CountryName)
-                .ToListAsync();
-        }
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Country>>> GetCountries() =>
+        await _context.Countries.AsNoTracking().Where(c => c.IsActive).OrderBy(c => c.CountryName).ToListAsync();
 
-        // GET: api/countries/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Country>> GetCountry(int id)
-        {
-            var country = await _context.Countries.FindAsync(id);
-
-            if (country == null)
-            {
-                return NotFound();
-            }
-
-            return country;
-        }
-
-        // POST: api/countries
-        [HttpPost]
-        public async Task<ActionResult<Country>> PostCountry(Country country)
-        {
-            country.CreatedAt = DateTime.UtcNow;
-            country.UpdatedAt = DateTime.UtcNow;
-
-            _context.Countries.Add(country);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetCountry), new { id = country.Id }, country);
-        }
-
-        // PUT: api/countries/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutCountry(int id, Country country)
-        {
-            if (id != country.Id)
-            {
-                return BadRequest();
-            }
-
-            var existing = await _context.Countries.FindAsync(id);
-            if (existing == null)
-            {
-                return NotFound();
-            }
-
-            // Only update fields that are provided
-            if (country.CountryName != null) existing.CountryName = country.CountryName;
-            if (country.CountryCode != null) existing.CountryCode = country.CountryCode;
-            existing.IsActive = country.IsActive;
-            existing.UpdatedAt = DateTime.UtcNow;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CountryExists(id))
-                {
-                    return NotFound();
-                }
-                throw;
-            }
-
-            return NoContent();
-        }
-
-        // DELETE: api/countries/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCountry(int id)
-        {
-            var country = await _context.Countries.FindAsync(id);
-            if (country == null)
-            {
-                return NotFound();
-            }
-
-            _context.Countries.Remove(country);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-    }
-
-    private bool CountryExists(int id)
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Country>> GetCountry(int id)
     {
-        return _context.Countries.Any(e => e.Id == id);
+        var country = await _context.Countries.FindAsync(id);
+        return country == null ? NotFound() : country;
     }
+
+    [HttpPost]
+    public Task<ActionResult<Country>> PostCountry(Country country)
+    {
+        return Task.FromResult<ActionResult<Country>>(ShoreManaged());
+    }
+
+    [HttpPut("{id}")]
+    public Task<IActionResult> PutCountry(int id, Country country) => Task.FromResult<IActionResult>(ShoreManaged());
+
+    [HttpDelete("{id}")]
+    public Task<IActionResult> DeleteCountry(int id) => Task.FromResult<IActionResult>(ShoreManaged());
+
+    private ObjectResult ShoreManaged() => StatusCode(405,
+        new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" });
 }

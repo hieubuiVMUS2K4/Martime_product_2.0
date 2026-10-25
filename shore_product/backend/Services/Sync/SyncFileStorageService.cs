@@ -65,6 +65,9 @@ public sealed class LocalSyncFileStorageService : ISyncFileStorageService
             ? Guid.NewGuid().ToString("N")
             : sha256.Trim().ToLowerInvariant();
 
+        if (tableName == "approval_revision")
+            return $"/uploads/approval-evidence/{normalizedHash}{extension}";
+
         var shardA = normalizedHash.Length >= 2 ? normalizedHash[..2] : "00";
         var shardB = normalizedHash.Length >= 4 ? normalizedHash.Substring(2, 2) : "00";
         return $"/{Path.Combine("uploads", "sync-content", shardA, shardB, $"{normalizedHash}{extension}").Replace('\\', '/')}";

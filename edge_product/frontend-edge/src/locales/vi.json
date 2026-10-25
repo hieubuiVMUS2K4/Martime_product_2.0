@@ -1,4 +1,34 @@
 {
+  "sms": {
+    "title": "Hệ thống quản lý an toàn (SMS)",
+    "subtitle": "Quản lý tài liệu quy trình và biểu mẫu ký số tàu biển",
+    "workspace": "Tài liệu quy trình",
+    "auditor": "Tra cứu hồ sơ",
+    "formLibrary": "Thư viện biểu mẫu",
+    "ismTree": "Danh mục ISM",
+    "chapter": "Mục {id}",
+    "chapterLabel": "Mục ISM",
+    "allChapters": "Tất cả mục ISM",
+    "shoreManaged": "Chính sách, quy trình và biểu mẫu do bờ ban hành. Tàu chỉ được xem và thực hiện.",
+    "ismChapters": {
+      "1": "Chính sách & Tổ chức",
+      "2": "Quyền hạn & Trách nhiệm của Công ty",
+      "3": "Người được chỉ định - DPA",
+      "4": "Quyền hạn & Trách nhiệm của Thuyền trưởng",
+      "5": "Nguồn lực & Nhân sự",
+      "6": "Làm quen & Huấn luyện",
+      "7": "Hoạt động trên tàu",
+      "8": "Chuẩn bị tình huống khẩn cấp",
+      "9": "Báo cáo & Phân tích Sự cố",
+      "10": "Bảo dưỡng tàu & Thiết bị",
+      "11": "Kiểm soát Tài liệu & Dữ liệu",
+      "12": "Đánh giá của Công ty",
+      "13": "Đánh giá & Cấp chứng nhận",
+      "14": "An ninh tàu biển",
+      "15": "Kiểm tra môi trường",
+      "16": "Hướng dẫn kỹ thuật"
+    }
+  },
   "map": {
     "shipPosition": "Vị trí tàu",
     "lat": "Vĩ độ",
@@ -617,6 +647,26 @@
       "requestShoreLeave": "Xin phép lên bờ",
       "exportExcel": "Xuất Excel",
       "exportPdf": "Xuất PDF"
+    },
+    "rankCatalog": {
+      "managedOnShore": "Danh mục chức danh và yêu cầu chứng chỉ được quản lý tại bờ, đồng bộ xuống tàu để tra cứu.",
+      "search": "Tìm theo mã, tên hoặc cấp bậc",
+      "code": "Mã chức danh",
+      "name": "Tên chức danh",
+      "department": "Bộ phận",
+      "allDepartments": "Tất cả bộ phận",
+      "level": "Cấp bậc",
+      "sortOrder": "Thứ tự",
+      "status": "Trạng thái",
+      "active": "Đang dùng",
+      "inactive": "Ngừng dùng",
+      "includeInactive": "Hiện cả chức danh ngừng dùng",
+      "requirements": "Yêu cầu chứng chỉ",
+      "certificateCount": "{count} chứng chỉ",
+      "noRequirements": "Chưa có yêu cầu chứng chỉ cho chức danh này.",
+      "empty": "Không có chức danh phù hợp. Nếu danh mục chưa có dữ liệu, kiểm tra đồng bộ từ bờ.",
+      "loadError": "Không tải được danh mục hoặc yêu cầu chứng chỉ. Hãy thử làm mới.",
+      "viewCompliance": "Xem tình trạng tuân thủ chứng chỉ của thuyền viên"
     },
     "monitor": {
       "title": "Giám sát Chứng chỉ Thuyền viên",
@@ -1450,6 +1500,7 @@
   "voyage": {
     "title": "Hành trình & Hàng hóa",
     "portMgmt": {
+      "managedOnShore": "Danh mục cảng được quản lý tại bờ và đồng bộ xuống tàu để tra cứu.",
       "title": "Quản lý cảng",
       "subtitle": "Danh mục cảng (tiêu chuẩn UN/LOCODE) — {count} cảng",
       "shoreManaged": "Danh mục cảng do Văn phòng Bờ quản lý và tự động đồng bộ xuống tàu. Muốn thêm, sửa hoặc ngừng dùng cảng, vui lòng liên hệ văn phòng bờ.",

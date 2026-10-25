@@ -47,6 +47,7 @@ public class SyncService : ISyncService
         public List<SyncBatchItemFailure>? FailedItems { get; set; }
         public List<Guid>? AcknowledgedEventIds { get; set; }
         public int SensorDeferralSyncVersion { get; set; }
+        public int ApprovalEvidenceVersion { get; set; }
     }
 
     private readonly IServiceProvider _serviceProvider;
@@ -59,7 +60,8 @@ public class SyncService : ISyncService
     private readonly ISyncFilePreparationService _syncFilePreparationService;
     private static readonly HashSet<string> _fileTableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "maintenance_history", "task_deferral_request", "crew_member", "crew_certificate", "crew_member_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records"
+        "maintenance_history", "task_deferral_request", "crew_member", "crew_certificate", "crew_member_document", "travel_document", "seafarer_document",
+        "employment_document", "health_document", "sms_procedure", "sms_procedures", "sms_filled_record", "sms_filled_records", "approval_revision"
     };
     
     // Tracks upload cooldowns to prevent rapid retry of failed uploads (in-memory, per instance).
@@ -228,6 +230,18 @@ public class SyncService : ISyncService
                 .Where(q => allowedPriorities.Contains(q.Priority))
                     .Where(q => q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)
                 .Where(q => !context.SyncQueue.Any(prior => prior.TableName == q.TableName && prior.RecordKey == q.RecordKey && prior.SyncedAt == null && prior.Id < q.Id))
+                // Filter before Take: a large import can fill every FIFO batch with
+                // children while their parent is queued later (UUID order). Wait
+                // for the parent's durable receipt, including during its cooldown.
+                .Where(q => q.TableName != "equipment_asset" || q.ActionType == SyncActionType.DELETE ||
+                    !context.EquipmentAssets.Any(asset => asset.Id.ToString() == q.RecordKey && asset.ParentId.HasValue &&
+                        (context.SyncQueue.Any(parent => parent.TableName == "equipment_asset" &&
+                            parent.RecordKey == asset.ParentId.Value.ToString() && parent.SyncedAt == null &&
+                            parent.ActionType != SyncActionType.DELETE) ||
+                         context.EquipmentAssets.Any(parentAsset => parentAsset.Id == asset.ParentId.Value && !parentAsset.IsSynced &&
+                            !context.SyncQueue.Any(delivered => delivered.TableName == "equipment_asset" &&
+                                delivered.RecordKey == parentAsset.Id.ToString() && delivered.SyncedAt != null &&
+                                (delivered.ActionType == SyncActionType.CREATE || delivered.ActionType == SyncActionType.SNAPSHOT))))))
                 .OrderBy(q => q.Priority) // Critical first
                 .ThenBy(q => q.CreatedAt) // FIFO
                 .Take(batchSize)
@@ -274,17 +288,8 @@ public class SyncService : ISyncService
     }
 
     /// <summary>
-    /// Pull updates from Shore → Edge (master data, certificate renewals, crew assignments)
-    /// </summary>
-    /// <summary>
-    /// Đưa các bản ghi danh mục còn IsSynced = false vào hàng đợi đồng bộ.
-    ///
-    /// Hàng đợi chỉ được nạp bởi interceptor của EdgeDbContext khi có SaveChanges. Dữ liệu
-    /// seed thẳng vào cơ sở dữ liệu (script SQL, dump khởi tạo) không đi qua đường đó, nên nằm
-    /// lại vĩnh viễn với IsSynced = false mà không bao giờ được đẩy đi.
-    ///
-    /// Chạy mỗi chu kỳ đồng bộ, chỉ xếp thêm những gì CHƯA có trong hàng đợi nên không nhân đôi.
-    /// Dùng SNAPSHOT (upsert) để lặp lại bao nhiêu lần vẫn ra một bản ghi bên nhận.
+    /// Recover missing uploads for operational reference records created before automatic capture.
+    /// Shore-managed catalogs are excluded; bounded batches eventually cover every missing row.
     /// </summary>
     private async Task ReconcileUnqueuedMasterDataAsync(EdgeDbContext context, CancellationToken cancellationToken)
     {
@@ -856,6 +861,7 @@ public class SyncService : ISyncService
                 {
                     var mirrorSupported = !SensorDeferralSyncBackfill.Tables.Contains(item.TableName)
                         || batchResponse?.SensorDeferralSyncVersion >= 1;
+                    mirrorSupported &= !ApprovalSnapshot.Tables.Contains(item.TableName) || batchResponse?.ApprovalEvidenceVersion >= 1;
                     if (acknowledged.Contains(item.EventId) && mirrorSupported)
                     {
                         item.SyncedAt = DateTime.UtcNow;
@@ -1277,6 +1283,7 @@ public class SyncService : ISyncService
 
         foreach (var (role, rawPath) in dto.TableName == "maintenance_history"
             ? MaintenanceHistorySyncFiles.References(dto.Payload)
+            : dto.TableName == "approval_revision" ? ApprovalSnapshot.FileReferences(dto.Payload)
             : dto.TableName == "task_deferral_request" ? DeferralSyncFiles.References(dto.Payload) : ExtractSyncFilePaths(dto.Payload))
         {
             var filePath = StripQueryString(rawPath) ?? rawPath;

@@ -145,7 +145,7 @@ namespace MaritimeEdge.Controllers.Logbooks
                 return BadRequest(ModelState);
             }
 
-            var username = User.Identity?.Name;
+            var username = ((MaritimeEdge.Services.Core.ApprovalActor)HttpContext.Items["ApprovalActor"]!).Username;
             var result = await _service.SignEntryAsync(id, dto, username);
 
             if (!result.Success)

@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -5,6 +6,7 @@ import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { logbookService } from '../../services/logbook.service';
 import { CreateOilRecordEntryDto, OilRecordEntryResponseDto } from '../../types/logbook.types';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 
 const OPERATIONS = [
@@ -49,7 +51,7 @@ export const OilRecordPage: React.FC = () => {
   const handleSign = async (id: string) => {
     try {
       await logbookService.signOilEntry(id, {
-        signature: 'Chief Engineer Signature',
+        signature: '',
         remarks: 'Signed',
         signedAt: new Date().toISOString()
       });
@@ -57,7 +59,7 @@ export const OilRecordPage: React.FC = () => {
       fetchEntries();
     } catch (error) {
       console.error(error);
-      toast.error(t('logbooks.common.signFailed'));
+      reportSigningError(error, t('logbooks.common.signFailed'));
     }
   };
 
@@ -141,7 +143,7 @@ export const OilRecordPage: React.FC = () => {
               setShowForm(true);
             }
           }}
-          className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700 "
+          className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700 "
         >
           {showForm ? t('common.cancel') : t('logbooks.oilRecord.newEntry')}
         </button></PermissionGate>
@@ -168,8 +170,8 @@ export const OilRecordPage: React.FC = () => {
 
         {/* Step 1: Select Operation */}
         {step === 1 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">{t('logbooks.oilRecord.step1Title')}</h2>
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">{t('logbooks.oilRecord.step1Title')}</h2>
             <div className="flex flex-col gap-2">
               {OPERATIONS.map(op => (
                 <button
@@ -190,8 +192,8 @@ export const OilRecordPage: React.FC = () => {
 
         {/* Step 2: Enter Details */}
         {step === 2 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">{t('logbooks.oilRecord.step2Title')} (Code {formData.operationCode})</h2>
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">{t('logbooks.oilRecord.step2Title')} (Code {formData.operationCode})</h2>
             <div className="flex flex-col gap-4">
               <MaritimeInput 
                 label={t('logbooks.oilRecord.itemNo')} 
@@ -221,7 +223,7 @@ export const OilRecordPage: React.FC = () => {
                 <button onClick={handleBack} className="text-gray-900 font-sans underline">{t('common.back')}</button>
                 <button 
                   onClick={handleNext}
-                  className="bg-blue-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-blue-700"
+                  className="bg-blue-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-blue-700"
                 >
                   {t('common.next')}
                 </button>
@@ -232,8 +234,8 @@ export const OilRecordPage: React.FC = () => {
 
         {/* Step 3: Review & Sign */}
         {step === 3 && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-blue-600 font-sans text-xl font-bold mb-4">{t('logbooks.oilRecord.step3Title')}</h2>
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-sm">
+            <h2 className="operations-section-title text-blue-600 font-sans text-sm font-bold mb-4">{t('logbooks.oilRecord.step3Title')}</h2>
             <div className="bg-gray-50/30 p-4 mb-6 border border-gray-200 font-sans text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <span className="text-gray-400">{t('logbooks.oilRecord.codeLabel')}:</span>
@@ -257,7 +259,7 @@ export const OilRecordPage: React.FC = () => {
               <button onClick={handleBack} className="text-gray-900 font-sans underline">{t('common.back')}</button>
               <PermissionGate permission={editingId ? 'logbooks.oil.update' : 'logbooks.oil.create'}><button
                 onClick={handleSave}
-                className="bg-green-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:bg-green-700"
+                className="bg-green-600 text-white font-semibold py-1.5 px-6 rounded-lg shadow-none hover:bg-green-700"
               >
                 {t('common.confirm')}
               </button></PermissionGate>
@@ -269,7 +271,7 @@ export const OilRecordPage: React.FC = () => {
 
       {/* Entries Table */}
       <div className="bg-white border border-gray-200 overflow-x-auto mt-6">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('voyageLog.dateTime')}</th>
@@ -306,7 +308,8 @@ export const OilRecordPage: React.FC = () => {
                 <td className="p-4 font-sans text-gray-900 text-sm">{entry.tankFrom || '-'}</td>
                 <td className="p-4 font-sans text-gray-900 text-sm">{entry.officerInCharge}</td>
                 <td className="p-4">
-                  {entry.masterSignature ? (
+                  <SigningControls module="log-oil" recordKey={entry.id} permission="logbooks.oil.approve" signed={!!entry.masterSignature} />
+{entry.masterSignature ? (
                     <span className="bg-green-600 text-white text-xs px-2 py-1 font-sans font-bold">
                       {t('logbooks.deckLog.signed')}
                     </span>

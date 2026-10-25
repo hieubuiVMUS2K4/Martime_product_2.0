@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 /**
  * Monthly Report Details Modal
  * Comprehensive details view of a monthly summary report
@@ -214,7 +215,8 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
               <DetailRow label="Status" value={<StatusBadge status={report.status} />} />
               <DetailRow label="Report Period" value={`${new Date(report.monthStartDate).toLocaleDateString()} - ${new Date(report.monthEndDate).toLocaleDateString()}`} />
               <DetailRow label="Prepared By" value={report.preparedBy || 'System'} />
-              <DetailRow label="Master Signature" value={report.masterSignature || 'Pending'} />
+              <SigningControls module="report-monthly" recordKey={report.id} permission="reporting.approve" signed={!!report.masterSignature} />
+<DetailRow label="Người xác nhận" value={report.masterSignature || 'Pending'} />
               <DetailRow label="Signed At" value={report.signedAt ? new Date(report.signedAt).toLocaleString() : 'Not signed'} />
               <DetailRow label="Transmitted" value={report.isTransmitted ? '✓ Yes' : '✗ No'} />
               <DetailRow label="Created At" value={new Date(report.createdAt).toLocaleString()} />

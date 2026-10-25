@@ -101,30 +101,10 @@ public class ConflictResolverService : IConflictResolverService
     // ════════════════════════════════════════════════════════════
     // VoyageRecord: Factual data (EDGE) + Planning data (SHORE)
     // Properties where Edge owns the data (actual operation status)
-    private static readonly HashSet<string> _voyageEdgeOwnedFields = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // Actual execution status & timeline (Ship is authority)
-        "VoyageStatus", "Status",
-        "StartDateTime", "DepartureTime",
-        "EndDateTime", "ArrivalTime",
-        "DeparturePort", "DeparturePortCode",
-        "ArrivalPort", "ArrivalPortCode",
-        "CargoType", "CargoWeight",
-        "DistanceTraveled", "FuelConsumed", "AverageSpeed",
-        "CommencedAt", "ArrivedAt", "CompletedAt", "CancelledAt"
-    };
+    private static readonly IReadOnlySet<string> _voyageEdgeOwnedFields = Maritime.Shared.Models.Sync.VoyageSyncOwnership.EdgeRecordFields;
 
     // Properties where Shore owns the data (planning & financial)
-    private static readonly HashSet<string> _voyageShoreOwnedFields = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // Planning & estimates (Shore HR/Commercial team)
-        "PlannedDistance", "PlannedDurationHours", "PlannedAverageSpeed",
-        "PlannedFuelConsumption",
-        "VoyageInstructions",
-        "TotalEstimatedCost", "TotalEstimatedRevenue", "EstimatedProfitMargin",
-        "FinancialStatus", "FinancialClosedAt", "FinancialClosedBy",
-        "ApprovedAt", "ReadyAt"
-    };
+    private static readonly IReadOnlySet<string> _voyageShoreOwnedFields = Maritime.Shared.Models.Sync.VoyageSyncOwnership.ShoreRecordFields;
 
     // VoyagePlanLeg: Use Last-Write-Wins (Hybrid ownership)
     private static readonly HashSet<string> _voyagePlanLegHybridFields = new(StringComparer.OrdinalIgnoreCase)

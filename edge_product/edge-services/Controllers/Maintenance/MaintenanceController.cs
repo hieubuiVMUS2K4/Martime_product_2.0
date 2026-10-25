@@ -996,6 +996,8 @@ public class MaintenanceController : ControllerBase
             }
 
             // The global rank permission filter validates current actor and approve/reject grants.
+            var approvalActor = (MaritimeEdge.Services.Core.ApprovalActor)HttpContext.Items["ApprovalActor"]!;
+            request.ApprovedBy = approvalActor.CrewId ?? approvalActor.Username;
             var approverName = await _context.CrewMembers.AsNoTracking()
                 .Where(c => c.CrewId == request.ApprovedBy).Select(c => c.FullName).FirstOrDefaultAsync()
                 ?? request.ApprovedBy;

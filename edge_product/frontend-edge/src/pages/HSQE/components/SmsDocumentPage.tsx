@@ -1,3 +1,5 @@
+import { ApprovalHistory } from "@/components/ApprovalHistory";
+import { apiClient } from "@/services/api.client";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
@@ -8,6 +10,7 @@ import {
   GitCompare, ChevronLeft, Layers, Link2, ExternalLink, Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { useAuthStore } from '@/stores/auth.store';
 import { smsService, SmsTreeChapter, SmsProcedureDetail, SmsFormTemplate, SmsFilledRecord, SignatureEntry, SmsProcedure } from '@/services/sms.service';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
@@ -15,6 +18,8 @@ import { printSmsDocument } from '@/lib/printUtils';
 import { shipDataService } from '@/services/ship-data.service';
 import { maritimeService } from '@/services/maritime.service';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from '@/contexts/I18nContext';
+import { canManageSmsPolicies } from '@/services/sms.service';
 
 // ─── HTML Tokenizer & Tag-Safe Diff Utility ──────────────────
 function tokenizeHtml(html: string): string[] {
@@ -180,11 +185,16 @@ export const cleaningCategories: CleaningScheduleCategory[] = [
 ];
 
 export function SmsDocumentPage() {
+  const { t } = useTranslation();
+  const chapterName = (chapter: SmsTreeChapter) => {
+    const key = `sms.ismChapters.${chapter.id}`;
+    const translated = t(key);
+    return translated === key ? chapter.chapterName : translated;
+  };
   const { templateId } = useParams<{ templateId?: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const currentUserName = user?.fullName || user?.username || 'Thuyền viên Demo';
-  const currentUserRank = user?.rankName || user?.position || user?.roleName || 'Sỹ quan';
 
   // ─── State ─────────────────────────────────────────────────
   const [treeData, setTreeData] = useState<SmsTreeChapter[]>([]);
@@ -208,9 +218,6 @@ export function SmsDocumentPage() {
   const [filledRecordId, setFilledRecordId] = useState<string | null>(null);
   const [recordStatus, setRecordStatus] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<SignatureEntry[]>([]);
-  const [signingName, setSigningName] = useState<string>(currentUserName);
-  const [signingRank, setSigningRank] = useState<string>(currentUserRank);
-  const [signingPin, setSigningPin] = useState<string>('');
   const [crewList, setCrewList] = useState<any[]>([]);
 
   // Edit / Version Control States
@@ -744,7 +751,6 @@ export function SmsDocumentPage() {
       setFilledRecordId(null);
       setRecordStatus(null);
       setSignatures([]);
-      setSigningPin('');
       setIsFormMaximized(true);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lỗi khi tải biểu mẫu');
@@ -818,10 +824,6 @@ export function SmsDocumentPage() {
       }
     }
 
-    if (!signingName.trim() || !signingRank.trim() || !signingPin.trim()) {
-      toast.error('Vui lòng điền tên, chức danh và mã PIN ký số.');
-      return;
-    }
 
     try {
       let recordId = filledRecordId;
@@ -837,42 +839,29 @@ export function SmsDocumentPage() {
         setFilledRecordId(recordId);
       }
 
+      if (filledRecordId) await smsService.updateFilledRecord(recordId, { filledBy: currentUserName, filledData: JSON.stringify(formValues), submitImmediately: false });
       // Call Sign API
-      const signRes = await smsService.signRecord(recordId, {
-        pin: signingPin,
-        name: signingName,
-        rank: signingRank
-      });
+      const signRes = await smsService.signRecord(recordId, {});
 
       setSignatures(signRes.signatures);
       setRecordStatus(signRes.status);
-      setSigningPin('');
-      toast.success('Đã ký số điện tử đóng dấu thành công!');
+      toast.success('Đã ký xác nhận và gửi duyệt.');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Mã PIN không chính xác hoặc lỗi ký số');
+      reportSigningError(err, 'Không thể ký xác nhận');
     }
   };
 
   const handleCaptainApprove = async () => {
     if (!filledRecordId) return;
-    if (!signingPin.trim()) {
-      toast.error('Vui lòng nhập mã PIN Thuyền trưởng.');
-      return;
-    }
 
     try {
-      const res = await smsService.approveRecord(filledRecordId, {
-        pin: signingPin,
-        name: currentUserName,
-        rank: 'Thuyền trưởng (Master)'
-      });
+      const res = await smsService.approveRecord(filledRecordId, {});
 
       setSignatures(res.signatures);
       setRecordStatus(res.status);
-      setSigningPin('');
       toast.success('Thuyền trưởng đã phê duyệt hoàn tất hồ sơ!');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'PIN Thuyền trưởng không đúng (Mặc định: 1111)');
+      toast.error(err.response?.data?.message || 'Không thể phê duyệt hồ sơ');
     }
   };
 
@@ -1238,7 +1227,7 @@ export function SmsDocumentPage() {
   return (
     <div className={templateId ? "flex flex-col h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden" : "flex flex-col h-[calc(100vh-64px)] bg-slate-50 dark:bg-slate-900 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800"}>
       
-      {isImportingDocx ? (
+      {canManageSmsPolicies && isImportingDocx ? (
         /* ─── DEDICATED FULL-PAGE IMPORT WORKSPACE ─── */
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden">
           {/* Header */}
@@ -1386,9 +1375,9 @@ export function SmsDocumentPage() {
                       }}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 mb-2 font-medium"
                     >
-                      <option value="ALL">Tất cả các chương</option>
+                      <option value="ALL">{t('sms.allChapters')}</option>
                       {treeData.map(ch => (
-                        <option key={ch.id} value={ch.id}>Điều {ch.id}: {ch.chapterName.split('(')[0]}</option>
+                        <option key={ch.id} value={ch.id}>{t('sms.chapter', { id: ch.id })}: {chapterName(ch)}</option>
                       ))}
                     </select>
 
@@ -1540,8 +1529,8 @@ export function SmsDocumentPage() {
                   <Shield className="w-5 h-5" />
                 </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Safety Management System (SMS) Dashboard</h2>
-              <p className="text-xs text-slate-400 dark:text-slate-400">Hệ thống Quản lý tài liệu Quy trình (SOP) & Biểu mẫu Ký số tàu biển</p>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('sms.title')}</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-400">{t('sms.subtitle')}</p>
             </div>
           </div>
 
@@ -1555,7 +1544,7 @@ export function SmsDocumentPage() {
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
-              <BookOpen className="w-4 h-4" /> Workspace
+              <BookOpen className="w-4 h-4" /> {t('sms.workspace')}
             </button>
             <button
               onClick={() => setViewMode('auditor')}
@@ -1565,7 +1554,7 @@ export function SmsDocumentPage() {
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
-              <Database className="w-4 h-4" /> Auditor Search
+              <Database className="w-4 h-4" /> {t('sms.auditor')}
             </button>
             <button
               onClick={() => setViewMode('forms')}
@@ -1575,7 +1564,7 @@ export function SmsDocumentPage() {
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-250 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
               }`}
             >
-              <Layers className="w-4 h-4" /> Form Library
+              <Layers className="w-4 h-4" /> {t('sms.formLibrary')}
             </button>
           </div>
         </div>
@@ -1600,7 +1589,7 @@ export function SmsDocumentPage() {
             <div className={`p-4 border-b flex items-center justify-between transition-colors ${
               treeTheme === 'dark' ? 'bg-slate-950 border-slate-850' : 'bg-white border-slate-200'
             }`}>
-              <span className="text-xs uppercase tracking-wider font-extrabold text-slate-500">Cây thư mục ISM Code</span>
+              <span className="text-xs uppercase tracking-wider font-extrabold text-slate-500">{t('sms.ismTree')}</span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -1662,7 +1651,7 @@ export function SmsDocumentPage() {
                   >
                     <div className="flex items-start gap-2 max-w-[220px]">
                       <span className="text-blue-500 font-bold font-mono text-sm pt-0.5">{chapter.id}.</span>
-                      <span className="text-xs font-semibold leading-relaxed group-hover:translate-x-0.5 transition-transform truncate">{chapter.chapterName}</span>
+                      <span title={chapterName(chapter)} className="text-xs font-semibold leading-relaxed group-hover:translate-x-0.5 transition-transform truncate">{chapterName(chapter)}</span>
                     </div>
                     <div>
                       {expandedChapters[chapter.id] ? (
@@ -1717,7 +1706,12 @@ export function SmsDocumentPage() {
                 </div>
               ))}
 
-              {/* Dòng trống cuối cùng danh sách của ISM Code */}
+              {/* SMS master documents can only be issued from Shore. */}
+              <div className="flex items-start gap-2 p-3 text-xs text-slate-500">
+                <Lock className="w-4 h-4 flex-shrink-0" />
+                <span>{t('sms.shoreManaged')}</span>
+              </div>
+              {canManageSmsPolicies && (
               <div className="pt-2 px-1 pb-4">
                 <PermissionGate permission="hsqe.create"><button
                   type="button"
@@ -1738,8 +1732,10 @@ export function SmsDocumentPage() {
                   <span className="text-xs font-semibold">{importLoading ? 'Đang xử lý...' : 'Tải quy trình mới...'}</span>
                 </button></PermissionGate>
               </div>
+              )}
             </div>
 
+            {canManageSmsPolicies && (
             <input
               type="file"
               ref={fileInputRef}
@@ -1747,6 +1743,7 @@ export function SmsDocumentPage() {
               accept=".docx,.doc,.pdf"
               className="hidden"
             />
+            )}
             {importLoading && (
               <div className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 flex flex-col items-center justify-center z-20 rounded-b-xl gap-3">
                 <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
@@ -1836,7 +1833,7 @@ export function SmsDocumentPage() {
                       <div className="h-full flex items-center justify-center text-slate-400">
                         <RefreshCw className="w-6 h-6 animate-spin mr-2" /> Đang tải...
                       </div>
-                    ) : isEditingSop ? (
+                    ) : canManageSmsPolicies && isEditingSop ? (
                       /* SOP EDITING VIEW */
                       <div className="space-y-4 max-w-2xl p-8">
                         <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl flex items-start gap-2.5">
@@ -3369,8 +3366,8 @@ export function SmsDocumentPage() {
                                   <div key={idx} className="border-2 border-dashed border-blue-500/40 dark:border-blue-400/30 bg-blue-50/20 dark:bg-blue-950/10 p-3 rounded-xl relative overflow-hidden flex flex-col justify-between">
                                     <div className="absolute top-1 right-2 text-blue-600/10 dark:text-blue-400/5 select-none font-bold text-5xl">SIG</div>
                                     <div>
-                                      <div className="text-xs uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
-                                      <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div>
+                                      <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
+                                      <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div><div className="text-[9px] break-all">{(sig.authenticationMethod || (sig as any).AuthenticationMethod) === "password-reauthentication" ? "Đã xác nhận bằng tài khoản" : "Dấu ký cũ / chưa xác thực"} · {sig.contentHash || (sig as any).ContentHash || ""}</div>
                                     </div>
                                     <div className="mt-3 flex items-end justify-between">
                                       <div>
@@ -3388,49 +3385,17 @@ export function SmsDocumentPage() {
                           </div>
                         )}
 
+                        {filledRecordId && <ApprovalHistory module="sms" recordKey={filledRecordId} />}
+                        {filledRecordId && recordStatus === 'Submitted' && <PermissionGate permission="hsqe.records.reject"><button onClick={async () => { try { await apiClient.post(`/approvals/sms/${filledRecordId}/reject`, {}); setRecordStatus('Returned'); } catch (error: any) { toast.error(error.message); } }}>Trả lại</button></PermissionGate>}
+                        {filledRecordId && ['Approved', 'Returned', 'Submitted'].includes(recordStatus || '') && <PermissionGate permission="hsqe.records.sign"><button onClick={async () => { try { await apiClient.post(`/approvals/sms/${filledRecordId}/amend`, {}); setRecordStatus('Draft'); setSignatures([]); } catch (error: any) { toast.error(error.message); } }}>Tạo sửa đổi / ký gửi lại hồ sơ cũ</button></PermissionGate>}
                         {/* E-Signature Input & Submission Controls */}
                         {recordStatus !== 'Approved' && (
                           <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-250 dark:border-slate-800 space-y-3 pt-4">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                              <Lock className="w-4 h-4 text-blue-500" />
-                              <span>MÃ PIN XÁC THỰC CHỮ KÝ SỐ</span>
+                              <span>KÝ XÁC NHẬN BẰNG TÀI KHOẢN</span>
                             </div>
 
-                            <p className="text-xs text-slate-450 leading-relaxed">
-                              Đóng dấu số điện tử trực tiếp lên biểu mẫu. Crew/Officers sử dụng mã PIN cá nhân của mình. <br />
-                              <strong>Thuyền trưởng duyệt hồ sơ sử dụng mã PIN: 1111</strong>
-                            </p>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                              {recordStatus !== 'Submitted' && (
-                                <>
-                                  <input
-                                    type="text"
-                                    placeholder="Họ tên người ký"
-                                    value={signingName}
-                                    onChange={(e) => setSigningName(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder="Chức danh ký"
-                                    value={signingRank}
-                                    onChange={(e) => setSigningRank(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                                  />
-                                </>
-                              )}
-
-                              <input
-                                type="password"
-                                maxLength={4}
-                                placeholder="PIN (4 số)"
-                                value={signingPin}
-                                onChange={(e) => setSigningPin(e.target.value)}
-                                className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white font-mono text-center outline-none focus:ring-1 focus:ring-blue-500"
-                              />
-                            </div>
-
+                            <p className="text-xs">Danh tính lấy từ tài khoản đăng nhập. Nhập lại mật khẩu khi xác nhận.</p>
                             <div className="flex gap-2 justify-end pt-1">
                               {recordStatus !== 'Submitted' ? (
                                 <>
@@ -3440,7 +3405,7 @@ export function SmsDocumentPage() {
                                   >
                                     Lưu nháp
                                   </button></PermissionGate>
-                                  <PermissionGate permission="hsqe.approve"><button
+                                  <PermissionGate permission="hsqe.records.sign"><button
                                     onClick={handleECompactSign}
                                     className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
                                   >
@@ -3448,11 +3413,11 @@ export function SmsDocumentPage() {
                                   </button></PermissionGate>
                                 </>
                               ) : (
-                                <PermissionGate permission="hsqe.approve"><button
+                                <PermissionGate permission="hsqe.records.approve"><button
                                   onClick={handleCaptainApprove}
                                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
                                 >
-                                  <Award className="w-4 h-4" /> Captain Duyệt & Ban hành
+                                  <Award className="w-4 h-4" /> Phê duyệt & Ban hành
                                 </button></PermissionGate>
                               )}
                             </div>
@@ -3549,15 +3514,15 @@ export function SmsDocumentPage() {
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500">Chương ISM:</span>
+                <span className="text-xs text-slate-500">{t('sms.chapterLabel')}:</span>
                 <select
                   value={auditChapterFilter}
                   onChange={(e) => setAuditChapterFilter(e.target.value === 'ALL' ? 'ALL' : parseInt(e.target.value))}
                   className="text-xs border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-350 outline-none"
                 >
-                  <option value="ALL">Tất cả (Chapters 1-16)</option>
+                  <option value="ALL">{t('sms.allChapters')}</option>
                   {treeData.map(c => (
-                    <option key={c.id} value={c.id}>{c.id}. {c.chapterName.split('(')[0]}</option>
+                    <option key={c.id} value={c.id}>{c.id}. {chapterName(c)}</option>
                   ))}
                 </select>
               </div>
@@ -3594,7 +3559,7 @@ export function SmsDocumentPage() {
                   <tr className="bg-slate-50 dark:bg-slate-850 text-slate-400 uppercase tracking-wider font-extrabold text-xs border-b border-slate-200 dark:border-slate-800">
                     <th className="p-3.5">Mã số Form</th>
                     <th className="p-3.5">Tên Biểu mẫu / Hồ sơ</th>
-                    <th className="p-3.5">Chương ISM</th>
+                    <th className="p-3.5">{t('sms.chapterLabel')}</th>
                     <th className="p-3.5">Tàu</th>
                     <th className="p-3.5">Người lập</th>
                     <th className="p-3.5">Ngày lập</th>
@@ -3634,7 +3599,7 @@ export function SmsDocumentPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0 bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-blue-500" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Thư viện biểu mẫu & checklist</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">{t('sms.formLibrary')}</h4>
             </div>
 
             <div className="flex items-center gap-3">
@@ -4362,8 +4327,8 @@ export function SmsDocumentPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div>
-                              <div className="text-xs text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
+                              <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div><div className="text-[9px] break-all">{(sig.authenticationMethod || (sig as any).AuthenticationMethod) === "password-reauthentication" ? "Đã xác nhận bằng tài khoản" : "Dấu ký cũ / chưa xác thực"} · {sig.contentHash || (sig as any).ContentHash || ""}</div>
+                              <div className="text-[9px] text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
                             </div>
                           </div>
                         );
@@ -4394,7 +4359,7 @@ export function SmsDocumentPage() {
           )}
 
           {/* ─── CHOOSE & ASSIGN EXISTING FORM TEMPLATES MODAL ─── */}
-          {showTemplateSelector && (
+          {canManageSmsPolicies && showTemplateSelector && (
             <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col max-h-[85vh]">
                 
@@ -4518,7 +4483,7 @@ export function SmsDocumentPage() {
           )}
 
           {/* ─── CREATE NEW FORM TEMPLATE FROM LIBRARY MODAL ─── */}
-          {showNewFormModal && (
+          {canManageSmsPolicies && showNewFormModal && (
             <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full border border-slate-205 dark:border-slate-700 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
                 
@@ -4688,7 +4653,7 @@ export function SmsDocumentPage() {
           )}
 
           {/* ─── ASSIGN FORM TEMPLATE TO ANOTHER PROCEDURE MODAL ─── */}
-          {showAssignModal && (
+          {canManageSmsPolicies && showAssignModal && (
             <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full border border-slate-205 dark:border-slate-700 shadow-2xl flex flex-col">
                 
@@ -4799,7 +4764,7 @@ export function SmsDocumentPage() {
             <span>In / Xuất PDF</span>
           </button>
 
-          {contextMenu.procedure.status === 'Obsolete' && (
+          {canManageSmsPolicies && contextMenu.procedure.status === 'Obsolete' && (
             <>
               <div className="border-t border-slate-150 dark:border-slate-700 my-1" />
               <PermissionGate permission="hsqe.delete"><button

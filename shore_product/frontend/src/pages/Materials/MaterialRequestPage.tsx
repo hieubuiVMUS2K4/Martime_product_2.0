@@ -1,3 +1,5 @@
+import { CatalogSelect } from '@/components/common/CatalogSelect';
+import { UNITS_OF_MEASURE } from '@/config/catalogs';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Send, Eye, ArrowLeft, ChevronRight, X, Paperclip, Info } from 'lucide-react';
 import { materialRequestService } from '@/services/materialRequest.service';
@@ -690,7 +692,7 @@ export default function MaterialRequestPage({ vesselId, readOnly = false }: { ve
                   </td>
                   {/* Đơn vị tính */}
                   <td className="px-2 py-1.5">
-                    <input type="text" value={item.unit} onChange={e => updateFormItem(idx, 'unit', e.target.value)} className="w-full border border-gray-300 px-1.5 py-1 text-sm" />
+                    <CatalogSelect options={UNITS_OF_MEASURE} value={item.unit} onChange={e => updateFormItem(idx, 'unit', e.target.value)} className="w-full border border-gray-300 px-1.5 py-1 text-sm" />
                   </td>
                   {/* Số lượng còn */}
                   <td className="px-2 py-1.5 text-right text-gray-500">{item.quantityOnHand}</td>

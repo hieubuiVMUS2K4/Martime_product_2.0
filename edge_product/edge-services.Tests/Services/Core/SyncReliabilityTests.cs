@@ -199,9 +199,14 @@ public partial class SyncReliabilityTests
     {
         await using var db = new EdgeDbContext(new DbContextOptionsBuilder<EdgeDbContext>().UseNpgsql(PostgresConnection()).AddInterceptors(new RejectOutbox()).Options);
         await db.Database.EnsureCreatedAsync();
-        db.NmeaRawData.Add(new() { SentenceType = "RMC", RawSentence = "$GPRMC,Rollback" });
+        db.SuppressSyncQueue = true;
+        var crew = new Maritime.Shared.Models.Crew.CrewMember { CrewId = "ROLLBACK", FullName = "Rollback" };
+        var certificate = new Maritime.Shared.Models.Crew.Certificate { CertificateCode = "ROLLBACK", CertificateName = "Rollback" };
+        db.CrewMembers.Add(crew); db.Certificates.Add(certificate); await db.SaveChangesAsync();
+        db.SuppressSyncQueue = false;
+        db.CrewCertificates.Add(new() { CrewMemberId = crew.Id, CertificateId = certificate.Id, CertificateNumber = "ROLLBACK", IssueDate = DateTime.UtcNow, ExpiryDate = DateTime.UtcNow.AddYears(1) });
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync()); db.ChangeTracker.Clear();
-        Assert.False(await db.NmeaRawData.AnyAsync(c => c.RawSentence == "$GPRMC,Rollback")); Assert.Empty(await db.SyncQueue.ToListAsync());
+        Assert.False(await db.CrewCertificates.AnyAsync(c => c.CertificateNumber == "ROLLBACK")); Assert.Empty(await db.SyncQueue.ToListAsync());
         await db.Database.EnsureDeletedAsync();
     }
 

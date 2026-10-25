@@ -348,7 +348,7 @@ namespace MaritimeEdge.Models
 
         [Required]
         [MaxLength(30)]
-        public string Status { get; set; } = "Active"; // Active, Suspended, Closed
+        public string Status { get; set; } = "Draft"; // Draft, PendingCheck, PendingIssue, Issued, Suspended, Closed
 
         public int DurationHours { get; set; } = 4;
 
@@ -356,6 +356,13 @@ namespace MaritimeEdge.Models
         public DateTime StartTime { get; set; } = DateTime.UtcNow;
 
         public Guid? RiskAssessmentId { get; set; }
+
+        [NotMapped]
+        public bool IsEffective => Status == "Issued" && DateTime.UtcNow >= StartTime && DateTime.UtcNow < StartTime.AddHours(DurationHours);
+
+        public DateTime? GasTestAt { get; set; }
+        public string? GasTestDevice { get; set; }
+        public string? GasTestBy { get; set; }
 
         // Gas Testing Safety Validation
         public double GasTestO2 { get; set; } = 0.0;

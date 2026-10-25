@@ -71,7 +71,6 @@ namespace MaritimeEdge.DTOs.Logbooks
 
     public class SignOilRecordDto
     {
-        [Required]
         [MaxLength(200)]
         public string MasterSignature { get; set; } = string.Empty;
     }

@@ -40,7 +40,7 @@ public class MaintenanceCompletionService
         string? notes = null,
         string? conditionAfter = null)
     {
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        using var transaction = _context.Database.CurrentTransaction == null ? await _context.Database.BeginTransactionAsync() : null;
 
         try
         {
@@ -83,7 +83,7 @@ public class MaintenanceCompletionService
                 if (materialItem == null)
                 {
                     var error = $"Material item {usage.MaterialItemId} not found";
-                    await transaction.RollbackAsync();
+                    if (transaction != null) await transaction.RollbackAsync();
                     return CompletionResult.Failure(error);
                 }
 
@@ -101,7 +101,7 @@ public class MaintenanceCompletionService
                 {
                     var error = $"Insufficient stock for {materialItem.Name} (Available: {totalAvailable}, Required: {usage.QuantityUsed})";
                     _logger.LogWarning(error);
-                    await transaction.RollbackAsync();
+                    if (transaction != null) await transaction.RollbackAsync();
                     return CompletionResult.Failure(error);
                 }
 
@@ -242,7 +242,7 @@ public class MaintenanceCompletionService
 
             // 7. Save all changes
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            if (transaction != null) await transaction.CommitAsync();
 
             _logger.LogInformation(
                 "Task {TaskId} completed by {CompletedBy}. Deducted {Count} spare parts.",
@@ -254,7 +254,7 @@ public class MaintenanceCompletionService
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            if (transaction != null) await transaction.RollbackAsync();
             _logger.LogError(ex, "Error completing task {TaskId}", taskId);
             return CompletionResult.Failure($"Error: {ex.Message}");
         }

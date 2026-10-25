@@ -72,7 +72,7 @@ public partial class SyncReliabilityTests
             foreach (var command in generator.Generate(ops, db.Model)) await db.Database.ExecuteSqlRawAsync(command.CommandText);
         }
         async Task<List<string>> Tables() => await db.Database
-            .SqlQueryRaw<string>("SELECT table_name AS \"Value\" FROM information_schema.tables WHERE table_name LIKE '%documents' AND table_schema = 'public'")
+            .SqlQueryRaw<string>("SELECT table_name AS \"Value\" FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('travel_documents','seafarer_documents','employment_documents','health_documents','crew_member_documents')")
             .ToListAsync();
 
         // Đưa CSDL về trạng thái trước migration: 4 bảng cũ, chưa có bảng gộp.

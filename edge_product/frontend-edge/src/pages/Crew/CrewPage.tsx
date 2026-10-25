@@ -1,9 +1,8 @@
 import { PermissionGate } from '@/components/auth/PermissionGate'
-import { useEffect, useState } from 'react'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslationSafe } from '@/contexts/I18nContext'
-import { Users, FileText, ExternalLink, ArrowDownCircle, User, Plus, Download, FileSpreadsheet, Clock, UserCheck } from 'lucide-react'
+import { Users, FileText, ExternalLink, ArrowDownCircle, User, Download, FileSpreadsheet, Clock, UserCheck } from 'lucide-react'
 import { DataTable, toolbarButtonClass, type Column } from '@/components/common/DataTable'
 import { toast } from 'sonner'
 import jsPDF from 'jspdf'
@@ -11,13 +10,11 @@ import 'jspdf-autotable'
 import { CrewMember } from '../../types/maritime.types'
 import { maritimeService } from '../../services/maritime.service'
 import { format, parseISO } from 'date-fns'
-import { AddCrewModal } from '../../components/crew/AddCrewModal'
 
 export function CrewPage() {
   const navigate = useNavigate()
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
 
   // Pending crew review state
   const [pendingCrew, setPendingCrew] = useState<CrewMember[]>([])
@@ -114,22 +111,6 @@ export function CrewPage() {
   const [activeTab, setActiveTab] = useState<'onboard' | 'pending'>('onboard')
   const { t } = useTranslationSafe()
 
-  const handleAddCrew = async (newCrew: Partial<CrewMember>) => {
-    try {
-      await maritimeService.crew.add(newCrew)
-      // Force reload - directly fetch and update without checking cache
-      setLoading(true)
-      const data = await maritimeService.crew.getOnboard()
-      setCrewOnboardCache(data) // Update cache with new data
-      setCrewMembers(data)
-      setLoading(false)
-      console.log('✅ Crew list reloaded after adding new member')
-    } catch (error) {
-      console.error('Failed to add crew member:', error)
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-white">
       {/* === HEADER ROW: Title + actions === */}
@@ -187,7 +168,6 @@ export function CrewPage() {
           <SectionedCrewView
             crewMembers={crewMembers}
             onViewCrew={(id) => navigate(`/crew/${id}`)}
-            onAddCrew={() => setShowAddModal(true)}
             pendingCrew={pendingCrew}
             pendingLoading={pendingLoading}
             onApproveCrew={handleApproveCrew}
@@ -199,11 +179,6 @@ export function CrewPage() {
         )}
       </div>
 
-      <AddCrewModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={handleAddCrew}
-      />
     </div>
   )
 }
@@ -212,7 +187,6 @@ export function CrewPage() {
 function SectionedCrewView({ 
   crewMembers, 
   onViewCrew,
-  onAddCrew,
   pendingCrew,
   pendingLoading,
   onApproveCrew,
@@ -223,7 +197,6 @@ function SectionedCrewView({
 }: { 
   crewMembers: CrewMember[]; 
   onViewCrew: (id: string) => void;
-  onAddCrew: () => void;
   pendingCrew: CrewMember[];
   pendingLoading: boolean;
   onApproveCrew: (id: string) => Promise<void>;
@@ -607,15 +580,6 @@ function SectionedCrewView({
           <button type="button" onClick={exportCrewListToPDF} disabled={crewOnBoard.length === 0} className={toolbarButtonClass}>
             <Download className="h-4 w-4 text-red-600" /> {t('crew.actions.exportPdf')}
           </button>
-          <PermissionGate permission="crew.create"><button
-            type="button"
-            disabled
-            title="Tạo thuyền viên và gán chức danh trên bờ, sau đó đồng bộ xuống tàu"
-            onClick={onAddCrew}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-blue-600 px-3.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" /> {t('crew.addMember')}
-          </button></PermissionGate>
         </>
       }
     />

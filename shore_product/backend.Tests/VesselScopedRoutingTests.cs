@@ -58,12 +58,18 @@ public partial class SyncReliabilityTests
     public async Task AutoOutbox_VoyageWithoutShip_IsNotSentAnywhere()
     {
         await using var db = await Database();
-        await BindNode(db, "edge-a");
+        await BindNode(db, "edge-a"); await BindNode(db, "edge-b");
 
-        db.VoyageRecords.Add(new VoyageRecord { VoyageNumber = "V-NOSHIP", OriginNode = "SHORE" });
+        var voyage = new VoyageRecord { VoyageNumber = "V-NOSHIP", OriginNode = "SHORE" };
+        db.VoyageRecords.Add(voyage);
         await db.SaveChangesAsync();
 
-        Assert.Empty(await db.SyncOutbox.Where(o => o.TableName == "voyage_record").ToListAsync());
+        var row = Assert.Single(await db.SyncOutbox.Where(o => o.TableName == "voyage_record").ToListAsync());
+        Assert.Equal($"voyage:{voyage.Id}", row.TargetNode);
+        Assert.Null(row.DeliveredAt);
+        var outbox = Outbox(db);
+        Assert.Empty((await outbox.GetPendingItemsAsync("edge-a", null, null, 50)).Items);
+        Assert.Empty((await outbox.GetPendingItemsAsync("edge-b", null, null, 50)).Items);
         await db.Database.EnsureDeletedAsync();
     }
 

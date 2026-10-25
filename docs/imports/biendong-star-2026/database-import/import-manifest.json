@@ -1,0 +1,2851 @@
+{
+  "vessel": "BIENDONG STAR",
+  "imo": "9228289",
+  "origin": "edge-9228289-main",
+  "assets": 753,
+  "equipment": 662,
+  "groups": 91,
+  "newAssets": 0,
+  "catalogMaterials": 10,
+  "equipmentMaterialLinks": 251,
+  "materials": [
+    {
+      "code": "BD26-MAT-GREASE",
+      "name": "Mỡ bôi trơn (chưa xác định quy cách)",
+      "unit": "KG",
+      "equipmentLinks": 28
+    },
+    {
+      "code": "BD26-MAT-PAINT",
+      "name": "Sơn bảo quản (chưa xác định loại, màu)",
+      "unit": "LTR",
+      "equipmentLinks": 85
+    },
+    {
+      "code": "BD26-MAT-CHEMICAL",
+      "name": "Hóa chất vệ sinh (chưa xác định loại)",
+      "unit": "LTR",
+      "equipmentLinks": 3
+    },
+    {
+      "code": "BD26-MAT-SILICAGEL",
+      "name": "Hạt hút ẩm silicagel",
+      "unit": "KG",
+      "equipmentLinks": 2
+    },
+    {
+      "code": "BD26-MAT-SEAL",
+      "name": "Phớt làm kín (chưa xác định quy cách)",
+      "unit": "PCS",
+      "equipmentLinks": 35
+    },
+    {
+      "code": "BD26-MAT-BEARING",
+      "name": "Vòng bi thay thế (chưa xác định quy cách)",
+      "unit": "PCS",
+      "equipmentLinks": 67
+    },
+    {
+      "code": "BD26-MAT-BATTERY",
+      "name": "Ắc quy thay thế (chưa xác định điện áp, dung lượng)",
+      "unit": "PCS",
+      "equipmentLinks": 1
+    },
+    {
+      "code": "BD26-MAT-LO",
+      "name": "Dầu bôi trơn thay thế (chưa xác định cấp dầu)",
+      "unit": "LTR",
+      "equipmentLinks": 8
+    },
+    {
+      "code": "BD26-MAT-FILTER",
+      "name": "Lọc thay thế (chưa xác định quy cách)",
+      "unit": "PCS",
+      "equipmentLinks": 3
+    },
+    {
+      "code": "BD26-MAT-CEMENT",
+      "name": "Xi măng lớp bảo vệ (chưa xác định quy cách)",
+      "unit": "KG",
+      "equipmentLinks": 19
+    }
+  ],
+  "sourceHashes": {
+    "BIENDONG_STAR_2026_Thiet_bi.xlsx": "08da541e888b22a266f24967adc6a6a1845d7844de7a0eab9d72d9c54466fb77",
+    "BIENDONG_STAR_2026_Cong_viec_bao_tri.xlsx": "0d8d4671a73c3f48d0f45979a8ed5645739b782d5106b9857917e06cbdda0a14"
+  },
+  "limitations": [
+    "Vật tư tổng quát được nhắc trong mô tả, không phải BOM đã xác minh.",
+    "Không có quy cách, part number, giá, số lượng tồn, định mức trong nguồn. Tồn và định mức khởi tạo 0; đơn vị gợi ý.",
+    "91 nhóm nguồn là các nút SYSTEM trong cây thiết bị; chưa gán PIC.",
+    "Chưa nhập lịch công việc hoặc lịch sử bảo trì."
+  ],
+  "evidence": [
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0369",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 386,
+          "description": "Check,re-tighten,grease"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0374",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 391,
+          "description": "Lubricating and grease up"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0404",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 421,
+          "description": "Check condition,re-tighten,grease"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0408",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 425,
+          "description": "Check condition,re-tighten,grease"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0413",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 430,
+          "description": "General check,grease up,test"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0414",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 431,
+          "description": "General check,grease up,test"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0417",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 434,
+          "description": "Inspection ,grease up,test"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0418",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 435,
+          "description": "General check,grease up,test"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0419",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 436,
+          "description": "General check,grease up,test"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0423",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 440,
+          "description": "Lubricate,grease,check,weardown"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0424",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 441,
+          "description": "Grease up,check wear, re-tighten"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0439",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 457,
+          "description": "Lubricate,grease,check,weardown"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0440",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 458,
+          "description": "Grease up,check wear, re-tighten"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0459",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 12,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0460",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 13,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0461",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 14,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0462",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 15,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0463",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 16,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0523",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 77,
+          "description": "K/tra han rỉ, thủng; nắp đậy & vít- Bơm mỡ trơn; GÕ rỉ & sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0550",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 104,
+          "description": "Ktra rỉ, kẹt, bơm mỡ"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0706",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 266,
+          "description": "K/tra mòn, hư hỏng, bơm mỡ, bảo quản vòng bi"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0712",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 272,
+          "description": "K/tra mòn, hư hỏng, bơm mỡ, bảo quản vòng bi"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0720",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 280,
+          "description": "K/tra, bôi mỡ bảo quản"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0721",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 281,
+          "description": "K/tra, bôi mỡ bảo quản"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0722",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 282,
+          "description": "K/tra, bôi mỡ bảo quản"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0726",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 286,
+          "description": "K/tra, bôi mỡ bảo quản"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0727",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 287,
+          "description": "K/tra, bôi mỡ bảo quản"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-GREASE",
+      "assetCode": "BD26-E0728",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 288,
+          "description": "K/tra, bôi mỡ bảo quản"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0399",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 416,
+          "description": "Clean, paint"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0400",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 417,
+          "description": "Clean, paint & Inspection"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0401",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 418,
+          "description": "Clean & paint , test safety valve"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0402",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 419,
+          "description": "Clean & paint , test safety valve"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0456",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 9,
+          "description": "Ktra-Sơn dặm: thang mớn nước, dấu Đ/kiểm, tên tàu."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0457",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 10,
+          "description": "Ktra hư hỏng. GÕ rỉ & sơn dặm ( chú ý dưới chân vách)"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0459",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 12,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0460",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 13,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0461",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 14,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0462",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 15,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0463",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 16,
+          "description": "Bơm mỡ - Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0464",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 17,
+          "description": "Ktra han rỉ, bulong, êcu...Gõ rỉ và sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0468",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 21,
+          "description": "GÕ rỉ & sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0471",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 24,
+          "description": "GÕ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0473",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 26,
+          "description": "Ktra han rỉ, thủng & hư hỏng; GÕ rỉ dặm & sơn. Van & tay van không bị kẹt & hư hỏng"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0474",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 27,
+          "description": "GÕ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0475",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 28,
+          "description": "GÕ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0478",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 31,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0479",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 32,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0481",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 34,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0482",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 35,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0484",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 37,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0485",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 38,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0487",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 40,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0488",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 41,
+          "description": "K/tra han rỉ, thủng, hư hỏng. GÕ rỉ, sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0491",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 44,
+          "description": "Ktra han rỉ, thủng, hư hỏng; GÕ rỉ & Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0522",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 76,
+          "description": "K/tra han rỉ, thủng, hư hỏng; GÕ rỉ & Sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0523",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 77,
+          "description": "K/tra han rỉ, thủng; nắp đậy & vít- Bơm mỡ trơn; GÕ rỉ & sơn dặm"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0524",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 78,
+          "description": "Ktra rỉ, thủng, thông tắc; GÕ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0525",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 79,
+          "description": "Ktra bản lề; rỉ, hư hỏng GÕ rỉ dặm & Sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0529",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 83,
+          "description": "GÕ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0533",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 87,
+          "description": "GÕ rỉ dặm & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0540",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 94,
+          "description": "GÕ rỉ dặm & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0541",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 95,
+          "description": "Chú ý phía trong bệ, gõ rỉ dặm & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0545",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 99,
+          "description": "GÕ rỉ dặm & Sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0546",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 100,
+          "description": "Chú ý phía trong bệ, gõ rỉ dặm & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0549",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 103,
+          "description": "VỆ sinh, gõ rỉ dặm & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0552",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 106,
+          "description": "Ktra rỉ, mòn, hư hỏng, . & GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0562",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 116,
+          "description": "Ktra han rỉ, mòn, thủng, vết nứt & các hư hỏng. GÕ rỉ dặm và sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0572",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 126,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0573",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 127,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0575",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 129,
+          "description": "Ktra, vệ sinh, thông tắc; gõ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0579",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 133,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0580",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 134,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0582",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 136,
+          "description": "Ktra, vệ sinh, thông tắc; gõ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0586",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 140,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0588",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 142,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0589",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 143,
+          "description": "Ktra, vệ sinh, thông tắc; gõ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0592",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 147,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0594",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 149,
+          "description": "ktra, gõ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0595",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 150,
+          "description": "Ktra, vệ sinh, thông tắc; gõ rỉ & sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0598",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 153,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0603",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 158,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0608",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 163,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0613",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 168,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0614",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 169,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0619",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 174,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0620",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 175,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0624",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 179,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0625",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 180,
+          "description": "Ktra rỉ, mòn, thủng. GÕ rỉ dặm, sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0630",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 185,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0632",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 187,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0636",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 191,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0643",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 198,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0649",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 204,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0655",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 210,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0661",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 216,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0668",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 223,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0669",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 224,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0670",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 225,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0674",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 229,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0675",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 230,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0676",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 231,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0680",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 235,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0681",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 236,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0682",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 237,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0687",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 242,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0688",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 243,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0689",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 244,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0695",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 250,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp sơn bảo vệ."
+        },
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 257,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp sơn bảo vệ."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0697",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 259,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp sơn bảo vệ."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0707",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 267,
+          "description": "K/tra rỉ, mòn, hư hỏng. GÕ rỉ & Sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0713",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 273,
+          "description": "K/tra rỉ, mòn, hư hỏng. GÕ rỉ & Sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0718",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 278,
+          "description": "K/tra, gõ rỉ dặm & Sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-PAINT",
+      "assetCode": "BD26-E0724",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 284,
+          "description": "K/tra, gõ rỉ dặm & Sơn"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CHEMICAL",
+      "assetCode": "BD26-E0127",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 134,
+          "description": "Clean by circulation chemical"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CHEMICAL",
+      "assetCode": "BD26-E0299",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 316,
+          "description": "Clean LO side by chemical"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CHEMICAL",
+      "assetCode": "BD26-E0305",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 322,
+          "description": "Clean HFO side by chemical"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SILICAGEL",
+      "assetCode": "BD26-E0281",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 298,
+          "description": "Clean condensor ,renew silicagel"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SILICAGEL",
+      "assetCode": "BD26-E0287",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 304,
+          "description": "Clean condensor ,renew silicagel"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0312",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 329,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0313",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 330,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0314",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 331,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0315",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 332,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0316",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 333,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0317",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 334,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0318",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 335,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0319",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 336,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0320",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 337,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0321",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 338,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0322",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 339,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0323",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 340,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0324",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 341,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0325",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 342,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0326",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 343,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0327",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 344,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0328",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 345,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0329",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 346,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0330",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 347,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0331",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 348,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0332",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 349,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0333",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 350,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0334",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 351,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0335",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 352,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0336",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 353,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0337",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 354,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0338",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 355,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0339",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 356,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0340",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 357,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0356",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 373,
+          "description": "Overhaul, renew seal bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0366",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 383,
+          "description": "Overhaul, renew seal,bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0381",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 398,
+          "description": "Overhaul, renew bearing,seal"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0382",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 399,
+          "description": "Overhaul, renew bearing,seal"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0385",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 402,
+          "description": "Overhaul for renew bearing,seal"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-SEAL",
+      "assetCode": "BD26-E0389",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 406,
+          "description": "Overhaul,renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0266",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 283,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0272",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 289,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0282",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 299,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0283",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 300,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0289",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 306,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0290",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 307,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0291",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 308,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0296",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 313,
+          "description": "Overhaul,renew bearing,flat belt"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0298",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 315,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0302",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 319,
+          "description": "Overhaul,renew bearing,flat belt"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0304",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 321,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0310",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 327,
+          "description": "Overhaul,renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0312",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 329,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0313",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 330,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0314",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 331,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0315",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 332,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0316",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 333,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0317",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 334,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0318",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 335,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0319",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 336,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0320",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 337,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0321",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 338,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0322",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 339,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0323",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 340,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0324",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 341,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0325",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 342,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0326",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 343,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0327",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 344,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0328",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 345,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0329",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 346,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0330",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 347,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0331",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 348,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0332",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 349,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0333",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 350,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0334",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 351,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0335",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 352,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0336",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 353,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0337",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 354,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0338",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 355,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0339",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 356,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0340",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 357,
+          "description": "Overhaul, renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0342",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 359,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0343",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 360,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0344",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 361,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0345",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 362,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0346",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 363,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0347",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 364,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0348",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 365,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0349",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 366,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0350",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 367,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0351",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 368,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0352",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 369,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0353",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 370,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0355",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 372,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0356",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 373,
+          "description": "Overhaul, renew seal bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0366",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 383,
+          "description": "Overhaul, renew seal,bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0367",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 384,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0379",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 396,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0380",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 397,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0381",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 398,
+          "description": "Overhaul, renew bearing,seal"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0382",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 399,
+          "description": "Overhaul, renew bearing,seal"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0385",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 402,
+          "description": "Overhaul for renew bearing,seal"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0389",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 406,
+          "description": "Overhaul,renew seal, bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0405",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 422,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0406",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 423,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0409",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 426,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BEARING",
+      "assetCode": "BD26-E0410",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 427,
+          "description": "Overhaul, renew bearing"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-BATTERY",
+      "assetCode": "BD26-E0743",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 303,
+          "description": "Thay thế"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0157",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 164,
+          "description": "Renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0168",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 176,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0195",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 206,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0203",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 215,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0236",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 251,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0261",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 278,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0297",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 314,
+          "description": "Renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-LO",
+      "assetCode": "BD26-E0303",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 320,
+          "description": "Renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-FILTER",
+      "assetCode": "BD26-E0195",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 206,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-FILTER",
+      "assetCode": "BD26-E0228",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 242,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-FILTER",
+      "assetCode": "BD26-E0261",
+      "references": [
+        {
+          "sheet": "May BD.star 2026",
+          "row": 278,
+          "description": "renew"
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0630",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 185,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0632",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 187,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0636",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 191,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0643",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 198,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0649",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 204,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0655",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 210,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0661",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 216,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0668",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 223,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0669",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 224,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0670",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 225,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0674",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 229,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0675",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 230,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0676",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 231,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0680",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 235,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0681",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 236,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0682",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 237,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0687",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 242,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0688",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 243,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    },
+    {
+      "materialCode": "BD26-MAT-CEMENT",
+      "assetCode": "BD26-E0689",
+      "references": [
+        {
+          "sheet": "BOONG BD STAR 2026",
+          "row": 244,
+          "description": "K/tra rỉ, mòn, thủng; t/trạng lớp bảo vệ (sơn/ ximăng)."
+        }
+      ]
+    }
+  ]
+}

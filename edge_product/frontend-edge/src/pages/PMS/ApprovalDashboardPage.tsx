@@ -1,3 +1,4 @@
+import { ApprovalHistory } from "@/components/ApprovalHistory";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * C/E Approval Dashboard
@@ -489,6 +490,7 @@ export default function ApprovalDashboardPage() {
         </div>
       )}
 
+      {selectedTask && <ApprovalHistory module="pms" recordKey={selectedTask.id} />}
       {/* Reject Modal */}
       {showRejectModal && selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

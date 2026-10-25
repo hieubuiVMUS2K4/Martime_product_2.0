@@ -1,3 +1,4 @@
+import { SigningControls } from "@/components/SigningControls";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import React, { useState, useEffect } from 'react';
 import { LogbookGrid } from '../../components/common/LogbookGrid';
@@ -5,6 +6,7 @@ import { MaritimeInput } from '../../components/common/MaritimeInput';
 import { logbookService } from '../../services/logbook.service';
 import { EngineLogEntryResponseDto, CreateEngineLogEntryDto } from '../../types/logbook.types';
 import { toast } from 'sonner';
+import { reportSigningError } from '@/lib/signingFeedback';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 
 export const EngineLogPage: React.FC = () => {
@@ -96,7 +98,7 @@ export const EngineLogPage: React.FC = () => {
   const handleSign = async (id: string) => {
     try {
       await logbookService.signEngineEntry(id, {
-        signature: 'Chief Engineer Signature',
+        signature: '',
         remarks: 'Signed',
         signedAt: new Date().toISOString()
       });
@@ -104,7 +106,7 @@ export const EngineLogPage: React.FC = () => {
       fetchEntries();
     } catch (error) {
       console.error(error);
-      toast.error(t('logbooks.common.signFailed') || 'Failed to sign entry');
+      reportSigningError(error, t('logbooks.common.signFailed'));
     }
   };
 
@@ -142,7 +144,7 @@ export const EngineLogPage: React.FC = () => {
   return (
     <LogbookGrid title={t('logbooks.engineLog.mainEngineTitle')}>
       <div className="overflow-x-auto bg-white border border-gray-200">
-        <table className="w-full text-left border-collapse">
+        <table className="operations-table w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-blue-600 font-sans text-sm font-semibold">
               <th className="p-4 border-b border-gray-200">{t('logbooks.engineLog.time')}</th>
@@ -253,7 +255,8 @@ export const EngineLogPage: React.FC = () => {
                   <td className="p-4 font-sans text-gray-900">{entry.fuelOilConsumedME}</td>
                   <td className="p-4 font-sans text-gray-900">
                     <div className="flex gap-2">
-                      {entry.chiefEngineerSignature ? (
+                      <SigningControls module="log-engine" recordKey={entry.id} permission="logbooks.engine.approve" signed={!!entry.chiefEngineerSignature} />
+{entry.chiefEngineerSignature ? (
                         <span className="text-green-600 font-sans text-xs">{t('logbooks.deckLog.signed')}</span>
                       ) : (
                         <>
@@ -340,7 +343,7 @@ export const EngineLogPage: React.FC = () => {
               <td className="p-2">
                 <PermissionGate permission="logbooks.engine.create"><button
                   onClick={handleAdd}
-                  className="bg-blue-600 text-white px-4 py-2.5 font-semibold rounded-lg hover:bg-blue-700"
+                  className="bg-blue-600 text-white px-4 py-1.5 font-semibold rounded-lg hover:bg-blue-700"
                 >
                   {t('common.add')}
                 </button></PermissionGate>

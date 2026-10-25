@@ -43,5 +43,20 @@ public static class VesselSyncIdentity
         var pendingAddress = $"vessel:{node.VesselId}";
         await context.SyncOutbox.Where(o => o.TargetNode == imo || o.TargetNode == pendingAddress)
             .ExecuteUpdateAsync(setters => setters.SetProperty(o => o.TargetNode, nodeId).SetProperty(o => o.DeliveredAt, (DateTime?)null));
+
+        // Repair legacy voyage broadcasts and route unassigned drafts once their vessel is known.
+        // Payloads stay immutable; historical receipt for the resolved recipient is preserved.
+        var voyageEvents = await context.SyncOutbox.AsTracking().Where(o =>
+            (o.TargetNode == "*" || o.TargetNode.StartsWith("voyage:")) &&
+            (o.TableName.StartsWith("voyage_") || o.TableName == "port_call" || o.TableName == "cargo_operation")).ToListAsync();
+        foreach (var item in voyageEvents)
+        {
+            var target = await VoyageSyncRouting.ResolveTargetAsync(context, item.TableName, item.RecordKey, item.Payload);
+            if (target == item.TargetNode) continue;
+            item.TargetNode = target;
+            item.DeliveredAt = await context.SyncOutboxDeliveries.Where(d => d.OutboxId == item.Id && d.NodeId == target)
+                .Select(d => (DateTime?)d.AppliedAtUtc).SingleOrDefaultAsync();
+        }
+        if (voyageEvents.Count > 0) await context.SaveChangesAsync();
     }
 }

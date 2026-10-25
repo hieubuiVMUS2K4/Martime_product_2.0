@@ -129,11 +129,9 @@ namespace MaritimeEdge.DTOs.Logbooks
 
     public class SignEngineLogDto
     {
-        [Required]
         [MaxLength(100)]
         public string ChiefEngineerSignature { get; set; } = string.Empty;
         
-        [Required]
         public DateTime SignedAt { get; set; }
         
         public string? ChiefEngineerRemarks { get; set; }

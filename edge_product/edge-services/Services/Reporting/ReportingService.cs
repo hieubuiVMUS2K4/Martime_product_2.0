@@ -166,8 +166,10 @@ public class ReportingService : IReportingService
                 remarks = $"[VALIDATION WARNINGS]\n{string.Join("\n", warnings)}\n\n{remarks}";
             }
 
-            // Use transaction to ensure atomicity
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // ApprovalActionFilter may already own the request transaction.
+            // Only commit or roll back a transaction created by this service.
+            using var transaction = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync() : null;
             try
             {
                 // Create maritime report (parent)
@@ -274,7 +276,7 @@ public class ReportingService : IReportingService
                 await _context.SaveChangesAsync();
 
                 // Commit transaction
-                await transaction.CommitAsync();
+                if (transaction != null) await transaction.CommitAsync();
 
                 _logger.LogInformation("Noon report created: {ReportNumber}", reportNumber);
                 
@@ -282,7 +284,7 @@ public class ReportingService : IReportingService
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                if (transaction != null) await transaction.RollbackAsync();
                 _logger.LogError(ex, "Transaction failed while creating noon report");
                 throw;
             }
@@ -2222,9 +2224,10 @@ public class ReportingService : IReportingService
     /// </summary>
     private async Task<string> GenerateReportNumberAsync(string prefix)
     {
-        // CRITICAL: Use serializable isolation level to prevent race conditions
-        using var transaction = await _context.Database.BeginTransactionAsync(
-            System.Data.IsolationLevel.Serializable);
+        // Reuse the request transaction; the approval filter serializes report writes.
+        // Standalone callers retain the existing serializable transaction.
+        using var transaction = _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable) : null;
         
         try
         {
@@ -2253,7 +2256,7 @@ public class ReportingService : IReportingService
             
             var reportNumber = $"{prefix}-{dateStr}-{nextSequence:D4}";
             
-            await transaction.CommitAsync();
+            if (transaction != null) await transaction.CommitAsync();
             
             _logger.LogDebug("Generated report number: {ReportNumber} (sequence: {Sequence})", 
                 reportNumber, nextSequence);
@@ -2262,7 +2265,7 @@ public class ReportingService : IReportingService
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            if (transaction != null) await transaction.RollbackAsync();
             _logger.LogError(ex, "Error generating report number for prefix {Prefix}", prefix);
             throw;
         }

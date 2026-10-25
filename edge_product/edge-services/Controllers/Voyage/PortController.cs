@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MaritimeEdge.Data;
 using MaritimeEdge.Models;
@@ -113,26 +113,31 @@ public class PortController : ControllerBase
         return Ok(port);
     }
 
-    // ==========================================
-    // TẠO / SỬA / XOÁ CẢNG (LOCKED AT EDGE)
-    // Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý và phát xuống tàu qua đồng bộ.
-    // ==========================================
+    /// <summary>
+    /// Reject writes to the Shore-managed port catalog
+    /// </summary>
     [HttpPost]
-    public IActionResult Create()
+    public Task<IActionResult> Create()
     {
-        return BadRequest(new { message = "Chức năng thêm cảng đã bị khóa tại nút Tàu (Edge). Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý." });
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
+    /// <summary>
+    /// Reject port updates on Edge
+    /// </summary>
     [HttpPut("{id:int}")]
-    public IActionResult Update(int id)
+    public Task<IActionResult> Update(int id)
     {
-        return BadRequest(new { message = "Chức năng sửa cảng đã bị khóa tại nút Tàu (Edge). Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý." });
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
+    /// <summary>
+    /// Reject port deletion on Edge
+    /// </summary>
     [HttpDelete("{id:int}")]
-    public IActionResult Delete(int id)
+    public Task<IActionResult> Delete(int id)
     {
-        return BadRequest(new { message = "Chức năng ngừng sử dụng cảng đã bị khóa tại nút Tàu (Edge). Danh mục cảng do Văn phòng Bờ (Shore Master) quản lý." });
+        return Task.FromResult<IActionResult>(StatusCode(405, new { error = "This catalog is managed on shore. Edge access is read-only.", code = "shore_managed_catalog" }));
     }
 
     /// <summary>

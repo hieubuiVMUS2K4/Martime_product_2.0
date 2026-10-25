@@ -12,7 +12,6 @@ namespace ProductApi.Data
         public static async Task SeedAsync(AppDbContext context)
         {
             // 1. Seed ISM Elements
-            if (!await context.IsmElements.AnyAsync())
             {
                 var elements = new List<IsmElement>
                 {
@@ -34,12 +33,12 @@ namespace ProductApi.Data
                     new IsmElement { Id = 16, ChapterName = "Hướng dẫn kỹ thuật (Technical Instructions)" }
                 };
 
-                await context.IsmElements.AddRangeAsync(elements);
+                var existingElementIds = await context.IsmElements.Select(e => e.Id).ToListAsync();
+                await context.IsmElements.AddRangeAsync(elements.Where(e => !existingElementIds.Contains(e.Id)));
                 await context.SaveChangesAsync();
             }
 
             // 2. Seed Procedures and Form Templates
-            if (!await context.SmsProcedures.AnyAsync())
             {
                 // Clause 1-5
                 var proc1 = new SmsProcedure
@@ -238,7 +237,25 @@ namespace ProductApi.Data
                     ]"
                 });
 
-                await context.SmsProcedures.AddRangeAsync(proc1, proc2, proc3, proc4, proc5, proc6, proc7);
+                // Add missing natural keys even when custom procedures already exist.
+                var existingProcedures = await context.SmsProcedures.ToDictionaryAsync(p => p.ProcedureCode);
+                var existingFormCodes = await context.SmsFormTemplates.Select(f => f.FormCode).ToListAsync();
+                foreach (var candidate in new[] { proc1, proc2, proc3, proc4, proc5, proc6, proc7 })
+                {
+                    if (existingProcedures.TryGetValue(candidate.ProcedureCode, out var existing))
+                    {
+                        foreach (var form in candidate.FormTemplates.Where(f => !existingFormCodes.Contains(f.FormCode)))
+                        {
+                            form.SmsProcedureId = existing.Id;
+                            await context.SmsFormTemplates.AddAsync(form);
+                        }
+                    }
+                    else
+                    {
+                        candidate.FormTemplates = candidate.FormTemplates.Where(f => !existingFormCodes.Contains(f.FormCode)).ToList();
+                        await context.SmsProcedures.AddAsync(candidate);
+                    }
+                }
                 await context.SaveChangesAsync();
             }
 

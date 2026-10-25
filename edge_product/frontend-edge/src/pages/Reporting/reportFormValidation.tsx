@@ -39,15 +39,18 @@ export const renderValidationFieldError = (fieldErrors: FormFieldErrors, fieldNa
 };
 
 export const focusFirstValidationError = (fieldRefs: FormFieldRefs, fieldErrors: FormFieldErrors) => {
-  const firstFieldName = Object.keys(fieldErrors)[0];
+  const firstFieldName = Object.keys(fieldErrors).find((fieldName) => fieldRefs.current[fieldName]);
   const fieldRef = firstFieldName ? fieldRefs.current[firstFieldName] : null;
 
   if (!fieldRef) {
     return;
   }
 
-  fieldRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(() => fieldRef.focus(), 150);
+  fieldRef.focus({ preventScroll: true });
+  fieldRef.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'center',
+  });
 };
 
 type MessageFieldMapper = (message: string) => string | null;

@@ -1,3 +1,5 @@
+import { CatalogSelect } from '@/components/common/CatalogSelect';
+import { UNITS_OF_MEASURE } from '@/config/catalogs';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Eye, ArrowLeft, ChevronRight as ChevronRightIcon, X, CheckCircle, Paperclip, Info, Package, Truck, ClipboardList } from 'lucide-react';
 import { stockReceiptService } from '@/services/stockReceipt.service';
@@ -747,7 +749,7 @@ export default function StockReceiptPage({ vesselId, readOnly = false }: { vesse
                       </td>
                       {/* ĐVT */}
                       <td className="px-2 py-1.5">
-                        <input type="text" value={item.unit} onChange={e => updateFormItem(idx, 'unit', e.target.value)} className="w-full border border-gray-300 px-1.5 py-1 text-sm" />
+                        <CatalogSelect options={UNITS_OF_MEASURE} value={item.unit} onChange={e => updateFormItem(idx, 'unit', e.target.value)} className="w-full border border-gray-300 px-1.5 py-1 text-sm" />
                       </td>
                       {/* SL YC nhập */}
                       <td className="px-2 py-1.5">

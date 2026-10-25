@@ -56,7 +56,7 @@ public sealed class SyncBatchProcessResult
     public List<Guid> AcknowledgedEventIds { get; } = new();
 }
 
-public class SyncInboxService : ISyncInboxService
+public partial class SyncInboxService : ISyncInboxService
 {
     private string? _incomingOriginNode;
     private readonly AppDbContext _context;
@@ -162,6 +162,9 @@ public class SyncInboxService : ISyncInboxService
 
     private static readonly Dictionary<string, Type> _tableEntityMap = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["approval_document"] = typeof(ApprovalDocument),
+        ["approval_revision"] = typeof(ApprovalRevision),
+        ["approval_action"] = typeof(ApprovalAction),
         ["nmea_raw_data"] = typeof(ProductApi.Models.NmeaRawData),
         ["navigation_data"] = typeof(ProductApi.Models.NavigationData),
         ["environmental_data"] = typeof(ProductApi.Models.EnvironmentalData),
@@ -320,7 +323,7 @@ public class SyncInboxService : ISyncInboxService
     // chúng và bờ phải nhận.
     private static readonly HashSet<string> _shoreMasterOnlyTables = new(StringComparer.OrdinalIgnoreCase)
     {
-        "ism_elements", "sms_procedures", "sms_form_templates"
+        "ism_elements", "sms_procedures", "sms_form_templates", "port"
     };
 
     // Tables that edge auto-syncs but shore intentionally does not store.
@@ -380,6 +383,9 @@ public class SyncInboxService : ISyncInboxService
     {
         return canonicalTable switch
         {
+            "approval_document" => 70,
+            "approval_revision" => 71,
+            "approval_action" => 72,
             // Tier 0: Reference / seed tables
             "certificate" or "country" or "rank" or "rank_certificate" or "country_certificate"
                 or "report_type" or "equipment_group" or "material_category" or "store_location" => 0,
@@ -673,7 +679,7 @@ public class SyncInboxService : ISyncInboxService
                     // arrive via the separate file-transfer pipeline.
                     var isDocumentTable = canonicalTable.EndsWith("_document", StringComparison.OrdinalIgnoreCase);
                     var isCrewCertificate = string.Equals(canonicalTable, "crew_certificate", StringComparison.OrdinalIgnoreCase);
-                    item.Payload = (isDocumentTable || isCrewCertificate)
+                    item.Payload = ApprovalSnapshot.Tables.Contains(canonicalTable) ? item.Payload : (isDocumentTable || isCrewCertificate)
                         ? StripFileReferencePropertiesExceptFileUrl(item.Payload)
                         : StripFileReferenceProperties(item.Payload);
 
@@ -1175,6 +1181,7 @@ public class SyncInboxService : ISyncInboxService
 
     public async Task ProcessIncomingAsync(SyncQueueItemDto item)
     {
+        if (ApprovalSnapshot.Tables.Contains(item.TableName)) { await ProcessApprovalEvidenceAsync(item); return; }
         _incomingOriginNode = item.OriginNode;
         item.TableName = CanonicalizeTableName(item.TableName);
         if (IsShoreManagedMaterial(item.TableName))

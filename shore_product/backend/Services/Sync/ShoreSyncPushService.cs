@@ -151,11 +151,13 @@ public class ShoreSyncPushService(AppDbContext context, ISyncOutboxService outbo
     {
         var crew = await context.CrewMembers.AsNoTracking().Where(c => c.VesselId == vesselId).OrderBy(c => c.CrewId).ToListAsync();
         var ids = crew.Select(c => c.Id).ToList();
+        var origins = await VesselSyncIdentity.HistoricalOriginsAsync(context, vesselId);
 
         var items = new List<(string, string, SyncActionType, object)>();
         items.AddRange(Rows("crew_member", crew, c => c.Id));
         items.AddRange(Rows("crew_certificate", await context.CrewCertificates.AsNoTracking().Where(x => ids.Contains(x.CrewMemberId)).OrderBy(x => x.Id).ToListAsync(), x => x.Id));
-        items.AddRange(Rows("service_record", await context.ServiceRecords.AsNoTracking().Where(x => ids.Contains(x.CrewMemberId)).ToListAsync(), x => x.Id));
+        items.AddRange(Rows("service_record", await context.ServiceRecords.AsNoTracking()
+            .Where(x => ids.Contains(x.CrewMemberId) && origins.Contains(x.OriginNode)).ToListAsync(), x => x.Id));
         items.AddRange(Rows(CrewMemberDocument.SyncTable, await context.CrewMemberDocuments.AsNoTracking().Where(x => ids.Contains(x.CrewMemberId)).ToListAsync(), x => x.Id));
         items.AddRange(Rows("crew_logbook_entry", await context.CrewLogbookEntries.AsNoTracking().Where(x => ids.Contains(x.CrewMemberId)).ToListAsync(), x => x.Id));
 

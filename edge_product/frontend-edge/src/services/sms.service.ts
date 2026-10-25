@@ -4,6 +4,13 @@
  */
 import { apiClient } from '@/services/api.client';
 
+// SMS master data is issued by Shore, regardless of the user's role on Edge.
+export const canManageSmsPolicies = false;
+
+function requireShorePolicyManagement(): void {
+  throw new Error('Chính sách, quy trình và biểu mẫu SMS chỉ được cập nhật từ bờ (Shore).');
+}
+
 export interface SmsTreeChapter {
   id: number;
   chapterName: string;
@@ -78,6 +85,9 @@ export interface SmsFilledRecord {
 }
 
 export interface SignatureEntry {
+  authenticationMethod?: string;
+  contentHash?: string;
+  revisionId?: string;
   name: string;
   rank: string;
   timestamp: string;
@@ -137,22 +147,14 @@ class SmsService {
 
   async signRecord(
     id: string,
-    data: {
-      pin: string;
-      name: string;
-      rank: string;
-    }
+    data: Record<string, never>
   ): Promise<{ message: string; signatures: SignatureEntry[]; status: string }> {
     return apiClient.post<{ message: string; signatures: SignatureEntry[]; status: string }>(`/sms/records/${id}/sign`, data);
   }
 
   async approveRecord(
     id: string,
-    data: {
-      pin: string;
-      name: string;
-      rank: string;
-    }
+    data: Record<string, never>
   ): Promise<{ message: string; signatures: SignatureEntry[]; status: string }> {
     return apiClient.post<{ message: string; signatures: SignatureEntry[]; status: string }>(`/sms/records/${id}/approve`, data);
   }
@@ -164,10 +166,12 @@ class SmsService {
     changeNote?: string;
     filePath?: string;
   }): Promise<{ message: string; newProcedureId: string }> {
+    requireShorePolicyManagement();
     return apiClient.post<{ message: string; newProcedureId: string }>('/sms/procedures/version-up', data);
   }
 
   async importDocx(file: File): Promise<{ message: string; html: string; filePath: string }> {
+    requireShorePolicyManagement();
     const formData = new FormData();
     formData.append('file', file);
     return apiClient.post<{ message: string; html: string; filePath: string }>('/sms/procedures/import', formData);
@@ -181,6 +185,7 @@ class SmsService {
     version: string;
     filePath?: string;
   }): Promise<{ message: string; procedureId: string }> {
+    requireShorePolicyManagement();
     return apiClient.post<{ message: string; procedureId: string }>('/sms/procedures', data);
   }
 
@@ -190,6 +195,7 @@ class SmsService {
     title: string;
     contentSchema?: string;
   }): Promise<{ message: string; templateId: string }> {
+    requireShorePolicyManagement();
     return apiClient.post<{ message: string; templateId: string }>('/sms/templates', data);
   }
 
@@ -198,14 +204,17 @@ class SmsService {
   }
 
   async assignTemplates(procedureId: string, templateIds: string[]): Promise<{ message: string; assignedTemplateIds: string[] }> {
+    requireShorePolicyManagement();
     return apiClient.post<{ message: string; assignedTemplateIds: string[] }>(`/sms/procedures/${procedureId}/assign-templates`, templateIds);
   }
 
   async deleteProcedure(id: string): Promise<{ message: string }> {
+    requireShorePolicyManagement();
     return apiClient.delete<{ message: string }>(`/sms/procedures/${id}`);
   }
 
   async deleteFormTemplate(id: string): Promise<{ message: string }> {
+    requireShorePolicyManagement();
     return apiClient.delete<{ message: string }>(`/sms/templates/${id}`);
   }
 }

@@ -952,7 +952,7 @@ export function FormTL1501({ formValues, onFieldChange, recordStatus }: FormTL15
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[40px] text-center">STT</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px]">Chức danh / Rank</th>
                 <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[200px]">Họ tên / Name</th>
-                <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px] text-center">Chữ ký điện tử / Signature</th>
+                <th className="p-2 border-r border-slate-300 dark:border-slate-750 w-[180px] text-center">Ghi nhận tham gia / Participation (không xác thực tài khoản)</th>
                 {!(recordStatus === 'Approved' || recordStatus === 'Submitted') && <th className="p-2 w-[50px] text-center">Xóa</th>}
               </tr>
             </thead>

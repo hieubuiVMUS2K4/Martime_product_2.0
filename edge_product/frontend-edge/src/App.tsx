@@ -1,4 +1,5 @@
-﻿import { Routes, Route, Navigate } from 'react-router-dom'
+import { ApprovalDialog } from "./components/ApprovalDialog"
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ToastContainer, Slide } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
@@ -90,6 +91,7 @@ function App() {
 
       {/* Settings Dialog (renders as portal, controlled by zustand store) */}
       <SettingsDialog />
+      <ApprovalDialog />
 
       <Routes>
       {/* Public: Login Page */}
@@ -110,6 +112,7 @@ function App() {
         <Route path="pms/maintenance" element={<MaintenancePage />} />
         <Route path="voyage" element={<VoyagePage />} />
         <Route path="ports" element={<PortManagementPage />} />
+        <Route path="crew/ranks" element={<Navigate to="/crew/certificates?tab=ranks" replace />} />
         <Route path="ship-data" element={<ShipDataPage />} />
         {/* <Route path="compliance" element={<CompliancePage />} /> */} {/* Temporarily hidden */}
         <Route path="sync" element={<SyncPage />} />

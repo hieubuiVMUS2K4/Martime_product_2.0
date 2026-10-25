@@ -1,3 +1,4 @@
+import { CLASSIFICATION_SOCIETIES } from '@/config/catalogs';
 /*
   Cấu hình "Dữ liệu tàu": tab → nhóm → trường. Cùng thứ tự tab, nhóm và nhãn với
   trang "Thông số tàu" bên bờ để hai bên nhìn giống nhau; khóa trường là tên của API tàu.
@@ -72,7 +73,7 @@ const sel = (key: string, label: string, options: string[]): FieldDef => ({ key,
 const org = (id: string, title: string, prefix: string, nameLabel = 'Tên công ty'): SectionDef => ({
   id, title,
   fields: [
-    { key: `${prefix}Name`, label: nameLabel },
+    { key: `${prefix}Name`, label: nameLabel, ...(prefix === 'classSociety' ? { kind: 'select' as const, options: [...CLASSIFICATION_SOCIETIES] } : {}) },
     { key: `${prefix}ContactPerson`, label: 'Người liên hệ' },
     { key: `${prefix}Street`, label: 'Địa chỉ' },
     { key: `${prefix}City`, label: 'Thành phố' },

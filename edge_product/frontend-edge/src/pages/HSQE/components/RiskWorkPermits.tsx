@@ -1,8 +1,9 @@
+import { PermitApprovalActions } from "@/components/PermitApprovalActions";
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect } from 'react';
 import { 
   Plus, Activity, ArrowRight, ArrowLeft, ShieldAlert, ShieldCheck, Trash2, Eye,
-  Lock, Sparkles, Award
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/services/api.client';
@@ -38,7 +39,7 @@ interface WorkPermit {
   title: string;
   vessel: string;
   location: string;
-  status: 'Active' | 'Suspended' | 'Closed';
+  status: string;
   durationHours: number;
   startTime: string;
   riskAssessmentId?: string;
@@ -103,6 +104,7 @@ export function RiskWorkPermits() {
   const [permitRiskId, setPermitRiskId] = useState('');
   const [permitPreparedBy, setPermitPreparedBy] = useState('Đại phó Trần Văn D');
   
+  const [gasDevice, setGasDevice] = useState('');
   // Gas test inputs
   const [gasO2, setGasO2] = useState<number>(20.9);
   const [gasLEL, setGasLEL] = useState<number>(0.0);
@@ -112,13 +114,10 @@ export function RiskWorkPermits() {
   // Precautions checkboxes simulation
   const [precautionList, setPrecautionList] = useState<{ label: string; checked: boolean }[]>([]);
 
-  // PIN Digital Signature State (matching SMS Dashboard pattern)
-  const [permitSigningName, setPermitSigningName] = useState('Đại phó Trần Văn D');
-  const [permitSigningRank, setPermitSigningRank] = useState('Chief Officer');
-  const [permitSigningPin, setPermitSigningPin] = useState('');
-  const [permitSignStep, setPermitSignStep] = useState<'draft' | 'co_signed' | 'approved'>('draft');
+  // Current draft permit
+  const [, setPermitSignStep] = useState<'draft' | 'co_signed' | 'approved'>('draft');
   const [permitCreatedId, setPermitCreatedId] = useState<string | null>(null);
-  const [permitSignatures, setPermitSignatures] = useState<{ name: string; rank: string; timestamp: string; sigCode: string }[]>([]);
+  const [, setPermitSignatures] = useState<{ name: string; rank: string; timestamp: string; sigCode: string }[]>([]);
 
   const fetchRisksAndPermits = async () => {
     setLoading(true);
@@ -157,7 +156,7 @@ export function RiskWorkPermits() {
           location: p.location,
           status: p.status,
           durationHours: p.durationHours,
-          startTime: p.startTime ? p.startTime.slice(0, 16) : '',
+          startTime: p.startTime || '',
           riskAssessmentId: p.riskAssessmentId || undefined,
           gasO2: p.gasTestO2,
           gasLEL: p.gasTestLEL,
@@ -249,12 +248,6 @@ export function RiskWorkPermits() {
     setPrecautionList(list);
   }, [permitType]);
 
-  // Gas safety verification logic (mirroring backend validator)
-  const isGasSafe = (o2: number, lel: number, co: number, h2s: number) => {
-    return o2 >= 20.9 && o2 <= 22.0 && lel < 1 && co < 25 && h2s === 0;
-  };
-
-  const gasSafetyStatus = isGasSafe(gasO2, gasLEL, gasCO, gasH2S);
 
   // Compute Risk level color code
   const getRiskLevel = (score: number) => {
@@ -352,10 +345,6 @@ export function RiskWorkPermits() {
       return;
     }
 
-    if (permitType === 'Enclosed' && !gasSafetyStatus) {
-      toast.error('⚠️ Nồng độ khí chưa an toàn! Không thể cấp giấy phép vào không gian kín.');
-      return;
-    }
 
     try {
       // 1. Create Permit
@@ -374,87 +363,17 @@ export function RiskWorkPermits() {
         precautionsJson: JSON.stringify(finalPrecautions)
       });
 
-      // 2. Perform Gas Test
-      await apiClient.post(`/hsqe/permits/${created.id}/gas-test`, {
-        gasTestO2: gasO2,
-        gasTestLEL: gasLEL,
-        gasTestCO: gasCO,
-        gasTestH2S: gasH2S
-      });
-
-      // 3. Set permit created, ready for PIN signing
+      if ((permitType === 'Hot' || permitType === 'Enclosed') && gasDevice.trim()) {
+        await apiClient.post(`/hsqe/permits/${created.id}/gas-test`, { gasTestO2: gasO2, gasTestLEL: gasLEL, gasTestCO: gasCO, gasTestH2S: gasH2S, device: gasDevice });
+      }
+      // 3. Save draft before authenticated review
       setPermitCreatedId(created.id);
+      await fetchRisksAndPermits();
       setPermitSignStep('draft');
       setPermitSignatures([]);
-      setPermitSigningPin('');
-      toast.success(`Đã tạo Giấy phép ${created.permitCode}. Vui lòng ký duyệt bằng mã PIN.`);
+      toast.success(`Đã tạo Giấy phép ${created.permitCode}. Đã lưu nháp, cần gửi kiểm tra và cấp phép.`);
     } catch (err) {
       toast.error('Không thể tạo giấy phép nguy hiểm');
-    }
-  };
-
-  const handlePermitSign = async () => {
-    if (!permitCreatedId) return;
-
-    if (!permitSigningName.trim() || !permitSigningRank.trim() || !permitSigningPin.trim()) {
-      toast.error('Vui lòng điền tên, chức danh và mã PIN ký số.');
-      return;
-    }
-
-    try {
-      const res = await apiClient.post<any>(`/hsqe/permits/${permitCreatedId}/sign`, {
-        role: 'ChiefOfficer',
-        pin: permitSigningPin,
-        name: permitSigningName,
-        rank: permitSigningRank
-      });
-
-      const sigs = (() => { try { return JSON.parse(res.digitalSignatures || '[]'); } catch { return []; } })();
-      setPermitSignatures(sigs);
-      setPermitSignStep('co_signed');
-      setPermitSigningPin('');
-      setPermitSigningName('Thuyền trưởng');
-      setPermitSigningRank('Captain (Master)');
-      toast.success('Đại phó đã ký duyệt thành công! Chờ Thuyền trưởng phê duyệt.');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Mã PIN không chính xác hoặc lỗi ký số');
-    }
-  };
-
-  const handlePermitCaptainApprove = async () => {
-    if (!permitCreatedId) return;
-
-    if (!permitSigningPin.trim()) {
-      toast.error('Vui lòng nhập mã PIN Thuyền trưởng.');
-      return;
-    }
-
-    try {
-      const res = await apiClient.post<any>(`/hsqe/permits/${permitCreatedId}/sign`, {
-        role: 'Captain',
-        pin: permitSigningPin,
-        name: permitSigningName,
-        rank: permitSigningRank
-      });
-
-      const sigs = (() => { try { return JSON.parse(res.digitalSignatures || '[]'); } catch { return []; } })();
-      setPermitSignatures(sigs);
-      setPermitSignStep('approved');
-      setPermitSigningPin('');
-      toast.success('Thuyền trưởng đã phê duyệt cấp giấy phép thành công!');
-
-      // Reset and go back to list
-      setTimeout(async () => {
-        setViewMode('list');
-        setPermitTitle('');
-        setPermitLocation('');
-        setPermitCreatedId(null);
-        setPermitSignStep('draft');
-        setPermitSignatures([]);
-        await fetchRisksAndPermits();
-      }, 1500);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'PIN Thuyền trưởng không đúng (Mặc định: 1111)');
     }
   };
 
@@ -522,7 +441,7 @@ export function RiskWorkPermits() {
 
   if (risks.length === 0 || permits.length === 0) {
     return (
-      <div className="w-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div className="operations-surface w-full min-h-[500px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-full text-blue-600 dark:text-blue-400 mb-4 animate-pulse">
           <Activity className="w-12 h-12" />
         </div>
@@ -643,7 +562,7 @@ export function RiskWorkPermits() {
                     {riskSteps.length > 1 && (
                       <button 
                         onClick={() => setRiskSteps(prev => prev.filter((_, i) => i !== idx))}
-                        className="text-xs text-red-500 hover:underline"
+                        className="text-[10px] text-red-500 hover:underline"
                       >
                         Xóa bước này
                       </button>
@@ -652,7 +571,7 @@ export function RiskWorkPermits() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Mô tả bước công việc</label>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Mô tả bước công việc</label>
                       <input
                         type="text"
                         value={step.stepDescription}
@@ -666,7 +585,7 @@ export function RiskWorkPermits() {
                     </div>
                     
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Mối nguy hiểm tiềm tàng</label>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Mối nguy hiểm tiềm tàng</label>
                       <input
                         type="text"
                         value={step.hazards}
@@ -682,7 +601,7 @@ export function RiskWorkPermits() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-800 pt-3">
                     <div>
-                      <span className="block text-xs font-bold text-slate-400 mb-2">Đánh giá ban đầu (Initial Risk):</span>
+                      <span className="block text-[10px] font-bold text-slate-400 mb-2">Đánh giá ban đầu (Initial Risk):</span>
                       <div className="flex gap-4 text-xs">
                         <label className="flex items-center gap-1">
                           <span>Khả năng (L:1-5)</span>
@@ -709,7 +628,7 @@ export function RiskWorkPermits() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Biện pháp giảm thiểu rủi ro đề xuất</label>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Biện pháp giảm thiểu rủi ro đề xuất</label>
                       <input
                         type="text"
                         value={step.mitigations}
@@ -891,6 +810,7 @@ export function RiskWorkPermits() {
             </div>
           </div>
 
+          <label>Mã thiết bị đo khí<input value={gasDevice} onChange={event => setGasDevice(event.target.value)} className="border rounded p-2 ml-2" /></label>
           {/* Gas Input Form section - Only relevant for Enclosed spaces */}
           {permitType === 'Enclosed' && (
             <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
@@ -900,7 +820,7 @@ export function RiskWorkPermits() {
               
               <div className="grid grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">O2 (%) - Hạn 20.9%</label>
+                  <label className="block text-[10px] text-slate-400 mb-1">O2 (%) - Hạn 20.9%</label>
                   <input
                     type="number"
                     step="0.1"
@@ -910,7 +830,7 @@ export function RiskWorkPermits() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">LEL (%) - Hạn &lt; 1%</label>
+                  <label className="block text-[10px] text-slate-400 mb-1">LEL (%) - Hạn &lt; 1%</label>
                   <input
                     type="number"
                     step="0.1"
@@ -920,7 +840,7 @@ export function RiskWorkPermits() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">CO (ppm) - Hạn &lt; 25</label>
+                  <label className="block text-[10px] text-slate-400 mb-1">CO (ppm) - Hạn &lt; 25</label>
                   <input
                     type="number"
                     value={gasCO}
@@ -929,7 +849,7 @@ export function RiskWorkPermits() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">H2S (ppm) - Hạn 0</label>
+                  <label className="block text-[10px] text-slate-400 mb-1">H2S (ppm) - Hạn 0</label>
                   <input
                     type="number"
                     value={gasH2S}
@@ -940,15 +860,7 @@ export function RiskWorkPermits() {
               </div>
 
               {/* Visual safety indicator */}
-              {gasSafetyStatus ? (
-                <div className="p-3 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-850 text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4" /> NỒNG ĐỘ KHÍ AN TOÀN. Đủ điều kiện cấp phép vào không gian kín.
-                </div>
-              ) : (
-                <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-850 text-xs font-bold flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4 animate-bounce" /> NỒNG ĐỘ KHÍ NGUY HIỂM! Hệ thống tự động khóa nút phê duyệt cấp phép.
-                </div>
-              )}
+              <p className="text-xs text-slate-500">K?t qu? ?o ???c l?u ?? ng??i ki?m tra v? ng??i c?p ph?p ??i chi?u SMS c?ng ty.</p>
             </div>
           )}
 
@@ -970,108 +882,9 @@ export function RiskWorkPermits() {
             </div>
           </div>
 
-          {/* PIN DIGITAL SIGNATURE SECTION */}
-          <div className="bg-slate-50 dark:bg-slate-850 p-5 rounded-2xl border border-slate-250 dark:border-slate-800 space-y-4 border-t border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-              <Lock className="w-4 h-4 text-blue-500" />
-              <span>MÃ PIN XÁC THỰC CHỮ KÝ SỐ</span>
-            </div>
-
-            <p className="text-xs text-slate-450 leading-relaxed">
-              Đóng dấu số điện tử trực tiếp lên giấy phép làm việc. Officers sử dụng mã PIN cá nhân của mình (4 chữ số bất kỳ). <br />
-              <strong>Thuyền trưởng duyệt cấp phép sử dụng mã PIN: 1111</strong>
-            </p>
-
-            {/* Show signatures already made */}
-            {permitSignatures.length > 0 && (
-              <div className="space-y-1.5">
-                {permitSignatures.map((sig, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 px-3 py-2 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="font-bold">{sig.name}</span>
-                    <span className="text-emerald-600 dark:text-emerald-500">({sig.rank})</span>
-                    <span className="ml-auto font-mono text-xs text-emerald-500">{sig.sigCode}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {permitSignStep !== 'approved' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {permitSignStep === 'draft' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Họ tên người ký"
-                        value={permitSigningName}
-                        onChange={(e) => setPermitSigningName(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Chức danh ký"
-                        value={permitSigningRank}
-                        onChange={(e) => setPermitSigningRank(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </>
-                  )}
-                  <input
-                    type="password"
-                    maxLength={4}
-                    placeholder="PIN (4 số)"
-                    value={permitSigningPin}
-                    onChange={(e) => setPermitSigningPin(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white font-mono text-center outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end pt-1">
-                  <button
-                    onClick={() => { setViewMode('list'); setPermitCreatedId(null); setPermitSignStep('draft'); setPermitSignatures([]); }}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 transition"
-                  >
-                    Hủy bỏ
-                  </button>
-
-                  {!permitCreatedId ? (
-                    <PermissionGate permission="hsqe.create"><button
-                      onClick={handleCreatePermit}
-                      disabled={permitType === 'Enclosed' && !gasSafetyStatus}
-                      className={`px-5 py-2 rounded-xl text-white text-xs font-semibold transition shadow flex items-center gap-1.5 ${
-                        permitType === 'Enclosed' && !gasSafetyStatus
-                          ? 'bg-slate-350 cursor-not-allowed opacity-50'
-                          : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Tạo Giấy phép
-                    </button></PermissionGate>
-                  ) : permitSignStep === 'draft' ? (
-                    <PermissionGate permission="hsqe.approve"><button
-                      onClick={handlePermitSign}
-                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Ký & Đệ trình (Chief Officer)
-                    </button></PermissionGate>
-                  ) : (
-                    <PermissionGate permission="hsqe.approve"><button
-                      onClick={handlePermitCaptainApprove}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-600/10"
-                    >
-                      <Award className="w-4 h-4" /> Captain Duyệt & Cấp phép
-                    </button></PermissionGate>
-                  )}
-                </div>
-              </>
-            )}
-
-            {permitSignStep === 'approved' && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-400 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5" />
-                GIẤY PHÉP ĐÃ ĐƯỢC PHÊ DUYỆT ĐIỆN TỬ THÀNH CÔNG — Đang chuyển về danh sách...
-              </div>
-            )}
+          <div className="p-5 border rounded-xl">
+            {!permitCreatedId ? <PermissionGate permission="hsqe.create"><button className="bg-blue-600 rounded text-white px-4 py-2" onClick={handleCreatePermit}>Lưu giấy phép nháp</button></PermissionGate> : <PermitApprovalActions id={permitCreatedId} status={permits.find(p => p.id === permitCreatedId)?.status || 'Draft'} onChanged={fetchRisksAndPermits} />}
+            <button className="ml-3" onClick={() => { setViewMode('list'); setPermitCreatedId(null); }}>Về danh sách</button>
           </div>
         </div>
       </div>
@@ -1079,7 +892,7 @@ export function RiskWorkPermits() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="operations-surface space-y-4 p-4">
       <style>{`
         @media print {
           body * {
@@ -1109,7 +922,7 @@ export function RiskWorkPermits() {
       <div className="flex border-b border-slate-200 dark:border-slate-700 pb-px">
         <button
           onClick={() => setActiveSubTab('permits')}
-          className={`px-5 py-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`px-3 py-2 font-semibold text-xs border-b-2 transition-all ${
             activeSubTab === 'permits'
               ? 'border-blue-600 text-blue-600 dark:text-blue-400'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1119,7 +932,7 @@ export function RiskWorkPermits() {
         </button>
         <button
           onClick={() => setActiveSubTab('risks')}
-          className={`px-5 py-3 font-semibold text-sm border-b-2 transition-all ${
+          className={`px-3 py-2 font-semibold text-xs border-b-2 transition-all ${
             activeSubTab === 'risks'
               ? 'border-blue-600 text-blue-600 dark:text-blue-400'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1148,20 +961,20 @@ export function RiskWorkPermits() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {permits.filter(p => p.status === 'Active').map(p => (
+              {permits.map(p => (
                 <div key={p.id} className="bg-white dark:bg-slate-800 border-l-4 border-green-500 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between gap-4">
                   <div>
                     <div className="flex justify-between items-start">
-                      <span className="text-xs font-mono text-slate-400">{p.code}</span>
-                      <span className="bg-green-100 text-green-800 text-xs font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                      <span className="text-[10px] font-mono text-slate-400">{p.code}</span>
+                      <span className="bg-green-100 text-green-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
                         Đang hoạt động (Active)
                       </span>
                     </div>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">{p.title}</h4>
-                    <p className="text-xs text-slate-400 mt-1">Vị trí: {p.location}</p>
+                    <p className="text-[10.5px] text-slate-400 mt-1">Vị trí: {p.location}</p>
                     
                     {p.type === 'Enclosed' && (
-                      <div className="mt-3 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+                      <div className="mt-3 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex justify-between items-center text-[10px]">
                         <span className="font-bold text-slate-500">O2: {p.gasO2}%</span>
                         <span className="text-slate-400">|</span>
                         <span className="font-bold text-slate-500">LEL: {p.gasLEL}%</span>
@@ -1171,7 +984,7 @@ export function RiskWorkPermits() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3 text-xs">
+                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-3 text-[10.5px]">
                     <span className="text-slate-400">Thời hạn: {p.durationHours} giờ</span>
                     <PermissionGate permission="hsqe.update"><button
                       onClick={() => closePermit(p.id)}
@@ -1183,7 +996,7 @@ export function RiskWorkPermits() {
                 </div>
               ))}
 
-              {permits.filter(p => p.status === 'Active').length === 0 && (
+              {permits.length === 0 && (
                 <div className="col-span-3 bg-slate-100/50 dark:bg-slate-800/20 py-8 border border-dashed rounded-2xl flex flex-col items-center justify-center text-slate-400">
                   <ShieldCheck className="w-8 h-8 mb-2" />
                   <span className="text-xs">Hiện tại không có giấy phép nào đang hoạt động trên tàu.</span>
@@ -1193,11 +1006,11 @@ export function RiskWorkPermits() {
           </div>
 
           {/* Sổ lưu trữ giấy phép cũ */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Nhật ký Giấy phép làm việc (TL-13)</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+            <h3 className="operations-section-title mb-3">Nhật ký Giấy phép làm việc (TL-13)</h3>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="operations-table w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-semibold bg-slate-50 dark:bg-slate-900">
                     <th className="p-3">Mã giấy phép</th>
@@ -1214,7 +1027,7 @@ export function RiskWorkPermits() {
                     <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/20">
                       <td className="p-3 font-mono font-bold text-slate-500">{p.code}</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded font-extrabold uppercase text-xs ${
+                        <span className={`px-2 py-0.5 rounded font-extrabold uppercase text-[9px] ${
                           p.type === 'Hot' ? 'bg-red-100 text-red-800' :
                           p.type === 'Enclosed' ? 'bg-amber-100 text-amber-800' :
                           p.type === 'Aloft' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'
@@ -1228,10 +1041,10 @@ export function RiskWorkPermits() {
                       <td className="p-3 text-slate-500">{p.location}</td>
                       <td className="p-3 font-mono text-slate-500">{p.gasO2}%</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-full font-bold text-xs ${
+                        <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
                           p.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
                         }`}>
-                          {p.status === 'Active' ? 'Active' : 'Closed'}
+                          {p.status}
                         </span>
                       </td>
                       <td className="p-3 text-right space-x-2">
@@ -1261,12 +1074,12 @@ export function RiskWorkPermits() {
 
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
           {/* Left: Risks & JSA Registers list */}
-          <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px]">
+          <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Báo cáo đánh giá rủi ro (TL-24-01)</h3>
+              <h3 className="operations-section-title">Báo cáo đánh giá rủi ro (TL-24-01)</h3>
               <PermissionGate permission="hsqe.create"><button
                 onClick={() => setViewMode('create_risk')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow"
@@ -1289,11 +1102,11 @@ export function RiskWorkPermits() {
                     }`}
                   >
                     <div className="flex justify-between items-start">
-                      <span className="text-xs font-mono text-slate-400">{r.code}</span>
-                      <span className="text-xs text-slate-400">{r.date}</span>
+                      <span className="text-[10px] font-mono text-slate-400">{r.code}</span>
+                      <span className="text-[10px] text-slate-400">{r.date}</span>
                     </div>
                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">{r.jobTitle}</h4>
-                    <div className="flex justify-between items-center mt-3 text-xs text-slate-400">
+                    <div className="flex justify-between items-center mt-3 text-[10px] text-slate-400">
                       <span>BP: {r.department} • PIC: {r.pic}</span>
                       <span className="text-blue-600 hover:underline flex items-center gap-0.5">
                         {r.steps.length} Bước JSA <ArrowRight className="w-3 h-3" />
@@ -1306,12 +1119,12 @@ export function RiskWorkPermits() {
           </div>
 
           {/* Right: JSA Steps Details View */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px] overflow-y-auto">
+          <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col h-[600px] overflow-y-auto">
             {selectedRisk ? (
               <>
                 <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-3 mb-4">
                   <div>
-                    <span className="text-xs font-mono text-slate-400">{selectedRisk.code} • Phân tích an toàn công việc JSA (TL-32-01)</span>
+                    <span className="text-[10px] font-mono text-slate-400">{selectedRisk.code} • Phân tích an toàn công việc JSA (TL-32-01)</span>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">{selectedRisk.jobTitle}</h3>
                   </div>
                   <PermissionGate permission="hsqe.delete"><button
@@ -1326,22 +1139,22 @@ export function RiskWorkPermits() {
                 <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden mb-6 text-xs bg-slate-50/50 dark:bg-slate-900/30">
                   <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-700">
                     <div className="p-3">
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Mã Tài Liệu / Doc Code</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mã Tài Liệu / Doc Code</p>
                       <p className="font-mono font-semibold text-slate-700 dark:text-slate-200 mt-0.5">{selectedRisk.code || 'TL-24-01'}</p>
                     </div>
                     <div className="p-3">
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Tàu / Vessel</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tàu / Vessel</p>
                       <p className="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">M/V Green Star</p>
                     </div>
                     <div className="p-3">
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Bộ Phận / Dept</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Bộ Phận / Dept</p>
                       <p className="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">
                         {selectedRisk.department === 'Deck' ? 'Bộ phận Boong (Deck)' :
                          selectedRisk.department === 'Engine' ? 'Bộ phận Máy (Engine)' : 'Phục vụ (Galley)'}
                       </p>
                     </div>
                     <div className="p-3">
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Ngày Khai Báo / Date</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ngày Khai Báo / Date</p>
                       <p className="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">{selectedRisk.date}</p>
                     </div>
                   </div>
@@ -1351,25 +1164,25 @@ export function RiskWorkPermits() {
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2.5 uppercase tracking-wider">Trang thiết bị bảo hộ tối thiểu (Minimum Required PPE)</h4>
                   <div className="flex flex-wrap gap-2">
-                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-[10px] font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Mũ Bảo Hộ (Helmet)
                     </span>
-                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-[10px] font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Giày Mũi Sắt (Safety Boots)
                     </span>
-                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-[10px] font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Găng Tay Bảo Hộ (Gloves)
                     </span>
-                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-lg text-[10px] font-bold border border-blue-100 dark:border-blue-900/30 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Kính Bảo Hộ (Goggles)
                     </span>
                     {(selectedRisk.jobTitle.toLowerCase().includes('sơn') || selectedRisk.jobTitle.toLowerCase().includes('hàn') || selectedRisk.jobTitle.toLowerCase().includes('khí')) && (
-                      <span className="px-2.5 py-1 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 rounded-lg text-xs font-bold border border-orange-100 dark:border-orange-900/30 flex items-center gap-1.5">
+                      <span className="px-2.5 py-1 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 rounded-lg text-[10px] font-bold border border-orange-100 dark:border-orange-900/30 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Mặt Nạ Hàn (Welding Shield)
                       </span>
                     )}
                     {(selectedRisk.jobTitle.toLowerCase().includes('cao') || selectedRisk.jobTitle.toLowerCase().includes('aloft')) && (
-                      <span className="px-2.5 py-1 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 rounded-lg text-xs font-bold border border-orange-100 dark:border-orange-900/30 flex items-center gap-1.5">
+                      <span className="px-2.5 py-1 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 rounded-lg text-[10px] font-bold border border-orange-100 dark:border-orange-900/30 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Đai An Toàn (Safety Harness)
                       </span>
                     )}
@@ -1392,13 +1205,13 @@ export function RiskWorkPermits() {
                           {/* Hazard Box (Grey background, borderless) */}
                           <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl flex flex-col justify-between space-y-3">
                             <div>
-                              <span className="text-slate-400 font-bold uppercase text-xs tracking-wider block">Mối nguy hiểm tiềm ẩn:</span>
+                              <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Mối nguy hiểm tiềm ẩn:</span>
                               <p className="text-slate-800 dark:text-slate-200 mt-1 font-medium leading-relaxed">{step.hazards}</p>
                             </div>
                             
                             <div className="flex items-center justify-between border-t border-slate-200/55 dark:border-slate-700/50 pt-3 mt-3">
-                              <span className="text-xs text-slate-500 dark:text-slate-400">Rủi ro ban đầu (Initial Risk):</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${initLevel.color} flex items-center`}>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">Rủi ro ban đầu (Initial Risk):</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border ${initLevel.color} flex items-center`}>
                                 {step.initialL}x{step.initialS} = {step.initialScore} ({initLevel.text})
                               </span>
                             </div>
@@ -1407,13 +1220,13 @@ export function RiskWorkPermits() {
                           {/* Mitigations Box (Emerald background, borderless) */}
                           <div className="bg-emerald-50/40 dark:bg-emerald-950/10 p-5 rounded-xl flex flex-col justify-between space-y-3">
                             <div>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold uppercase text-xs tracking-wider block">Biện pháp kiểm soát đề xuất:</span>
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold uppercase text-[9px] tracking-wider block">Biện pháp kiểm soát đề xuất:</span>
                               <p className="text-slate-800 dark:text-slate-200 mt-1 font-medium leading-relaxed">{step.mitigations}</p>
                             </div>
                             
                             <div className="flex items-center justify-between border-t border-emerald-100/50 dark:border-emerald-900/30 pt-3 mt-3">
-                              <span className="text-xs text-slate-500 dark:text-slate-400">Rủi ro còn lại (Residual Risk):</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${resLevel.color} flex items-center`}>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">Rủi ro còn lại (Residual Risk):</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border ${resLevel.color} flex items-center`}>
                                 {step.residualL}x{step.residualS} = {step.residualScore} ({resLevel.text})
                               </span>
                             </div>
@@ -1427,9 +1240,9 @@ export function RiskWorkPermits() {
                 {/* Simplified digital sign-off */}
                 <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 flex justify-end">
                   <div className="text-right">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Người chuẩn bị (Prepared By)</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold">Người chuẩn bị (Prepared By)</p>
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">{selectedRisk.pic}</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1 justify-end">
+                    <p className="text-[10px] text-green-600 dark:text-green-400 mt-1 flex items-center gap-1 justify-end">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400 inline-block animate-pulse"></span>
                       Đã xác nhận điện tử (Digitally Signed)
                     </p>
@@ -1524,7 +1337,7 @@ export function RiskWorkPermits() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1.5">Mô tả bước công việc</label>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Mô tả bước công việc</label>
                         <input
                           type="text"
                           value={step.stepDescription}
@@ -1538,7 +1351,7 @@ export function RiskWorkPermits() {
                       </div>
                       
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1.5">Mối nguy hiểm tiềm tàng</label>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Mối nguy hiểm tiềm tàng</label>
                         <input
                           type="text"
                           value={step.hazards}
@@ -1555,7 +1368,7 @@ export function RiskWorkPermits() {
                     {/* Matrix input values */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-200 dark:border-slate-850 pt-3">
                       <div>
-                        <span className="block text-xs font-bold text-slate-400 mb-2">Đánh giá ban đầu (Initial Risk):</span>
+                        <span className="block text-[10px] font-bold text-slate-400 mb-2">Đánh giá ban đầu (Initial Risk):</span>
                         <div className="flex gap-4 text-xs">
                           <label className="flex items-center gap-1">
                             <span>Khả năng (L:1-5)</span>
@@ -1582,7 +1395,7 @@ export function RiskWorkPermits() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 mb-1.5">Biện pháp giảm thiểu rủi ro đề xuất</label>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5">Biện pháp giảm thiểu rủi ro đề xuất</label>
                         <input
                           type="text"
                           value={step.mitigations}
@@ -1757,7 +1570,8 @@ export function RiskWorkPermits() {
                 </div>
               </div>
 
-              {/* Gas Input Form section - Only relevant for Enclosed spaces */}
+              <label>Mã thiết bị đo khí<input value={gasDevice} onChange={event => setGasDevice(event.target.value)} className="border rounded p-2 ml-2" /></label>
+          {/* Gas Input Form section - Only relevant for Enclosed spaces */}
               {permitType === 'Enclosed' && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
                   <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -1766,7 +1580,7 @@ export function RiskWorkPermits() {
                   
                   <div className="grid grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">O2 (%) - Hạn 20.9%</label>
+                      <label className="block text-[10px] text-slate-400 mb-1">O2 (%) - Hạn 20.9%</label>
                       <input
                         type="number"
                         step="0.1"
@@ -1776,7 +1590,7 @@ export function RiskWorkPermits() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">LEL (%) - Hạn &lt; 1%</label>
+                      <label className="block text-[10px] text-slate-400 mb-1">LEL (%) - Hạn &lt; 1%</label>
                       <input
                         type="number"
                         step="0.1"
@@ -1786,7 +1600,7 @@ export function RiskWorkPermits() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">CO (ppm) - Hạn &lt; 25</label>
+                      <label className="block text-[10px] text-slate-400 mb-1">CO (ppm) - Hạn &lt; 25</label>
                       <input
                         type="number"
                         value={gasCO}
@@ -1795,7 +1609,7 @@ export function RiskWorkPermits() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">H2S (ppm) - Hạn 0</label>
+                      <label className="block text-[10px] text-slate-400 mb-1">H2S (ppm) - Hạn 0</label>
                       <input
                         type="number"
                         value={gasH2S}
@@ -1806,15 +1620,7 @@ export function RiskWorkPermits() {
                   </div>
 
                   {/* Visual safety indicator */}
-                  {gasSafetyStatus ? (
-                    <div className="p-3 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-850 text-xs font-semibold flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4" /> NỒNG ĐỘ KHÍ AN TOÀN. Đủ điều kiện cấp phép vào không gian kín.
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-850 text-xs font-bold flex items-center gap-1.5">
-                      <ShieldAlert className="w-4 h-4 animate-bounce" /> NỒNG ĐỘ KHÍ NGUY HIỂM! Hệ thống tự động khóa nút phê duyệt cấp phép.
-                    </div>
-                  )}
+                  <p className="text-xs text-slate-500">K?t qu? ?o ???c l?u ?? ng??i ki?m tra v? ng??i c?p ph?p ??i chi?u SMS c?ng ty.</p>
                 </div>
               )}
 
@@ -1846,9 +1652,9 @@ export function RiskWorkPermits() {
               </button>
               <PermissionGate permission="hsqe.create"><button
                 onClick={handleCreatePermit}
-                disabled={permitType === 'Enclosed' && !gasSafetyStatus}
+                disabled={false}
                 className={`px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition shadow ${
-                  permitType === 'Enclosed' && !gasSafetyStatus
+                  false
                     ? 'bg-slate-350 cursor-not-allowed opacity-50'
                     : 'bg-green-600 hover:bg-green-700'
                 }`}
@@ -1863,7 +1669,7 @@ export function RiskWorkPermits() {
       {/* Permit Export Preview Modal */}
       {isPreviewModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-3xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-hidden">
             
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-4">
               <div>
@@ -1882,7 +1688,7 @@ export function RiskWorkPermits() {
               <div id="printable-permit-document" className="bg-white text-slate-900 w-full max-w-[500px] shadow border border-slate-200 p-8 flex flex-col justify-between relative font-sans text-xs">
                 
                 {/* Diagonal Watermark for Active status */}
-                {selectedPermit.status === 'Active' && (
+                {selectedPermit.status === 'Issued' && Date.now() >= new Date(selectedPermit.startTime).getTime() && Date.now() < new Date(selectedPermit.startTime).getTime() + selectedPermit.durationHours * 3600000 && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10 opacity-[0.05] transform -rotate-45">
                     <span className="text-4xl font-extrabold tracking-widest text-green-600 border-8 border-green-600 p-3 uppercase">
                       GIẤY PHÉP HIỆU LỰC
@@ -1894,9 +1700,9 @@ export function RiskWorkPermits() {
                 <div className="border-b-2 border-slate-950 pb-3 flex justify-between items-start">
                   <div>
                     <h4 className="font-extrabold text-xs text-slate-950 uppercase tracking-wide">MARITIME SHIPBOARD SMS</h4>
-                    <p className="text-xs text-slate-400">Vessel Safety Board</p>
+                    <p className="text-[8px] text-slate-400">Vessel Safety Board</p>
                   </div>
-                  <div className="text-right text-xs text-slate-500 space-y-0.5">
+                  <div className="text-right text-[8px] text-slate-500 space-y-0.5">
                     <p>Mã số kiểm soát: <strong>{selectedPermit.code}</strong></p>
                     <p>Tàu thực thi: {selectedPermit.vessel}</p>
                     <p>Ngày/Giờ bắt đầu: {selectedPermit.startTime.replace('T', ' ')}</p>
@@ -1911,7 +1717,7 @@ export function RiskWorkPermits() {
                      'GIẤY PHÉP LÀM CÔNG VIỆC NGUỘI (TL-13-02)'}
                   </h2>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs text-slate-800">
+                  <div className="grid grid-cols-2 gap-3 text-[10px] text-slate-800">
                     <p><strong>Tiêu đề cấp phép:</strong> {selectedPermit.title}</p>
                     <p><strong>Vị trí khu vực:</strong> {selectedPermit.location}</p>
                     <p><strong>Thời hạn cấp phép:</strong> {selectedPermit.durationHours} Giờ</p>
@@ -1920,35 +1726,35 @@ export function RiskWorkPermits() {
 
                   {selectedPermit.type === 'Enclosed' && (
                     <div className="space-y-1">
-                      <p className="font-bold text-xs">1. Nhật ký đo nồng độ khí quyển tại hiện trường:</p>
-                      <div className="bg-slate-50 p-2.5 rounded text-xs grid grid-cols-4 text-center font-mono">
+                      <p className="font-bold text-[10px]">1. Nhật ký đo nồng độ khí quyển tại hiện trường:</p>
+                      <div className="bg-slate-50 p-2.5 rounded text-[10px] grid grid-cols-4 text-center font-mono">
                         <div>
-                          <p className="text-xs text-slate-500">O2 (Oxy)</p>
+                          <p className="text-[8px] text-slate-500">O2 (Oxy)</p>
                           <p className="font-bold text-slate-850">{selectedPermit.gasO2}%</p>
-                          <p className="text-xs text-green-600">Đạt (20.9%)</p>
+                          <p className="text-[7px] text-green-600">Đạt (20.9%)</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">LEL (Cháy)</p>
+                          <p className="text-[8px] text-slate-500">LEL (Cháy)</p>
                           <p className="font-bold text-slate-850">{selectedPermit.gasLEL}%</p>
-                          <p className="text-xs text-green-600">Đạt (&lt;1%)</p>
+                          <p className="text-[7px] text-green-600">Đạt (&lt;1%)</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">CO (Độc)</p>
+                          <p className="text-[8px] text-slate-500">CO (Độc)</p>
                           <p className="font-bold text-slate-850">{selectedPermit.gasCO} ppm</p>
-                          <p className="text-xs text-green-600">Đạt (&lt;25)</p>
+                          <p className="text-[7px] text-green-600">Đạt (&lt;25)</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500">H2S (Độc)</p>
+                          <p className="text-[8px] text-slate-500">H2S (Độc)</p>
                           <p className="font-bold text-slate-850">{selectedPermit.gasH2S} ppm</p>
-                          <p className="text-xs text-green-600">Đạt (0)</p>
+                          <p className="text-[7px] text-green-600">Đạt (0)</p>
                         </div>
                       </div>
                     </div>
                   )}
 
                   <div className="space-y-1">
-                    <p className="font-bold text-xs">2. Danh mục biện pháp an toàn đã kiểm tra (Checklist):</p>
-                    <div className="bg-slate-50 p-2.5 rounded text-xs space-y-1">
+                    <p className="font-bold text-[10px]">2. Danh mục biện pháp an toàn đã kiểm tra (Checklist):</p>
+                    <div className="bg-slate-50 p-2.5 rounded text-[9px] space-y-1">
                       {selectedPermit.precautions.map((prec, i) => (
                         <p key={i} className="flex items-center gap-1.5 text-slate-700">
                           <span className="text-green-600 font-bold">✓</span> {prec.label}
@@ -1960,9 +1766,9 @@ export function RiskWorkPermits() {
 
                 {/* Footer signatures */}
                 <div className="border-t border-slate-200 pt-4 space-y-3">
-                  <div className="flex justify-center items-center text-xs text-slate-500">
+                  <div className="flex justify-center items-center text-[9px] text-slate-500">
                     <div className="text-center">
-                      <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Người chuẩn bị / Prepared By</p>
+                      <p className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">Người chuẩn bị / Prepared By</p>
                       <p className="font-bold text-slate-800 text-xs mt-1">{selectedPermit.preparedBy || 'Đại phó Trần Văn D'}</p>
                     </div>
                   </div>
@@ -1970,15 +1776,15 @@ export function RiskWorkPermits() {
                   {/* Digital Signatures Log */}
                   {selectedPermit.digitalSignatures && selectedPermit.digitalSignatures.length > 0 && (
                     <div className="bg-slate-50 rounded-lg p-3 space-y-2">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                         🔐 NHẬT KÝ CHỮ KÝ SỐ ĐIỆN TỬ
                       </p>
                       {selectedPermit.digitalSignatures.map((sig, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-800 px-2.5 py-1.5 rounded border border-emerald-200">
+                        <div key={idx} className="flex items-center gap-2 text-[9px] bg-emerald-50 text-emerald-800 px-2.5 py-1.5 rounded border border-emerald-200">
                           <span className="text-emerald-600 font-bold">✓</span>
                           <span className="font-bold">{sig.name}</span>
                           <span className="text-emerald-600">({sig.rank})</span>
-                          <span className="ml-auto font-mono text-xs text-emerald-500">{sig.sigCode}</span>
+                          <span className="ml-auto font-mono text-[8px] text-emerald-500">{sig.sigCode}</span>
                         </div>
                       ))}
                     </div>
