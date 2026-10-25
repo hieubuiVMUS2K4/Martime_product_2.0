@@ -141,6 +141,42 @@ public class TaskWorkflowController : ControllerBase
     }
 
     /// <summary>
+    /// Save execution results without changing workflow state or posting inventory.
+    /// </summary>
+    [HttpPut("{id:guid}/progress")]
+    public async Task<IActionResult> SaveProgress(Guid id, [FromBody] SubmitTaskDto dto)
+    {
+        var task = await _context.MaintenanceTasks.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+        if (task == null) return NotFound(new { error = "Task not found" });
+        if (task.Status != "IN_PROGRESS")
+            return Conflict(new { error = "Chỉ lưu kết quả khi công việc đang thực hiện.", currentStatus = task.Status });
+        var invalid = await ValidateExecutionValuesAsync(task, dto);
+        if (invalid != null) return invalid;
+        if (dto.Notes != null) task.Notes = dto.Notes;
+        if (dto.SparePartsUsed != null) task.SparePartsUsed = dto.SparePartsUsed;
+        if (dto.CompletedRunningHours.HasValue) task.ActualRunningHours = dto.CompletedRunningHours;
+        if (dto.ActualDurationMinutes.HasValue) task.ActualDuration = dto.ActualDurationMinutes.Value;
+        task.UpdatedAt = DateTime.UtcNow;
+        task.IsSynced = false;
+        await _context.SaveChangesAsync();
+        return Ok(new { taskId = task.Id, status = task.Status, updatedAt = task.UpdatedAt });
+    }
+
+    private async Task<IActionResult?> ValidateExecutionValuesAsync(MaintenanceTask task, SubmitTaskDto dto)
+    {
+        if (dto.CompletedRunningHours is double hours && (!double.IsFinite(hours) || hours < 0) || dto.ActualDurationMinutes < 0)
+            return BadRequest(new { error = "Giờ chạy và thời gian thực hiện phải là số không âm." });
+        if (dto.CompletedRunningHours.HasValue && task.EquipmentAssetId.HasValue)
+        {
+            var current = await _context.EquipmentAssets.AsNoTracking().Where(a => a.Id == task.EquipmentAssetId)
+                .Select(a => (double?)a.CurrentRunningHours).FirstOrDefaultAsync() ?? 0;
+            if (dto.CompletedRunningHours.Value < current)
+                return BadRequest(new { code = "RUNNING_HOURS_BELOW_CURRENT", error = "Giờ chạy ghi nhận không được nhỏ hơn giờ chạy hiện tại.", current, requested = dto.CompletedRunningHours.Value });
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Submit task for approval (Crew completes work)
     /// IN_PROGRESS → PENDING_APPROVAL
     /// </summary>
@@ -187,15 +223,9 @@ public class TaskWorkflowController : ControllerBase
                 task.ChecklistCompleted = true;
             }
 
-            // Check required photos
-            if (task.RequiredPhotos > 0 && task.PhotosUploaded < task.RequiredPhotos)
-            {
-                return BadRequest(new { 
-                    error = "Required photos not uploaded",
-                    required = task.RequiredPhotos,
-                    uploaded = task.PhotosUploaded
-                });
-            }
+            var invalid = await ValidateExecutionValuesAsync(task, dto);
+            if (invalid != null) return invalid;
+            var submittedPhotos = dto.PhotoUrls?.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
 
             // Calculate actual duration (use submitted value if provided, else auto-calculate)
             if (dto.ActualDurationMinutes.HasValue && dto.ActualDurationMinutes.Value > 0)
@@ -213,44 +243,25 @@ public class TaskWorkflowController : ControllerBase
             task.SubmittedBy = userId;
             task.UpdatedAt = DateTime.UtcNow;
 
-            if (!string.IsNullOrEmpty(dto.Notes))
+            if (dto.Notes != null)
             {
                 task.Notes = dto.Notes;
             }
 
-            if (!string.IsNullOrEmpty(dto.SparePartsUsed))
+            if (dto.SparePartsUsed != null)
             {
                 task.SparePartsUsed = dto.SparePartsUsed;
             }
 
-            if (dto.PhotoUrls != null && dto.PhotoUrls.Any())
+            if (submittedPhotos != null)
             {
-                task.PhotosUploaded = dto.PhotoUrls.Count;
+                task.PhotosUploaded = submittedPhotos.Count;
                 // Store the actual photo URLs as JSON array
-                task.CompletionPhotos = System.Text.Json.JsonSerializer.Serialize(dto.PhotoUrls);
+                task.CompletionPhotos = JsonSerializer.Serialize(submittedPhotos);
             }
 
             if (dto.CompletedRunningHours.HasValue)
             {
-                if (task.EquipmentAssetId.HasValue)
-                {
-                    var equipmentAsset = await _context.EquipmentAssets
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(a => a.Id == task.EquipmentAssetId.Value);
-                    var currentRunningHours = equipmentAsset?.CurrentRunningHours ?? 0;
-
-                    if (dto.CompletedRunningHours.Value < currentRunningHours)
-                    {
-                        return BadRequest(new
-                        {
-                            code = "RUNNING_HOURS_BELOW_CURRENT",
-                            error = "Completed running hours cannot be lower than current equipment running hours",
-                            current = currentRunningHours,
-                            requested = dto.CompletedRunningHours.Value
-                        });
-                    }
-                }
-
                 task.RunningHoursAtLastDone = dto.CompletedRunningHours;
                 task.ActualRunningHours = dto.CompletedRunningHours;
             }

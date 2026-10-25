@@ -20,7 +20,8 @@ import { materialService } from '../../services/materialService'
 import { MaintenanceTask, TaskStatusHistory, TaskChecklistItem, MaterialItem } from '../../types/maritime.types'
 import type { TaskRiskAssessment, TaskInspectionReport, InspectionJobItem } from '../../types/pms.types'
 import { maritimeService } from '../../services/maritime.service'
-import { verifyTask, submitTask, startTask, type VerifyTaskDto, type SubmitTaskDto } from '../../services/maintenance.service'
+import { verifyTask, submitTask, startTask, saveTaskProgress, type VerifyTaskDto, type SubmitTaskDto } from '../../services/maintenance.service'
+import { startPolling } from '@/lib/polling'
 import { equipmentAssetService } from '../../services/equipment-asset.service'
 import DeferralReviewModal from '@/components/pms/DeferralReviewModal'
 import { format, parseISO } from 'date-fns'
@@ -40,9 +41,6 @@ const PRIORITY_KEY_MAP: Record<string, string> = {
 
 type BottomTab = 'checklist' | 'materials' | 'risk' | 'inspection'
 
-// Work execution is temporarily handled on mobile; web keeps review actions.
-const WEB_WORK_EXECUTION_ACTIONS_ENABLED = false
-
 export default function WorkReportPage() {
   const canExecute = usePermission('pms.work.execute')
   const { id } = useParams<{ id: string }>()
@@ -51,7 +49,7 @@ export default function WorkReportPage() {
   const getStatusLabel = (status: string) => t(`pms.workReport.status.${STATUS_KEY_MAP[status] || 'scheduled'}`)
   const getPriorityLabel = (priority: string) => t(`pms.workReport.priority.${PRIORITY_KEY_MAP[priority] || 'normal'}`)
   const getApiErrorMessage = (error: any, fallbackKey: string) => {
-    const data = error?.response?.data
+    const data = error?.response?.data || error?.data
     if (data?.code === 'INSUFFICIENT_STOCK') {
       return t('pms.workReport.toast.insufficientStock', {
         material: data.materialName || data.materialCode || '',
@@ -65,7 +63,7 @@ export default function WorkReportPage() {
         requested: String(data.requested ?? '-'),
       })
     }
-    return data?.error || data?.message || t(fallbackKey)
+    return data?.error || data?.message || error?.message || t(fallbackKey)
   }
 
   const [task, setTask] = useState<MaintenanceTask | null>(null)
@@ -75,7 +73,6 @@ export default function WorkReportPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [description, setDescription] = useState('')
-  const [reportCompleted, setReportCompleted] = useState(false)
   const [assignedTo, setAssignedTo] = useState('')
 
   const [equipmentDescription, setEquipmentDescription] = useState('')
@@ -84,7 +81,6 @@ export default function WorkReportPage() {
   const [actualDuration, setActualDuration] = useState<number>(0)
   const [reportText, setReportText] = useState('')
 
-  const [sparePartsUsed, setSparePartsUsed] = useState('')
 
   // ── ĐGRR (Risk Assessment) form state ──
   const [riskForm, setRiskForm] = useState<Partial<TaskRiskAssessment>>({
@@ -109,9 +105,10 @@ export default function WorkReportPage() {
   // Bottom tab
   const [activeTab, setActiveTab] = useState<BottomTab>('checklist')
 
-  // Checklist items (mapped from config, status pushed from mobile)
+  // Web and mobile share checklist results and the same workflow endpoints.
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([])
   const [togglingChecklist, setTogglingChecklist] = useState<string | null>(null)
+  const [checklistWrites, setChecklistWrites] = useState(0)
 
   // Materials state
   const [materialItems, setMaterialItems] = useState<MaterialItem[]>([])
@@ -122,6 +119,9 @@ export default function WorkReportPage() {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const canEditExecution = canExecute && task?.status === 'IN_PROGRESS'
+  const executionEditingRef = useRef(false)
+  executionEditingRef.current = canEditExecution || saving
 
   // ============================================================
   // DATA LOADING
@@ -138,20 +138,22 @@ export default function WorkReportPage() {
   }, [id])
 
   // ── Real-time polling: refresh checklist & spare-parts when those tabs are active ──
-  // Polls every 8 seconds so web users see mobile updates without F5.
+  // Polls every 5 seconds for viewers; execution drafts stay local until saved.
   // Only runs while the page is visible (document not hidden).
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const refreshActiveTab = useCallback(async () => {
-    if (document.hidden || !id) return
+    if (document.hidden || !id || executionEditingRef.current) return
     // Use getById for both tabs: checklist items are included via EF navigation
     // (getChecklist endpoint uses string taskId code, not UUID route param)
     try {
       const data = await maritimeService.maintenance.getById(id)
+      if (executionEditingRef.current) return
+      setTask(data)
+      setReportText(data.notes || '')
+      setActualDuration(data.actualDuration || 0)
       if (activeTab === 'checklist') {
         setChecklistItems(data.checklistItems || [])
       } else if (activeTab === 'materials') {
-        setTask(data)
         const items = await materialService.getItems()
         setMaterialItems(items || [])
       }
@@ -163,21 +165,18 @@ export default function WorkReportPage() {
     try {
       const data = await maritimeService.maintenance.getById(id)
       setTask(data)
-      setSparePartsUsed(data.sparePartsUsed || '')
       const items = await materialService.getItems()
       setMaterialItems(items || [])
     } catch { /* silent */ }
   }
 
   useEffect(() => {
-    if (pollingRef.current) clearInterval(pollingRef.current)
+    // Never replace an executor's unsaved fields with a polling snapshot.
+    if (canEditExecution) return
     if (activeTab === 'checklist' || activeTab === 'materials') {
-      pollingRef.current = setInterval(refreshActiveTab, 5000)
+      return startPolling(refreshActiveTab, 5000)
     }
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current)
-    }
-  }, [activeTab, refreshActiveTab])
+  }, [activeTab, refreshActiveTab, canEditExecution])
 
   const loadTask = async (showPageLoading = true) => {
     if (!id) return
@@ -196,16 +195,14 @@ export default function WorkReportPage() {
       setReportText(data.notes || '')
 
       // Load receiver from schedule's crew config (no-op, field removed)
-      setSparePartsUsed(data.sparePartsUsed || '')
       setEquipmentRunningHours(data.actualRunningHours || data.runningHoursAtLastDone || 0)
 
       // Auto-fill "Thời gian hiện tại của thiết bị" và "Mô tả thiết bị" từ equipment asset
       if (data.equipmentAssetId) {
         try {
           const asset = await equipmentAssetService.getById(data.equipmentAssetId)
-          if (!data.runningHoursAtLastDone) {
-            setCurrentEquipmentHours(asset.currentRunningHours ?? 0)
-          }
+          if (data.actualRunningHours == null) setEquipmentRunningHours(asset.currentRunningHours ?? 0)
+          setCurrentEquipmentHours(asset.currentRunningHours ?? 0)
           setEquipmentDescription(asset.notes || '')
         } catch {
           if (!data.runningHoursAtLastDone) {
@@ -216,7 +213,6 @@ export default function WorkReportPage() {
         setCurrentEquipmentHours(data.runningHoursAtLastDone || 0)
       }
       setActualDuration(data.actualDuration || 0)
-      setReportCompleted(data.checklistCompleted || false)
 
       // Load status history
       if (data.statusHistory && data.statusHistory.length > 0) {
@@ -287,10 +283,11 @@ export default function WorkReportPage() {
 
   // Parse existing spare parts used from task
   useEffect(() => {
+    setUsedSpareParts([])
     if (task?.sparePartsUsed) {
       try {
         const parsed = typeof task.sparePartsUsed === 'string' ? JSON.parse(task.sparePartsUsed) : task.sparePartsUsed
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setUsedSpareParts(parsed.map((p: any) => ({
             ...p,
             materialItemId: p.materialItemId || '',
@@ -303,7 +300,8 @@ export default function WorkReportPage() {
         }
       } catch {}
     }
-  }, [task?.sparePartsUsed, materialItems])
+  // Inventory refreshes update stock below, without discarding unsaved usage quantities.
+  }, [task?.id, task?.sparePartsUsed])
 
   useEffect(() => {
     if (!materialItems.length) return
@@ -315,7 +313,7 @@ export default function WorkReportPage() {
 
   // Checklist toggle handler
   const handleToggleChecklist = async (item: TaskChecklistItem) => {
-    if (!task) return
+    if (!task || !canEditExecution || saving) return
     setTogglingChecklist(item.id)
     try {
       await maritimeService.maintenance.updateChecklistItem(task.taskId, item.id, {
@@ -337,7 +335,8 @@ export default function WorkReportPage() {
 
   // Checklist inline edit
   const handleChecklistFieldUpdate = async (item: TaskChecklistItem, field: 'readingValue' | 'remarks' | 'isAbnormal', value: any) => {
-    if (!task) return
+    if (!task || !canEditExecution || saving) return
+    setChecklistWrites(count => count + 1)
     const update: any = { isCompleted: item.isCompleted }
     update[field] = value
     try {
@@ -347,6 +346,8 @@ export default function WorkReportPage() {
       ))
     } catch {
       toast.error(t('pms.workReport.toast.updateFailed'))
+    } finally {
+      setChecklistWrites(count => count - 1)
     }
   }
 
@@ -377,15 +378,6 @@ export default function WorkReportPage() {
     ))
   }
 
-  // Sync spare parts to sparePartsUsed string for save
-  useEffect(() => {
-    if (usedSpareParts.length > 0) {
-      setSparePartsUsed(JSON.stringify(usedSpareParts))
-    } else {
-      setSparePartsUsed('')
-    }
-  }, [usedSpareParts])
-
   // Filtered materials for dropdown
   const filteredMaterials = useMemo(() => {
     if (!materialSearch.trim()) return []
@@ -406,19 +398,18 @@ export default function WorkReportPage() {
   // ============================================================
   // ACTIONS
   // ============================================================
+  const executionDto = (): SubmitTaskDto => ({
+    notes: reportText,
+    sparePartsUsed: JSON.stringify(usedSpareParts),
+    completedRunningHours: equipmentRunningHours,
+    actualDurationMinutes: actualDuration,
+  })
+
   const handleSave = async () => {
-    if (!task) return
+    if (!task || !canEditExecution || saving || checklistWrites > 0) return
     try {
       setSaving(true)
-      await maritimeService.maintenance.patch(task.id, {
-        taskDescription: description ? `${task.taskDescription?.split('\n')[0] || ''}\n${description}` : task.taskDescription,
-        notes: reportText,
-        sparePartsUsed,
-        assignedTo,
-        actualRunningHours: equipmentRunningHours,
-        actualDuration,
-        checklistCompleted: reportCompleted,
-      })
+      await saveTaskProgress(task.id, executionDto())
       toast.success(t('pms.workReport.toast.savedSuccess'))
       await loadTask()
     } catch (error: any) {
@@ -431,7 +422,7 @@ export default function WorkReportPage() {
   }
 
   const handleSaveRisk = async () => {
-    if (!task) return
+    if (!task || !canEditExecution || savingRisk) return
     try {
       setSavingRisk(true)
       await maritimeService.maintenance.saveRiskAssessment(task.taskId || id!, { ...riskForm, workerSignature: undefined, supervisorSignature: undefined, chiefEngineerApproval: undefined })
@@ -445,7 +436,7 @@ export default function WorkReportPage() {
   }
 
   const handleSaveBbkt = async () => {
-    if (!task) return
+    if (!task || !canEditExecution || savingBbkt) return
     try {
       setSavingBbkt(true)
       const payload: Partial<TaskInspectionReport> = {
@@ -499,7 +490,12 @@ export default function WorkReportPage() {
   }
 
   const handleComplete = async () => {
-    if (!task) return
+    if (!task || !canEditExecution || saving || checklistWrites > 0) return
+    if (checklistItems.some(item => !item.isCompleted)) {
+      toast.error(t('pms.workReport.completeChecklistFirst'))
+      setActiveTab('checklist')
+      return
+    }
     // Validate required forms before submitting
     if (task.requireRiskAssessment && !riskFilled) {
       toast.error(t('pms.workReport.toast.requireRisk'))
@@ -513,12 +509,7 @@ export default function WorkReportPage() {
     }
     try {
       setSaving(true)
-      const dto: SubmitTaskDto = {
-        notes: reportText || undefined,
-        sparePartsUsed: sparePartsUsed || undefined,
-        completedRunningHours: equipmentRunningHours || undefined,
-        actualDurationMinutes: actualDuration || undefined,
-      }
+      const dto = executionDto()
       await submitTask(task.id, dto)
       toast.success(t('pms.workReport.toast.submitted'))
       await loadTask()
@@ -534,12 +525,12 @@ export default function WorkReportPage() {
     if (!task) return
     try {
       setSaving(true)
-      await startTask(task.id)
+      await startTask(task.id, { currentRunningHours: equipmentRunningHours })
       toast.success(t('pms.workReport.toast.started'))
       await loadTask()
     } catch (error: any) {
       console.error('Start failed:', error)
-      const msg = error?.response?.data?.error || t('pms.workReport.toast.startFailed')
+      const msg = getApiErrorMessage(error, 'pms.workReport.toast.startFailed')
       toast.error(msg)
     } finally {
       setSaving(false)
@@ -565,7 +556,7 @@ export default function WorkReportPage() {
     }
     try {
       setVerifying(true)
-      const dto: VerifyTaskDto = { action: 'APPROVE', notes: reportText || undefined }
+      const dto: VerifyTaskDto = { action: 'APPROVE' }
       await verifyTask(task.id, dto)
       toast.success(t('pms.workReport.toast.approved'))
       await loadTask()
@@ -638,7 +629,7 @@ export default function WorkReportPage() {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-white">
       {/* ── Header: breadcrumb + action buttons ── */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2.5">
+      <div className="flex flex-wrap flex-shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-2.5">
         <div className="flex items-center gap-1.5 text-sm text-gray-500">
           <button onClick={() => navigate('/pms/work-planning')} className="text-blue-600 hover:underline">
             {taskTitle || t('pms.workReport.breadcrumbReport')}
@@ -646,21 +637,21 @@ export default function WorkReportPage() {
           <ChevronRight size={14} className="text-gray-300" />
           <span className="text-gray-700 font-medium">{t('pms.workReport.breadcrumbWorkReport')}</span>
         </div>
-        <div className="flex items-center gap-2">
-          {WEB_WORK_EXECUTION_ACTIONS_ENABLED && <>
+        <div className="flex flex-wrap items-center gap-2">
+          <>
           <button onClick={handleCancel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
             <X className="w-3.5 h-3.5" /> {t('pms.workReport.cancelBtn')}
           </button>
-          <PermissionGate permission="pms.work.execute"><button onClick={handleStartTask} disabled={!(['SCHEDULED', 'UPCOMING', 'DUE', 'OVERDUE', 'RECTIFY', 'MISSING_PIC', 'MISSING_CHECKLIST', 'MISSING_BOTH'].includes(task.status)) || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <PermissionGate permission="pms.work.execute"><button onClick={handleStartTask} disabled={!(['DUE', 'OVERDUE', 'RECTIFY', 'MISSING_PIC', 'MISSING_CHECKLIST', 'MISSING_BOTH'].includes(task.status) || task.status === 'SCHEDULED' && !!task.nextDueAt && task.nextDueAt.slice(0, 10) <= new Date().toISOString().slice(0, 10)) || task.hasPendingDeferral || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <PlayCircle className="w-3.5 h-3.5" /> {t('pms.workReport.startBtn')}
           </button></PermissionGate>
-          <PermissionGate permission="pms.work.update"><button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-900 disabled:opacity-50">
+          <PermissionGate permission="pms.work.execute"><button onClick={handleSave} disabled={!canEditExecution || saving || checklistWrites > 0} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-800 text-white rounded hover:bg-gray-900 disabled:opacity-50">
             <Save className="w-3.5 h-3.5" /> {saving ? t('pms.workReport.saving') : t('pms.workReport.saveBtn')}
           </button></PermissionGate>
-          <PermissionGate permission="pms.work.execute"><button onClick={handleComplete} disabled={task.status !== 'IN_PROGRESS' || saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <PermissionGate permission="pms.work.execute"><button onClick={handleComplete} disabled={!canEditExecution || saving || checklistWrites > 0 || togglingChecklist !== null} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <Send className="w-3.5 h-3.5" /> {t('pms.workReport.completeBtn')}
           </button></PermissionGate>
-          </>}
+          </>
           <PermissionGate permission="pms.work.reject"><button onClick={() => setShowRejectModal(true)} disabled={task.status !== 'PENDING_APPROVAL' || verifying} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed">
             <RotateCcw className="w-3.5 h-3.5" /> {t('pms.workReport.rejectBtn')}
           </button></PermissionGate>
@@ -734,7 +725,7 @@ export default function WorkReportPage() {
               <div className="flex gap-4">
                 <div className="flex items-center flex-1">
                   <label className={lbl}>{t('pms.workReport.equipRunningHours')}</label>
-                  <input type="number" readOnly value={equipmentRunningHours} className={inpRo} />
+                  <input type="number" min={currentEquipmentHours} step="any" readOnly={!canEditExecution || saving} value={equipmentRunningHours} onChange={e => setEquipmentRunningHours(Number(e.target.value))} className={canEditExecution ? inp : inpRo} />
                   <span className="text-gray-500 text-sm ml-2 shrink-0">{t('pms.workReport.hoursUnit')}</span>
                 </div>
                 <div className="flex items-center flex-1">
@@ -825,7 +816,7 @@ export default function WorkReportPage() {
               {/* Hạng mục kiểm tra tab */}
               {activeTab === 'checklist' && (() => {
                 const items = checklistItems.length > 0 ? checklistItems : (task.checklistItems || [])
-                const canEdit = canExecute && ['IN_PROGRESS', 'RECTIFY'].includes(task.status)
+                const canEdit = canEditExecution && !saving
                 return (
                 <div>
                   {items.length === 0 ? (
@@ -941,7 +932,7 @@ export default function WorkReportPage() {
 
               {/* Vật tư tab */}
               {activeTab === 'materials' && (() => {
-                const canEdit = canExecute && ['IN_PROGRESS', 'RECTIFY'].includes(task.status)
+                const canEdit = canEditExecution && !saving
                 return (
                 <div className="space-y-3">
                   {/* Required spare parts from schedule (read-only) */}
@@ -1076,7 +1067,7 @@ export default function WorkReportPage() {
                       {riskFilled && <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.riskFilled')}</span>}
                       {!riskFilled && task?.requireRiskAssessment && <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.riskRequired')}</span>}
                     </div>
-                    <PermissionGate permission="pms.work.execute"><button onClick={handleSaveRisk} disabled={savingRisk} className="flex items-center gap-1 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50">
+                    <PermissionGate permission="pms.work.execute"><button onClick={handleSaveRisk} disabled={!canEditExecution || savingRisk} className="flex items-center gap-1 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50">
                       <Save size={12} /> {savingRisk ? t('pms.workReport.savingRisk') : t('pms.workReport.saveRisk')}
                     </button></PermissionGate>
                   </div>
@@ -1229,7 +1220,7 @@ export default function WorkReportPage() {
                       {bbktFilled && <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">{t('pms.workReport.inspFilled')}</span>}
                       {!bbktFilled && task?.requireInspectionReport && <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">{t('pms.workReport.inspRequired')}</span>}
                     </div>
-                    <PermissionGate permission="pms.work.execute"><button onClick={handleSaveBbkt} disabled={savingBbkt} className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                    <PermissionGate permission="pms.work.execute"><button onClick={handleSaveBbkt} disabled={!canEditExecution || savingBbkt} className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
                       <Save size={12} /> {savingBbkt ? t('pms.workReport.savingInsp') : t('pms.workReport.saveInsp')}
                     </button></PermissionGate>
                   </div>
@@ -1398,6 +1389,20 @@ export default function WorkReportPage() {
               <label className="text-gray-500 w-28 text-right pr-3 shrink-0 text-sm">{t('pms.workReport.assigneeLabel')}</label>
               <input type="text" readOnly value={assignedTo} className={inpRo} />
             </div>
+          </div>
+
+          <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50">
+            <span className="text-sm font-semibold text-gray-700">{t('pms.workReport.workReport')}</span>
+          </div>
+          <div className="px-4 py-3 space-y-3 border-b border-gray-200">
+            <label className="block text-sm text-gray-600">
+              {t('pms.workReport.actualDuration')} ({t('pms.workReport.minutesUnit')})
+              <input type="number" min={0} step={1} value={actualDuration} readOnly={!canEditExecution || saving} onChange={e => setActualDuration(Number(e.target.value))} className={canEditExecution ? inp : inpRo} />
+            </label>
+            <label className="block text-sm text-gray-600">
+              {t('pms.workReport.workReport')}
+              <textarea rows={4} value={reportText} readOnly={!canEditExecution || saving} onChange={e => setReportText(e.target.value)} className={`${canEditExecution ? inp : inpRo} resize-y`} />
+            </label>
           </div>
 
           {/* Lịch sử công việc */}

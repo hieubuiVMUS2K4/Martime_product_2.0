@@ -2170,6 +2170,13 @@
     },
     {
       "controller": "TaskWorkflow",
+      "action": "SaveProgress",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "TaskWorkflow",
       "action": "SubmitTask",
       "grants": [
         "pms.work.execute"

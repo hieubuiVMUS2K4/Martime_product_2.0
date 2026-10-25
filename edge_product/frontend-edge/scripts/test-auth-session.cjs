@@ -108,6 +108,109 @@ function pollingFixture(task) {
   return { timers, tick, stop }
 }
 
+function webWorkFixture(grants, status = 'DUE') {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const { permissions, state, gate } = actionPermissions(grants)
+  const task = { id: 'task-uuid', taskId: 'WEB-WORK', taskDescription: 'Engine inspection', status,
+    priority: 'NORMAL', equipmentAssetId: 'engine', actualRunningHours: 100, actualDuration: 0,
+    notes: '', sparePartsUsed: '[]', completionPhotos: '[]', requiredPhotos: 0, checklistItems: [], statusHistory: [] }
+  const slots = [task, false]; let cursor = 0; const saves = [], submissions = [], effects = []
+  let nextRead = null, poll = null
+  const hooks = {
+    useState: initial => {
+      const index = cursor++
+      if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial
+      return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value }]
+    },
+    useRef: initial => {
+      const index = cursor++
+      if (!(index in slots)) slots[index] = { current: initial }
+      return slots[index]
+    },
+    useEffect: (fn, dependencies) => effects.push({ fn, dependencies }), useMemo: fn => fn(), useCallback: fn => fn,
+  }
+  const Page = load('pages/PMS/WorkReportPage.tsx', {
+    react: hooks,
+    'react-router-dom': { useParams: () => ({ id: task.id }), useNavigate: () => () => {} },
+    '@/components/SigningControls': { SigningControls: () => null },
+    '@/components/auth/PermissionGate': { PermissionGate: gate },
+    '@/stores/permissions.store': { usePermission: code => permissions.hasPermission(state, code) },
+    '@/contexts/I18nContext': { useTranslationSafe: () => ({ t: key => key }) },
+    '@/components/pms/DeferralReviewModal': { default: () => null },
+    '@/lib/polling': { startPolling: callback => { poll = callback; return () => {} } },
+    '../../services/materialService': { materialService: { getItems: async () => [] } },
+    '../../services/equipment-asset.service': { equipmentAssetService: { getById: async () => ({ currentRunningHours: 100 }) } },
+    '../../services/maritime.service': { maritimeService: { maintenance: { getById: async () => {
+      if (nextRead) { const read = nextRead; nextRead = null; return read.promise }
+      return { ...task }
+    } } } },
+    '../../services/maintenance.service': {
+      startTask: async () => { task.status = 'IN_PROGRESS' },
+      saveTaskProgress: async (id, dto) => { saves.push({ id, dto }); task.notes = dto.notes; task.actualRunningHours = dto.completedRunningHours; task.actualDuration = dto.actualDurationMinutes },
+      submitTask: async (id, dto) => { submissions.push({ id, dto }); task.status = 'PENDING_APPROVAL' },
+    },
+    sonner: { toast: { success: () => {}, error: message => { throw new Error(message) } } },
+  }, { document: { hidden: false } }).default
+  const render = () => { cursor = 0; effects.length = 0; return Page() }
+  const elements = node => !node || typeof node !== 'object' ? [] : [node, ...[].concat(node.props?.children ?? []).flat(Infinity).flatMap(elements)]
+  return { task, saves, submissions, html: () => renderToStaticMarkup(render()),
+    deferNextRead: () => { nextRead = deferred(); return nextRead },
+    poll: () => {
+      render()
+      effects.find(effect => effect.dependencies?.some(value => typeof value === 'function')).fn()
+      assert.ok(poll, 'Viewer polling was not registered')
+      return poll()
+    },
+    button: label => elements(render()).find(node => node.type === 'button' && renderToStaticMarkup(node).includes(label)),
+    editReport: value => elements(render()).find(node => node.type === 'textarea' && node.props.onChange).props.onChange({ target: { value } }),
+  }
+}
+
+test('web executor can start, save and submit without update/approve permission', async () => {
+  const form = webWorkFixture(['pms.work.access', 'pms.work.execute'])
+  assert.match(form.html(), /pms.workReport.startBtn/)
+  assert.doesNotMatch(form.html(), /pms.workReport.approveBtn/)
+  assert.equal(form.button('pms.workReport.saveBtn').props.disabled, true)
+  await form.button('pms.workReport.startBtn').props.onClick()
+  assert.equal(form.task.status, 'IN_PROGRESS')
+  assert.equal(form.button('pms.workReport.saveBtn').props.disabled, false)
+  form.editReport('Web result')
+  await form.button('pms.workReport.saveBtn').props.onClick()
+  assert.equal(form.saves[0].dto.notes, 'Web result')
+  assert.equal('assignedTo' in form.saves[0].dto, false)
+  assert.equal('taskDescription' in form.saves[0].dto, false)
+  assert.equal('photoUrls' in form.saves[0].dto, false)
+  assert.doesNotMatch(form.html(), /type="file"|pms.workReport.completionPhotos/)
+  await form.button('pms.workReport.completeBtn').props.onClick()
+  assert.equal(form.submissions.length, 1)
+  assert.equal(form.submissions[0].dto.notes, 'Web result')
+  assert.equal('photoUrls' in form.submissions[0].dto, false)
+  assert.equal(form.task.status, 'PENDING_APPROVAL')
+  assert.equal(form.button('pms.workReport.saveBtn').props.disabled, true)
+})
+
+test('web read-only and reviewer roles cannot see execution actions', () => {
+  for (const grants of [['pms.work.access'], ['pms.work.access', 'pms.work.approve', 'pms.work.reject']]) {
+    const form = webWorkFixture(grants, 'PENDING_APPROVAL')
+    assert.doesNotMatch(form.html(), /pms.workReport.startBtn|pms.workReport.saveBtn|pms.workReport.completeBtn/)
+    assert.equal(form.html().includes('pms.workReport.approveBtn'), grants.includes('pms.work.approve'))
+  }
+})
+
+test('late viewer polling cannot replace a web executor draft after work has started', async () => {
+  const form = webWorkFixture(['pms.work.access', 'pms.work.execute'])
+  const wait = form.deferNextRead()
+  const oldTask = { ...form.task, notes: 'Old server notes' }
+  const polling = form.poll()
+  await form.button('pms.workReport.startBtn').props.onClick()
+  form.editReport('Unsaved execution result')
+  wait.resolve(oldTask)
+  await polling
+  await form.button('pms.workReport.saveBtn').props.onClick()
+  assert.equal(form.saves[0].dto.notes, 'Unsaved execution result')
+  assert.equal(form.task.status, 'IN_PROGRESS')
+})
+
 test('telemetry polling waits for an in-flight request instead of starting overlapping reads', async () => {
   const wait = deferred(); let calls = 0
   const polling = pollingFixture(() => { calls++; return wait.promise })

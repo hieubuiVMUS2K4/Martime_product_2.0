@@ -23,6 +23,7 @@ const api = axios.create({
 
 // Add auth token to all requests
 api.interceptors.request.use(async (config) => {
+  config.headers['X-Device-Type'] = 'WEB';
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -267,6 +268,10 @@ export interface SubmitTaskDto {
   completedRunningHours?: number;
   actualDurationMinutes?: number;
 }
+
+export const saveTaskProgress = async (taskId: string, dto: SubmitTaskDto): Promise<void> => {
+  await api.put(`${WORKFLOW_BASE}/${taskId}/progress`, dto);
+};
 
 export const submitTask = async (taskId: string, dto: SubmitTaskDto = {}): Promise<{
   message: string;

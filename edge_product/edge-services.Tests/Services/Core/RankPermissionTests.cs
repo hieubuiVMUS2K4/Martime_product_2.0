@@ -192,6 +192,21 @@ public class RankPermissionTests
         Assert.False((await auth.CreateUserForCrewAsync("CREW-1", legacy.Id)).Success);
     }
 
+    [Fact]
+    public async Task ExecutionGrant_CanSaveProgressWithoutConfigurationUpdateOrApprovalRights()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        var config = new RankPermissionConfig { RankId = rankId, GrantsJson = "[\"pms.work.access\",\"pms.work.execute\"]" };
+        db.RankPermissionConfigs.Add(config); await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "TaskWorkflow", "SaveProgress", "PUT"));
+        Assert.True(await Call(db, user.Id, "TaskWorkflow", "StartTask", "POST"));
+        Assert.True(await Call(db, user.Id, "TaskWorkflow", "SubmitTask", "POST"));
+        Assert.False(await Call(db, user.Id, "Maintenance", "PatchTask", "PATCH"));
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "VerifyTask", "POST", new { Action = "APPROVE" }));
+        config.GrantsJson = "[\"pms.work.access\",\"pms.work.approve\"]"; await db.SaveChangesAsync();
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "SaveProgress", "PUT"));
+    }
+
     public sealed class ApprovalRequest { public bool IsApproved { get; set; } public string ApprovedBy { get; set; } = ""; }
     [Fact]
     public async Task AdminWithoutCrew_CanReviewButCannotExecute_RecordsAuthenticatedActor()
@@ -209,6 +224,7 @@ public class RankPermissionTests
         Assert.True(await Call(db, admin.Id, "TaskWorkflow", "BulkVerifyTasks", "POST", new { Action = "APPROVE" }));
         Assert.True(await Call(db, admin.Id, "TaskWorkflow", "BulkVerifyTasks", "POST", new { Action = "REJECT" }));
         Assert.False(await Call(db, admin.Id, "TaskWorkflow", "StartTask", "POST"));
+        Assert.False(await Call(db, admin.Id, "TaskWorkflow", "SaveProgress", "PUT"));
         Assert.False(await Call(db, admin.Id, "Maintenance", "ApproveTask", "POST", new ApprovalRequest { IsApproved = true, ApprovedBy = "OTHER" }));
     }
 

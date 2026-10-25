@@ -55,7 +55,9 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
         if (module == null || action == null)
         {
             // Serialize draft writes with signing, preventing a concurrent save from changing a frozen record.
-            var protectedWrite = (SigningRecords.Module(controller) != null && context.HttpContext.Request.Method != "GET") || (controller == "Sms" && name == "UpdateFilledRecord") || (controller == "Hsqe" && name is "PerformGasTest" or "DeletePermit" or "UpdateDraftPermit");
+            var protectedWrite = (SigningRecords.Module(controller) != null && context.HttpContext.Request.Method != "GET") ||
+                (controller == "TaskWorkflow" && name is "SaveProgress" or "SubmitTask") ||
+                (controller == "Sms" && name == "UpdateFilledRecord") || (controller == "Hsqe" && name is "PerformGasTest" or "DeletePermit" or "UpdateDraftPermit");
             if (!protectedWrite) { await next(); return; }
             await using var writeTransaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync() : null;
             if (db.Database.IsNpgsql()) await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(7311042026)");
