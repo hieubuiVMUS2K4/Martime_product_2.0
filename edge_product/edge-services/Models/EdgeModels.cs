@@ -1820,7 +1820,7 @@ public class MaintenanceTaskDetail
 /// Maintenance Tasks (ISM Code - Planned Maintenance System)
 /// Updated v2.0: Added workflow fields for Deferral & Rectify system
 /// </summary>
-public class MaintenanceTask
+public partial class MaintenanceTask
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -4827,7 +4827,7 @@ public class MonthlySummaryReport
 /// Equipment Assets - Thiết bị trên tàu cần bảo dưỡng
 /// Master catalog of all equipment/machinery on vessel
 /// </summary>
-public class EquipmentAsset
+public partial class EquipmentAsset
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -4967,7 +4967,7 @@ public class EquipmentAsset
 /// Defines when and how equipment should be maintained
 /// System will auto-generate MaintenanceTasks from these schedules
 /// </summary>
-public class MaintenanceSchedule
+public partial class MaintenanceSchedule
 {
     [MaxLength(50)]
     public string? WorkCode { get; set; }

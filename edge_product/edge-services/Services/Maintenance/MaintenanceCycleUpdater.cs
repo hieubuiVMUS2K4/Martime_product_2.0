@@ -12,9 +12,9 @@ public sealed class MaintenanceCycleUpdater(EdgeDbContext db)
     {
         // Share the approval lock so a background tick cannot reset a partially saved report.
         await using var transaction = db.Database.CurrentTransaction == null ? await InventoryWriteScope.BeginAsync(db) : null;
-        var tasks = await db.MaintenanceTasks.Where(t => !t.IsDeleted && t.ScheduleId.HasValue &&
+        var tasks = await db.MaintenanceTasks.Where(t => !t.IsDeleted && !t.PmsProtocolVersion.HasValue && t.ScheduleId.HasValue &&
             (t.Status == "COMPLETED" || t.Status == "SCHEDULED" || t.Status == "UPCOMING" || t.Status == "DUE" || t.Status == "OVERDUE") &&
-            db.MaintenanceSchedules.Any(s => s.Id == t.ScheduleId && s.MaintenanceCategory == "PERIODIC" && s.IsActive && s.AutoGenerate &&
+            db.MaintenanceSchedules.Any(s => s.Id == t.ScheduleId && !s.PmsProtocolVersion.HasValue && s.MaintenanceCategory == "PERIODIC" && s.IsActive && s.AutoGenerate &&
                 (!assetId.HasValue || s.EquipmentAssetId == assetId || db.EquipmentGroupMembers.Any(m => m.GroupId == s.EquipmentGroupId && m.AssetId == assetId))))
             .ToListAsync(token);
         if (tasks.Count == 0)

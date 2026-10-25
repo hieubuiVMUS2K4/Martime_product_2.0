@@ -70,6 +70,8 @@ public class EdgeDbContext : DbContext
     public DbSet<ServiceRecord> ServiceRecords { get; set; } = null!;
     public DbSet<CrewLogbookEntry> CrewLogbookEntries { get; set; } = null!;
     public DbSet<MaintenanceTask> MaintenanceTasks { get; set; } = null!;
+    public DbSet<PmsWorkOrderReport> PmsWorkOrderReports { get; set; } = null!;
+    public DbSet<PmsWorkOrderMaterialPosting> PmsWorkOrderMaterialPostings { get; set; } = null!;
     public DbSet<TaskChecklistItem> TaskChecklistItems { get; set; } = null!;
     public DbSet<MaintenanceTaskDetail> MaintenanceTaskDetails { get; set; } = null!;
     public DbSet<CargoOperation> CargoOperations { get; set; } = null!;
@@ -1451,6 +1453,16 @@ public class EdgeDbContext : DbContext
         modelBuilder.Entity<MaintenanceTask>(entity =>
         {
             entity.ToTable("maintenance_tasks");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasKey(r => r.Id).HasName("pk_pms_work_order_reports");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasKey(r => r.Id).HasName("pk_pms_work_order_material_postings");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasOne<MaintenanceTask>().WithMany().HasForeignKey(r => r.WorkOrderId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_reports_order");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasOne<MaintenanceSchedule>().WithMany().HasForeignKey(r => r.JobId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_report_job");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasOne<MaintenanceTask>().WithMany().HasForeignKey(r => r.WorkOrderId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_material_postings_order");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasOne<PmsWorkOrderReport>().WithMany().HasForeignKey(r => r.ReportId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_posting_report");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasIndex(r => r.JobId).HasDatabaseName("ix_pms_report_job");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasIndex(r => r.ReportId).HasDatabaseName("ix_pms_posting_report");
+            entity.HasIndex(e => new { e.ScheduleId, e.CycleKey }).IsUnique()
+                .HasDatabaseName("ux_pms_work_order_cycle").HasFilter("cycle_key IS NOT NULL");
             
             entity.Property(e => e.IntervalHours).HasColumnType("decimal(10,2)");
             entity.Property(e => e.RunningHoursAtLastDone).HasColumnType("decimal(10,2)");
@@ -2953,6 +2965,16 @@ public class EdgeDbContext : DbContext
     private void ValidateApprovalEvidence()
     {
         ChangeTracker.DetectChanges();
+        foreach (var entry in ChangeTracker.Entries<PmsWorkOrderReport>())
+        {
+            var allowed = new HashSet<string> { "IsSynced", "Decision", "DecidedAt", "DecidedByUserId", "DecidedByCrewId", "DecisionReason", "ApprovalEvidenceJson" };
+            if (entry.State == EntityState.Deleted || entry.State == EntityState.Modified && entry.Properties.Any(p => p.IsModified &&
+                (!allowed.Contains(p.Metadata.Name) || entry.OriginalValues.GetValue<string?>("Decision") != null && p.Metadata.Name != "IsSynced")))
+                throw new InvalidOperationException("Submitted PMS reports are immutable; create a new submission instead.");
+        }
+        foreach (var entry in ChangeTracker.Entries<PmsWorkOrderMaterialPosting>())
+            if (entry.State == EntityState.Deleted || entry.State == EntityState.Modified && entry.Properties.Any(p => p.IsModified && p.Metadata.Name != "IsSynced"))
+                throw new InvalidOperationException("PMS inventory postings are append-only.");
         foreach (var entry in ChangeTracker.Entries().Where(e => e.Entity is ApprovalRevision or ApprovalAction))
             if (entry.State == EntityState.Deleted || entry.State == EntityState.Modified && entry.Properties.Any(p => p.IsModified && p.Metadata.Name != "IsSynced"))
                 throw new InvalidOperationException("Signed evidence is append-only. Create a revision instead.");
@@ -3421,6 +3443,7 @@ public class EdgeDbContext : DbContext
             type == typeof(TaskDeferralRequest) ||
             type == typeof(MaintenanceTask) ||
             type == typeof(MaintenanceHistory) ||
+            type == typeof(PmsWorkOrderReport) || type == typeof(PmsWorkOrderMaterialPosting) ||
             type == typeof(MaintenanceSchedule) ||
             type == typeof(EquipmentAsset) ||
             type == typeof(EquipmentGroup) ||

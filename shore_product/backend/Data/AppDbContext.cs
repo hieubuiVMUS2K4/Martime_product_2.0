@@ -18,6 +18,8 @@ namespace ProductApi.Data
         public DbSet<Ship> Ships { get; set; } = null!;
         public DbSet<CrewMember> CrewMembers { get; set; } = null!;
         public DbSet<MaintenanceTask> MaintenanceTasks { get; set; } = null!;
+        public DbSet<PmsWorkOrderReport> PmsWorkOrderReports { get; set; } = null!;
+        public DbSet<PmsWorkOrderMaterialPosting> PmsWorkOrderMaterialPostings { get; set; } = null!;
         
         // Maritime entities
         public DbSet<Vessel> Vessels { get; set; } = null!;
@@ -1718,6 +1720,17 @@ namespace ProductApi.Data
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasIndex(e => new { e.GroupId, e.AssetId }).IsUnique();
             });
+
+            modelBuilder.Entity<PmsWorkOrderReport>().HasKey(r => r.Id).HasName("pk_pms_work_order_reports");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasKey(r => r.Id).HasName("pk_pms_work_order_material_postings");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasOne<MaintenanceTask>().WithMany().HasForeignKey(r => r.WorkOrderId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_reports_order");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasOne<MaintenanceSchedule>().WithMany().HasForeignKey(r => r.JobId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_report_job");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasOne<MaintenanceTask>().WithMany().HasForeignKey(r => r.WorkOrderId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_material_postings_order");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasOne<PmsWorkOrderReport>().WithMany().HasForeignKey(r => r.ReportId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_posting_report");
+            modelBuilder.Entity<PmsWorkOrderReport>().HasIndex(r => r.JobId).HasDatabaseName("ix_pms_report_job");
+            modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasIndex(r => r.ReportId).HasDatabaseName("ix_pms_posting_report");
+            modelBuilder.Entity<MaintenanceTask>().HasIndex(e => new { e.VesselId, e.ScheduleId, e.CycleKey })
+                .IsUnique().HasDatabaseName("ux_pms_work_order_cycle").HasFilter("cycle_key IS NOT NULL");
 
             modelBuilder.Entity<MaintenanceSchedule>(entity =>
             {

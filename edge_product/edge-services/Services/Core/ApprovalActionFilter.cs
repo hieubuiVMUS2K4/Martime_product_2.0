@@ -16,6 +16,8 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
         if (context.ActionDescriptor is not ControllerActionDescriptor descriptor) { await next(); return; }
         var controller = descriptor.ControllerName;
         var name = descriptor.ActionName;
+        if (controller == "PmsWorkOrders" && context.HttpContext.RequestServices.GetService<IConfiguration>()?.GetValue<bool>("Pms:ReworkApiEnabled") != true)
+        { await next(); return; }
         if (controller == "Maintenance" && name is "UpdateTask" or "PatchTask" or "UpdateTaskStatus")
         {
             var id = context.ActionArguments.Values.OfType<Guid>().FirstOrDefault();
@@ -36,13 +38,14 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
         if ((controller == "TaskWorkflow" && name == "BulkVerifyTasks") || (controller == "Hsqe" && name == "SignPermit"))
         { context.Result = new ObjectResult(new { message = "Dùng ký từng hồ sơ qua luồng xác nhận mới." }) { StatusCode = 409 }; return; }
         object? Argument(string key) => context.ActionArguments.TryGetValue(key, out var value) ? value : null;
-        var module = controller switch { "Sms" => "sms", "Hsqe" => "permit", "TaskWorkflow" or "Maintenance" => "pms", "StockReceipt" => "receipt", "Approvals" => Argument("module")?.ToString(), _ => SigningRecords.Module(controller) };
+        var module = controller switch { "Sms" => "sms", "Hsqe" => "permit", "TaskWorkflow" or "Maintenance" or "PmsWorkOrders" => "pms", "StockReceipt" => "receipt", "Approvals" => Argument("module")?.ToString(), _ => SigningRecords.Module(controller) };
         var action = (controller, name) switch {
             ("Sms", "SignRecord") => "submit", ("Sms", "ApproveRecord") => "approve",
             ("Hsqe", "ClosePermit") => "close",
             ("TaskWorkflow", "VerifyTask") => context.ActionArguments.Values.Any(v => v?.GetType().GetProperty("Action")?.GetValue(v)?.ToString() == "REJECT") ? "reject" : "approve",
             ("Maintenance", "ApproveTask") => context.ActionArguments.Values.Any(v => v?.GetType().GetProperty("IsApproved")?.GetValue(v) is false) ? "reject" : "approve",
             ("Maintenance", "CompleteTask") => "approve",
+            ("PmsWorkOrders", "Approve") => "approve", ("PmsWorkOrders", "Return") => "reject",
             ("StockReceipt", "Submit") => "submit", ("StockReceipt", "Approve") => "approve", ("StockReceipt", "Complete") => "complete",
             ("Approvals", "Act") => Argument("action")?.ToString(),
             (_, "SignEntry") when SigningRecords.Module(controller) != null => "sign",
@@ -56,6 +59,8 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
         {
             // Serialize draft writes with signing, preventing a concurrent save from changing a frozen record.
             var protectedWrite = (SigningRecords.Module(controller) != null && context.HttpContext.Request.Method != "GET") ||
+                (controller == "WorkItemConfig" && context.HttpContext.Request.Method != "GET" &&
+                    !(name == "Import" && context.ActionArguments.Values.Any(v => v?.GetType().GetProperty("ValidateOnly")?.GetValue(v) is true))) ||
                 (controller == "TaskWorkflow" && name is "SaveProgress" or "SubmitTask") ||
                 (controller == "Sms" && name == "UpdateFilledRecord") || (controller == "Hsqe" && name is "PerformGasTest" or "DeletePermit" or "UpdateDraftPermit");
             if (!protectedWrite) { await next(); return; }

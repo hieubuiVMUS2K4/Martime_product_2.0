@@ -1,6 +1,21 @@
 {
   "modules": [
     {
+      "code": "pms.jobs",
+      "name": "Danh sách công việc (Job List)",
+      "group": "PMS – Công việc",
+      "routes": [
+        "/pms/jobs"
+      ],
+      "actions": [
+        "view",
+        "create",
+        "delete",
+        "update",
+        "import"
+      ]
+    },
+    {
       "code": "dashboard",
       "name": "Bảng điều khiển",
       "group": "Tổng quan",
@@ -450,6 +465,84 @@
     }
   ],
   "bindings": [
+    {
+      "controller": "PmsJobs",
+      "action": "List",
+      "grants": [
+        "pms.jobs.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "Detail",
+      "grants": [
+        "pms.jobs.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "Create",
+      "grants": [
+        "pms.jobs.create",
+        "pms.config.create"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "Update",
+      "grants": [
+        "pms.jobs.update",
+        "pms.config.update"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "Delete",
+      "grants": [
+        "pms.jobs.delete",
+        "pms.config.delete"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "ChangeState",
+      "grants": [
+        "pms.jobs.update",
+        "pms.config.update"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "History",
+      "grants": [
+        "pms.jobs.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "Report",
+      "grants": [
+        "pms.jobs.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "List",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Detail",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
     {
       "controller": "AuditLog",
       "action": "GetAuditLogs",
@@ -1876,7 +1969,8 @@
         "pms.assets.view",
         "pms.work.view",
         "pms.config.view",
-        "pms.counter.view"
+        "pms.counter.view",
+        "pms.jobs.view"
       ]
     },
     {
@@ -3863,6 +3957,93 @@
         "hsqe.permits.view",
         "pms.work.view",
         "pms.receipts.view"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "Import",
+      "grants": [
+        "pms.jobs.import",
+        "pms.config.import"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "References",
+      "grants": [
+        "pms.jobs.view",
+        "pms.config.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Release",
+      "grants": [
+        "pms.work.create"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Assign",
+      "grants": [
+        "pms.work.assign"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Start",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Save",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Submit",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Approve",
+      "grants": [
+        "pms.work.approve"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Return",
+      "grants": [
+        "pms.work.reject"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Cancel",
+      "grants": [
+        "pms.work.update"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Report",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "CompletedReport",
+      "grants": [
+        "pms.jobs.view",
+        "pms.config.view"
       ]
     }
   ]

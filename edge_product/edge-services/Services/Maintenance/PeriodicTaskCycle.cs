@@ -10,8 +10,8 @@ public static class PeriodicTaskCycle
 {
     public static async Task ConsolidateLegacyAsync(EdgeDbContext db)
     {
-        var tasks = await db.MaintenanceTasks.Where(t => !t.IsDeleted && t.ScheduleId.HasValue &&
-            db.MaintenanceSchedules.Any(s => s.Id == t.ScheduleId && s.MaintenanceCategory == "PERIODIC"))
+        var tasks = await db.MaintenanceTasks.Where(t => !t.IsDeleted && t.PmsProtocolVersion == null && t.ScheduleId.HasValue &&
+            db.MaintenanceSchedules.Any(s => s.Id == t.ScheduleId && s.PmsProtocolVersion == null && s.MaintenanceCategory == "PERIODIC"))
             .ToListAsync();
         foreach (var group in tasks.GroupBy(t => new { t.ScheduleId, t.EquipmentAssetId, t.EquipmentGroupId })
             .Where(g => g.Count() > 1))
@@ -93,6 +93,8 @@ public static class PeriodicTaskCycle
     public static async Task<bool> ReopenIfDueAsync(EdgeDbContext db, MaintenanceTask task,
         MaintenanceSchedule schedule, double? hours, DateTime now, bool prepareNextCycle = false)
     {
+        // The rework protocol owns its cycle; legacy code must never reset its reports.
+        if (task.PmsProtocolVersion.HasValue || schedule.PmsProtocolVersion.HasValue) return false;
         if (schedule.MaintenanceCategory != "PERIODIC" || !schedule.IsActive || !schedule.AutoGenerate) return false;
         if (task.Status is "SCHEDULED" or "UPCOMING" or "DUE" or "OVERDUE")
         {

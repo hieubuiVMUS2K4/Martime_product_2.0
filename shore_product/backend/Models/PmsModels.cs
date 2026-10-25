@@ -7,7 +7,7 @@ namespace ProductApi.Models;
 // PMS — EQUIPMENT ASSETS
 // ============================================================
 
-public class EquipmentAsset
+public partial class EquipmentAsset
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -139,7 +139,7 @@ public class EquipmentGroupMember
 // PMS — MAINTENANCE SCHEDULES (template, syncs to Edge)
 // ============================================================
 
-public class MaintenanceSchedule
+public partial class MaintenanceSchedule
 {
     [MaxLength(50)]
     public string? WorkCode { get; set; }

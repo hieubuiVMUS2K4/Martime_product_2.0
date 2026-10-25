@@ -18,6 +18,58 @@ namespace MaritimeEdge.Tests.Services.Core;
 public class RankPermissionTests
 {
     [Fact]
+    public async Task LegacyDeferralAndTaskWritesCannotChangeNewWorkOrder_EvenForAdmin()
+    {
+        await using var db = Database(); var (user, _) = await Seed(db);
+        (await db.Roles.SingleAsync()).RoleCode = "ADMIN";
+        var order = new MaintenanceTask { TaskId = "WO-PROTOCOL-2", PmsProtocolVersion = 2, Status = "ASSIGNED" };
+        var deferral = new TaskDeferralRequest { TaskId = order.Id, Reason = "Historical linked request" };
+        db.AddRange(order, deferral); await db.SaveChangesAsync();
+        Assert.False(await Call(db, user.Id, "DeferralRequest", "CreateDeferralRequest", "POST",
+            new MaritimeEdge.DTOs.CreateDeferralRequestDto { TaskId = order.Id, Reason = "Deferral reason" }));
+        Assert.False(await Call(db, user.Id, "DeferralRequest", "ReviewDeferralRequest", "PUT", id: deferral.Id));
+        Assert.False(await Call(db, user.Id, "DeferralRequest", "CancelDeferralRequest", "DELETE", id: deferral.Id));
+        foreach (var (controller, action, method) in new[] { ("Maintenance", "DeleteTask", "DELETE"),
+            ("TaskWorkflow", "StartTask", "POST"), ("TaskWorkflow", "SubmitTask", "POST"), ("TaskRealTimeUpdates", "UpdateSparePartsUsed", "PUT") })
+            Assert.False(await Call(db, user.Id, controller, action, method, id: order.Id));
+        Assert.Equal("ASSIGNED", order.Status);
+    }
+    [Fact]
+    public async Task LegacyConfigurationCannotMutateProtocolTwoJob_EvenForAdmin()
+    {
+        await using var db = Database(); var (user, _) = await Seed(db);
+        var role = await db.Roles.SingleAsync(); role.RoleCode = "ADMIN";
+        var job = new MaintenanceSchedule { ScheduleCode = "PROTOCOL-TWO", PmsProtocolVersion = 2, JobVersion = 1 };
+        db.MaintenanceSchedules.Add(job); await db.SaveChangesAsync();
+        Assert.False(await Call(db, user.Id, "WorkItemConfig", "Update", "PUT", id: job.Id));
+        Assert.False(await Call(db, user.Id, "WorkItemConfig", "Delete", "DELETE", id: job.Id));
+        Assert.True(await Call(db, user.Id, "WorkItemConfig", "Update", "PUT", id: Guid.NewGuid()));
+        Assert.Equal(1, job.JobVersion);
+    }
+    [Fact]
+    public async Task JobAccessReadsOnlyJobAndCompletedHistory_WithoutWorkOrderOrMutationRights()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        var config = new RankPermissionConfig { RankId = rankId, GrantsJson = "[\"pms.jobs.access\"]" };
+        db.RankPermissionConfigs.Add(config); await db.SaveChangesAsync();
+        foreach (var action in new[] { "List", "Detail", "History", "Report", "References" })
+            Assert.True(await Call(db, user.Id, "PmsJobs", action, "GET"));
+        foreach (var action in new[] { "Create", "Update", "Delete", "ChangeState", "Import" })
+            Assert.False(await Call(db, user.Id, "PmsJobs", action, "POST"));
+        Assert.False(await Call(db, user.Id, "PmsWorkOrders", "Detail", "GET"));
+        Assert.True(await Call(db, user.Id, "EquipmentAsset", "GetTree", "GET"));
+        Assert.False(await Call(db, user.Id, "Crew", "GetAllCrew", "GET"));
+        Assert.False(await Call(db, user.Id, "TaskWorkflow", "SaveProgress", "PUT"));
+        // Old config read is a compatibility alias, not a grant to create/update or inspect open WOs.
+        config.GrantsJson = "[\"pms.config.access\"]"; await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "PmsJobs", "History", "GET"));
+        Assert.False(await Call(db, user.Id, "PmsJobs", "Create", "POST"));
+        Assert.False(await Call(db, user.Id, "PmsWorkOrders", "List", "GET"));
+        config.GrantsJson = "[\"pms.work.access\"]"; await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "PmsWorkOrders", "List", "GET"));
+        Assert.False(await Call(db, user.Id, "PmsJobs", "Update", "PUT"));
+    }
+    [Fact]
     public void Materials_AreReadOnlyAndReceiptWorkflowRightsAreIndependent()
     {
         Assert.Equal(new[] { "view" }, PermissionRegistry.Data.Modules.Single(m => m.Code == "pms.materials").Actions);

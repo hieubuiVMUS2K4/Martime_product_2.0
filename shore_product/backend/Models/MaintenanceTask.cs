@@ -7,7 +7,7 @@ namespace ProductApi.Models;
 /// Maintenance task synced from Edge (read-only on Shore).
 /// Mirrors Edge's MaintenanceTask model.
 /// </summary>
-public class MaintenanceTask
+public partial class MaintenanceTask
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();

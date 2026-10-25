@@ -9,7 +9,7 @@ namespace MaritimeEdge.Controllers.Core;
 
 [ApiController]
 [Route("api/permissions")]
-public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionService permissions) : ControllerBase
+public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionService permissions, IConfiguration? configuration = null) : ControllerBase
 {
     [HttpGet("me")]
     public async Task<IActionResult> Me() => Ok(await Current());
@@ -19,7 +19,8 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
     private async Task<bool> IsAdmin() => (await Current()).IsAdmin;
 
     [HttpGet("catalog")]
-    public IActionResult Catalog() => Ok(PermissionRegistry.Data.Modules.Where(m => m.Code != "dashboard").ToArray());
+    public IActionResult Catalog() => Ok(PermissionRegistry.Data.Modules.Where(m => m.Code != "dashboard" &&
+        (m.Code != "pms.jobs" || configuration?.GetValue<bool>("Pms:ReworkApiEnabled") == true)).ToArray());
 
     [HttpGet("ranks")]
     public async Task<IActionResult> Ranks()

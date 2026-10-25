@@ -4401,6 +4401,62 @@ namespace productapi.Migrations
 
             modelBuilder.Entity("ProductApi.Models.MaintenanceSchedule", b =>
                 {
+                    b.Property<int?>("PmsProtocolVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("pms_protocol_version");
+
+                    b.Property<int?>("JobVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("job_version");
+
+                    b.Property<string>("JobState")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("job_state");
+
+                    b.Property<DateTime?>("BaselineAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("baseline_at");
+
+                    b.Property<double?>("BaselineRunningHours")
+                        .HasColumnType("double precision")
+                        .HasColumnName("baseline_running_hours");
+
+                    b.Property<string>("BaselineSource")
+                        .HasColumnType("text")
+                        .HasColumnName("baseline_source");
+
+                    b.Property<double?>("WarningHours")
+                        .HasColumnType("double precision")
+                        .HasColumnName("warning_hours");
+
+                    b.Property<string>("ReleasePolicy")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("release_policy");
+
+                    b.Property<string>("ResponsibleDepartment")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("responsible_department");
+
+                    b.Property<int?>("ResponsibleRankId")
+                        .HasColumnType("integer")
+                        .HasColumnName("responsible_rank_id");
+
+                    b.Property<Guid?>("ResponsibleCrewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsible_crew_id");
+
+                    b.Property<string>("AssignmentPolicy")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("assignment_policy");
+
+                    b.Property<long?>("NextCycleNumber")
+                        .HasColumnType("bigint")
+                        .HasColumnName("next_cycle_number");
+
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
@@ -4505,6 +4561,49 @@ namespace productapi.Migrations
 
             modelBuilder.Entity("ProductApi.Models.MaintenanceTask", b =>
                 {
+                    b.Property<int?>("WorkflowVersion").HasColumnType("integer").HasColumnName("workflow_version");
+                    b.Property<string>("SupportingCrewIds").HasColumnType("text").HasColumnName("supporting_crew_ids");
+                    b.Property<string>("ExecutionActors").HasColumnType("text").HasColumnName("execution_actors");
+                    b.Property<double?>("ExecutionStartedHours").HasColumnType("double precision").HasColumnName("execution_started_hours");
+                    b.Property<int?>("WorkOrderWarningDays").HasColumnType("integer").HasColumnName("work_order_warning_days");
+                    b.Property<double?>("WorkOrderWarningHours").HasColumnType("double precision").HasColumnName("work_order_warning_hours");
+                    b.Property<int?>("PmsProtocolVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("pms_protocol_version");
+
+                    b.Property<string>("CycleKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("cycle_key");
+
+                    b.Property<int?>("JobVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("job_version");
+
+                    b.Property<string>("JobSnapshot")
+                        .HasColumnType("text")
+                        .HasColumnName("job_snapshot");
+
+                    b.Property<DateTime?>("WorkOrderDueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("work_order_due_at");
+
+                    b.Property<double?>("WorkOrderDueHours")
+                        .HasColumnType("double precision")
+                        .HasColumnName("work_order_due_hours");
+
+                    b.Property<string>("DueState")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("due_state");
+
+                    b.Property<int?>("ReportRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("report_revision");
+
+                    b.HasIndex("VesselId", "ScheduleId", "CycleKey").IsUnique()
+                        .HasDatabaseName("ux_pms_work_order_cycle").HasFilter("cycle_key IS NOT NULL");
+
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
@@ -10549,6 +10648,7 @@ namespace productapi.Migrations
 
             modelBuilder.Entity("ProductApi.Models.EquipmentAsset", b =>
                 {
+                    b.Property<string>("MaintenancePreviousStatus").HasMaxLength(50).HasColumnType("character varying(50)").HasColumnName("maintenance_previous_status");
                     b.HasOne("ProductApi.Models.EquipmentAsset", "Parent")
                         .WithMany("Children")
                         .HasForeignKey("ParentId")
@@ -11297,6 +11397,61 @@ namespace productapi.Migrations
                 {
                     b.Navigation("Routes");
                 });
+            modelBuilder.Entity("ProductApi.Models.PmsWorkOrderReport", b =>
+            {
+                b.Property<double?>("ExecutedRunningHours").HasColumnType("double precision").HasColumnName("executed_running_hours");
+                b.Property<int>("DurationMinutes").HasColumnType("integer").HasColumnName("duration_minutes");
+                b.Property<DateTime?>("DueAt").HasColumnType("timestamp with time zone").HasColumnName("due_at");
+                b.Property<double?>("DueHours").HasColumnType("double precision").HasColumnName("due_hours");
+                b.Property<bool>("WasOverdue").HasColumnType("boolean").HasColumnName("was_overdue");
+                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
+                b.Property<int>("PmsProtocolVersion").HasColumnType("integer").HasColumnName("pms_protocol_version");
+                b.Property<Guid>("WorkOrderId").HasColumnType("uuid").HasColumnName("work_order_id");
+                b.Property<Guid?>("JobId").HasColumnType("uuid").HasColumnName("job_id");
+                b.Property<int>("Revision").HasColumnType("integer").HasColumnName("revision");
+                b.Property<Guid>("SubmitCommandId").HasColumnType("uuid").HasColumnName("submit_command_id");
+                b.Property<string>("CommandHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)").HasColumnName("command_hash");
+                b.Property<DateTime>("SubmittedAt").HasColumnType("timestamp with time zone").HasColumnName("submitted_at");
+                b.Property<long>("SubmittedByUserId").HasColumnType("bigint").HasColumnName("submitted_by_user_id");
+                b.Property<string>("SubmittedByCrewId").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)").HasColumnName("submitted_by_crew_id");
+                b.Property<string>("SnapshotJson").IsRequired().HasColumnType("text").HasColumnName("snapshot_json");
+                b.Property<string>("ContentHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)").HasColumnName("content_hash");
+                b.Property<string>("Decision").HasMaxLength(20).HasColumnType("character varying(20)").HasColumnName("decision");
+                b.Property<DateTime?>("DecidedAt").HasColumnType("timestamp with time zone").HasColumnName("decided_at");
+                b.Property<long?>("DecidedByUserId").HasColumnType("bigint").HasColumnName("decided_by_user_id");
+                b.Property<string>("DecidedByCrewId").HasMaxLength(50).HasColumnType("character varying(50)").HasColumnName("decided_by_crew_id");
+                b.Property<string>("DecisionReason").HasColumnType("text").HasColumnName("decision_reason");
+                b.Property<string>("ApprovalEvidenceJson").HasColumnType("text").HasColumnName("approval_evidence_json");
+                b.Property<string>("OriginNode").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)").HasColumnName("origin_node");
+                b.Property<bool>("IsSynced").HasColumnType("boolean").HasColumnName("is_synced");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone").HasColumnName("created_at");
+                b.HasKey("Id").HasName("pk_pms_work_order_reports");
+                b.ToTable("pms_work_order_reports", "public");
+                b.HasIndex("WorkOrderId", "Revision").IsUnique().HasDatabaseName("ux_pms_report_revision");
+                b.HasIndex("WorkOrderId", "SubmitCommandId").IsUnique().HasDatabaseName("ux_pms_report_command");
+                b.HasIndex("JobId").HasDatabaseName("ix_pms_report_job");
+                b.HasOne("ProductApi.Models.MaintenanceSchedule", null).WithMany().HasForeignKey("JobId").OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_report_job");
+                b.HasOne("ProductApi.Models.MaintenanceTask", null).WithMany().HasForeignKey("WorkOrderId").OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_reports_order");
+            });
+            modelBuilder.Entity("ProductApi.Models.PmsWorkOrderMaterialPosting", b =>
+            {
+                b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
+                b.Property<int>("PmsProtocolVersion").HasColumnType("integer").HasColumnName("pms_protocol_version");
+                b.Property<Guid>("WorkOrderId").HasColumnType("uuid").HasColumnName("work_order_id");
+                b.Property<Guid>("ReportId").HasColumnType("uuid").HasColumnName("report_id");
+                b.Property<Guid>("MaterialItemId").HasColumnType("uuid").HasColumnName("material_item_id");
+                b.Property<decimal>("Quantity").HasColumnType("numeric(18,6)").HasColumnName("quantity");
+                b.Property<string>("StockSnapshotJson").IsRequired().HasColumnType("text").HasColumnName("stock_snapshot_json");
+                b.Property<string>("OriginNode").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)").HasColumnName("origin_node");
+                b.Property<bool>("IsSynced").HasColumnType("boolean").HasColumnName("is_synced");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone").HasColumnName("created_at");
+                b.HasKey("Id").HasName("pk_pms_work_order_material_postings");
+                b.ToTable("pms_work_order_material_postings", "public");
+                b.HasIndex("WorkOrderId", "MaterialItemId").IsUnique().HasDatabaseName("ux_pms_material_posting");
+                b.HasIndex("ReportId").HasDatabaseName("ix_pms_posting_report");
+                b.HasOne("ProductApi.Models.PmsWorkOrderReport", null).WithMany().HasForeignKey("ReportId").OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_posting_report");
+                b.HasOne("ProductApi.Models.MaintenanceTask", null).WithMany().HasForeignKey("WorkOrderId").OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_material_postings_order");
+            });
 #pragma warning restore 612, 618
         }
     }

@@ -1,8 +1,8 @@
 # Kế hoạch tách Job List và Work Order trong PMS
 
-Ngày: 25/10/2026. Trạng thái: đề xuất để xem xét trước khi triển khai.
+Ngày: 25/10/2026. Trạng thái: đã thống nhất nghiệp vụ và wireframe; đang triển khai nền tảng/API trên `hiu67-rework`, chưa chuyển luồng vận hành.
 
-Tài liệu này chỉ lập kế hoạch, chưa thay đổi mô hình, worker, API hoặc dữ liệu vận hành. Các sửa đổi thực hiện PMS trên web đang có trong working tree được giữ nguyên. Phần ảnh không thuộc phạm vi mới. Theo yêu cầu cập nhật, luồng PMS mới cũng bỏ các tab/biểu mẫu ĐGRR và BBKT; chỉ giữ hồ sơ cũ ở chế độ đọc khi cần bảo toàn lịch sử.
+Đây là thiết kế đích, không phải mô tả toàn bộ chức năng đã chạy. Theo yêu cầu bắt đầu triển khai, schema, API Job/WO và workflow thực hiện–duyệt mới đang được bổ sung ở working tree; xem [tiến độ và ranh giới triển khai](PMS_REWORK_IMPLEMENTATION_PROGRESS_2026-10-25.md). API mới tắt mặc định, chưa nối worker phát hành mới, chưa đổi giao diện hoặc dữ liệu vận hành. Phần thực hiện PMS trên web trước rework đã được commit tại `4ae551ef`. Phần ảnh không thuộc phạm vi mới. Luồng PMS mới cũng bỏ các tab/biểu mẫu ĐGRR và BBKT; chỉ giữ hồ sơ cũ ở chế độ đọc khi cần bảo toàn lịch sử.
 
 **Cách đọc nhanh:** mục 7 mô tả màn hình và nút dành cho người dùng. Các mục còn lại mô tả quy tắc xử lý, chuyển dữ liệu và triển khai để những màn hình này hoạt động đúng.
 
@@ -67,21 +67,23 @@ Quy tắc cốt lõi:
 Tận dụng `MaintenanceSchedule`, trước mắt chưa đổi tên toàn bộ bảng/model để giảm phạm vi migration:
 
 - Mã Job nội bộ, `WorkCode` gốc từ Excel, tên, hướng dẫn.
-- Thiết bị cụ thể hoặc nhóm thiết bị và bộ checklist mẫu.
+- Một thiết bị cụ thể và bộ checklist mẫu; mỗi Job mới chỉ gắn một thiết bị trong V1.
 - Loại bảo trì đang có: PERIODIC, DRY_DOCK, ON_DEMAND, VOYAGE; giữ xử lý việc AD_HOC/CORRECTIVE riêng.
 - Chu kỳ ngày/tháng/năm, giờ chạy hoặc HYBRID đối với loại có chu kỳ. Không quy đổi 3 tháng thành 90 ngày.
 - Mức ưu tiên mặc định, bộ phận/chức danh và người chịu trách nhiệm quản lý Job.
 - Không có lựa chọn bắt buộc ĐGRR/BBKT hoặc ảnh trong form Job mới. Các cờ yêu cầu biểu mẫu cũ chỉ được giữ để đọc dữ liệu legacy, không làm điều kiện gửi/duyệt trong luồng mới.
-- Chính sách phát hành WO, chế độ phân công, phiên bản Job, trạng thái nháp/hoạt động/tạm dừng/ngừng áp dụng.
+- Chính sách phát hành WO, chế độ phân công, phiên bản Job, trạng thái Cần bổ sung thông tin/Hoạt động/Tạm dừng/Ngừng áp dụng. Không có bước kích hoạt hoặc trạng thái Nháp riêng cho Job; Nháp trong tài liệu chỉ áp dụng WO thủ công.
 - Mốc khởi tạo kế hoạch và hạn tiếp theo; các giá trị lần thực hiện gần nhất được cập nhật từ WO đã duyệt.
 
-Với Job theo giờ chạy, giai đoạn đầu phải xác định thiết bị/counter theo dõi cụ thể. Không tự lấy MAX giờ chạy của cả nhóm rồi coi là giờ chạy của mọi thiết bị. Job nhóm theo lịch có thể phát hành một WO nhóm, kèm danh sách thiết bị/checklist đã chụp tại thời điểm phát hành.
+V1 mỗi Job gắn một thiết bị cụ thể; cây nhóm chỉ tổ chức và lọc, không phải đối tượng nhận Job mới. Job theo giờ/HYBRID dùng counter của chính thiết bị đó, không lấy MAX giờ cả nhóm. HYBRID gồm chu kỳ lịch và chu kỳ giờ, có mốc/cảnh báo riêng từng đơn vị; điều kiện đến trước phát hành một WO, điều kiện còn lại không tạo lệnh thứ hai cho cùng kỳ. Khi duyệt, cả hai mốc kỳ sau được cập nhật theo lần gửi hoàn tất và số đo trong báo cáo được duyệt.
+
+Job nhóm legacy phải được kiểm kê riêng trước chuyển đổi: giữ hồ sơ/WO đang mở, không tự nhân bản lịch sử hoặc phát hành theo thiết bị chưa xác định. Chỉ đưa cấu hình mới vào tự sinh khi đã đối soát phạm vi và mapping từng thiết bị; trường hợp chưa đủ thông tin giữ Cần bổ sung thông tin. Không xóa Job nhóm cũ hoặc mở lại quyền tạo Job nhóm mới để né chuyển dữ liệu.
 
 ### 3.2. Hai chế độ phân công
 
 | Chế độ | Cấu hình tại Job | Xử lý khi phát hành WO |
 | --- | --- | --- |
-| Phân công khi phát hành — đề xuất mặc định | Bộ phận/chức danh chịu trách nhiệm, chưa chọn cá nhân | WO vào Chờ phân công; người có quyền chọn PIC và người hỗ trợ |
+| Phân công khi phát hành — mặc định | Chưa chọn người thực hiện mặc định; vẫn có thể có người quản lý Job | WO vào Chờ phân công; người có quyền chọn PIC và người hỗ trợ |
 | Phân công trước | Có cá nhân mặc định, hoặc quy tắc chức danh/bộ phận | Kiểm tra người đó còn trên tàu và phù hợp trước khi gán; không hợp lệ thì chuyển Chờ phân công |
 
 Không tự chọn ngẫu nhiên một người khi nhiều thuyền viên cùng chức danh. Chức danh chịu trách nhiệm của Job không đồng nghĩa một cá nhân đã nhận WO.
@@ -108,22 +110,27 @@ Tách thời điểm phát hành khỏi quyền tự động phát hành: Job c�
 | Theo chuyến | Gắn chuyến đi/sự kiện cụ thể, đúng tàu |
 | Hư hỏng/đột xuất | Tạo WO trực tiếp cho thiết bị; không bắt buộc tạo một Job định kỳ giả |
 
-### 4.1. Khởi tạo lần đầu
+### 4.1. Khởi tạo lần đầu — nhập mốc và Lưu, không kích hoạt riêng
 
-- Import Job chỉ tạo cấu hình, không coi đó là lịch sử đã thực hiện và không sinh hàng loạt WO ngay.
-- Job chưa có mốc tính hạn phải hiển thị Cần thiết lập mốc, không tự thành Quá hạn.
-- Nếu biết lần bảo trì trước: nhập mốc có nguồn đối chiếu qua màn thiết lập, không tạo báo cáo hoàn thành giả.
-- Nếu chưa có lịch sử: công ty chọn mốc bắt đầu áp dụng kế hoạch; với giờ chạy dùng số counter ghi nhận lúc kích hoạt, không đặt lại counter thiết bị.
-- Giữ quyết định đã bỏ hai cột “Lần thực hiện cuối” và “Hạn tiếp theo” khỏi Excel import thông thường. Thiết lập mốc ban đầu là bước riêng, có kiểm tra và nhật ký.
+- Form Thêm/Sửa Job có nhóm **Mốc bắt đầu tính chu kỳ** và lựa chọn **Tự động tạo WO**. Đủ thông tin thì bấm Lưu là Job được theo dõi; không thêm popup/nút Kích hoạt.
+- Job thiếu mốc hoặc thiết bị/thông tin bắt buộc được lưu ở Cần bổ sung thông tin, chỉ rõ phần thiếu, không tự thành Quá hạn và không phát hành WO. Mở cùng form Sửa để bổ sung; đủ dữ liệu rồi Lưu thì chuyển Hoạt động, trừ khi Job đang được chủ động tạm dừng/ngừng áp dụng.
+- Với chu kỳ lịch, mốc bắt đầu cộng chu kỳ ra hạn đầu; theo giờ dùng số counter mốc cộng chu kỳ giờ, không đặt lại counter thiết bị. HYBRID phải đủ cả hai mốc. Có thể nhập mốc bảo trì có nguồn đối chiếu nhưng không tạo báo cáo hoàn thành giả hoặc coi là lần làm được duyệt.
+- Job sự kiện dùng quy tắc/sự kiện tương ứng, không bắt nhập ngày/counter không liên quan. Mỗi đợt/chuyến/yêu cầu phải được xác định rõ khi phát hành WO.
+- Giữ quyết định bỏ hai cột “Lần thực hiện cuối” và “Hạn tiếp theo” khỏi Excel import thông thường. Import không nhập lịch sử thực hiện, không tự bật AutoGenerate. Nếu thiếu mốc thì bổ sung bằng form Sửa; import lại không thay mốc hoặc chính sách của Job đang vận hành một cách ngầm định.
+- Checkbox Tự động tạo WO mặc định tắt cho Job mới; Job cũ giữ lựa chọn hiện có. Job Hoạt động vẫn được theo dõi hạn khi tắt tự động, nhưng người có quyền phải phát hành WO thủ công.
+- Lưu Job không đồng nghĩa phát hành ngay: chỉ Job Hoạt động, đủ điều kiện và bật tự động mới được service phát hành WO. Nếu tại thời điểm lưu đã vào khoảng phát hành thì có thể phát hành ngay; form phải xem trước/cảnh báo điều này, phản hồi mã WO hoặc trạng thái chờ worker rõ ràng. Thiếu dữ liệu hoặc lỗi phát hành không được báo thành công có WO khi chưa tạo.
+- Sau khi đã có WO/lịch sử, mốc gốc không được sửa tùy ý để đẩy hạn. Chỉnh mốc trong cùng form phải có quyền, lý do, xem trước ảnh hưởng và nhật ký; không sửa hạn/kết quả WO đã phát hành. Mốc kỳ tiếp theo do WO đã duyệt cập nhật, không nhập trực tiếp vào ô Hạn tới.
 
 ### 4.2. Chống sinh WO trùng
 
 - Thêm `CycleKey`/số thứ tự kỳ ổn định, có unique constraint theo tàu + Job + phạm vi thiết bị + kỳ.
+- Với Job mới V1, phạm vi là đúng thiết bị của Job. Trường phạm vi trong khóa được giữ để đối soát legacy, không có nghĩa form mới cho chọn cả nhóm. Đổi thiết bị của Job đã có WO/lịch sử phải tạo Job riêng hoặc qua chuyển đổi có kiểm soát; không sửa AssetId để né khóa kỳ.
 - Bản phát hành mang `JobVersion`; **không dùng phiên bản Job làm khóa kỳ**, tránh sửa cấu hình lại sinh thêm WO cho cùng kỳ.
 - Với sự kiện, khóa kỳ lấy từ ID đợt lên đà/yêu cầu/chuyến đi tương ứng. WO đột xuất dùng idempotency key riêng cho thao tác tạo.
 - Giai đoạn đầu tối đa một WO chưa kết thúc cho một Job/phạm vi thiết bị. Worker chạy lại hoặc tàu offline lâu không sinh hàng trăm WO bù khi kỳ trước vẫn đang làm/chờ duyệt.
 - Nếu nhiều chu kỳ đã bị bỏ lỡ, ghi nhận số kỳ bỏ lỡ/tình trạng quá hạn để xử lý; không tạo các WO “đã hoàn thành” thay cho dữ liệu thiếu.
 - Phát hành thủ công và worker dùng cùng một service, khóa giao dịch và unique constraint. Không gọi hai luồng tạo độc lập.
+- Trong V1, hủy WO không được coi là đã làm xong kỳ, không tự tăng kỳ hoặc đẩy hạn Job. Kỳ bị hủy chặn tự phát hành lại và hiển thị Cần xử lý kỳ đã hủy tại Job; worker không tạo vòng lặp WO hủy/tạo lại. Việc phát hành thay thế cho cùng kỳ cần thiết kế riêng về khóa kỳ/lần thay thế, chưa có nút trong V1; không bỏ unique constraint để xử lý tạm.
 
 ## 5. Vòng đời WO và tình trạng hạn
 
@@ -132,6 +139,7 @@ Tách thời điểm phát hành khỏi quyền tự động phát hành: Job c�
 ```mermaid
 flowchart LR
     A[Nháp] --> B[Chờ phân công]
+    A -->|Phát hành kèm phân công hợp lệ| C[Đã phân công]
     B --> C[Đã phân công]
     C --> D[Đang thực hiện]
     D --> E[Chờ duyệt]
@@ -142,7 +150,7 @@ flowchart LR
 
 - Tạo thủ công có thể lưu Nháp hoặc phát hành khi đủ thông tin. WO do worker phát hành có thể vào Chờ phân công hoặc Đã phân công nếu mặc định hợp lệ.
 - Tiếp nhận ghi `AcceptedAt/AcceptedBy` và sự kiện nghiệp vụ. Có thể cho nút Bắt đầu đồng thời tiếp nhận; ACK đồng bộ không phải xác nhận nhận việc của thuyền viên.
-- Đề xuất cho bắt đầu WO đã phát hành và phân công trong khoảng Sắp đến hạn; không bắt người làm chờ đúng ngày/ngưỡng giờ mới thực hiện. Lệnh phát hành sớm ngoài khoảng này cần chính sách cho phép làm sớm rõ ràng. Đây là thay đổi điều kiện bắt đầu so với luồng cũ, phải cập nhật thống nhất web/mobile/backend.
+- WO đã phát hành và phân công hợp lệ thì người được giao/hỗ trợ có quyền thực hiện được bắt đầu, kể cả Chưa đến hạn/Sắp đến hạn; không chặn thêm bằng ngày hoặc ngưỡng giờ. Quyền phát hành sớm được kiểm tra ở bước phát hành của người quản lý, không bắt người làm xin lại một quyền làm sớm. Đây là thay đổi so với luồng cũ, phải áp dụng thống nhất web/mobile/backend.
 - Gửi duyệt đóng băng báo cáo đã gửi; trả lại tạo lượt sửa tiếp theo trong cùng WO và giữ phiên bản cũ.
 - Hoàn thành là trạng thái kết thúc sau duyệt. Sửa hồ sơ đã duyệt phải qua cơ chế amendment riêng, không cho sửa đè hoặc mở lại tùy ý ở giai đoạn đầu.
 - Hủy WO cần lý do và quyền riêng. Xóa theo nhóm Thêm/xóa chỉ áp dụng WO nháp chưa phát hành; không xóa lệnh đã thực hiện/đã duyệt để làm mất lịch sử.
@@ -150,10 +158,12 @@ flowchart LR
 ### 5.2. Tình trạng hạn là thông tin độc lập
 
 - Hiển thị Chưa đến hạn/Sắp đến hạn/Đến hạn/Quá hạn ở cột tình trạng hạn, không dùng để thay trạng thái xử lý WO.
+- Với hạn chỉ có ngày: Sắp đến hạn trong khoảng cảnh báo trước ngày hạn; Đến hạn trong ngày hạn theo múi giờ tàu; Quá hạn từ đầu ngày kế tiếp. Hạn có giờ cụ thể phải lưu chính xác thời điểm và quy tắc đánh dấu đến/quá hạn, không tự dùng quy tắc cả ngày. Với counter: dưới ngưỡng cảnh báo là Chưa đến hạn, từ ngưỡng cảnh báo đến dưới hạn là Sắp đến hạn, bằng hạn là Đến hạn, vượt hạn là Quá hạn. Counter có thể tăng vượt thẳng qua hạn nên không đảm bảo từng thấy mọi nhãn trung gian. HYBRID xét điều kiện chạm trước, ghi rõ nguyên nhân ngày/giờ; không so trực tiếp hai đơn vị. Cần cấu hình quy tắc chính xác cho hạn có giờ trước khi triển khai, không để web/mobile tự tính khác nhau.
 - Một WO có thể đồng thời Đang thực hiện và Quá hạn. Không đổi trạng thái thành OVERDUE rồi làm mất thông tin đang thực hiện.
 - WO đã hoàn thành trễ vẫn là Hoàn thành, kèm cờ hoàn thành trễ; không nằm trong bộ đếm WO đang quá hạn.
 - Thời điểm người thực hiện gửi kết quả và thời điểm người kiểm tra duyệt được lưu riêng. Báo cáo đúng hạn của người làm không bị biến thành làm trễ chỉ vì duyệt muộn; có thể thống kê chậm duyệt riêng.
 - Gia hạn WO là một quy trình có duyệt, không tự sửa chu kỳ Job. Khi trả lại, giữ hạn đã được chấp thuận, trừ khi có quyết định gia hạn mới.
+- V1 không bổ sung UI gia hạn, amendment báo cáo đã duyệt hoặc tính WO đột xuất thay thế kỳ định kỳ. Giữ liên kết/hồ sơ gia hạn legacy khi di trú; các khả năng mở rộng này cần thiết kế riêng trước khi có nút, không mặc nhiên thuộc nút Cập nhật.
 
 ## 6. Dữ liệu và tính toàn vẹn
 
@@ -183,14 +193,16 @@ Trong cùng giao dịch và có chống lặp:
 1. Kiểm tra trạng thái, quyền, phiên bản hồ sơ và xác nhận ký hiện có.
 2. Lưu kết quả, lần trả lại, chữ ký/bằng chứng và snapshot bất biến.
 3. Hạch toán vật tư thực tế đúng một lần, có khóa liên kết WO/dòng vật tư; gửi lại cùng quyết định không trừ lần hai.
-4. Cập nhật counter theo quy tắc không lùi số giờ; lưu giờ chạy tại lúc thực hiện riêng khỏi counter hiện tại.
+4. Lưu giờ chạy tại lúc thực hiện riêng khỏi counter hiện tại. Khi duyệt, chỉ nâng counter nếu số ghi nhận cao hơn counter mới nhất; không hạ counter nếu thiết bị đã chạy tiếp trong lúc chờ duyệt. Kiểm tra số đo theo thời điểm/chuỗi số đo, không từ chối báo cáo chỉ vì counter hiện tại đã cao hơn số đo hợp lệ lúc thực hiện.
 5. Đóng WO thành Hoàn thành.
 6. Cập nhật Job: lần thực hiện đã được xác nhận và hạn kỳ tiếp theo. Không reset WO vừa đóng.
 7. Ghi outbox đồng bộ và sự kiện thông báo sau khi giao dịch thành công.
 
-Đề xuất hạn kỳ sau mặc định tính từ thời điểm thực hiện được duyệt, với thời điểm thực hiện lấy từ lần gửi kết quả hợp lệ, **không lấy ngày bấm duyệt muộn làm mốc làm việc**. Chính sách lịch cố định theo hạn gốc là lựa chọn khác của công ty, phải lưu rõ trên Job. Chỉ khi duyệt mới cập nhật mốc chính thức; trả lại/gửi lại/lưu nháp không đẩy hạn.
+V1 tính hạn kỳ sau từ **ngày gửi hoàn tất của lượt cuối được duyệt**, không lấy ngày bấm duyệt muộn và không giữ hạn gốc như lịch cố định. Ví dụ chu kỳ 3 tháng, hạn 25/10 nhưng gửi hoàn tất 23/10 và duyệt 27/10 thì hạn sau là 23/01. Theo giờ: số giờ ghi nhận trong báo cáo được duyệt + chu kỳ giờ. HYBRID tính cả hai ngưỡng mới theo hai mốc này. Chỉ khi duyệt mới cập nhật mốc chính thức; trả lại/gửi lại/lưu kết quả đang làm không đẩy hạn. Lịch cố định theo hạn gốc là mở rộng về sau, không có bộ chọn trong V1.
 
-WO đột xuất sửa cùng một thiết bị không tự được tính là hoàn tất Job định kỳ. Nếu muốn tính thay thế phải có xác nhận rõ phạm vi công việc và quyền phù hợp. Tình trạng thiết bị phải xét các WO còn đang thực hiện, không tự về Hoạt động khi vẫn còn lệnh bảo trì khác.
+Trong V1, “Ngày thực hiện” dùng thời điểm **gửi hoàn tất của lượt cuối được duyệt**, hiển thị rõ nhãn **Ngày gửi hoàn tất** ở bảng/báo cáo; chưa có ô khai ngày hoàn tất thực tế riêng. Nếu trả lại và gửi lần 2 thì dùng thời điểm gửi lần 2, vẫn giữ mốc lần 1 trong timeline. Không suy diễn lần gửi cuối đồng nghĩa ngày bảo trì thực địa nếu về sau cho khai báo hồi tố. Định kỳ giờ chạy lấy số đo gắn lượt được duyệt làm mốc, không lấy counter mới nhất tại lúc duyệt. Không tạo chuỗi WO bù tự động.
+
+WO đột xuất sửa cùng một thiết bị không được tính là hoàn tất Job định kỳ trong V1. Nếu về sau cho tính thay thế phải có thiết kế xác nhận phạm vi và quyền phù hợp riêng. Tình trạng thiết bị phải xét các WO còn đang thực hiện, không tự về Hoạt động khi vẫn còn lệnh bảo trì khác.
 
 ## 7. Giao diện và quyền
 
@@ -207,14 +219,14 @@ Bảng  |  Work Order  |  Lịch  |  Gantt chart  |  Counter
 | Tab | Người dùng vào để làm gì? | Dữ liệu hiển thị |
 | --- | --- | --- |
 | Bảng | Quản lý danh mục những việc phải bảo trì | Mỗi Job một dòng ổn định |
-| Work Order | Phân công, thực hiện, kiểm tra từng lần bảo trì | Mỗi WO đã phát hành một dòng |
+| Work Order | Phân công, thực hiện, kiểm tra từng lần bảo trì | Mỗi WO đã phát hành một dòng; nháp thủ công chỉ xem khi chọn Nháp/Tất cả |
 | Lịch | Xem lịch các lệnh đã phát hành | Cùng nguồn WO và điều kiện lọc của tab Work Order |
 | Gantt chart | Xem tiến độ/hạn của các lệnh đã phát hành | Cùng WO; bấm lệnh mở chi tiết WO |
 | Counter | Ghi nhận giờ chạy thiết bị | Counter thực tế và các Job liên quan |
 
 Giai đoạn này Lịch/Gantt chỉ hiển thị WO, không chèn Job dự báo thành lệnh chưa tồn tại. Hạn dự kiến của Job xem ở Bảng/Chi tiết công việc. Chưa thêm một màn dự báo lịch Job thứ hai để tránh tăng độ rối.
 
-Cây thiết bị lọc Bảng theo thiết bị của Job, lọc Work Order/Lịch/Gantt theo thiết bị của WO, lọc Counter theo thiết bị đo. Chuyển tab giữ lựa chọn thiết bị; mỗi tab giữ bộ lọc, trang và vị trí cuộn riêng. Quay lại từ màn chi tiết phải về đúng tab/bộ lọc trước đó.
+Cây thiết bị lọc Bảng theo thiết bị của Job, lọc Work Order/Lịch/Gantt theo thiết bị của WO, lọc Counter theo thiết bị đo. Chuyển tab giữ lựa chọn thiết bị. Bảng và Counter giữ bộ lọc/trang riêng. Work Order/Lịch/Gantt chia sẻ điều kiện nghiệp vụ (Job nguồn, tiến độ, người làm, tình trạng hạn); mỗi góc nhìn giữ riêng trang/vị trí cuộn/khoảng thời gian hiển thị. Nháp không lên Lịch/Gantt; chọn Nháp rồi chuyển sang hai tab này phải hiển thị rõ chỉ xem lệnh đã phát hành, không giữ một bộ lọc ẩn gây trang trống. Quay lại từ màn chi tiết phải về đúng tab/bộ lọc trước đó.
 
 ### 7.2. Tab Bảng chính là Job List
 
@@ -224,13 +236,14 @@ Các cột mặc định:
 | --- | --- |
 | STT, ô chọn | Số thứ tự và chọn các Job đủ điều kiện thao tác hàng loạt |
 | Tên công việc | Nội dung Job, bấm để xem Chi tiết công việc |
-| Tên thiết bị | Thiết bị hoặc phạm vi nhóm đã cấu hình |
+| Tên thiết bị | Một thiết bị cụ thể của Job; cây nhóm chỉ dùng tổ chức/lọc |
 | Loại / chu kỳ | Ví dụ **Định kỳ · 3 tháng (3M)**, **Định kỳ · 1 năm (1Y)**, **Định kỳ · 8.000 giờ**, **Lên đà**, **Theo yêu cầu**, **Theo chuyến**; không chỉ ghi “Định kỳ” |
-| Lần cuối thực hiện | Ngày/giờ chạy của lần thực hiện gần nhất đã được duyệt; chưa có thì ghi Chưa có lịch sử |
+| Lần cuối thực hiện | Ngày gửi hoàn tất/giờ chạy của lượt gần nhất đã được duyệt; chưa có thì ghi Chưa có lịch sử. Mốc đối chiếu nhập khi khởi tạo có nhãn Mốc khai báo riêng, không coi là báo cáo đã duyệt |
 | Hạn tới | Ngày hoặc ngưỡng giờ chạy; mốc giờ chạy có thể kèm số giờ còn lại. Ngày ước tính phải ghi rõ là dự kiến |
 | Bộ phận | Bộ phận chịu trách nhiệm Job |
 | Người chịu trách nhiệm | Người quản lý Job; nếu chưa chọn cá nhân thì thể hiện chức danh và tình trạng chưa chọn người |
 | WO đang mở | Mã lệnh/tình trạng hiện tại, bấm để sang tab Work Order lọc đúng Job; không có thì ghi Chưa phát hành |
+| Trạng thái Job | Cần bổ sung thông tin/Hoạt động/Tạm dừng/Ngừng áp dụng; kèm phần thiếu hoặc Cần xử lý kỳ đã hủy nếu có. Job xóa mềm chưa có WO được ẩn mặc định, có thể lọc Đã xóa và khôi phục theo quyền |
 | Hành động | Xem, sửa Job, lịch sử; quyền/trạng thái quyết định nút được dùng |
 
 Mã Job vẫn có trong chi tiết, tìm kiếm và xuất Excel; không buộc thêm một cột mã dài vào bảng mặc định. Neo STT/ô chọn/Tên công việc và cột Hành động; tiêu đề và dữ liệu cùng kích thước cột, chữ dài có tooltip.
@@ -240,13 +253,13 @@ Thanh công cụ của **Bảng** đặt: **Thêm công việc**, **Import Excel
 Nút **Thêm công việc** mở một form Job thống nhất, thay cho form/tab/popup cấu hình rời rạc. Form có các nhóm:
 
 1. Tên công việc, mã, thiết bị, hướng dẫn, mức ưu tiên mặc định.
-2. Loại bảo trì và chu kỳ/mốc bắt đầu tương ứng; Lên đà/Theo yêu cầu không bị ép nhập chu kỳ tháng.
+2. Loại bảo trì, chu kỳ, mốc bắt đầu và chính sách phát hành tương ứng, checkbox Tự động tạo WO; Lên đà/Theo yêu cầu không bị ép nhập chu kỳ tháng. Bổ sung mốc bằng cùng form này, không có bước kích hoạt riêng (mục 4.1).
 3. Bộ phận, chức danh/người chịu trách nhiệm Job; tùy chọn phân công khi phát hành hoặc người thực hiện mặc định.
 4. Checklist mẫu. Có thể hiển thị thêm mục **Vật tư của thiết bị** ở chế độ chỉ đọc, lấy danh sách đã được gán qua giao diện thiết bị; không gọi đây là vật tư dự kiến của Job.
 
-Form Thêm/Sửa Job không có nút thêm vật tư, chọn/gán/bỏ gán vật tư hoặc chỉnh số lượng vật tư dự kiến. Việc quản lý liên kết vật tư–thiết bị chỉ thực hiện tại giao diện thiết bị theo quyền tương ứng. Thiết bị chưa có vật tư được gán thì hiển thị trạng thái trống; Job có nhiều thiết bị thì phân biệt danh sách theo từng thiết bị. Có thể bỏ hẳn mục tham khảo này nếu không cần, không tạo thêm cơ chế gán vật tư tại Job.
+Form Thêm/Sửa Job không có nút thêm vật tư, chọn/gán/bỏ gán vật tư hoặc chỉnh số lượng vật tư dự kiến. Việc quản lý liên kết vật tư–thiết bị chỉ thực hiện tại giao diện thiết bị theo quyền tương ứng. Thiết bị chưa có vật tư được gán thì hiển thị trạng thái trống. Có thể bỏ hẳn mục tham khảo này nếu không cần, không tạo thêm cơ chế gán vật tư tại Job.
 
-Không có trường kết quả thực hiện, vật tư đã dùng, người duyệt, ảnh, ĐGRR hay BBKT trong form Job. **Lưu công việc là lưu Job, không có nghĩa đã thực hiện hoặc đã hoàn thành một WO.** Nếu đủ điều kiện phát hành theo chính sách thì service phát hành WO riêng và phản hồi rõ mã WO, không trộn hai thao tác vào một bản ghi.
+Không có trường kết quả thực hiện, vật tư đã dùng, người duyệt, ảnh, ĐGRR hay BBKT trong form Job. **Lưu công việc là lưu Job, không có nghĩa đã thực hiện hoặc đã hoàn thành một WO.** Đủ dữ liệu thì Job được theo dõi; thiếu thì Cần bổ sung thông tin. Job hoạt động/bật tự động có thể phát hành WO khi đủ điều kiện ngay sau Lưu theo mục 4.1; mọi WO vẫn do service phát hành riêng, có thông báo mã WO, không trộn hai đối tượng thành một bản ghi.
 
 ### 7.3. Tab Work Order là nơi xử lý công việc thực tế
 
@@ -254,8 +267,8 @@ Cột mặc định: **STT, Mã WO, Tên công việc, Tên thiết bị, Hạn 
 
 Bộ lọc tích hợp vào hàng ngay dưới tiêu đề các cột, theo bảng hiện có của hệ thống, không đặt thêm thanh tìm kiếm/bộ lọc hoặc chip trạng thái bên ngoài bảng:
 
-- Tình trạng hạn: Sắp đến hạn, Đến hạn, Quá hạn.
-- Tiến độ: Chờ phân công, Đã phân công, Đang thực hiện, Cần làm lại, Chờ duyệt; có lựa chọn xem Đã hoàn thành/Đã hủy.
+- Tình trạng hạn: Tất cả, Chưa đến hạn, Sắp đến hạn, Đến hạn, Quá hạn, Chưa có hạn. Không có hạn sự kiện chưa được xác định phải có nhãn rõ, không tự Quá hạn.
+- Tiến độ: Đang mở (mặc định: đã phát hành, chưa kết thúc), Chờ phân công, Đã phân công, Đang thực hiện, Cần làm lại, Chờ duyệt; Nháp, Hoàn thành, Đã hủy hoặc Tất cả là lựa chọn thêm.
 - Người thực hiện, bộ phận, thiết bị ở cột tương ứng; có thể chọn chính mình trong cột Người thực hiện, không cần checkbox “Của tôi” riêng trên toolbar. Mặc định vẫn xem toàn tàu.
 
 Mặc định hiển thị **tất cả WO còn mở**. Không làm mất một WO Đang thực hiện hoặc Chờ duyệt chỉ vì người dùng không chọn một nhãn hạn. WO đã duyệt rời danh sách đang mở, vẫn tìm lại được bằng bộ lọc và trong Lịch sử bảo trì.
@@ -264,6 +277,7 @@ Thanh công cụ có **Tạo WO đột xuất** cho người có quyền; không
 
 | Trạng thái WO | Người được phép làm gì? | Nút dẫn tới đâu? |
 | --- | --- | --- |
+| Nháp thủ công | Người có quyền sửa/phát hành; chỉ xóa khi còn nháp | **Sửa / Phát hành** → form WO đột xuất; không có nút thực hiện/duyệt |
 | Chờ phân công | Người có quyền phân công chọn PIC/người hỗ trợ | **Phân công** → popup phân công của WO |
 | Đã phân công | Người được giao tiếp nhận/bắt đầu | **Thực hiện** → màn Thực hiện WO; nút Nhận và bắt đầu |
 | Đang thực hiện | Người được giao tiếp tục cập nhật kết quả | **Tiếp tục thực hiện** → màn Thực hiện WO |
@@ -279,6 +293,8 @@ Một người có cả quyền thực hiện và duyệt vẫn mở **hai màn 
 Tiêu đề ghi **Chi tiết công việc — [Tên Job]**. Nội dung gồm thiết bị, hướng dẫn, loại/chu kỳ, mốc tính hạn, hạn tới, bộ phận/người chịu trách nhiệm, checklist mẫu và WO đang mở. Nếu hiển thị vật tư thì chỉ đọc danh sách đã gán cho thiết bị, không thêm/sửa/gán tại đây.
 
 Các hành động: **Sửa công việc**, **Xem Work Order**, **Lịch sử bảo trì**, **Phát hành WO** nếu có quyền và chưa có lệnh cho kỳ này. Không có nút Bắt đầu, Hoàn thành hay Phê duyệt trên chi tiết Job. Job không phải đối tượng được báo cáo hoàn thành.
+
+Menu quản lý Job có **Tạm dừng**, **Ngừng áp dụng**, **Tiếp tục áp dụng** theo trạng thái/quyền; không có Kích hoạt. Bổ sung mốc dùng nút Sửa. Tạm dừng/ngừng áp dụng chỉ dừng phát hành kỳ mới, không tự hủy WO đang mở. Tiếp tục áp dụng phải xem trước mốc/hạn, giữ khóa kỳ và lịch sử; thiếu dữ liệu chuyển Cần bổ sung thông tin, không tự sinh bù. Phát hành thủ công mở popup xác nhận thiết bị, kỳ/sự kiện, hạn và lý do nếu phát hành sớm ngoài khoảng cảnh báo, không chỉ bấm là tạo. Khi đã phát hành và phân công thì người được giao được thực hiện, không cần quyền làm sớm khác. Job chưa hoạt động/thiếu mốc/sự kiện hoặc kỳ đã có WO (kể cả đã hủy) không được phát hành bằng đường này.
 
 Popup sửa Job dùng cùng form với Thêm công việc. Sửa chu kỳ/checklist tại đây chỉ có hiệu lực với các WO phát hành sau, hoặc phải dùng thao tác cập nhật lệnh chưa bắt đầu có kiểm soát như mục 6.
 
@@ -298,7 +314,9 @@ Màn dành cho người được giao, trên web hoặc mobile, gồm:
 - Vật tư thực tế: ghi nhận vật tư đã sử dụng, số lượng và ghi chú theo quyền/quy tắc kho hiện hành. Đây là kết quả của WO, không phải thao tác thêm danh mục vật tư hoặc gán vật tư cho Job/thiết bị.
 - Nếu bị trả lại: lý do trả lại nổi bật, xem được bản đã gửi trước đó và nhập vào bản sửa hiện tại.
 
-Hành động đúng giai đoạn: **Quay lại**, **Nhận và bắt đầu** khi chưa làm; **Lưu kết quả**, **Hoàn thành và gửi duyệt** khi đang làm. Khi gửi xong, chuyển sang màn xem bản đã gửi/Chi tiết WO và hiển thị Chờ duyệt. Không còn form sửa tiếp dưới một hồ sơ đang chờ duyệt.
+Hành động đúng giai đoạn: **Quay lại**, **Nhận và bắt đầu** khi Đã phân công; **Bắt đầu làm lại** khi Cần làm lại; **Lưu kết quả**, **Hoàn thành và gửi duyệt** chỉ khi Đang thực hiện. Cần làm lại mở bản sửa kế thừa nhưng chỉ cho nhập sau khi Bắt đầu làm lại chuyển về Đang thực hiện. Khi gửi xong, chuyển sang màn xem bản đã gửi/Chi tiết WO và hiển thị Chờ duyệt. Không còn form sửa tiếp dưới một hồ sơ đang chờ duyệt.
+
+Thời gian thực hiện trên UI thống nhất đơn vị giờ; API hiện dùng `ActualDurationMinutes` thì chuyển đổi đúng một lần ở lớp DTO (ví dụ 1,5 giờ = 90 phút). Không đổi tên nhãn sang giờ nhưng gửi nguyên giá trị phút. Checklist không có hạng mục thì không chặn gửi vì thiếu checklist; với hạng mục bắt buộc phải kiểm tra kết quả theo cấu hình và backend.
 
 Không có Phê duyệt/Trả lại trên màn thực hiện. Không có ĐGRR, BBKT hoặc ảnh. Nút Quay lại không có nghĩa hủy WO; hủy là thao tác quản lý riêng có lý do/quyền.
 
@@ -319,7 +337,7 @@ Trả lại đưa cùng WO về Cần làm lại; không tạo WO mới. Duyệt
 
 Icon **Lịch sử bảo trì** đặt ở hàng Job và trong Chi tiết công việc. Mở popup lớn ở giữa, dùng bảng chuẩn của hệ thống, có tìm kiếm/lọc/phân trang.
 
-Cột: **STT, Mã WO, Kỳ/hạn bảo trì, Ngày thực hiện/gửi hoàn tất, Người thực hiện, Ngày duyệt, Người duyệt, Kết quả đúng/trễ hạn, Hành động**. Giờ chạy/thời gian thực hiện xem thêm trong báo cáo hoặc bật cột khi cần.
+Cột: **STT, Mã WO, Kỳ/hạn bảo trì, Ngày gửi hoàn tất, Người thực hiện, Ngày duyệt, Người duyệt, Kết quả đúng/trễ hạn, Hành động**. Giờ chạy/thời gian thực hiện xem thêm trong báo cáo hoặc bật cột khi cần. Lịch sử legacy thiếu thời điểm gửi chỉ hiển thị thời điểm nguồn có nhãn phù hợp; không lấy ngày duyệt thế chỗ ngày gửi.
 
 - Mỗi WO đã duyệt là một dòng. Hai lần bị trả lại rồi mới được duyệt vẫn là một WO, không tính thành ba lần bảo trì.
 - Bấm **Xem báo cáo** mở bản hoàn thành đã khóa, gồm checklist/số đo, báo cáo, vật tư, người làm/người duyệt và timeline các lượt gửi/trả lại.
@@ -374,12 +392,31 @@ Trước nghiệm thu phải đối chiếu cùng một luồng **Bảng → Chi
 - Giữ dữ liệu đọc trong phạm vi toàn tàu như quyết định hiện tại; không tự đổi thành chỉ nhìn được việc của mình. “Của tôi” chỉ là bộ lọc người dùng chọn.
 - Chức danh là nguồn cấp quyền; Crew/Admin là vai trò tài khoản, không phải chức danh.
 - Quyền quản lý Job, tạo WO, phân công, thực hiện, duyệt/trả lại là các năng lực khác nhau. Có quyền cập nhật cấu hình không đồng nghĩa được thực hiện hoặc duyệt.
-- Đề xuất thực hiện WO cần quyền execute và là PIC/người hỗ trợ được giao, còn onboard. Đây là điều kiện thao tác, không phải bộ lọc dữ liệu. Quy tắc này cần được chốt trong bước thiết kế quyền vì hiện tại filter chủ yếu kiểm tra quyền và thuyền viên onboard.
+- Thực hiện WO cần quyền execute và là PIC/người hỗ trợ được giao, còn onboard. Đây là điều kiện thao tác, không phải bộ lọc dữ liệu; phải bổ sung kiểm tra phân công vào service mới vì filter hiện tại chủ yếu kiểm tra quyền và thuyền viên onboard.
 - Người duyệt cần quyền theo SMS/PMS công ty; không cần là người được giao làm. Không tự suy ra quyền chỉ vì thứ tự chức danh cao hơn.
 - Đề xuất không tự duyệt chính phần việc mình thực hiện; người tạo/phân công vẫn có thể kiểm tra nếu không phải người thực hiện. Cơ chế ngoại lệ nếu có phải do công ty chốt và có nhật ký.
 - Giữ khả năng admin không liên kết thuyền viên kiểm tra/duyệt theo quyền hiện tại; không cho giả danh người thực hiện.
 
-Có thể thêm module `pms.jobs` cho Job List, giữ `pms.work` cho WO và báo cáo tương ứng. `pms.config.*` được giữ alias/mapping trong giai đoạn chuyển tiếp. Khi đổi catalog quyền phải chuyển cấu hình chức danh có báo cáo trước/sau; không tự cấp thêm quyền ghi cho người trước đó chỉ được xem. Giữ cách gom Thêm/xóa/import và Cập nhật/phân công trên giao diện ở những module có khai báo các hành động đó; backend vẫn kiểm tra đúng endpoint và trạng thái.
+Tách module `pms.jobs` cho Job List, giữ `pms.work` cho WO và module Counter hiện có. Switch truy cập bao gồm quyền xem, không thêm checkbox Xem trùng. Giữ cách gom Thêm/xóa/import và Cập nhật/phân công trên giao diện; backend vẫn kiểm tra từng endpoint, trạng thái và người thực hiện. Bảng sau là ma trận nghiệp vụ cần ánh xạ vào registry/API khi triển khai, không phải các permission key mới đã tồn tại trong code:
+
+| Module / quyền trên màn phân quyền | Phạm vi được phép | Điều kiện / giới hạn |
+| --- | --- | --- |
+| Job List — Truy cập | Danh sách, chi tiết Job, lịch sử và báo cáo đã hoàn thành liên quan, kể cả báo cáo legacy | Xem toàn tàu; không bao gồm danh sách WO đang mở hoặc quyền ghi |
+| Job List — Thêm / xóa | Thêm Job, import, tải mẫu; xóa Job chưa có WO/lịch sử | Không xóa hồ sơ đang dùng; cập nhật Job qua import cần quyền Cập nhật, không dùng quyền Thêm để sửa lén |
+| Job List — Cập nhật | Sửa nội dung/chu kỳ/mốc có kiểm soát, trách nhiệm, tự động tạo WO; tạm dừng/ngừng/tiếp tục áp dụng | Không sửa kết quả hoặc hạn WO đã phát hành |
+| Work Order — Truy cập | Danh sách/chi tiết WO, Lịch/Gantt và kết quả/báo cáo WO | Xem toàn tàu; không tự có quyền sửa Job |
+| Work Order — Thêm / xóa | Tạo WO đột xuất và nhập nội dung trong lần tạo, xóa nháp; phát hành WO từ Job hoặc WO đột xuất | Kiểm tra Job, kỳ, thiết bị và điều kiện phát hành; phát hành sớm ngoài cảnh báo phải có lý do. Sửa nháp đã lưu dùng quyền Cập nhật |
+| Work Order — Cập nhật | Sửa nháp đã lưu, phân công/phân công lại, hủy WO chưa kết thúc có lý do | Không sửa kết quả người làm, không hủy WO đã hoàn thành; chờ duyệt phải trả lại trước khi đổi phân công |
+| Work Order — Thực hiện | Nhận/bắt đầu, bắt đầu làm lại, nhập checklist/số đo/vật tư/báo cáo, lưu và gửi duyệt | Là PIC/hỗ trợ, còn onboard, đúng trạng thái; không cấp quyền duyệt hoặc cấu hình |
+| Work Order — Duyệt / ký | Kiểm tra và phê duyệt lượt đang chờ duyệt | Không cần là người được giao; không sửa kết quả; không tự duyệt phần mình thực hiện theo quy tắc đã nêu |
+| Work Order — Trả lại | Trả lượt đang chờ duyệt về Cần làm lại | Bắt buộc lý do, giữ nguyên WO và phiên bản đã gửi |
+| Counter — Truy cập / Cập nhật | Xem counter / ghi số giờ mới theo từng quyền | Không reset đồng hồ hoặc lùi số; không mở lại WO hoàn thành |
+
+Hành động ghi cần quyền truy cập module tương ứng; bật truy cập không tự tick quyền ghi. Xuất danh sách chỉ xuất dữ liệu người dùng có quyền xem, dùng chính sách xuất hiện có, không tạo thêm quyền ghi. Quản lý phân quyền chỉ dành cho admin theo cơ chế hiện hành, không nằm trong quyền nghiệp vụ của Job/WO.
+
+Quyền đọc báo cáo dùng điều kiện **có quyền xem WO đó hoặc có quyền xem Job mà báo cáo đã hoàn thành thuộc về**, kiểm tra tàu và FK phía backend. Người chỉ được xem Job mở lịch sử/báo cáo của Job mà không phải cấp toàn bộ module WO; không được dùng lối này để xem kết quả đang làm/chờ duyệt. WO đột xuất không có Job chỉ đọc qua quyền WO. Link WO đang mở trên Job chỉ dẫn sang chi tiết khi có quyền WO; thiếu quyền đích thì không có link thao tác, không làm mất phiên. Người chỉ có quyền WO được xem snapshot Job trong lệnh, nhưng muốn mở màn quản lý Job vẫn cần quyền Job.
+
+Chuyển quyền cũ: `pms.config` truy cập → Job List truy cập; Thêm/xóa/import → nhóm Thêm/xóa, Cập nhật → nhóm Cập nhật. `pms.work` cũ tiếp tục cấp khả năng WO tương ứng; Counter giữ quyền hiện có. Alias `pms.config.*` chỉ để tương thích chuyển tiếp, không tạo thêm mục Cấu hình trong UI. Với quyền cũ không có đối ứng chính xác hoặc khi gom nhóm làm mở rộng năng lực, migration phải báo cáo và giữ quyền backend hẹp cũ cho đến khi admin lưu lại nhóm quyền mới; không tự cấp hủy/phát hành/phân công chỉ vì user từng được cập nhật một trường khác. Đối chiếu quyền trước/sau và test API trực tiếp là điều kiện cutover, không chỉ kiểm tra ẩn nút.
 
 Quyền hủy/phát hành và điều kiện thực hiện theo phân công phải khai báo rõ, kiểm tra ở cả API và giao diện. Không dùng quyền execute để sửa cấu hình, phân công lại hoặc hủy WO.
 
@@ -425,7 +462,7 @@ Thực hiện bằng script có dry-run, báo cáo mapping và khả năng chạ
 
 1. Thống kê theo tàu: schedules, task có/không ScheduleId, task đang làm/chờ duyệt, lịch sử nhiều kỳ cùng TaskId, checklist, biểu mẫu, vật tư đã hạch toán, bằng chứng ký và queue chưa nhận.
 2. Chuẩn hóa Schedule thành Job, giữ GUID và WorkCode/ScheduleCode. Chỗ thiếu thông tin phải đánh dấu cần rà soát, không suy diễn ngày hoàn thành hoặc người làm.
-3. Task đang mở trở thành WO kỳ hiện tại, ưu tiên giữ GUID để các liên kết/mobile queue hiện có không bị đứt. Lưu khóa kỳ và dấu chuyển đổi.
+3. Task đang mở trở thành WO kỳ hiện tại, ưu tiên giữ GUID để các liên kết/mobile queue hiện có không bị đứt. Lưu khóa kỳ và dấu chuyển đổi. Job nhóm legacy đối soát theo mục 3.1, không tự tách WO đang làm/bằng chứng đã ký hoặc tự tạo các Job hoạt động mới khi chưa xác định đủ thiết bị và mốc.
 4. Task đã hoàn thành thực sự trở thành WO đóng. Không đóng giả những dòng đang SCHEDULED chỉ vì có lịch sử cũ.
 5. Các `MaintenanceHistory` của nhiều kỳ chung một TaskId được giữ nguyên, gắn Job và nguồn legacy. Bổ sung liên kết WO mới nullable nếu cần; **không gán tất cả lịch sử cũ cho WO hiện tại**, không đổi FK/record key của bằng chứng đã ký tùy tiện.
 6. Với lịch sử legacy không đủ để dựng một WO đầy đủ: hiển thị báo cáo legacy chỉ đọc theo Job. Không bịa mã WO, actor, hạn hoặc thời điểm phê duyệt. Chỉ materialize WO lịch sử khi dữ liệu đủ, có mapping riêng theo HistoryId và nhãn chuyển đổi, tránh đếm báo cáo hai lần.
@@ -454,7 +491,7 @@ Demo dùng database/đồng hồ kiểm thử riêng, không thay ngày hoặc c
 
 1. Tại Bảng, chuẩn bị Job `JOB-FIRE-PUMP-3M`: máy bơm cứu hỏa, mỗi 3 tháng, checklist, ưu tiên, bộ phận và Đại phó chịu trách nhiệm Job. Chọn Phân công khi phát hành. Mốc demo cho Job đến hạn ngày 25/10/2026, cảnh báo trước 7 ngày; dữ liệu quá khứ chỉ là fixture demo có nhãn.
 2. Ngày 18/10, Job vào Sắp đến hạn và Edge phát hành một WO Chờ phân công, xuất hiện trong tab Work Order/bộ lọc Sắp đến hạn. Ngày 25/10 chính WO đó thành Đến hạn; worker không phát hành thêm lệnh cùng kỳ. Bảng vẫn chỉ có một dòng Job.
-3. Đại phó mở WO và giao Phó ba. Phó ba có thông báo, tiếp nhận rồi Bắt đầu trên web hoặc mobile.
+3. Đại phó mở WO và giao Phó ba. Phó ba có thông báo, bấm Nhận và bắt đầu trên web hoặc mobile.
 4. Phó ba vào màn Thực hiện WO ghi checklist, thông số, giờ chạy, thời gian, báo cáo, vật tư. Không có ảnh hoặc tab ĐGRR/BBKT.
 5. Phó ba lưu, thoát/mở lại vẫn còn kết quả; gửi duyệt chuyển sang Chờ duyệt, kho chưa bị trừ.
 6. Đại phó vào màn Kiểm tra / duyệt WO, xem báo cáo chỉ đọc và trả lại với lý do. WO giữ nguyên mã; Phó ba quay về màn Thực hiện WO sửa và gửi lại, có lịch sử cả lượt trước.
@@ -465,7 +502,7 @@ Demo dùng database/đồng hồ kiểm thử riêng, không thay ngày hoặc c
 
 ### B. Phát hiện hư hỏng/nhu cầu bất thường
 
-Nếu Đại phó phát hiện bơm có bất thường, tạo **WO đột xuất** gắn máy bơm, nhập hạn, ưu tiên, checklist và giao Phó ba. Không tạo một Job định kỳ mới cho mỗi lần phát hiện. WO này không tự làm Job 3 tháng trở thành đã bảo dưỡng, trừ khi có quyết định tính thay thế có thẩm quyền.
+Nếu Đại phó phát hiện bơm có bất thường, tạo **WO đột xuất** gắn máy bơm, nhập hạn, ưu tiên, checklist và giao Phó ba. Không tạo một Job định kỳ mới cho mỗi lần phát hiện. Trong V1, WO này không làm Job 3 tháng trở thành đã bảo dưỡng; tính thay thế là khả năng mở rộng chưa triển khai.
 
 Như vậy cần chỉnh câu mở đầu của demo: bảo trì định kỳ đã có kế hoạch thì Đại phó **phân công WO đến hạn**; phát hiện bất thường thì Đại phó **tạo WO đột xuất**. Thiếu kế hoạch định kỳ thì tạo Job một lần trong luồng cấu hình, không trộn với bước báo cáo thực hiện.
 
@@ -473,7 +510,7 @@ Như vậy cần chỉnh câu mở đầu của demo: bảo trì định kỳ đ
 
 | Giai đoạn | Công việc | Điều kiện hoàn tất |
 | --- | --- | --- |
-| 0. Chốt thiết kế | Thống nhất thuật ngữ, sơ đồ màn hình mục 7, quyền theo SMS, phát hành ON_UPCOMING, cách tính kỳ sau, baseline và Job nhóm | Có state diagram, API/schema và báo cáo dữ liệu hiện tại; ghi rõ các đề xuất khác hành vi cũ |
+| 0. Thiết kế chi tiết | Cụ thể hóa thuật ngữ, màn hình mục 7, ma trận quyền đã thống nhất, ON_UPCOMING, mốc trong form, một Job/một thiết bị và HYBRID | Có state diagram, API/schema, ánh xạ quyền và báo cáo dữ liệu hiện tại; không đổi quy tắc đã thống nhất khi hiện thực |
 | 1. Schema tương thích | Migration additive Edge/Shore, version Job, khóa kỳ/WO, snapshot và mapping legacy | Up/down trên bản sao DB; unique constraints và dữ liệu cũ qua kiểm thử; chế độ mới chưa được bật |
 | 2. Nghiệp vụ | Job service, phát hành WO idempotent, phân công/tiếp nhận, workflow, ledger kho, thông báo | Không còn reset WO đã đóng trong chế độ mới; test transaction/retry/race đạt |
 | 3. Web và mobile | Bảng là Job List; thêm tab WO; bỏ Cấu hình/ĐGRR/BBKT; tách màn Job, WO, Thực hiện, Duyệt và Lịch sử; cập nhật cache/queue offline, quyền, dọn route/component/API không còn dùng | Không trộn chức năng, đúng nút/đúng API, xem toàn tàu, trường hợp thiếu PIC/chức danh/rời tàu được xử lý |
@@ -509,17 +546,46 @@ Rollback sau khi đã phát sinh WO mới: dừng phát hành/ghi mới, giữ �
 - Chi tiết Job không có thao tác hoàn thành; Chi tiết WO không sửa Job; Lịch sử mở đúng báo cáo kỳ đã chọn, không lấy báo cáo của kỳ hiện tại thay thế.
 - Điều hướng quay lại giữ tab/bộ lọc/trang/cây thiết bị; truy cập link cũ chuyển đúng đối tượng, lỗi quyền không làm mất phiên đăng nhập.
 - API danh sách phân trang, không kéo snapshot/checklist toàn bộ; đo p95 tải Job/WO/Gantt trên dữ liệu tương đương tàu 700+ thiết bị, chốt ngưỡng nghiệm thu từ baseline đo thực tế.
+- Không có bước Kích hoạt riêng: Lưu đủ dữ liệu thì Job Hoạt động, thiếu mốc thì Cần bổ sung thông tin; tạm dừng không hủy WO đang làm. Import không tự bật tự động; Lưu chỉ phát hành khi đủ điều kiện và phải phản hồi rõ. Bộ lọc trạng thái cho tìm lại các Job cần bổ sung/tạm dừng/ngừng áp dụng.
+- Hủy WO không đẩy hạn hoặc làm worker tự tạo lại cùng kỳ. Duyệt sau khi counter tăng tiếp không hạ counter/không từ chối số đo lịch sử hợp lệ.
+- Nhận và bắt đầu/Bắt đầu làm lại đúng trạng thái, không sửa bản đang chờ duyệt. Kiểm thử đơn vị giờ–phút, ngày gửi cuối so với ngày duyệt, ngày hạn theo múi giờ và counter nhảy qua ngưỡng.
+- Job List/WO/Counter/Lịch sử không có search/filter/sort trùng ngoài bảng; Lịch/Gantt chia sẻ điều kiện nghiệp vụ với WO, không giữ lọc ẩn và không hiển thị nháp như lệnh đã phát hành.
+- Quyền Job xem được báo cáo hoàn thành thuộc Job nhưng không xem kết quả WO đang làm; WO đột xuất không có Job không lọt qua quyền Job. Quyền WO xem snapshot mà không có quyền sửa Job; không có quyền truy cập thì API ghi phải chặn. Migration quyền cũ không tự cấp thêm thao tác.
+- WO đã phát hành/phân công cho phép bắt đầu cả trước khoảng cảnh báo; quyền thực hiện vẫn kiểm tra PIC/hỗ trợ. Một Job mới chỉ gắn một thiết bị; HYBRID có hai điều kiện đồng thời chạm vẫn chỉ một WO, duyệt cập nhật cả hai mốc đúng đơn vị.
 
-## 12. Các quyết định đề xuất để chốt trước khi code
+## 12. Các quyết định đã thống nhất cho bản kế hoạch
 
 1. Một dòng ổn định là **Job**; mỗi kỳ là **WO mới**, thay cho tái sử dụng một Task ID.
 2. Mặc định **ON_UPCOMING + phân công khi phát hành**, để tab WO có việc sắp đến hạn; ON_DUE và phân công trước là tùy chọn có kiểm tra phù hợp.
-3. Tính kỳ sau từ thời điểm thực hiện đã được duyệt, tách khỏi thời điểm bấm duyệt; lịch cố định theo hạn gốc là lựa chọn cấu hình khác.
+3. V1 tính kỳ sau từ ngày gửi hoàn tất của lượt được duyệt hoặc số giờ trong báo cáo đó; không lấy ngày duyệt, không có lựa chọn lịch cố định.
 4. V1 tối đa một WO mở/Job/phạm vi; không phát hành hàng loạt kỳ bỏ lỡ.
 5. Xem dữ liệu toàn tàu; thực hiện theo người được giao/hỗ trợ và quyền; duyệt theo ma trận công ty, không hard-code cấp bậc.
 6. Bảng là Job List với nút Thêm công việc/Import, có tab WO kế bên; bỏ Cấu hình và ĐGRR/BBKT khỏi luồng mới, tách màn Thực hiện/Duyệt/Lịch sử. Không thêm ảnh, không phục hồi scheduler PMS cũ, không xóa lịch sử hoặc queue để chuyển mô hình.
+7. Mốc bắt đầu và Tự động tạo WO nằm trong form Thêm/Sửa; Lưu đủ thông tin là được theo dõi, không có bước Kích hoạt riêng. Thiếu dữ liệu thì Cần bổ sung thông tin, không quá hạn giả.
+8. Xem Job bao gồm lịch sử/báo cáo hoàn thành liên quan; xem WO bao gồm chi tiết/kết quả của WO. Quyền ghi và duyệt riêng theo ma trận mục 7.11.
+9. WO đã phát hành và phân công hợp lệ được thực hiện trước hạn, không có quyền làm sớm thứ hai cho người làm.
+10. V1 mỗi Job gắn một thiết bị; HYBRID theo điều kiện đến trước, chỉ một WO mỗi kỳ. Job nhóm legacy được đối soát riêng, không tự nhân bản lịch sử.
 
-Các điểm trên là đề xuất trong kế hoạch, chưa được triển khai hoặc tự động áp dụng cho dữ liệu đang chạy.
+Các điểm trên đã thống nhất về nghiệp vụ trong trao đổi, chưa được triển khai hoặc tự động áp dụng cho dữ liệu đang chạy. Thiết kế schema/API và chuyển quyền vẫn phải kiểm thử theo các quy tắc này.
+
+### 12.1. Kết quả đối chiếu nghiệp vụ và wireframe ngày 25/10/2026
+
+| Điểm chưa nhất quán phát hiện khi rà soát | Cách thống nhất trong bản kế hoạch này |
+| --- | --- |
+| Mốc ban đầu từng bị tách thành bước Kích hoạt, làm luồng khó hiểu | Đã bỏ bước riêng; mốc và Tự động tạo WO nằm trong form, Lưu đủ thông tin là theo dõi, thiếu thì Cần bổ sung thông tin |
+| Có trạng thái Job/tạm dừng nhưng không có cột hoặc đường thao tác | Bổ sung cột Trạng thái Job, bộ lọc tại cột và menu quản lý tại Chi tiết Job |
+| WO mô tả chỉ lệnh đã phát hành nhưng wireframe có lưu nháp | Mặc định chỉ lệnh đã phát hành còn mở; Nháp là lựa chọn riêng trong cột Tiến độ; không lên Lịch/Gantt |
+| Mỗi tab giữ lọc riêng nhưng Lịch/Gantt lại phải cùng lọc với WO | Ba góc nhìn WO chia sẻ điều kiện nghiệp vụ; chỉ trang/cuộn/khoảng thời gian là riêng; Job List/Counter độc lập |
+| Chi tiết Job ví dụ đã có WO nhưng vẫn có nút Phát hành; WO chưa phân công vẫn có Thực hiện/Duyệt | Sửa hình để đúng trạng thái ví dụ; mô tả nút thay thế ở các trạng thái khác |
+| Cần làm lại có thể hiểu là sửa ngay, bỏ qua bước bắt đầu | Bắt đầu làm lại chuyển cùng WO về Đang thực hiện rồi mới lưu/gửi bản sửa |
+| UI dùng giờ nhưng API dùng phút | Quy định chuyển đổi ở DTO và kiểm thử 1,5 giờ = 90 phút |
+| “Ngày thực hiện” chưa rõ so với ngày gửi/ngày duyệt | V1 dùng Ngày gửi hoàn tất của lượt được duyệt làm mốc; giữ riêng thời điểm duyệt và các lượt trước |
+| Unique một WO/kỳ nhưng hủy có thể khiến worker tạo lại vô hạn | Hủy không hoàn tất kỳ, không đẩy hạn; chặn phát hành lại kỳ đã hủy và đánh dấu cần xử lý; thay thế cùng kỳ chưa thuộc V1 |
+| Counter tăng trong lúc chờ duyệt có thể làm báo cáo cũ bị từ chối hoặc lùi số | Giữ số đo tại lúc thực hiện; duyệt không hạ counter mới nhất, không so sai thời điểm |
+| Nhắc gia hạn, amendment, WO thay thế nhưng không có màn tương ứng | Ghi rõ chưa có UI/nghiệp vụ mới cho các khả năng này trong V1; chỉ bảo toàn liên kết legacy |
+| Vật tư Job dễ bị hiểu là còn được gán tại form | Job chỉ tham khảo vật tư đã gán ở thiết bị; nhập vật tư sử dụng chỉ ở WO, không tạo quan hệ gán |
+
+Các lựa chọn nghiệp vụ từng để mở đã được thống nhất tại mục 12 và thể hiện lại trong wireframe: quyền đọc theo mục 7.11, làm sớm sau phát hành/phân công, tính kỳ sau từ lượt gửi được duyệt, một thiết bị/Job và HYBRID một WO/kỳ. Phần còn lại là chi tiết hiện thực (schema, endpoint, mapping quyền/dữ liệu legacy và kiểm thử), không phải lý do để giữ hai luồng nghiệp vụ khác nhau. Nếu thay đổi quyết định phải cập nhật cả nội dung và wireframe.
 
 ## 13. ASCII wireframe — PMS / Danh sách công việc
 
@@ -564,7 +630,7 @@ Khung này dùng cho cả năm tab. Cây thiết bị lọc nội dung tab, có 
 +--------------------------------------------------------------------------------------------------+
 ```
 
-- Bản vẽ rút gọn độ rộng: cột **WO đang mở** nằm trước Hành động trong bảng thật, có link tới WO của Job. Loại hiển thị đầy đủ như “Định kỳ · 3 tháng (3M)”; hạn theo giờ có ngưỡng và số giờ còn lại, không ép thành ngày.
+- Bản vẽ rút gọn độ rộng: cột **WO đang mở** và **Trạng thái Job** nằm trước Hành động trong bảng thật, có link tới WO và bộ lọc trạng thái ngay tại cột. Các dòng minh họa ở trạng thái Hoạt động. Loại hiển thị đầy đủ như “Định kỳ · 3 tháng (3M)”; hạn theo giờ có ngưỡng và số giờ còn lại, không ép thành ngày. Ô `[Tu/den]` ở cột hạn là vùng lọc theo loại mốc, không phải luôn là bộ chọn ngày.
 - Cột Hành động dùng icon có tooltip: **Xem**, **Sửa**, **Lịch sử bảo trì**. Bấm tên cũng mở Chi tiết Job. Neo STT/checkbox/tên và Hành động; các cột giữa cuộn ngang khi cần.
 - Tìm kiếm/lọc tại hàng dưới tiêu đề; bấm icon sắp xếp ở tiêu đề cột được hỗ trợ. Ngưỡng giờ lọc theo số giờ, không dùng bộ chọn ngày. Tìm kiếm, lọc, sắp xếp và phân trang xử lý phía server. Mặc định xem toàn tàu trong nhánh thiết bị đang chọn. Chọn nhiều chỉ để thao tác được phép; Job có lịch sử không bị xóa mất hồ sơ.
 
@@ -579,26 +645,31 @@ Khung này dùng cho cả năm tab. Cây thiết bị lọc nội dung tab, có 
 | Thiet bi * [Chon thiet bi v]          Uu tien [Trung binh v]                     |
 | Huong dan [..................................................................] |
 | LOAI VA CHU KY                                                                 |
-| Loai * [Dinh ky v]  Chu ky [3] [Thang v]  Moc bat dau [.. / .. / ....]           |
-| Canh bao truoc [7] [Ngay]            [x] Tu dong phat hanh WO                    |
+| Loai * [Dinh ky v]  Chu ky [3] [Thang v]                                        |
+| Moc bat dau tinh chu ky [.. / .. / ....]   Han tinh duoc: [chi doc]              |
+| Phat hanh [Khi sap den han v]  Canh bao truoc [7] [Ngay]                         |
+| [ ] Tu dong tao WO   (chi phat hanh khi du thong tin va den khoang phat hanh)     |
+| Ky sau: Tu lan gui hoan tat duoc duyet (quy tac V1, khong phai bo chon)           |
 | TRACH NHIEM                                                                    |
 | Bo phan [Boong v]  Chuc danh [Dai pho v]  Nguoi trach nhiem [Chon nguoi v]       |
-| Phan cong WO [Khi phat hanh v]  Nguoi thuc hien mac dinh [Khong chon v]           |
+| Phan cong WO [Khi phat hanh v]  (Chon nguoi mac dinh chi khi Phan cong truoc)     |
 | CHECKLIST MAU                                              [+ Them hang]       |
 | 1. [Kiem tra ro ri.....................................................] [Xoa] |
 | VAT TU CUA THIET BI (chi doc, co the bo muc nay)                                 |
 | Ma vat tu        Ten vat tu                         Don vi                      |
 | VT-001           Gioang bom                         PCS                         |
 +--------------------------------------------------------------------------------+
-|                                                             [Huy] [Luu Job]    |
+|                                                         [Huy] [Luu cong viec]  |
 +--------------------------------------------------------------------------------+
 ```
 
 Loại/chu kỳ quyết định trường xuất hiện: theo giờ dùng ngưỡng giờ; lên đà/theo yêu cầu/theo chuyến dùng sự kiện phù hợp. Không dùng một ô “ngày” cho mọi loại cảnh báo. Người chịu trách nhiệm quản lý Job khác với người thực hiện mặc định. Mục vật tư không có nút thêm/chọn/gán/bỏ gán/số lượng dự kiến; chỉ lấy danh sách từ giao diện thiết bị. Không có kết quả thực hiện, ảnh, ĐGRR, BBKT hay nút duyệt.
 
+Sau Lưu, đủ thông tin thì Job Hoạt động, thiếu mốc/thông tin bắt buộc thì Cần bổ sung thông tin và chỉ rõ phần thiếu. Không có popup hoặc nút Kích hoạt. Bổ sung bằng cùng form Sửa, nhập mốc theo loại: ngày bắt đầu áp dụng, counter hoặc mốc có nguồn đối chiếu; Job sự kiện không dùng trường ngày/counter không liên quan. Checkbox Tự động tạo WO mặc định tắt cho Job mới; Job cũ giữ lựa chọn hiện có. Nếu bật và đủ điều kiện phát hành ngay, hiện cảnh báo trước Lưu và phản hồi rõ kết quả tạo/chờ tạo WO. Job HYBRID hiển thị cả hai chu kỳ, hai mốc/cảnh báo riêng từng đơn vị. Không cho nhập trực tiếp kết quả Lần cuối thực hiện hoặc Hạn tới; hạn tính được chỉ đọc. Tạm dừng/ngừng/tiếp tục áp dụng trong menu quản lý, không tự hủy WO đang mở; sửa Job đã tạm dừng không tự bật lại.
+
 **Import Excel** ở tab Bảng: `[Chọn file] → [Kiểm tra] → bảng xem trước (dòng, tên Job, thiết bị, chu kỳ, hợp lệ/lỗi) → [Nhập các dòng hợp lệ] → kết quả`. Hiển thị số dòng thành công/thất bại và lỗi từng dòng; không tự bỏ qua xung đột mã hoặc nhập lại lịch sử đã thực hiện. Job chưa đủ mốc khởi tạo phải được chỉ rõ, không tự tạo quá hạn giả.
 
-### 13.3. Tab Work Order — các lần bảo trì đã phát hành
+### 13.3. Tab Work Order — mặc định các lần bảo trì đã phát hành còn mở
 
 ```text
 +--------------------------------------------------------------------------------------------------+
@@ -618,7 +689,7 @@ Loại/chu kỳ quyết định trường xuất hiện: theo giờ dùng ngư�
 +--------------------------------------------------------------------------------------------------+
 ```
 
-Cột Ưu tiên đặt trước Hành động trong bảng thật, có bộ lọc ngay tại cột. Không có thanh tìm kiếm, chip hạn, checkbox Của tôi hoặc bộ chọn sort riêng phía trên. Cột Tiến độ mặc định chọn Đang mở và cho chọn Nháp/Hoàn thành/Đã hủy; cột Tình trạng hạn cho chọn Sắp đến hạn/Đến hạn/Quá hạn. Mặc định tất cả WO đang mở, không chỉ các WO được giao cho mình. Số lượng trên toolbar theo kết quả lọc; bộ lọc có giá trị đang chọn rõ ràng.
+Cột Ưu tiên đặt trước Hành động trong bảng thật, có bộ lọc ngay tại cột. Không có thanh tìm kiếm, chip hạn, checkbox Của tôi hoặc bộ chọn sort riêng phía trên. Cột Tiến độ mặc định chọn Đang mở và cho chọn từng tiến độ/Nháp/Hoàn thành/Đã hủy/Tất cả; cột Tình trạng hạn có đầy đủ lựa chọn tại mục 7.3, gồm Chưa đến hạn và Chưa có hạn. Mặc định tất cả WO đã phát hành còn mở, không chỉ các WO được giao cho mình. Số lượng/nhãn trên toolbar theo kết quả lọc, không luôn ghi “đang mở” khi đã chọn Hoàn thành hoặc Nháp. Khi từ Job chuyển sang lọc WO, bộ lọc Job nguồn phải hiển thị trong cột tên công việc (có thể bỏ lọc), không gắn điều kiện ẩn theo tên giống nhau.
 
 Hành động ở từng dòng dùng icon có tên qua tooltip/nhãn truy cập: **Xem**, **Phân công**, **Thực hiện/Tiếp tục/Thực hiện lại**, **Kiểm tra/duyệt**, **Xem kết quả** theo bảng mục 7.3. Không hiện đồng loạt mọi icon cho mọi trạng thái. Hủy có lý do nằm trong menu quản lý theo quyền; chỉ WO nháp được xóa. Với WO nháp thủ công, có thêm bộ lọc Nháp và hành động Sửa/Phát hành theo quyền.
 
@@ -631,7 +702,7 @@ Hành động ở từng dòng dùng icon có tên qua tooltip/nhãn truy cập:
 ```text
 +--------------------------------------------------------------------------------+
 | < Ve Bang                    CHI TIET CONG VIEC                                 |
-| Bao duong bom cuu hoa                 [Sua] [Lich su] [Xem WO] [Phat hanh WO]    |
+| Bao duong bom cuu hoa                 [Sua] [Lich su] [Xem WO] [Quan ly v]       |
 +--------------------------------------------------------------------------------+
 | Thiet bi: Bom cuu hoa                  Loai: Dinh ky - 3 thang (3M)              |
 | Bo phan: Boong                         Trach nhiem: Dai pho                      |
@@ -642,7 +713,7 @@ Hành động ở từng dòng dùng icon có tên qua tooltip/nhãn truy cập:
 
 +--------------------------------------------------------------------------------+
 | < Ve Work Order              CHI TIET WO-001                                    |
-| Bao duong bom cuu hoa                   [Phan cong] [Thuc hien] [Kiem tra/duyet] |
+| Bao duong bom cuu hoa                                      [Phan cong]          |
 +--------------------------------------------------------------------------------+
 | Job nguon > / phien ban / thiet bi / han / uu tien / PIC / nguoi ho tro           |
 | Tinh trang han: Den han                Tien do: Cho phan cong                    |
@@ -651,7 +722,7 @@ Hành động ở từng dòng dùng icon có tên qua tooltip/nhãn truy cập:
 +--------------------------------------------------------------------------------+
 ```
 
-Các nút trong hình là vị trí có thể đặt, không có nghĩa luôn xuất hiện cùng lúc: quyền/trạng thái quyết định theo mục 7. Job không có nút thực hiện/duyệt. Chi tiết WO chỉ điều hướng sang thao tác phù hợp, không là form chỉnh kết quả. Bấm Job nguồn từ WO mở đúng Job; kết quả của WO vẫn dùng phiên bản đã phát hành.
+Hình Job đã có WO-001 nên không hiện Phát hành WO; menu Quản lý chứa thao tác trạng thái phù hợp. Khi chưa có WO cho kỳ và đủ điều kiện, hiện Phát hành WO để mở popup xác nhận theo mục 7.4. Hình WO đang Chờ phân công nên chỉ hiện Phân công; khi Đã phân công/Đang thực hiện/Cần làm lại mới có Thực hiện/Tiếp tục/Thực hiện lại cho đúng người; Chờ duyệt mới có Kiểm tra/duyệt. Job không có nút thực hiện/duyệt. Chi tiết WO chỉ điều hướng, không là form chỉnh kết quả. Bấm Job nguồn mở đúng Job theo quyền; WO đột xuất hiển thị Không có Job nguồn, không tạo link giả. Nội dung WO vẫn dùng phiên bản đã phát hành.
 
 ### 13.5. Màn Thực hiện WO — nhập và gửi kết quả
 
@@ -677,7 +748,7 @@ Các nút trong hình là vị trí có thể đặt, không có nghĩa luôn xu
 +--------------------------------------------------------------------------------+
 ```
 
-Trước khi bắt đầu, kết quả chưa được nhập và thanh cuối dùng `[Quay lại] [Nhận và bắt đầu]`. Khi đang làm mới hiện Lưu/Gửi. Ghi nhận vật tư sử dụng không tạo danh mục vật tư, không gán vật tư cho Job/thiết bị. Gửi thành công chuyển sang bản chỉ đọc Chờ duyệt; chưa trừ kho. Không có nút phê duyệt/trả lại, ảnh, ĐGRR hoặc BBKT.
+Trước khi bắt đầu, kết quả chưa được nhập và thanh cuối dùng `[Quay lại] [Nhận và bắt đầu]`; khi Cần làm lại dùng `[Quay lại] [Bắt đầu làm lại]`. Chỉ Đang thực hiện mới cho nhập/Lưu/Gửi; có lý do trả lại thì giữ nổi bật trong lúc sửa. Thời gian hiển thị giờ, DTO chuyển sang phút theo mục 7.6. Ghi nhận vật tư sử dụng không tạo danh mục vật tư, không gán vật tư cho Job/thiết bị. Gửi thành công chuyển sang bản chỉ đọc Chờ duyệt; chưa trừ kho. Không có nút phê duyệt/trả lại, ảnh, ĐGRR hoặc BBKT.
 
 ### 13.6. Màn Kiểm tra / duyệt WO — chỉ đọc kết quả
 
@@ -707,7 +778,7 @@ Trả lại mở hộp nhập lý do bắt buộc và xác nhận, đưa cùng W
 +--------------------------------------------------------------------------------------------------+
 | 8 lan da duyet                                                                                   |
 +----+----------+-----------+----------------+------------+------------+------------+-----------+-----+
-| TT | Ma WO    | Ky / han  | Ngay thuc hien | Nguoi lam  | Ngay duyet | Nguoi duyet| Ket qua   | HD  |
+| TT | Ma WO    | Ky / han  | Gui hoan tat   | Nguoi lam  | Ngay duyet | Nguoi duyet| Ket qua   | HD  |
 +----+----------+-----------+----------------+------------+------------+------------+-----------+-----+
 |    |[Tim...]  |[Loc...]   |[Tu ngay/den]   |[Chon v]    |[Tu/den]    |[Chon v]    |[Tat ca v] |     |
 +----+----------+-----------+----------------+------------+------------+------------+-----------+-----+
@@ -757,7 +828,7 @@ COUNTER
 - Lịch/Gantt dùng cùng nguồn WO thật và trạng thái; bấm một WO mở Chi tiết WO rồi mới chọn hành động. Giữ bộ lọc khi đổi góc nhìn; tìm kiếm hoặc lọc không tự tạo WO.
 - WO chỉ có ngưỡng giờ chạy và chưa có ngày dự kiến không được gán ngày giả: Lịch/Gantt có chỉ báo **WO chưa có mốc ngày (n)** dẫn về danh sách lọc tương ứng. Ngày ước tính phải có nhãn Dự kiến. Job chưa phát hành xem hạn tại Bảng.
 - Gantt có vạch chia kéo thay đổi độ rộng bảng/timeline; tiêu đề và dữ liệu thẳng cột, chữ dài rút gọn/tooltip. Không có thanh cuộn ngang thừa ngay dưới hàng công việc; dùng vùng cuộn ngang chung ở đáy khi cần và giữ khả năng cuộn timeline.
-- Counter có phân trang server. Cập nhật giờ mở popup nhập số mới/thời điểm/ghi chú theo quyền, có xác nhận lỗi giảm counter. Lưu xong tính hạn/phát hành theo service, không mở lại WO đã hoàn thành. Có đường xem các Job liên quan của thiết bị.
+- Counter có phân trang server. Cập nhật giờ mở popup nhập số mới/thời điểm/ghi chú theo quyền; giảm counter phải báo lỗi và chặn lưu, không có xác nhận để bỏ qua validation. Thay/reset đồng hồ nếu cần là nghiệp vụ riêng chưa thiết kế ở V1. Lưu xong tính hạn/phát hành theo service cho Job đang hoạt động/bật tự động, không mở lại WO đã hoàn thành. Có đường xem các Job liên quan của thiết bị.
 
 ### 13.9. Luồng điều hướng tổng thể
 
@@ -769,6 +840,8 @@ DANH SACH CONG VIEC
 |   +-- Import ------------------------------> Kiem tra --> Xem truoc --> Nhap --> Bang
 |   +-- Ten cong viec -----------------------> Chi tiet Job
 |   |                                          +-- Sua --> Form Job
+|   |                                          +-- Sua --> Bo sung moc --> Luu
+|   |                                          +-- Quan ly --> Tam dung / Tiep tuc / Ngung
 |   |                                          +-- Phat hanh WO --> Chi tiet WO
 |   |                                          +-- Xem WO --> Work Order (loc Job)
 |   +-- Icon lich su ------------------------> Lich su --> Bao cao da khoa
@@ -786,7 +859,7 @@ DANH SACH CONG VIEC
 |
 +-- Lich / Gantt ----------------------------> Chi tiet WO --> Hanh dong dung quyen
 |
-+-- Counter --------------------------------> Cap nhat gio --> Tinh han / Phat hanh WO
++-- Counter --------------------------------> Cap nhat gio --> Tinh han / Phat hanh neu du dieu kien
 
 CHU KY:
 Job --> Sap den han --> WO ky 1 --> Thuc hien --> Duyet --> Lich su ky 1

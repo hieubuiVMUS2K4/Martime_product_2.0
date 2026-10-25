@@ -47,6 +47,16 @@ public sealed class ApprovalService(EdgeDbContext db, RankPermissionService perm
         if (entity == null) throw new ApprovalException(404, "Không tìm thấy hồ sơ.");
         if (entity.GetType().GetProperty("IsDeleted")?.GetValue(entity) is true || entity.GetType().GetProperty("DeletedAt")?.GetValue(entity) != null) throw new ApprovalException(404, "Hồ sơ đã bị xóa.");
         var state = SigningRecords.State(entity, module);
+        if (module == "pms" && entity is MaritimeEdge.Models.MaintenanceTask { PmsProtocolVersion: 2 } order)
+        {
+            if (!configuration.GetValue<bool>("Pms:ReworkApiEnabled")) throw new ApprovalException(503, "Workflow WO mới chưa được bật.");
+            var report = await db.PmsWorkOrderReports.AsNoTracking().SingleOrDefaultAsync(r => r.WorkOrderId == order.Id && r.Revision == order.ReportRevision)
+                ?? throw new ApprovalException(409, "WO chưa có bản gửi để kiểm tra.");
+            if (ApprovalSnapshot.Hash(report.SnapshotJson) != report.ContentHash) throw new ApprovalException(409, "Báo cáo không còn khớp nội dung đã gửi.");
+            var node = await runtime.GetSyncConfigAsync();
+            return (entity, ApprovalSnapshot.Canonicalize(new { SchemaVersion = 2, order.Id, order.WorkflowVersion, report.Revision,
+                report.ContentHash, SubmittedReport = report.SnapshotJson, node.NodeId, node.ShoreVesselId, node.VesselImo }), state);
+        }
         var previous = await db.ApprovalRevisions.AsNoTracking().Where(r => db.ApprovalDocuments.Any(d => d.Id == r.DocumentId && d.Module == module && d.RecordKey == key)).OrderByDescending(r => r.Revision).FirstOrDefaultAsync();
         // Refer to the submitted version, including the original template, risk assessment and frozen files.
         if (previous != null && (module == "sms" && state is "Submitted" or "Approved" || module == "permit" && state is "PendingCheck" or "PendingIssue" or "Issued" or "Suspended" or "Closed" || module == "receipt" && state is "Submitted" or "Approved" or "Completed" || SigningRecords.All.ContainsKey(module) && state == "Signed"))

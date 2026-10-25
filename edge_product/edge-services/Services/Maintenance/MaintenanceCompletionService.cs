@@ -352,6 +352,7 @@ public class MaintenanceCompletionService
     /// </summary>
     public async Task RecoverMissingCycleTaskAsync(MaintenanceSchedule schedule, double currentRunningHours)
     {
+        if (schedule.PmsProtocolVersion.HasValue) return;
         var task = await _context.MaintenanceTasks
             .Where(t => t.ScheduleId == schedule.Id && t.Status == "COMPLETED" && !t.IsDeleted)
             .OrderByDescending(t => t.CompletedAt).FirstOrDefaultAsync();
@@ -388,6 +389,7 @@ public class MaintenanceCompletionService
     /// </summary>
     private async Task PrepareNextCycleTask(MaintenanceSchedule schedule, MaintenanceTask completedTask, EquipmentAsset? trackingAsset)
     {
+        if (schedule.PmsProtocolVersion.HasValue || completedTask.PmsProtocolVersion.HasValue) return;
         // A recurring job retains its identity; reports belong to maintenance_history.
         if (schedule.NextDueDate.HasValue) completedTask.NextDueAt = schedule.NextDueDate.Value;
         completedTask.LastDoneAt = schedule.LastExecutedAt;

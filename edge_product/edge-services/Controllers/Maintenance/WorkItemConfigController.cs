@@ -225,14 +225,14 @@ public class WorkItemConfigController : ControllerBase
         if (errors.Count > 0) return BadRequest(new { error = "File có lỗi; chưa nhập dòng nào.", errors, imported = 0 });
         if (request.ValidateOnly) return Ok(new { valid = true, imported = 0, count = schedules.Count });
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = _context.Database.CurrentTransaction == null ? await _context.Database.BeginTransactionAsync() : null;
         try {
             _context.MaintenanceSchedules.AddRange(schedules);
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            if (transaction != null) await transaction.CommitAsync();
             return Ok(new { valid = true, imported = schedules.Count });
         } catch (DbUpdateException ex) {
-            await transaction.RollbackAsync();
+            if (transaction != null) await transaction.RollbackAsync();
             _logger.LogWarning(ex, "Maintenance import rolled back");
             return Conflict(new { error = "Không thể nhập; dữ liệu có thể đã thay đổi hoặc mã bị trùng. Kiểm tra lại file.", imported = 0 });
         }
@@ -1618,7 +1618,7 @@ public class WorkItemConfigController : ControllerBase
             
             // 1. Fix schedules
             var pastDueSchedules = await _context.MaintenanceSchedules
-                .Where(s => s.AutoGenerate && 
+                .Where(s => !s.PmsProtocolVersion.HasValue && s.AutoGenerate &&
                            s.NextDueDate.HasValue && 
                            s.NextDueDate.Value.Date < today &&
                            s.IntervalType == "CALENDAR" &&
@@ -1640,7 +1640,7 @@ public class WorkItemConfigController : ControllerBase
             
             // 2. Fix existing tasks
             var tasksToUpdate = await _context.MaintenanceTasks
-                .Where(t => (t.Status == "SCHEDULED" || t.Status == "DUE" || t.Status == "OVERDUE") &&
+                .Where(t => !t.PmsProtocolVersion.HasValue && (t.Status == "SCHEDULED" || t.Status == "DUE" || t.Status == "OVERDUE") &&
                            t.NextDueAt < today &&
                            t.ScheduleId != null &&
                            !t.IsDeleted)

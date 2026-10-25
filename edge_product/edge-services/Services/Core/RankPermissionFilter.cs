@@ -50,6 +50,35 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
             await next(); return;
         }
         var required = PermissionRegistry.Resolve(controller, name);
+        // Deferral is not part of V1 protocol-2 workflow. Its legacy routes must not alter new WOs.
+        if (http.Request.Method != "GET" && controller == "DeferralRequest")
+        {
+            Guid? taskId = context.ActionArguments.Values.OfType<MaritimeEdge.DTOs.CreateDeferralRequestDto>()
+                .Select(dto => (Guid?)dto.TaskId).FirstOrDefault();
+            if (!taskId.HasValue && context.ActionArguments.TryGetValue("id", out var requestKey) && requestKey is Guid requestId)
+                taskId = await db.TaskDeferralRequests.Where(d => d.Id == requestId).Select(d => (Guid?)d.TaskId).SingleOrDefaultAsync();
+            if (taskId.HasValue && await db.MaintenanceTasks.AnyAsync(t => t.Id == taskId && t.PmsProtocolVersion.HasValue))
+            { context.Result = new ConflictObjectResult(new { error = "WO mới không sử dụng thao tác gia hạn legacy." }); return; }
+        }
+        if (http.Request.Method != "GET" && controller is "Maintenance" or "TaskWorkflow" or "PmsForms" or "TaskChecklistItems" or "TaskRealTimeUpdates")
+        {
+            var key = context.ActionArguments.TryGetValue("id", out var byId) ? byId?.ToString() :
+                context.ActionArguments.TryGetValue("taskId", out var byTask) ? byTask?.ToString() : null;
+            if (key != null)
+            {
+                var parsed = Guid.TryParse(key, out var uuid);
+                if (await db.MaintenanceTasks.AnyAsync(t => t.PmsProtocolVersion.HasValue && (parsed ? t.Id == uuid : t.TaskId == key)))
+                { context.Result = new ConflictObjectResult(new { error = "WO mới phải dùng API workflow Job/Work Order, không ghi qua API PMS cũ." }); return; }
+            }
+        }
+        // Protocol-2 definitions cannot be edited through legacy configuration endpoints.
+        if (controller == "WorkItemConfig" && http.Request.Method != "GET" &&
+            context.ActionArguments.TryGetValue("id", out var jobArgument) && Guid.TryParse(jobArgument?.ToString(), out var jobId) &&
+            await db.MaintenanceSchedules.AnyAsync(j => j.Id == jobId && j.PmsProtocolVersion.HasValue))
+        {
+            context.Result = new ConflictObjectResult(new { error = "Hãy sửa Job qua giao diện/API Job List mới." });
+            return;
+        }
         if (controller == "Maintenance" && name is "UpdateTask" or "PatchTask" or "UpdateTaskStatus")
         {
             var id = context.ActionArguments.Values.OfType<Guid>().FirstOrDefault();
