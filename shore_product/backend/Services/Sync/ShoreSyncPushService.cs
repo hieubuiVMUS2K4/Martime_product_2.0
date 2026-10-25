@@ -201,7 +201,8 @@ public class ShoreSyncPushService(AppDbContext context, ISyncOutboxService outbo
         items.AddRange(Rows("equipment_asset", await context.EquipmentAssets.AsNoTracking()
             .Where(x => x.VesselId == vesselId).OrderBy(x => x.AssetCode).ToListAsync(), x => x.Id));
         items.AddRange(Rows("maintenance_schedule", await context.MaintenanceSchedules.AsNoTracking()
-            .Where(x => x.VesselId == vesselId).OrderBy(x => x.Id).ToListAsync(), x => x.Id));
+            .Where(x => x.VesselId == vesselId && (x.PmsProtocolVersion == null || x.PmsProtocolVersion == 1))
+            .OrderBy(x => x.Id).ToListAsync(), x => x.Id));
         return items;
     }
 

@@ -223,7 +223,8 @@
         "/pms/work-report",
         "/pms/unassigned-tasks",
         "/pms/approval-dashboard",
-        "/pms/maintenance-history"
+        "/pms/maintenance-history",
+        "/pms/work-orders"
       ],
       "actions": [
         "view",
@@ -4044,6 +4045,75 @@
       "grants": [
         "pms.jobs.view",
         "pms.config.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "CreateAdHoc",
+      "grants": [
+        "pms.work.create"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "UpdateDraft",
+      "grants": [
+        "pms.work.update"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "IssueDraft",
+      "grants": [
+        "pms.work.create"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "DeleteDraft",
+      "grants": [
+        "pms.work.delete"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "References",
+      "grants": [
+        "pms.work.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "MaterialOptions",
+      "grants": [
+        "pms.work.execute"
+      ]
+    },
+    {
+      "controller": "PmsCounters",
+      "action": "List",
+      "grants": [
+        "pms.counter.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Settings",
+      "grants": [
+        "pms.work.view",
+        "pms.jobs.view",
+        "pms.config.view",
+        "pms.counter.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "EquipmentTree",
+      "grants": [
+        "pms.work.view",
+        "pms.jobs.view",
+        "pms.config.view",
+        "pms.counter.view"
       ]
     }
   ]

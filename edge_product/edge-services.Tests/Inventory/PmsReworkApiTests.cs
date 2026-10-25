@@ -97,6 +97,34 @@ public class PmsReworkApiTests
 public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
 {
     [PmsPostgresFact]
+    public async Task CounterGridAndMaterialSelectorPageAtDatabase_ExposeOnlyNeededFields()
+    {
+        await using var db = fixture.CreateContext();
+        var prefix = "UI-" + Guid.NewGuid().ToString("N")[..8];
+        var first = new EquipmentAsset { AssetCode = prefix + "1", AssetName = prefix + "1", Category = "DECK", CurrentRunningHours = 100 };
+        var second = new EquipmentAsset { AssetCode = prefix + "2", AssetName = prefix + "2", Category = "DECK", CurrentRunningHours = 200 };
+        db.AddRange(first, second, new EquipmentAsset { AssetCode = prefix + "3", AssetName = prefix + "3", Category = "SYSTEM" },
+            new EquipmentAsset { AssetCode = prefix + "4", AssetName = prefix + "4", Category = "DECK", IsActive = false });
+        var category = new MaterialCategory { CategoryCode = prefix, Name = prefix }; db.Add(category); await db.SaveChangesAsync();
+        var part = new MaterialItem { ItemCode = prefix, Name = prefix, Unit = "PCS", CategoryId = category.Id, OnHandQuantity = 99 };
+        var location = new StoreLocation { LocationCode = prefix, Name = prefix }; db.AddRange(part, location);
+        db.InventoryStocks.Add(new() { MaterialItemId = part.Id, StoreLocationId = location.Id, Quantity = 5 }); await db.SaveChangesAsync();
+        var counters = new PmsCountersController(db);
+        var counterPage = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await counters.List(new() { Name = prefix, Page = 2, PageSize = 1 }, default)).Value);
+        Assert.Equal(2, counterPage.GetProperty("total").GetInt32());
+        Assert.Equal(second.Id, Assert.Single(counterPage.GetProperty("items").EnumerateArray()).GetProperty("Id").GetGuid());
+        Assert.DoesNotContain("TechnicalSpecs", counterPage.ToString());
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Pms:VesselTimeZone"] = "Asia/Ho_Chi_Minh" }).Build();
+        var controller = new PmsWorkOrdersController(new(db, config), new(db, new(db), config), db, Mock.Of<IEdgeRuntimeConfigService>(), config);
+        var options = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.MaterialOptions(new() { SelectedIds = part.Id.ToString(), PageSize = 200 }, default)).Value);
+        var item = Assert.Single(options.GetProperty("items").EnumerateArray());
+        Assert.Equal("PCS", item.GetProperty("Unit").GetString()); Assert.Equal(5m, item.GetProperty("onHand").GetDecimal());
+        Assert.DoesNotContain("UnitPrice", options.ToString());
+        Assert.Equal(400, (await Assert.ThrowsAsync<PmsRequestException>(() => controller.MaterialOptions(new() { SelectedIds = "invalid" }, default))).Status);
+        var settings = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(controller.Settings()).Value);
+        Assert.Equal("Asia/Ho_Chi_Minh", settings.GetProperty("vesselTimeZone").GetString());
+    }
+    [PmsPostgresFact]
     public async Task WarningDaysUseVesselCalendarEvenAcrossDaylightSavingChanges()
     {
         var zone = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");

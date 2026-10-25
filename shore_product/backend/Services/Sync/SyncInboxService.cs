@@ -637,6 +637,7 @@ public partial class SyncInboxService : ISyncInboxService
                 try
                 {
                     item.TableName = canonicalTable;
+                    PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
 
                     // Idempotency check — skip already processed
                     if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion, item.OriginNode, item.EventId, item.StreamId))
@@ -1181,6 +1182,7 @@ public partial class SyncInboxService : ISyncInboxService
 
     public async Task ProcessIncomingAsync(SyncQueueItemDto item)
     {
+        PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
         if (ApprovalSnapshot.Tables.Contains(item.TableName)) { await ProcessApprovalEvidenceAsync(item); return; }
         _incomingOriginNode = item.OriginNode;
         item.TableName = CanonicalizeTableName(item.TableName);
@@ -1203,6 +1205,8 @@ public partial class SyncInboxService : ISyncInboxService
         var action = item.ActionType?.ToUpperInvariant() ?? "CREATE";
         var owner = await VesselSyncIdentity.ResolveVesselIdAsync(_context, item.OriginNode);
         var stored = await FindEntityByKeyAsync(entityType, item.RecordKey, item.Payload);
+        if (stored is MaintenanceSchedule { PmsProtocolVersion: >= 2 } or MaintenanceTask { PmsProtocolVersion: >= 2 })
+            throw new InvalidOperationException(PmsSyncProtocol.UpgradeRequired);
         if (owner.HasValue && stored != null && await StoredVesselOwnerAsync(stored) is Guid storedOwner && storedOwner != owner.Value && action is not ("CREATE" or "SNAPSHOT"))
             throw new InvalidOperationException("ownership_violation: record belongs to another vessel");
         if (_shoreAuthoritative.Contains(item.TableName) && action == "DELETE")

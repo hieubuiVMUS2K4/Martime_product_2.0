@@ -27,6 +27,19 @@ public class PmsWorkOrderReleaseTests(PmsDatabaseFixture database)
     }
 
     [PmsPostgresFact]
+    public async Task ReleaseRechecksEquipmentAfterDefinitionWasSaved()
+    {
+        var id = await Seed(); await using var db = database.CreateContext();
+        var assetId = await db.MaintenanceSchedules.Where(j => j.Id == id).Select(j => j.EquipmentAssetId).SingleAsync();
+        var asset = await db.EquipmentAssets.SingleAsync(a => a.Id == assetId);
+        asset.IsActive = false; await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new PmsWorkOrderReleaseService(db).ReleasePeriodicAsync(id, Now, TimeZoneInfo.Utc));
+        asset.IsActive = true; asset.Status = "DECOMMISSIONED"; await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new PmsWorkOrderReleaseService(db).ReleasePeriodicAsync(id, Now, TimeZoneInfo.Utc));
+        Assert.False(await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == id));
+    }
+
+    [PmsPostgresFact]
     public async Task ConcurrentReleaseUsesOneCycleAndOneChecklist_PreservesSnapshotAndCancelledCycle()
     {
         var id = await Seed();

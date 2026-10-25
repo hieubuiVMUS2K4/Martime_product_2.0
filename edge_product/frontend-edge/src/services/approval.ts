@@ -33,6 +33,8 @@ export function approvalTarget(endpoint: string, body: any): { module: string; k
   if (match) return { module: 'sms', key: match[1], action: match[2] === 'sign' ? 'submit' : 'approve' }
   match = path.match(/^\/tasks\/([^/]+)\/verify$/)
   if (match) return { module: 'pms', key: match[1], action: body?.action === 'REJECT' ? 'reject' : 'approve' }
+  match = path.match(/^\/pms\/work-orders\/([^/]+)\/(approve|return)$/)
+  if (match) return { module: 'pms', key: match[1], action: match[2] === 'return' ? 'reject' : 'approve' }
   match = path.match(/^\/maintenance\/tasks\/([^/]+)\/(approve|complete)$/)
   if (match) return { module: 'pms', key: match[1], action: body?.isApproved === false ? 'reject' : 'approve' }
   match = path.match(/^\/stock-receipts\/([^/]+)\/(submit|approve|complete)$/)

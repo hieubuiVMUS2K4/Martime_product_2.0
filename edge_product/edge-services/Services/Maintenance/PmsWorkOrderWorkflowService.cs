@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MaritimeEdge.Services.Maintenance;
 
-public sealed class PmsWorkOrderWorkflowService(EdgeDbContext db, RankPermissionService permissions,
+public sealed partial class PmsWorkOrderWorkflowService(EdgeDbContext db, RankPermissionService permissions,
     IConfiguration configuration, TimeProvider? clock = null)
 {
     // PostgreSQL stores microseconds. Freeze the same instant in JSON, metadata and the next cycle.
@@ -187,7 +187,7 @@ public sealed class PmsWorkOrderWorkflowService(EdgeDbContext db, RankPermission
     public Task<PmsWorkflowResult> CancelAsync(Guid id, CancelPmsWorkOrderDto dto, long userId, string device, CancellationToken token = default) =>
         Write(id, dto.ExpectedVersion, userId, "pms.work.update", device, async (order, actor) =>
         {
-            if (order.Status is "PENDING_APPROVAL" or "COMPLETED" or "CANCELLED") Conflict("Không thể hủy lệnh ở trạng thái này.");
+            if (order.Status is "DRAFT" or "PENDING_APPROVAL" or "COMPLETED" or "CANCELLED") Conflict("Không thể hủy lệnh ở trạng thái này; WO nháp dùng thao tác xóa nháp.");
             if (string.IsNullOrWhiteSpace(dto.Reason) || dto.Reason.Length > 2000) throw new PmsRequestException(400, "Cần lý do hủy hợp lệ.");
             var before = order.Status; order.Status = "CANCELLED"; order.CancelledAt = Now;
             order.CancelledBy = actor.CrewId ?? actor.Username; order.CancellationReason = dto.Reason;

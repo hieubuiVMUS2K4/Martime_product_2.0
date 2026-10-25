@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "test:auth": "node --test scripts/test-auth-session.cjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:pms": "node --test scripts/test-pms-rework.cjs",
+    "test:pms:browser": "node scripts/test-pms-rework-browser.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

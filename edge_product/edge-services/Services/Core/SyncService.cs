@@ -322,6 +322,10 @@ public class SyncService : ISyncService
                 context.ScheduleChecklistTemplates.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "maintenance_task",
                 context.MaintenanceTasks.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
+            added += await ReconcileTableAsync(context, "pms_work_order_report",
+                context.PmsWorkOrderReports.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
+            added += await ReconcileTableAsync(context, "pms_work_order_material_posting",
+                context.PmsWorkOrderMaterialPostings.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             var pendingHistories = await context.SyncQueue.Where(q => q.TableName == "maintenance_history"
                 && q.SyncedAt == null && q.Priority == SyncPriority.Low).ToListAsync(cancellationToken);
             foreach (var pending in pendingHistories) pending.Priority = SyncPriority.Operational;
@@ -512,6 +516,7 @@ public class SyncService : ISyncService
 
                     try
                     {
+                        PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
                         var stateKey = "shore:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(item.StreamId == Guid.Empty ? $"{item.TableName}:{item.RecordKey}" : $"{item.StreamId:N}:{item.TableName}:{item.RecordKey}")));
                         var watermark = await context.SyncState.AsTracking().SingleOrDefaultAsync(s => s.Key == stateKey, cancellationToken);
                         if (watermark != null && long.TryParse(watermark.Value, out var appliedVersion) && item.SyncVersion <= appliedVersion)
@@ -760,6 +765,25 @@ public class SyncService : ISyncService
             await context.SaveChangesAsync(cancellationToken);
         }
         var streamId = Guid.TryParse(_configuration["Sync:StreamId"], out var configuredStream) ? configuredStream : Guid.Parse(stream.Value);
+        // A legacy ACK cannot prove that protocol-2 fields survived. Hold these
+        // events locally until the dedicated receiver and negotiation are ready.
+        // Older outbox deltas may predate the mandatory protocol stamp. Resolve
+        // their source in two bounded queries, without relabeling the old event.
+        var pmsKeys = items.Where(q => q.TableName is "maintenance_schedule" or "maintenance_task")
+            .Select(q => Guid.TryParse(q.RecordKey, out var id) ? id : Guid.Empty).Where(id => id != Guid.Empty).ToArray();
+        var newJobs = await context.MaintenanceSchedules.AsNoTracking()
+            .Where(j => pmsKeys.Contains(j.Id) && j.PmsProtocolVersion >= 2).Select(j => j.Id).ToListAsync(cancellationToken);
+        var newOrders = await context.MaintenanceTasks.AsNoTracking()
+            .Where(t => pmsKeys.Contains(t.Id) && t.PmsProtocolVersion >= 2).Select(t => t.Id).ToListAsync(cancellationToken);
+        bool Held(SyncQueue item) => PmsSyncProtocol.RequiresDedicatedReceiver(item.TableName, item.Payload)
+            || (Guid.TryParse(item.RecordKey, out var id) &&
+                (item.TableName == "maintenance_schedule" && newJobs.Contains(id) || item.TableName == "maintenance_task" && newOrders.Contains(id)));
+        foreach (var item in items.Where(Held))
+            ScheduleRetry(item, PmsSyncProtocol.UpgradeRequired, retryPolicy, nodeId);
+        items = items.Where(q => !Held(q)).ToList();
+        await context.SaveChangesAsync(cancellationToken);
+        if (items.Count == 0) return;
+
         var dtoItems = items.Select(q => new Maritime.Shared.DTOs.Sync.SyncQueueItemDto
         {
             EventId = q.EventId,

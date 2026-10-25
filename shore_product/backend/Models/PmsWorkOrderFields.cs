@@ -28,6 +28,11 @@ public partial class MaintenanceSchedule
 
 public partial class MaintenanceTask
 {
+    [Column("creation_command_id")] public Guid? CreationCommandId { get; set; }
+    [Column("creation_command_hash"), MaxLength(64)] public string? CreationCommandHash { get; set; }
+    [Column("created_by_user_id")] public long? CreatedByUserId { get; set; }
+    [Column("work_order_instructions")] public string? WorkOrderInstructions { get; set; }
+    [Column("draft_checklist_json")] public string? DraftChecklistJson { get; set; }
     [Column("pms_protocol_version")] public int? PmsProtocolVersion { get; set; }
     [Column("cycle_key"), MaxLength(120)] public string? CycleKey { get; set; }
     [Column("job_version")] public int? JobVersion { get; set; }

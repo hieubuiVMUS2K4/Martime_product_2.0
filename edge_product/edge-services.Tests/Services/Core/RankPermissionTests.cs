@@ -18,6 +18,25 @@ namespace MaritimeEdge.Tests.Services.Core;
 public class RankPermissionTests
 {
     [Fact]
+    public async Task NewPmsSelectorsDoNotGrantInventoryWritesOrCrewProfiles()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        var config = new RankPermissionConfig { RankId = rankId, GrantsJson = "[\"pms.work.access\",\"pms.work.execute\"]" };
+        db.RankPermissionConfigs.Add(config); await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "PmsWorkOrders", "MaterialOptions", "GET"));
+        Assert.True(await Call(db, user.Id, "PmsWorkOrders", "References", "GET"));
+        // Legacy list aliases remain until cutover; the new selector grants no crew profile/document access.
+        Assert.False(await Call(db, user.Id, "Crew", "GetCrewById", "GET"));
+        Assert.False(await Call(db, user.Id, "Crew", "GetHealthDocuments", "GET"));
+        Assert.False(await Call(db, user.Id, "Inventory", "Declare", "POST"));
+        Assert.False(await Call(db, user.Id, "Inventory", "Export", "GET"));
+        config.GrantsJson = "[\"pms.counter.access\"]"; await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "PmsCounters", "List", "GET"));
+        Assert.True(await Call(db, user.Id, "PmsWorkOrders", "Settings", "GET"));
+        Assert.False(await Call(db, user.Id, "PmsWorkOrders", "MaterialOptions", "GET"));
+        Assert.False(await Call(db, user.Id, "EquipmentAsset", "UpdateRunningHours", "PATCH"));
+    }
+    [Fact]
     public async Task LegacyDeferralAndTaskWritesCannotChangeNewWorkOrder_EvenForAdmin()
     {
         await using var db = Database(); var (user, _) = await Seed(db);

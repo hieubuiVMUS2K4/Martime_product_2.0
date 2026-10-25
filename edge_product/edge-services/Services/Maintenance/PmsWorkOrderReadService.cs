@@ -96,7 +96,12 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
         var timeline = await db.TaskStatusHistories.AsNoTracking().Where(h => h.TaskId == id).OrderBy(h => h.ChangedAt).ToListAsync(token);
         var reports = await db.PmsWorkOrderReports.AsNoTracking().Where(r => r.WorkOrderId == id).OrderByDescending(r => r.Revision).Take(50)
             .Select(r => new { r.Id, r.Revision, r.ContentHash, r.SubmittedAt, r.SubmittedByCrewId, r.Decision, r.DecidedAt, r.DecidedByCrewId, r.DecisionReason }).ToListAsync(token);
-        var result = new { workOrder = row, task.JobVersion, task.JobSnapshot, task.Notes, task.SparePartsUsed,
+        var dueDate = task.WorkOrderDueAt.HasValue
+            ? (DateOnly?)DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(task.WorkOrderDueAt.Value, TimeZoneInfo.FindSystemTimeZoneById(configuration["Pms:VesselTimeZone"]!))) : null;
+        var result = new { workOrder = row, task.TaskType, task.WorkOrderInstructions, dueDate,
+            warningDays = task.WorkOrderWarningDays, warningHours = task.WorkOrderWarningHours, task.DraftChecklistJson,
+            missingInformation = task.TaskType == "AD_HOC" && task.Status == "DRAFT" ? PmsWorkOrderWorkflowService.MissingAdHocInformation(task) : [],
+            task.JobVersion, task.JobSnapshot, task.Notes, task.SparePartsUsed,
             task.ActualRunningHours, actualDurationMinutes = task.ActualDuration, task.StartedAt, task.StartedBy,
             task.SubmittedAt, task.SubmittedBy, task.VerifiedAt, task.VerifiedBy, task.RejectionReason, task.SupportingCrewIds, checklist, timeline, reports };
         if (snapshot != null) await snapshot.CommitAsync(token);

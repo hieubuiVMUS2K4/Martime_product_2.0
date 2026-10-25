@@ -1731,6 +1731,8 @@ namespace ProductApi.Data
             modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasIndex(r => r.ReportId).HasDatabaseName("ix_pms_posting_report");
             modelBuilder.Entity<MaintenanceTask>().HasIndex(e => new { e.VesselId, e.ScheduleId, e.CycleKey })
                 .IsUnique().HasDatabaseName("ux_pms_work_order_cycle").HasFilter("cycle_key IS NOT NULL");
+            modelBuilder.Entity<MaintenanceTask>().HasIndex(e => new { e.VesselId, e.OriginNode, e.CreationCommandId })
+                .IsUnique().HasDatabaseName("ux_pms_work_order_creation").HasFilter("creation_command_id IS NOT NULL");
 
             modelBuilder.Entity<MaintenanceSchedule>(entity =>
             {

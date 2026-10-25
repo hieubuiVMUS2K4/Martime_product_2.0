@@ -26,6 +26,7 @@ public class PmsWorkOrderMigrationTests
             var migration = migrations.CreateMigration(migrations.Migrations["20261025160000_AddPmsWorkOrderFoundation"], "Npgsql.EntityFrameworkCore.PostgreSQL");
             var warnings = migrations.CreateMigration(migrations.Migrations["20261025170000_FreezeWorkOrderWarningWindows"], "Npgsql.EntityFrameworkCore.PostgreSQL");
             var workflow = migrations.CreateMigration(migrations.Migrations["20261025180000_AddPmsWorkOrderWorkflow"], "Npgsql.EntityFrameworkCore.PostgreSQL");
+            var adHoc = migrations.CreateMigration(migrations.Migrations["20261026090000_AddPmsAdHocOrderDrafts"], "Npgsql.EntityFrameworkCore.PostgreSQL");
             async Task Run(IReadOnlyList<MigrationOperation> operations)
             {
                 foreach (var command in db.GetService<IMigrationsSqlGenerator>().Generate(operations, db.Model))
@@ -34,12 +35,14 @@ public class PmsWorkOrderMigrationTests
             var job = new MaintenanceSchedule { ScheduleCode = "LEGACY", ScheduleName = "Legacy definition" };
             var task = new MaintenanceTask { TaskId = "LEGACY-WO", ScheduleId = job.Id, Status = "COMPLETED", Notes = "Immutable legacy result" };
             db.AddRange(job, task); await db.SaveChangesAsync();
+            await Run(adHoc.DownOperations);
             await Run(workflow.DownOperations);
             await Run(warnings.DownOperations);
             await Run(migration.DownOperations); // Reconstruct precisely the pre-foundation columns.
             await Run(migration.UpOperations);
             await Run(warnings.UpOperations);
             await Run(workflow.UpOperations);
+            await Run(adHoc.UpOperations);
             db.ChangeTracker.Clear();
             var retained = await db.MaintenanceTasks.SingleAsync(t => t.Id == task.Id);
             Assert.Null(retained.PmsProtocolVersion); Assert.Null(retained.CycleKey);
@@ -62,6 +65,14 @@ public class PmsWorkOrderMigrationTests
             var workflowRollback = await Assert.ThrowsAsync<PostgresException>(() => Run(workflow.DownOperations));
             Assert.Contains("PMS workflow reports exist", workflowRollback.MessageText);
             Assert.Equal(report.SnapshotJson, (await db.PmsWorkOrderReports.AsNoTracking().SingleAsync()).SnapshotJson);
+            protocolOrder.CreationCommandId = Guid.NewGuid(); protocolOrder.CreationCommandHash = "original-command";
+            await db.SaveChangesAsync();
+            var adHocRollback = await Assert.ThrowsAsync<PostgresException>(() => Run(adHoc.DownOperations));
+            Assert.Contains("PMS ad-hoc data exists", adHocRollback.MessageText);
+            db.MaintenanceTasks.Add(new() { TaskId = "DUPLICATE-COMMAND", OriginNode = protocolOrder.OriginNode,
+                PmsProtocolVersion = 2, CreationCommandId = protocolOrder.CreationCommandId });
+            var duplicateCommand = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+            Assert.Equal(PostgresErrorCodes.UniqueViolation, Assert.IsType<PostgresException>(duplicateCommand.InnerException).SqlState);
         }
         finally { await db.Database.EnsureDeletedAsync(); }
     }

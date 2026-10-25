@@ -50,7 +50,8 @@ export function canOpen(path: string) {
   if (!loaded || error) return false
   if (isAdmin) return true
   if (path.startsWith('/admin/')) return false
-  if (path === '/pms/work-planning') return ['pms.work', 'pms.config', 'pms.counter'].some(m => canPerform(m + '.view'))
+  if (path === '/pms/work-planning') return ['pms.jobs', 'pms.work', 'pms.config', 'pms.counter'].some(m => canPerform(m + '.view'))
+  if (path === '/pms/jobs' || path.startsWith('/pms/jobs/')) return canPerform('pms.jobs.view') || canPerform('pms.config.view')
   const matches = modules.flatMap(m => m.routes.map(route => ({ m, route })))
     .filter(({ route }) => path === route || path.startsWith(route.endsWith('/') ? route : route + '/'))
     .sort((a, b) => b.route.length - a.route.length)

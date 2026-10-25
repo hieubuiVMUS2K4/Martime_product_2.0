@@ -43,6 +43,7 @@ public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)
             ?? throw new InvalidOperationException("The equipment asset no longer exists.");
         await db.Entry(asset).ReloadAsync(token);
         if (asset.Category == "SYSTEM") throw new InvalidOperationException("An equipment folder cannot receive a Work Order.");
+        if (!asset.IsActive || asset.Status == "DECOMMISSIONED") throw new InvalidOperationException("The equipment asset is no longer in service.");
         var dueState = PmsJobRules.DueState(job.NextDueDate, job.NextDueRunningHours,
             asset.CurrentRunningHours, now, vesselTimeZone, job.DaysBeforeDue, job.WarningHours ?? 50);
         if (automatic && !PmsJobRules.CanAutoRelease(job, dueState))

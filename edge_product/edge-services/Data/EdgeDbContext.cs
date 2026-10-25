@@ -1463,6 +1463,8 @@ public class EdgeDbContext : DbContext
             modelBuilder.Entity<PmsWorkOrderMaterialPosting>().HasIndex(r => r.ReportId).HasDatabaseName("ix_pms_posting_report");
             entity.HasIndex(e => new { e.ScheduleId, e.CycleKey }).IsUnique()
                 .HasDatabaseName("ux_pms_work_order_cycle").HasFilter("cycle_key IS NOT NULL");
+            entity.HasIndex(e => new { e.OriginNode, e.CreationCommandId }).IsUnique()
+                .HasDatabaseName("ux_pms_work_order_creation").HasFilter("creation_command_id IS NOT NULL");
             
             entity.Property(e => e.IntervalHours).HasColumnType("decimal(10,2)");
             entity.Property(e => e.RunningHoursAtLastDone).HasColumnType("decimal(10,2)");
@@ -3166,7 +3168,12 @@ public class EdgeDbContext : DbContext
             if (entry.State == EntityState.Deleted)
             {
                 syncItem.ActionType = SyncActionType.DELETE;
-                syncItem.Payload = "{}"; 
+                syncItem.Payload = entry.Entity switch
+                {
+                    MaintenanceSchedule { PmsProtocolVersion: >= 2 } job => System.Text.Json.JsonSerializer.Serialize(new { job.PmsProtocolVersion }),
+                    MaintenanceTask { PmsProtocolVersion: >= 2 } order => System.Text.Json.JsonSerializer.Serialize(new { order.PmsProtocolVersion }),
+                    _ => "{}"
+                };
                 Console.WriteLine($"[EDGE-SYNC] Queued DELETE: {tableName}/{recordKey}");
             }
             else if (entry.State == EntityState.Added)
@@ -3224,7 +3231,11 @@ public class EdgeDbContext : DbContext
                 // (để nối khoá ngoại) và mã vật tư + tên (để nhận ra đúng dòng nào trong phiếu).
                 EnrichLineItemPayload(changedProps, entry.Entity);
 
-                syncItem.Payload = entry.Entity is ApprovalDocument ? SerializeSyncPayload(entry.Entity) : System.Text.Json.JsonSerializer.Serialize(changedProps);
+                // Protocol identity and immutable report content cannot disappear
+                // from an UPDATE delta, including retries after a lost CREATE.
+                syncItem.Payload = entry.Entity is ApprovalDocument or PmsWorkOrderReport or PmsWorkOrderMaterialPosting
+                    or MaintenanceSchedule { PmsProtocolVersion: >= 2 } or MaintenanceTask { PmsProtocolVersion: >= 2 }
+                    ? SerializeSyncPayload(entry.Entity) : System.Text.Json.JsonSerializer.Serialize(changedProps);
                 
                 // Log CrewMember updates with FullName specifically
                 if (tableName == "crew_member" && changedProps.ContainsKey("FullName"))

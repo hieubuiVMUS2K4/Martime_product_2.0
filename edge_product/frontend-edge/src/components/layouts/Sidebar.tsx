@@ -88,7 +88,8 @@ const getNavigation = (t: (key: string) => string): Entry[] => [
   { name: t('nav.sync'), to: '/sync', icon: RefreshCw },
 ]
 
-const isUnder = (pathname: string, to: string) => pathname === to || pathname.startsWith(`${to}/`)
+const isUnder = (pathname: string, to: string) => pathname === to || pathname.startsWith(`${to}/`) ||
+  (to === '/pms/work-planning' && /^\/pms\/(jobs|work-orders)(\/|$)/.test(pathname))
 
 export function Sidebar() {
   const location = useLocation()
@@ -155,7 +156,7 @@ export function Sidebar() {
       title={isCollapsed ? leaf.name : undefined}
       className={({ isActive }) =>
         `${rowBase} ${child ? 'py-1.5 pl-3 pr-2' : isCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'} ${
-          isActive ? selected : child ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-white' : idle
+          (isActive || isUnder(location.pathname, leaf.to)) ? selected : child ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-white' : idle
         }`
       }
     >

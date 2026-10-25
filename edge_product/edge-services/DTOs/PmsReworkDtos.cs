@@ -177,3 +177,50 @@ public sealed record PmsSubmissionSnapshot(int SchemaVersion, Guid WorkOrderId, 
     long SubmittedByUserId, string SubmittedByCrewId, string? Notes, int DurationMinutes, double? RunningHours,
     IReadOnlyList<PmsSubmittedChecklist> Checklist, IReadOnlyList<PmsSubmittedMaterial> Materials, IReadOnlyList<PmsExecutionActor> Contributors);
 public sealed record PmsApprovalEvidence(Guid ActionId, Guid RevisionId, string ContentHash);
+
+// Definition only: execution, materials used, photos and signed legacy forms are not accepted here.
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public class PmsAdHocDefinitionDto
+{
+    [MaxLength(200)] public string? Name { get; set; }
+    public Guid? EquipmentAssetId { get; set; }
+    [MaxLength(20000)] public string? Instructions { get; set; }
+    [RegularExpression("^(CRITICAL|HIGH|NORMAL|LOW)$")] public string Priority { get; set; } = "NORMAL";
+    [MaxLength(20)] public string? Department { get; set; }
+    // A vessel-local calendar date, not an arbitrary timestamp with implicit precision.
+    public DateOnly? DueDate { get; set; }
+    [Range(0, 1000000000)] public double? DueHours { get; set; }
+    [Range(0, 3650)] public int WarningDays { get; set; } = 7;
+    [Range(0, 1000000)] public double WarningHours { get; set; } = 50;
+    [MaxLength(50)] public string? CrewId { get; set; }
+    [MaxLength(30)] public string[] SupportingCrewIds { get; set; } = [];
+    [MaxLength(500)] public List<PmsAdHocChecklistDto> Checklist { get; set; } = [];
+}
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class PmsAdHocChecklistDto : ChecklistItemTemplateDto { }
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class CreatePmsAdHocOrderDto : PmsAdHocDefinitionDto
+{
+    public Guid CommandId { get; set; }
+    public bool IssueNow { get; set; }
+}
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed class UpdatePmsAdHocDraftDto : PmsAdHocDefinitionDto { public int ExpectedVersion { get; set; } }
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record IssuePmsAdHocDraftDto(int ExpectedVersion);
+
+public sealed class PmsCounterQuery
+{
+    [Range(1, 100000)] public int Page { get; set; } = 1;
+    [Range(1, 100)] public int PageSize { get; set; } = 20;
+    [MaxLength(200)] public string? Code { get; set; }
+    [MaxLength(200)] public string? Name { get; set; }
+    public Guid? EquipmentAssetId { get; set; }
+}
+public sealed class PmsMaterialOptionQuery
+{
+    [Range(1, 100000)] public int Page { get; set; } = 1;
+    [Range(1, 200)] public int PageSize { get; set; } = 30;
+    [MaxLength(200)] public string? Search { get; set; }
+    [MaxLength(7400)] public string? SelectedIds { get; set; }
+}

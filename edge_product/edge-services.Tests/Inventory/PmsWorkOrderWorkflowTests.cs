@@ -20,7 +20,7 @@ using Xunit;
 namespace MaritimeEdge.Tests.Inventory;
 
 [Collection("PMS inventory")]
-public class PmsWorkOrderWorkflowTests(PmsDatabaseFixture fixture)
+public partial class PmsWorkOrderWorkflowTests(PmsDatabaseFixture fixture)
 {
     private const string Password = "Pms-workflow-test-password";
     private static IConfiguration Config() => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

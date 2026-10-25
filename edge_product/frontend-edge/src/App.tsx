@@ -28,7 +28,9 @@ import AssetsPage from './pages/PMS/AssetsPage'
 import MasterSchedulePage from './pages/PMS/MasterSchedulePage'
 import UnassignedTasksPage from './pages/PMS/UnassignedTasksPage'
 import ApprovalDashboardPage from './pages/PMS/ApprovalDashboardPage'
-import WorkPlanningPage from './pages/PMS/WorkPlanningPage'
+import PmsPlanningEntry from './features/pms-rework/Entry'
+import PmsJobPage from './features/pms-rework/JobPage'
+import PmsWorkOrderPage from './features/pms-rework/WorkOrderPage'
 import WorkReportPage from './pages/PMS/WorkReportPage'
 import { MaintenanceHistoryPage } from './pages/PMS/MaintenanceHistoryPage'
 import StoreLocationPage from './pages/StoreLocation/StoreLocationPage'
@@ -148,7 +150,11 @@ function App() {
         <Route path="pms/unassigned-tasks" element={<UnassignedTasksPage />} />
         <Route path="pms/approval-dashboard" element={<ApprovalDashboardPage />} />
         <Route path="pms/maintenance-history" element={<MaintenanceHistoryPage />} />
-        <Route path="pms/work-planning" element={<WorkPlanningPage />} />
+        <Route path="pms/work-planning" element={<PmsPlanningEntry />} />
+        <Route path="pms/jobs/:id" element={<PmsJobPage />} />
+        <Route path="pms/work-orders/:id" element={<PmsWorkOrderPage />} />
+        <Route path="pms/work-orders/:id/execute" element={<PmsWorkOrderPage mode="execute" />} />
+        <Route path="pms/work-orders/:id/review" element={<PmsWorkOrderPage mode="review" />} />
         <Route path="pms/work-report/:id" element={<WorkReportPage />} />
 
         {/* Reporting Routes */}

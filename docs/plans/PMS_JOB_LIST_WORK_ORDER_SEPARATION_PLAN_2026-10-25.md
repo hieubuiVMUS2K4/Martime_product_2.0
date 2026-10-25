@@ -1,10 +1,14 @@
 # Kế hoạch tách Job List và Work Order trong PMS
 
-Ngày: 25/10/2026. Trạng thái: đã thống nhất nghiệp vụ và wireframe; đang triển khai nền tảng/API trên `hiu67-rework`, chưa chuyển luồng vận hành.
+Ngày: 25/10/2026. Trạng thái: đã thống nhất nghiệp vụ và wireframe; đang triển khai backend và giao diện mới trên `hiu67-rework`, chưa chuyển luồng vận hành.
 
-Đây là thiết kế đích, không phải mô tả toàn bộ chức năng đã chạy. Theo yêu cầu bắt đầu triển khai, schema, API Job/WO và workflow thực hiện–duyệt mới đang được bổ sung ở working tree; xem [tiến độ và ranh giới triển khai](PMS_REWORK_IMPLEMENTATION_PROGRESS_2026-10-25.md). API mới tắt mặc định, chưa nối worker phát hành mới, chưa đổi giao diện hoặc dữ liệu vận hành. Phần thực hiện PMS trên web trước rework đã được commit tại `4ae551ef`. Phần ảnh không thuộc phạm vi mới. Luồng PMS mới cũng bỏ các tab/biểu mẫu ĐGRR và BBKT; chỉ giữ hồ sơ cũ ở chế độ đọc khi cần bảo toàn lịch sử.
+Đây là thiết kế đích, không phải mô tả toàn bộ chức năng đã chạy. Schema, API Job/WO, workflow thực hiện–duyệt và giao diện mới đang được bổ sung; xem [tiến độ và ranh giới triển khai](PMS_REWORK_IMPLEMENTATION_PROGRESS_2026-10-25.md). API mới tắt mặc định; frontend chỉ chọn giao diện mới khi catalog backend đã bật Job List. Chưa nối worker phát hành mới hoặc chuyển dữ liệu vận hành. Phần thực hiện PMS trên web trước rework đã được commit tại `4ae551ef`. Phần ảnh không thuộc phạm vi mới. Luồng PMS mới cũng bỏ các tab/biểu mẫu ĐGRR và BBKT; chỉ giữ hồ sơ cũ ở chế độ đọc khi cần bảo toàn lịch sử.
 
 **Cách đọc nhanh:** mục 7 mô tả màn hình và nút dành cho người dùng. Các mục còn lại mô tả quy tắc xử lý, chuyển dữ liệu và triển khai để những màn hình này hoạt động đúng.
+
+**Điều chỉnh phạm vi dữ liệu demo (26/10/2026):** người dùng cho phép xóa dữ liệu PMS cũ vì không cần giữ. Với môi trường demo này, chọn khởi tạo Job/WO mới từ dữ liệu sạch, không bắt buộc chuyển các task/lịch sử/cấu hình cũ. Các yêu cầu bảo toàn/chuyển đổi legacy ở dưới vẫn là phương án cho môi trường có hồ sơ cần giữ; không còn là điều kiện bắt buộc của lần reset demo này. Không xóa thiết bị, liên kết vật tư–thiết bị, danh mục vật tư, tồn kho, thuyền viên, tài khoản, chức danh/quyền hoặc dữ liệu phân hệ khác. Không hoàn tác tồn kho/counter đã ghi chỉ vì xóa báo cáo PMS cũ.
+
+Reset phải có phạm vi tàu/nút nguồn cụ thể, kiểm kê bảng con và liên kết, ngừng writer/worker PMS cũ và chặn gói đồng bộ/mobile từ trước reset ở cả hai đầu trước khi xóa. Không dùng `TRUNCATE ... CASCADE`, xóa toàn bộ hàng đợi, đổi stream chung hoặc xóa kho bằng chứng ký dùng chung để làm sạch PMS. Hàng đợi PMS cũ được đối chiếu và xử lý riêng theo mốc reset; hàng đợi phân hệ khác giữ nguyên. Chỉ bật luồng mới khi kiểm thử xác nhận gói cũ không khôi phục dữ liệu đã xóa. Cho phép xóa dữ liệu không đồng nghĩa đã thực hiện reset; kết quả thực tế ghi tại tài liệu tiến độ.
 
 ## 1. Kết luận về hiện trạng
 
@@ -149,6 +153,7 @@ flowchart LR
 ```
 
 - Tạo thủ công có thể lưu Nháp hoặc phát hành khi đủ thông tin. WO do worker phát hành có thể vào Chờ phân công hoặc Đã phân công nếu mặc định hợp lệ.
+- WO đột xuất V1 nhập hạn theo ngày tàu (`YYYY-MM-DD`) hoặc counter. Chưa mở trường hạn có giờ; ngày hạn được server chuyển đổi theo múi giờ tàu và theo quy tắc cả ngày ở mục 5.2. Nháp thiếu thiết bị vẫn giữ checklist mẫu riêng, chỉ tạo checklist thực hiện khi phát hành với thiết bị thật.
 - Tiếp nhận ghi `AcceptedAt/AcceptedBy` và sự kiện nghiệp vụ. Có thể cho nút Bắt đầu đồng thời tiếp nhận; ACK đồng bộ không phải xác nhận nhận việc của thuyền viên.
 - WO đã phát hành và phân công hợp lệ thì người được giao/hỗ trợ có quyền thực hiện được bắt đầu, kể cả Chưa đến hạn/Sắp đến hạn; không chặn thêm bằng ngày hoặc ngưỡng giờ. Quyền phát hành sớm được kiểm tra ở bước phát hành của người quản lý, không bắt người làm xin lại một quyền làm sớm. Đây là thay đổi so với luồng cũ, phải áp dụng thống nhất web/mobile/backend.
 - Gửi duyệt đóng băng báo cáo đã gửi; trả lại tạo lượt sửa tiếp theo trong cùng WO và giữ phiên bản cũ.

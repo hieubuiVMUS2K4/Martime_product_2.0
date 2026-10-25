@@ -4562,6 +4562,12 @@ namespace productapi.Migrations
             modelBuilder.Entity("ProductApi.Models.MaintenanceTask", b =>
                 {
                     b.Property<int?>("WorkflowVersion").HasColumnType("integer").HasColumnName("workflow_version");
+                    b.Property<Guid?>("CreationCommandId").HasColumnType("uuid").HasColumnName("creation_command_id");
+                    b.Property<string>("CreationCommandHash").HasMaxLength(64).HasColumnType("character varying(64)").HasColumnName("creation_command_hash");
+                    b.Property<long?>("CreatedByUserId").HasColumnType("bigint").HasColumnName("created_by_user_id");
+                    b.Property<string>("WorkOrderInstructions").HasColumnType("text").HasColumnName("work_order_instructions");
+                    b.Property<string>("DraftChecklistJson").HasColumnType("text").HasColumnName("draft_checklist_json");
+                    b.HasIndex("VesselId", "OriginNode", "CreationCommandId").IsUnique().HasDatabaseName("ux_pms_work_order_creation").HasFilter("creation_command_id IS NOT NULL");
                     b.Property<string>("SupportingCrewIds").HasColumnType("text").HasColumnName("supporting_crew_ids");
                     b.Property<string>("ExecutionActors").HasColumnType("text").HasColumnName("execution_actors");
                     b.Property<double?>("ExecutionStartedHours").HasColumnType("double precision").HasColumnName("execution_started_hours");

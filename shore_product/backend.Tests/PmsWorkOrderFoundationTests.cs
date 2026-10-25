@@ -65,4 +65,22 @@ public class PmsWorkOrderFoundationTests
         Assert.Contains("ux_pms_report_command", sql); Assert.Contains("ux_pms_material_posting", sql);
         Assert.True(db.Model.FindEntityType(typeof(PmsWorkOrderReport))!.FindProperty(nameof(PmsWorkOrderReport.JobId))!.IsNullable);
     }
+
+    [Fact]
+    public void AdHocCreationIdentityIsScopedByVesselAndOrigin_AndRetainedInMirror()
+    {
+        var task = new MaintenanceTask { CreationCommandId = Guid.NewGuid(), CreationCommandHash = "original-command",
+            CreatedByUserId = 123, WorkOrderInstructions = "Inspect impeller", PmsProtocolVersion = 2 };
+        var copy = JsonSerializer.Deserialize<MaintenanceTask>(JsonSerializer.Serialize(task))!;
+        Assert.Equal(task.CreationCommandId, copy.CreationCommandId); Assert.Equal(task.CreationCommandHash, copy.CreationCommandHash);
+        Assert.Equal(123L, copy.CreatedByUserId); Assert.Equal(task.WorkOrderInstructions, copy.WorkOrderInstructions);
+        using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=unused;Username=unused;Password=unused").Options);
+        var migrations = db.GetService<IMigrationsAssembly>();
+        var migration = migrations.CreateMigration(migrations.Migrations["20261026090000_AddPmsAdHocOrderDrafts"], "Npgsql.EntityFrameworkCore.PostgreSQL");
+        var sql = string.Join("\n", db.GetService<IMigrationsSqlGenerator>().Generate(migration.UpOperations, db.Model).Select(c => c.CommandText));
+        Assert.Contains("\"VesselId\", \"OriginNode\", creation_command_id", sql);
+        var index = db.Model.FindEntityType(typeof(MaintenanceTask))!.GetIndexes().Single(i => i.GetDatabaseName() == "ux_pms_work_order_creation");
+        Assert.True(index.IsUnique); Assert.Equal(new[] { "VesselId", "OriginNode", "CreationCommandId" }, index.Properties.Select(p => p.Name));
+    }
 }

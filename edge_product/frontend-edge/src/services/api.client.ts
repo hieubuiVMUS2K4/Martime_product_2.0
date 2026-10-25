@@ -49,6 +49,10 @@ export class ApiClient {
   ): Promise<T> {
     if (retryAuth && options.method && options.method !== "GET") {
       const proof = await prepareApproval(endpoint, typeof options.body === "string" ? JSON.parse(options.body) : undefined, _getToken?.() ?? null)
+      if (/^\/pms\/work-orders\/[^/]+\/(approve|return)$/.test(endpoint) && typeof options.body === 'string' && proof['X-Approval-Reason'] != null) {
+        // The reason confirmed with the signature must be the same as the report's decision reason.
+        options = { ...options, body: JSON.stringify({ ...JSON.parse(options.body), reason: decodeURIComponent(proof['X-Approval-Reason']) }) }
+      }
       options = { ...options, headers: { ...options.headers, ...proof } }
     }
     const controller = new AbortController()

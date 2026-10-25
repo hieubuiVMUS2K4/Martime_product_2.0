@@ -2,6 +2,7 @@ using MaritimeEdge.Data;
 using MaritimeEdge.Models;
 using Maritime.Shared.DTOs.Sync;
 using Maritime.Shared.Interfaces;
+using Maritime.Shared.Models.Sync;
 using MaritimeEdge.Services.Core;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -177,6 +178,11 @@ public class SyncConflictHandler : ISyncConflictHandler
     public async Task HandleIncomingAsync(
         EdgeDbContext context, SyncQueueItemDto item, CancellationToken token)
     {
+        PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
+        if (item.TableName.Equals("maintenance_schedule", StringComparison.OrdinalIgnoreCase) &&
+            Guid.TryParse(item.RecordKey, out var jobId) && await context.MaintenanceSchedules.AsNoTracking()
+                .AnyAsync(j => j.Id == jobId && j.PmsProtocolVersion >= 2, token))
+            throw new InvalidOperationException(PmsSyncProtocol.UpgradeRequired);
         // Mọi dữ liệu không phải danh mục chung là dữ liệu RIÊNG của một tàu: bờ đóng dấu IMO tàu đích. Gói của
         // tàu khác thì KHÔNG áp — chốt chặn thứ hai, phòng khi bờ định tuyến nhầm.
         if (!_masterDataTables.Contains(item.TableName) && item.TableName != CatalogRosterTable)
