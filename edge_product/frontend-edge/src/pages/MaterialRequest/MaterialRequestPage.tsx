@@ -187,6 +187,9 @@ export default function MaterialRequestPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [formOptionsLoading, setFormOptionsLoading] = useState(false);
+  const [formOptionsError, setFormOptionsError] = useState('');
+  const formOptionsRequest = useRef<Promise<void> | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -232,22 +235,37 @@ export default function MaterialRequestPage() {
 
   useEffect(() => { loadList(); }, [loadList]);
 
-  const loadFormOptions = async () => {
-    const [mats, shipItems, voyages, assets] = await Promise.all([
-      materialService.getCatalog(),
-      materialService.getItems({ onlyActive: true }).catch(() => []),
-      maritimeService.voyage.getAll({ pageSize: 100 }).then(r => r).catch(() => []),
-      equipmentAssetService.getAll().catch(() => []),
-    ]);
-    const nextStockByItemCode: Record<string, { qty: number; unit?: string }> = {};
-    shipItems.forEach(row => {
-      if (!row.itemCode) return;
-      nextStockByItemCode[row.itemCode] = { qty: Number(row.onHandQuantity || 0), unit: row.unit ?? undefined };
-    });
-    setMaterialOptions(mats);
-    setInventoryStockByItemCode(nextStockByItemCode);
-    setVoyageOptions(Array.isArray(voyages) ? voyages : []);
-    setAssetOptions(Array.isArray(assets) ? assets : []);
+  const loadFormOptions = (): Promise<void> => {
+    if (formOptionsRequest.current) return formOptionsRequest.current;
+    setFormOptionsLoading(true);
+    setFormOptionsError('');
+    const request = (async () => {
+      try {
+        const [mats, shipItems, voyages, assets] = await Promise.all([
+          materialService.getCatalog(),
+          materialService.getItems({ onlyActive: true }).catch(() => []),
+          maritimeService.voyage.getAll({ pageSize: 100 }).catch(() => []),
+          equipmentAssetService.getAll().catch(() => []),
+        ]);
+        const nextStockByItemCode: Record<string, { qty: number; unit?: string }> = {};
+        shipItems.forEach(row => {
+          if (!row.itemCode) return;
+          nextStockByItemCode[row.itemCode] = { qty: Number(row.onHandQuantity || 0), unit: row.unit ?? undefined };
+        });
+        setMaterialOptions(mats);
+        setInventoryStockByItemCode(nextStockByItemCode);
+        setVoyageOptions(Array.isArray(voyages) ? voyages : []);
+        setAssetOptions(Array.isArray(assets) ? assets : []);
+      } catch (error) {
+        setFormOptionsError('Không tải được danh mục vật tư. Vui lòng thử lại.');
+        throw error;
+      } finally {
+        setFormOptionsLoading(false);
+        formOptionsRequest.current = null;
+      }
+    })();
+    formOptionsRequest.current = request;
+    return request;
   };
 
   const loadEquipmentMaterials = async (equipmentAssetId: string, force = false) => {
@@ -296,7 +314,7 @@ export default function MaterialRequestPage() {
     return asset ? `${asset.assetCode} - ${asset.assetName}` : 'Không xác định';
   };
 
-  const openCreate = async () => {
+  const openCreate = () => {
     setFormData({
       vesselName: VESSEL_CONFIG.VESSEL_NAME,
       voyageId: '',
@@ -313,8 +331,8 @@ export default function MaterialRequestPage() {
     setMaterialIdsByEquipment({});
     setLoadingMaterialsByEquipment({});
     setEditingId(null);
-    await loadFormOptions();
     setShowFormModal(true);
+    void loadFormOptions().catch(() => {});
   };
 
   const openEdit = async (id: number) => {
@@ -359,6 +377,7 @@ export default function MaterialRequestPage() {
   };
 
   const handleSave = async (andSubmit = false) => {
+    if (formOptionsLoading || formOptionsError) return;
     if (formItems.some(item => !item.materialItemId)) {
       toast.warning('Vui lòng chọn vật tư cho tất cả các dòng yêu cầu.');
       return;
@@ -545,16 +564,21 @@ export default function MaterialRequestPage() {
             <button onClick={() => setShowFormModal(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
               <X className="w-3.5 h-3.5" /> Hủy bỏ
             </button>
-            <PermissionGate permission={editingId ? 'pms.requests.update' : 'pms.requests.create'}><button disabled={saving} onClick={() => handleSave(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+            <PermissionGate permission={editingId ? 'pms.requests.update' : 'pms.requests.create'}><button disabled={saving || formOptionsLoading || !!formOptionsError} onClick={() => handleSave(false)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
               Lưu nháp
             </button></PermissionGate>
-            <PermissionGate permission={editingId ? 'pms.requests.update' : 'pms.requests.create'}><button disabled={saving} onClick={() => handleSave(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+            <PermissionGate permission={editingId ? 'pms.requests.update' : 'pms.requests.create'}><button disabled={saving || formOptionsLoading || !!formOptionsError} onClick={() => handleSave(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
               <Send className="w-3.5 h-3.5" /> Lưu và gửi duyệt
             </button></PermissionGate>
           </div>
         </div>
 
         <div className="flex-1 overflow-auto">
+          {formOptionsLoading && <div role="status" className="border-b border-blue-100 bg-blue-50 px-4 py-2 text-sm text-blue-700">Đang tải danh mục vật tư, tồn kho, chuyến đi và thiết bị…</div>}
+          {formOptionsError && <div role="alert" className="flex items-center justify-between gap-3 border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <span>{formOptionsError}</span>
+            <button type="button" onClick={() => { void loadFormOptions().catch(() => {}); }} className="shrink-0 rounded border border-red-200 px-3 py-1 hover:bg-red-100">Thử lại</button>
+          </div>}
           {/* Thông tin yêu cầu */}
           <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50">
             <span className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Info size={14} /> Thông tin yêu cầu</span>
@@ -690,7 +714,7 @@ export default function MaterialRequestPage() {
             </table>
           </div>
           <div className="px-4 py-2 border-t border-gray-200">
-            <button onClick={addFormItem} className="flex items-center gap-1 text-blue-600 text-sm hover:text-blue-800">
+            <button disabled={formOptionsLoading || !!formOptionsError} onClick={addFormItem} className="flex items-center gap-1 text-blue-600 text-sm hover:text-blue-800 disabled:opacity-50">
               <Plus size={14} /> Thêm dòng
             </button>
           </div>

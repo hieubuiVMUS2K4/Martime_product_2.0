@@ -18,6 +18,81 @@ function load(file, imports, globals = {}) {
   return exports
 }
 const user = { id: 1, username: 'admin', roleCode: 'ADMIN' }
+function materialRequestFormFixture(getCatalog) {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const slots = []; let cursor = 0
+  const hooks = {
+    useState: initial => {
+      const index = cursor++
+      if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial
+      return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value }]
+    },
+    useRef: initial => {
+      const index = cursor++
+      if (!(index in slots)) slots[index] = { current: initial }
+      return slots[index]
+    },
+    useCallback: fn => fn, useEffect: () => {},
+  }
+  const Page = load('pages/MaterialRequest/MaterialRequestPage.tsx', {
+    react: hooks,
+    '@/components/common/CatalogSelect': { CatalogSelect: () => null },
+    '@/config/catalogs': { UNITS_OF_MEASURE: [] },
+    '@/components/auth/PermissionGate': { PermissionGate: ({ children }) => children },
+    '@/components/common/DataTable': { DataTable: () => null, TableActions: ({ children }) => children },
+    '@/contexts/I18nContext': { useTranslationSafe: () => ({ t: key => key }) },
+    '@/config/app.config': { VESSEL_CONFIG: { VESSEL_NAME: 'Test vessel' } },
+    '@/services/materialRequest.service': { materialRequestService: {} },
+    '@/services/materialService': { materialService: { getCatalog, getItems: async () => [] } },
+    '@/services/maritime.service': { maritimeService: { voyage: { getAll: async () => [] } } },
+    '@/services/equipment-asset.service': { equipmentAssetService: { getAll: async () => [] } },
+  }).default
+  const render = () => { cursor = 0; return Page() }
+  const buttons = node => !node || typeof node !== 'object' ? [] : [
+    ...(node.type === 'button' ? [node] : []),
+    ...[].concat(node.props?.children ?? []).flat(Infinity).flatMap(buttons),
+  ]
+  return {
+    html: () => renderToStaticMarkup(render()),
+    button: label => {
+      const button = buttons(render()).find(node => renderToStaticMarkup(node).includes(label))
+      assert.ok(button, `Missing button: ${label}`)
+      return button
+    },
+  }
+}
+
+test('new material request opens before a slow catalog resolves; reopening shares the pending load', async () => {
+  const wait = deferred(); let calls = 0
+  const form = materialRequestFormFixture(() => { calls++; return wait.promise })
+  form.button('materialRequests.addNew').props.onClick()
+  assert.match(form.html(), /Thêm mới yêu cầu vật tư/)
+  assert.match(form.html(), /role="status"/)
+  assert.equal(form.button('Lưu nháp').props.disabled, true)
+  form.button('Hủy bỏ').props.onClick()
+  form.button('materialRequests.addNew').props.onClick()
+  assert.equal(calls, 1)
+  form.button('Hủy bỏ').props.onClick()
+  wait.resolve([])
+  await new Promise(setImmediate)
+  assert.doesNotMatch(form.html(), /Thêm mới yêu cầu vật tư/)
+})
+
+test('material request load failure stays in the open form and retry enables saving after recovery', async () => {
+  let calls = 0
+  const form = materialRequestFormFixture(() => ++calls === 1 ? Promise.reject(new Error('Offline')) : Promise.resolve([]))
+  form.button('materialRequests.addNew').props.onClick()
+  await new Promise(setImmediate)
+  assert.match(form.html(), /Thêm mới yêu cầu vật tư/)
+  assert.match(form.html(), /role="alert"/)
+  assert.equal(form.button('Lưu nháp').props.disabled, true)
+  form.button('Thử lại').props.onClick()
+  await new Promise(setImmediate)
+  assert.equal(calls, 2)
+  assert.doesNotMatch(form.html(), /role="alert"|role="status"/)
+  assert.equal(form.button('Lưu nháp').props.disabled, false)
+})
+
 function pollingFixture(task) {
   const timers = new Map(); let nextId = 0
   const { startPolling } = load('lib/polling.ts', {}, {

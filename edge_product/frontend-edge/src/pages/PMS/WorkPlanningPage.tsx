@@ -40,6 +40,7 @@ import type { EquipmentAsset, MaintenanceSchedule, CreateMaintenanceScheduleDto,
 
 type ViewTab = 'table' | 'calendar' | 'gantt' | 'kanban' | 'counter' | 'config';
 const SHOW_KANBAN_TAB = false;
+const GANTT_TABLE_COLUMNS = 'minmax(0, 2.4fr) minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.1fr)';
 
 // Checklist templates for common equipment
 const CHECKLIST_TEMPLATES: Record<string, { label: string; items: { desc: string; reading?: boolean; unit?: string; min?: number; max?: number }[] }> = {
@@ -1573,7 +1574,7 @@ export default function WorkPlanningPage() {
 
           {/* ============ TAB: GANTT ============ */}
           {activeTab === 'gantt' && (
-            <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex min-h-0 flex-col h-full overflow-hidden">
               {/* Gantt toolbar */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-t border-b border-gray-200">
                 <button
@@ -1593,20 +1594,19 @@ export default function WorkPlanningPage() {
                 </button>
               </div>
               {/* Gantt chart — fixed height, split scroll */}
-              <div className="flex-1 flex overflow-hidden">
+              <div className="flex-1 min-h-0 flex overflow-hidden">
                 {/* LEFT: Fixed table */}
-                <div className="flex-shrink-0 flex flex-col border-r border-gray-300" style={{ width: `${ganttLeftWidth}px` }}>
+                <div className="min-w-0 flex-shrink-0 flex flex-col border-r border-gray-300" style={{ width: `${ganttLeftWidth}px`, maxWidth: 'calc(100% - 164px)' }}>
                   {/* Left header */}
-                  <div className="flex-shrink-0 flex bg-gray-50 border-b border-gray-300" style={{ height: '40px' }}>
-                    <div className="w-[200px] px-3 flex items-center text-xs font-semibold text-gray-700 border-r border-gray-200">{t('pms.workPlanning.gantt.taskName')}</div>
-                    <div className="w-[90px] px-2 flex items-center justify-center text-xs font-semibold text-gray-700 border-r border-gray-200">{t('pms.workPlanning.gantt.startDate')}</div>
-                    <div className="w-[60px] px-2 flex items-center justify-center text-xs font-semibold text-gray-700 border-r border-gray-200">{t('pms.workPlanning.gantt.duration')}</div>
-                    <div className="w-[160px] px-2 flex items-center text-xs font-semibold text-gray-700 border-r border-gray-200">{t('pms.workPlanning.gantt.equipment')}</div>
-                    <div className="w-[80px] px-2 flex items-center justify-center text-xs font-semibold text-gray-700 border-r border-gray-200">{t('pms.workPlanning.gantt.taskType')}</div>
-                    <div className="w-[90px] px-2 flex items-center justify-center text-xs font-semibold text-gray-700">{t('pms.workPlanning.gantt.assignee')}</div>
+                  <div className="flex-shrink-0 grid overflow-y-hidden bg-gray-50 border-b border-gray-300" style={{ height: '40px', gridTemplateColumns: GANTT_TABLE_COLUMNS, scrollbarGutter: 'stable' }}>
+                    {['taskName', 'startDate', 'duration', 'equipment', 'taskType', 'assignee'].map((key, index) => (
+                      <div key={key} className={`min-w-0 flex items-center px-2 text-xs font-semibold text-gray-700 ${index < 5 ? 'border-r border-gray-200' : ''} ${index === 0 || index === 3 ? '' : 'justify-center'}`}>
+                        <span className="truncate" title={t(`pms.workPlanning.gantt.${key}`)}>{t(`pms.workPlanning.gantt.${key}`)}</span>
+                      </div>
+                    ))}
                   </div>
                   {/* Left body — scroll Y synced */}
-                  <div className="flex-1 overflow-y-auto overflow-x-hidden" id="gantt-left-body" onScroll={(e) => {
+                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ scrollbarGutter: 'stable' }} id="gantt-left-body" onScroll={(e) => {
                     const rightBody = document.getElementById('gantt-right-body');
                     if (rightBody) rightBody.scrollTop = e.currentTarget.scrollTop;
                   }}>
@@ -1623,18 +1623,18 @@ export default function WorkPlanningPage() {
                         const taskTypeLabel = maintenanceCategoryLabel(srcTask?.taskType, t);
                         const assignee = srcTask?.assignedTo || '';
                         return (
-                          <div key={task.id} className={`flex border-b border-gray-100 hover:bg-blue-50/40 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`} style={{ height: '36px' }}>
-                            <div className="w-[200px] px-3 flex items-center text-xs text-gray-900 truncate border-r border-gray-100 gap-1.5">
+                          <div key={task.id} className={`grid border-b border-gray-100 hover:bg-blue-50/40 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`} style={{ height: '36px', gridTemplateColumns: GANTT_TABLE_COLUMNS }}>
+                            <div className="min-w-0 px-2 flex items-center text-xs text-gray-900 border-r border-gray-100 gap-1.5">
                               <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                              <span className="truncate">{taskName}</span>
+                              <span className="truncate" title={taskName}>{taskName}</span>
                             </div>
-                            <div className="w-[90px] px-2 flex items-center justify-center text-xs text-gray-600 border-r border-gray-100">{startDateStr}</div>
-                            <div className="w-[60px] px-2 flex items-center justify-center text-xs text-gray-600 border-r border-gray-100">{durationStr}</div>
-                            <div className="w-[160px] px-2 flex items-center text-xs text-gray-700 truncate border-r border-gray-100">{equipName}</div>
-                            <div className="w-[80px] px-2 flex items-center justify-center border-r border-gray-100">
-                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${isAdhoc ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{taskTypeLabel}</span>
+                            <div className="min-w-0 px-2 flex items-center justify-center text-xs text-gray-600 border-r border-gray-100"><span className="truncate" title={startDateStr}>{startDateStr}</span></div>
+                            <div className="min-w-0 px-2 flex items-center justify-center text-xs text-gray-600 border-r border-gray-100"><span className="truncate" title={durationStr}>{durationStr}</span></div>
+                            <div className="min-w-0 px-2 flex items-center text-xs text-gray-700 border-r border-gray-100"><span className="truncate" title={equipName}>{equipName}</span></div>
+                            <div className="min-w-0 px-2 flex items-center justify-center border-r border-gray-100">
+                              <span title={taskTypeLabel} className={`truncate px-1.5 py-0.5 rounded text-xs font-medium ${isAdhoc ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{taskTypeLabel}</span>
                             </div>
-                            <div className="w-[90px] px-2 flex items-center justify-center text-xs text-gray-600 truncate">{assignee}</div>
+                            <div className="min-w-0 px-2 flex items-center justify-center text-xs text-gray-600"><span className="truncate" title={assignee}>{assignee}</span></div>
                           </div>
                         );
                       })
@@ -1650,11 +1650,13 @@ export default function WorkPlanningPage() {
                     e.preventDefault();
                     ganttDragging.current = true;
                     ganttStartX.current = e.clientX;
-                    ganttStartW.current = ganttLeftWidth;
+                    ganttStartW.current = e.currentTarget.previousElementSibling?.getBoundingClientRect().width ?? ganttLeftWidth;
+                    const chart = e.currentTarget.parentElement;
                     const onMouseMove = (ev: MouseEvent) => {
                       if (!ganttDragging.current) return;
                       const delta = ev.clientX - ganttStartX.current;
-                      const newW = Math.max(300, Math.min(1200, ganttStartW.current + delta));
+                      const maxWidth = Math.max(0, Math.min(1200, (chart?.clientWidth ?? 1364) - 164));
+                      const newW = Math.max(Math.min(300, maxWidth), Math.min(maxWidth, ganttStartW.current + delta));
                       setGanttLeftWidth(newW);
                     };
                     const onMouseUp = () => {
@@ -1672,12 +1674,12 @@ export default function WorkPlanningPage() {
                 />
 
                 {/* RIGHT: Scrollable timeline */}
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="min-w-0 min-h-0 flex-1 flex flex-col overflow-hidden">
                   {/* Right header + body share horizontal scroll */}
-                  <div className="flex-1 overflow-x-auto overflow-y-hidden" id="gantt-right-wrapper">
-                    <div style={{ width: `${ganttDays.length * 40}px`, minWidth: '100%' }}>
+                  <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden" id="gantt-right-wrapper">
+                    <div className="h-full min-h-0 flex flex-col" style={{ width: `${ganttDays.length * 40}px`, minWidth: '100%' }}>
                       {/* Timeline header */}
-                      <div className="flex bg-gray-50 border-b border-gray-300 sticky top-0 z-10" style={{ height: '40px' }}>
+                      <div className="flex-shrink-0 flex bg-gray-50 border-b border-gray-300 sticky top-0 z-10" style={{ height: '40px' }}>
                         {ganttDays.map((day, i) => {
                           const isToday = isSameDay(day, new Date());
                           const dow = day.getDay(); // 0=Sun
@@ -1693,7 +1695,7 @@ export default function WorkPlanningPage() {
                         })}
                       </div>
                       {/* Timeline body — scroll Y synced */}
-                      <div className="overflow-y-auto" id="gantt-right-body" style={{ height: 'calc(100% - 40px)' }} onScroll={(e) => {
+                      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" id="gantt-right-body" onScroll={(e) => {
                         const leftBody = document.getElementById('gantt-left-body');
                         if (leftBody) leftBody.scrollTop = e.currentTarget.scrollTop;
                       }}>
