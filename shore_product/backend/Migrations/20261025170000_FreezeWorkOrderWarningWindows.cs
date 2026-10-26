@@ -10,8 +10,8 @@ public class FreezeWorkOrderWarningWindows : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.AddColumn<int>(name: "work_order_warning_days", schema: "public", table: "maintenance_tasks", type: "integer", nullable: true);
-        migrationBuilder.AddColumn<double>(name: "work_order_warning_hours", schema: "public", table: "maintenance_tasks", type: "double precision", nullable: true);
+        migrationBuilder.AddColumn<int>(name: "work_order_warning_days", schema: "public", table: "MaintenanceTasks", type: "integer", nullable: true);
+        migrationBuilder.AddColumn<double>(name: "work_order_warning_hours", schema: "public", table: "MaintenanceTasks", type: "double precision", nullable: true);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
@@ -19,12 +19,12 @@ public class FreezeWorkOrderWarningWindows : Migration
         migrationBuilder.Sql("""
             DO $pms$
             BEGIN
-                IF EXISTS (SELECT 1 FROM public.maintenance_tasks WHERE pms_protocol_version IS NOT NULL) THEN
+                IF EXISTS (SELECT 1 FROM public."MaintenanceTasks" WHERE pms_protocol_version IS NOT NULL) THEN
                     RAISE EXCEPTION 'PMS rework data exists; preserve frozen warning windows';
                 END IF;
             END $pms$;
             """);
-        migrationBuilder.DropColumn(name: "work_order_warning_days", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "work_order_warning_hours", schema: "public", table: "maintenance_tasks");
+        migrationBuilder.DropColumn(name: "work_order_warning_days", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "work_order_warning_hours", schema: "public", table: "MaintenanceTasks");
     }
 }

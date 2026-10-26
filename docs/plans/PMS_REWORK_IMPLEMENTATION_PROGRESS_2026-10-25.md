@@ -2,6 +2,10 @@
 
 Nhánh: `hiu67-rework`. Thiết kế nguồn: [kế hoạch Job List / Work Order](PMS_JOB_LIST_WORK_ORDER_SEPARATION_PLAN_2026-10-25.md).
 
+Phạm vi chốt lại ngày 26/10/2026: **bỏ mobile khỏi đợt này**; nghiệm thu web–Edge–Shore. API mobile legacy trả 410 sau cutover; không mở lại API cũ hoặc tự chuyển lệnh offline cũ sang bộ dữ liệu mới.
+
+**Trạng thái mới nhất:** đã sao lưu, diễn tập và reset PMS demo trên cặp database local Edge/Shore; dữ liệu ngoài PMS đã đối chiếu fingerprint. Xem [biên bản chuyển đổi local](PMS_LOCAL_CUTOVER_2026-10-26.md). Các đoạn “chưa reset” bên dưới mô tả mốc triển khai trước đó; không áp dụng cho cặp database local đã ghi trong biên bản. Chưa triển khai trên máy chủ Production khác.
+
 ## Đã triển khai nền tảng
 
 - Bổ sung metadata protocol 2 cho Job và WO ở cả Edge/Shore, migration và model snapshot tương ứng. Các trường mới nullable; dữ liệu legacy không tự chuyển protocol, không tự bật sinh WO.
@@ -96,8 +100,8 @@ Lõi chỉ quét Job protocol mới, ACTIVE, bật AutoGenerate và loại PERIO
 2. Đã có xem trước ảnh hưởng mốc/chu kỳ/hạn trước khi xác nhận lưu, lọc toàn nhánh và chính sách/tự động phát hành gắn worker. Còn kiểm kê thao tác nhiều dòng theo wireframe.
 3. Phát hành Job theo sự kiện lên đà/theo yêu cầu/theo chuyến và thông báo bền vững. Worker định kỳ protocol mới, phân công hỗ trợ/hủy/trạng thái Job đã có; các Job không định kỳ chưa có luồng phát hành theo sự kiện.
 4. Mapping link/báo cáo legacy và dọn route/component/API sau khi chuyển giao có đối chiếu; kiểm thử giao diện với API thật đầy đủ. UI chính đã có, Chrome hiện kiểm tra bằng HTTP fixture riêng, chưa phải end-to-end trên hệ thống vận hành.
-5. Nâng cấp mobile sang hợp đồng WO/phiên bản/dataset mới, kiểm tra offline command không bị gán dataset mới khi retry; chạy kiểm thử liên thông HTTP thật web/mobile–Edge–Shore. Bộ nhận/mirror, capability/fencing và các kiểm tra source identity/báo cáo riêng từng đầu đã có; chưa thay thế kiểm thử liên thông toàn hệ thống.
-6. Với dữ liệu demo hiện tại: kiểm kê và reset PMS theo phạm vi đã được cho phép, kèm chặn queue/mobile cũ và kiểm tra không khôi phục dữ liệu đã xóa. Dry-run chuyển dữ liệu/Job nhóm chỉ còn cần nếu chọn giữ dữ liệu ở môi trường khác. Pilot sau khi các điều kiện nghiệm thu đạt; chưa bật worker phát hành mới trước các bước này.
+5. Kiểm thử liên thông HTTP thật web–Edge–Shore. Mobile được người dùng bỏ khỏi phạm vi đợt này, không phải điều kiện chặn triển khai web. Khi triển khai mobile sau này phải dùng hợp đồng WO/phiên bản/dataset mới; không tự gán dataset mới cho lệnh offline cũ.
+6. Cặp database demo local đã kiểm kê/sao lưu/diễn tập/reset và bật cấu hình Development theo biên bản mới nhất. Còn nhập lại Job mới và kiểm tra chu kỳ thực tế qua đồng bộ. Môi trường khác phải kiểm kê riêng; không dùng kết quả local để tự reset máy chủ Production hoặc bật worker khi chưa có xác nhận peer.
 
 ## Kiểm chứng
 

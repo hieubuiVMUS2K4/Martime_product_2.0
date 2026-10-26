@@ -7,7 +7,9 @@ public sealed class DemoResetCoordinator(string edgeConnection, string shoreConn
 {
     private static readonly HashSet<string> Allowed = ["maintenance_tasks", "maintenance_task_details", "task_checklist_items", "maintenance_schedules",
         "schedule_spare_parts", "schedule_checklist_templates", "maintenance_histories", "task_deferral_requests", "task_status_history",
-        "task_risk_assessments", "task_inspection_reports", "pms_work_order_reports", "pms_work_order_material_postings"];
+        "task_risk_assessments", "task_inspection_reports", "pms_work_order_reports", "pms_work_order_material_postings",
+        // Shore's legacy EF models use these physical names; they are not extra business tables.
+        "MaintenanceTasks", "task_deferral_request"];
     private static string Q(string name) => '"' + name.Replace("\"", "\"\"") + '"';
     private sealed record FK(string Child, string Parent, string[] ChildColumns, string[] ParentColumns);
     private sealed record Catalog(Dictionary<string, string[]> Tables, List<FK> Keys)
@@ -40,7 +42,20 @@ public sealed class DemoResetCoordinator(string edgeConnection, string shoreConn
         // Cross-schema references are not included above, so refuse them rather than risk CASCADE.
         if ((long)(await Run(db, tx, "SELECT count(*) FROM pg_constraint f JOIN pg_class p ON p.oid=f.confrelid JOIN pg_namespace ps ON ps.oid=p.relnamespace JOIN pg_class c ON c.oid=f.conrelid JOIN pg_namespace cs ON cs.oid=c.relnamespace WHERE f.contype='f' AND ps.nspname='public' AND cs.nspname<>'public' AND p.relname=ANY(@tables)", ("tables", Allowed.ToArray())))! > 0)
             throw new InvalidOperationException("Cross-schema references to PMS tables require manual review.");
-        return new(tables.ToDictionary(p => p.Key, p => p.Value.ToArray()), keys);
+        var catalog = new Catalog(tables.ToDictionary(p => p.Key, p => p.Value.ToArray()), keys);
+        // The deployed Shore history mirror has logical parent IDs but no physical FK.
+        // Model only these reviewed relationships; never infer arbitrary Id-like columns.
+        void LogicalHistoryParent(string childColumn, string parent)
+        {
+            const string child = "maintenance_histories";
+            if (!catalog.Tables.ContainsKey(child) || !catalog.Tables.ContainsKey(parent) || !catalog.Has(child, childColumn) || !catalog.Has(parent, "Id")) return;
+            var column = catalog.Col(child, childColumn);
+            if (!keys.Any(k => k.Child == child && k.ChildColumns.Contains(column)))
+                keys.Add(new(child, parent, [column], [catalog.Col(parent, "Id")]));
+        }
+        LogicalHistoryParent("ScheduleId", "maintenance_schedules");
+        LogicalHistoryParent("TaskId", catalog.Tables.ContainsKey("MaintenanceTasks") ? "MaintenanceTasks" : "maintenance_tasks");
+        return catalog;
     }
     private static string Join(FK fk, string c, string p) => string.Join(" AND ", fk.ChildColumns.Select((col, i) => $"{c}.{Q(col)}={p}.{Q(fk.ParentColumns[i])}"));
     private static string Scope(Catalog cat, string table, string alias, bool all, HashSet<string>? path = null)
@@ -67,6 +82,9 @@ public sealed class DemoResetCoordinator(string edgeConnection, string shoreConn
             var outside = tables.Contains(fk.Child) ? $"NOT COALESCE(({Scope(cat, fk.Child, "c", all)}),false)" : "TRUE";
             if ((long)(await Run(db, tx, $"SELECT count(*) FROM public.{Q(fk.Child)} c JOIN public.{Q(fk.Parent)} p ON {Join(fk, "c", "p")} WHERE ({Scope(cat, fk.Parent, "p", all)}) AND ({outside})", ("vessel", vessel)))! > 0)
                 throw new InvalidOperationException($"Reset would affect external/cross-vessel references in {fk.Child}; aborting.");
+            if (!all && tables.Contains(fk.Child) && (long)(await Run(db, tx,
+                $"SELECT count(*) FROM public.{Q(fk.Child)} c JOIN public.{Q(fk.Parent)} p ON {Join(fk, "c", "p")} WHERE ({Scope(cat, fk.Child, "c", false)}) AND NOT COALESCE(({Scope(cat, fk.Parent, "p", false)}),false)", ("vessel", vessel)))! > 0)
+                throw new InvalidOperationException($"Conflicting vessel ownership through {fk.Child}; aborting.");
         }
         var seen = new HashSet<string>(); var ordered = new List<string>();
         void Visit(string t) { if (!seen.Add(t)) return; foreach (var child in cat.Keys.Where(f => f.Parent == t && tables.Contains(f.Child))) Visit(child.Child); ordered.Add(t); }

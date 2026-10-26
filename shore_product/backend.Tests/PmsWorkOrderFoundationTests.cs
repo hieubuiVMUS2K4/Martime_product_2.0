@@ -10,6 +10,23 @@ namespace ProductApi.Tests;
 
 public class PmsWorkOrderFoundationTests
 {
+    [Theory]
+    [InlineData("20261025160000_AddPmsWorkOrderFoundation")]
+    [InlineData("20261025170000_FreezeWorkOrderWarningWindows")]
+    [InlineData("20261025180000_AddPmsWorkOrderWorkflow")]
+    [InlineData("20261026090000_AddPmsAdHocOrderDrafts")]
+    public void ReworkMigrationsTargetTheExistingPhysicalWorkOrderTable(string id)
+    {
+        using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=unused;Username=unused;Password=unused").Options);
+        var table = db.Model.FindEntityType(typeof(MaintenanceTask))!.GetTableName();
+        Assert.Equal("MaintenanceTasks", table);
+        var assembly = db.GetService<IMigrationsAssembly>();
+        var migration = assembly.CreateMigration(assembly.Migrations[id], "Npgsql.EntityFrameworkCore.PostgreSQL");
+        var sql = string.Join("\n", db.GetService<IMigrationsSqlGenerator>().Generate(migration.UpOperations, db.Model).Select(c => c.CommandText));
+        Assert.Contains("public.\"" + table + "\"", sql);
+        Assert.DoesNotContain("public.maintenance_tasks", sql);
+    }
     [Fact]
     public void MirrorPreservesProtocolIdentityDeadlinesAndSnapshot()
     {
@@ -60,7 +77,7 @@ public class PmsWorkOrderFoundationTests
         var migrations = db.GetService<IMigrationsAssembly>();
         var migration = migrations.CreateMigration(migrations.Migrations["20261025180000_AddPmsWorkOrderWorkflow"], "Npgsql.EntityFrameworkCore.PostgreSQL");
         var sql = string.Join("\n", db.GetService<IMigrationsSqlGenerator>().Generate(migration.UpOperations, db.Model).Select(c => c.CommandText));
-        Assert.Contains("REFERENCES public.maintenance_tasks (\"Id\")", sql);
+        Assert.Contains("REFERENCES public.\"MaintenanceTasks\" (\"Id\")", sql);
         Assert.Contains("REFERENCES public.maintenance_schedules (\"Id\")", sql);
         Assert.Contains("ux_pms_report_command", sql); Assert.Contains("ux_pms_material_posting", sql);
         Assert.True(db.Model.FindEntityType(typeof(PmsWorkOrderReport))!.FindProperty(nameof(PmsWorkOrderReport.JobId))!.IsNullable);

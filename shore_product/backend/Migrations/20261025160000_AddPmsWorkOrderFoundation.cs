@@ -23,15 +23,15 @@ public class AddPmsWorkOrderFoundation : Migration
         migrationBuilder.AddColumn<Guid>(name: "responsible_crew_id", schema: "public", table: "maintenance_schedules", type: "uuid", nullable: true);
         migrationBuilder.AddColumn<string>(name: "assignment_policy", schema: "public", table: "maintenance_schedules", type: "character varying(20)", maxLength: 20, nullable: true);
         migrationBuilder.AddColumn<long>(name: "next_cycle_number", schema: "public", table: "maintenance_schedules", type: "bigint", nullable: true);
-        migrationBuilder.AddColumn<int>(name: "pms_protocol_version", schema: "public", table: "maintenance_tasks", type: "integer", nullable: true);
-        migrationBuilder.AddColumn<string>(name: "cycle_key", schema: "public", table: "maintenance_tasks", type: "character varying(120)", maxLength: 120, nullable: true);
-        migrationBuilder.AddColumn<int>(name: "job_version", schema: "public", table: "maintenance_tasks", type: "integer", nullable: true);
-        migrationBuilder.AddColumn<string>(name: "job_snapshot", schema: "public", table: "maintenance_tasks", type: "text", nullable: true);
-        migrationBuilder.AddColumn<DateTime>(name: "work_order_due_at", schema: "public", table: "maintenance_tasks", type: "timestamp with time zone", nullable: true);
-        migrationBuilder.AddColumn<double>(name: "work_order_due_hours", schema: "public", table: "maintenance_tasks", type: "double precision", nullable: true);
-        migrationBuilder.AddColumn<string>(name: "due_state", schema: "public", table: "maintenance_tasks", type: "character varying(24)", maxLength: 24, nullable: true);
-        migrationBuilder.AddColumn<int>(name: "report_revision", schema: "public", table: "maintenance_tasks", type: "integer", nullable: true);
-        migrationBuilder.CreateIndex(name: "ux_pms_work_order_cycle", schema: "public", table: "maintenance_tasks", columns: new[] { "VesselId", "ScheduleId", "cycle_key" }, unique: true, filter: "cycle_key IS NOT NULL");
+        migrationBuilder.AddColumn<int>(name: "pms_protocol_version", schema: "public", table: "MaintenanceTasks", type: "integer", nullable: true);
+        migrationBuilder.AddColumn<string>(name: "cycle_key", schema: "public", table: "MaintenanceTasks", type: "character varying(120)", maxLength: 120, nullable: true);
+        migrationBuilder.AddColumn<int>(name: "job_version", schema: "public", table: "MaintenanceTasks", type: "integer", nullable: true);
+        migrationBuilder.AddColumn<string>(name: "job_snapshot", schema: "public", table: "MaintenanceTasks", type: "text", nullable: true);
+        migrationBuilder.AddColumn<DateTime>(name: "work_order_due_at", schema: "public", table: "MaintenanceTasks", type: "timestamp with time zone", nullable: true);
+        migrationBuilder.AddColumn<double>(name: "work_order_due_hours", schema: "public", table: "MaintenanceTasks", type: "double precision", nullable: true);
+        migrationBuilder.AddColumn<string>(name: "due_state", schema: "public", table: "MaintenanceTasks", type: "character varying(24)", maxLength: 24, nullable: true);
+        migrationBuilder.AddColumn<int>(name: "report_revision", schema: "public", table: "MaintenanceTasks", type: "integer", nullable: true);
+        migrationBuilder.CreateIndex(name: "ux_pms_work_order_cycle", schema: "public", table: "MaintenanceTasks", columns: new[] { "VesselId", "ScheduleId", "cycle_key" }, unique: true, filter: "cycle_key IS NOT NULL");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
@@ -40,21 +40,21 @@ public class AddPmsWorkOrderFoundation : Migration
         migrationBuilder.Sql("""
             DO $pms$
             BEGIN
-                IF EXISTS (SELECT 1 FROM public.maintenance_tasks WHERE pms_protocol_version IS NOT NULL)
+                IF EXISTS (SELECT 1 FROM public."MaintenanceTasks" WHERE pms_protocol_version IS NOT NULL)
                    OR EXISTS (SELECT 1 FROM public.maintenance_schedules WHERE pms_protocol_version IS NOT NULL) THEN
                     RAISE EXCEPTION 'PMS rework data exists; preserve the schema and roll forward instead';
                 END IF;
             END $pms$;
             """);
-        migrationBuilder.DropIndex(name: "ux_pms_work_order_cycle", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "pms_protocol_version", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "cycle_key", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "job_version", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "job_snapshot", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "work_order_due_at", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "work_order_due_hours", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "due_state", schema: "public", table: "maintenance_tasks");
-        migrationBuilder.DropColumn(name: "report_revision", schema: "public", table: "maintenance_tasks");
+        migrationBuilder.DropIndex(name: "ux_pms_work_order_cycle", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "pms_protocol_version", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "cycle_key", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "job_version", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "job_snapshot", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "work_order_due_at", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "work_order_due_hours", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "due_state", schema: "public", table: "MaintenanceTasks");
+        migrationBuilder.DropColumn(name: "report_revision", schema: "public", table: "MaintenanceTasks");
         migrationBuilder.DropColumn(name: "pms_protocol_version", schema: "public", table: "maintenance_schedules");
         migrationBuilder.DropColumn(name: "job_version", schema: "public", table: "maintenance_schedules");
         migrationBuilder.DropColumn(name: "job_state", schema: "public", table: "maintenance_schedules");

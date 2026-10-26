@@ -26,6 +26,8 @@ Thiết bị, liên kết vật tư–thiết bị, danh mục vật tư, tồn 
 
 Sau reset, backend Edge cần `Pms:ReworkApiEnabled=true`, múi giờ `Pms:VesselTimeZone` hợp lệ; Shore cần `Pms:ReworkSyncEnabled=true`. Worker chỉ phát hành tự động sau khi Edge đã thương lượng thành công với Shore về đúng DatasetId/StreamId. Việc đăng ký bộ dữ liệu không tự bật các cấu hình vận hành. Nếu đang đặt `Sync:StreamId` cố định khác với stream lưu trong DB, phải đối chiếu cấu hình trước reset; công cụ không đổi stream toàn hệ thống để ép khớp.
 
-Web gửi `X-Pms-Dataset-Id` từ `/api/pms/work-orders/settings` trong các lệnh ghi mới. Client mobile cũ dùng API legacy sẽ nhận 410; client mới phải đọc settings, giữ dataset của bản nháp/offline command và gửi lại đúng header. Không tự thay dataset cho lệnh offline cũ để gửi lại sau reset.
+Web gửi `X-Pms-Dataset-Id` từ `/api/pms/work-orders/settings` trong các lệnh ghi mới. Mobile đã được bỏ khỏi phạm vi đợt triển khai này; client mobile cũ dùng API legacy sẽ nhận 410. Khi nâng cấp mobile sau này phải giữ dataset của bản nháp/offline command và gửi lại đúng header, không tự thay dataset cho lệnh cũ.
+
+Shore legacy dùng bảng `"MaintenanceTasks"` và `task_deferral_request`; công cụ xử lý đúng tên vật lý này. Bảng `maintenance_histories` có thể thiếu FK vật lý; chỉ hai liên kết nghiệp vụ đã xác minh `ScheduleId` → Job và `TaskId` → task được dùng thêm để chứng minh phạm vi. Liên kết chéo tàu bị từ chối. Có thể dùng `scripts/pms/measure-cutover-preserved-data.sql` trước/sau để so sánh số dòng và fingerprint dữ liệu cần giữ, không xuất nội dung tài khoản/thuyền viên.
 
 Kiểm thử công cụ dùng `PMS_TEST_CONNECTION_STRING` trỏ tới database bắt đầu bằng `codex_pms_tests_`; công cụ kiểm thử tạo/xóa các database con riêng, không dùng connection vận hành.

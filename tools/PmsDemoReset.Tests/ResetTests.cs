@@ -56,6 +56,36 @@ public class ResetTests
             INSERT INTO schedule_checklist_templates VALUES(1,1),(2,2);
             """, ("a", a), ("b", b));
     }
+    [Fact]
+    public async Task ResetIncludesShoreLegacyPhysicalNamesWithoutDeletingAnotherVessel()
+    {
+        var edge = await Database("edge_legacy"); var shore = await Database("shore_legacy");
+        try
+        {
+            var a = Guid.NewGuid(); var b = Guid.NewGuid(); await Seed(edge, shore, a, b);
+            await Sql(shore, """
+                ALTER TABLE maintenance_tasks RENAME TO "MaintenanceTasks";
+                CREATE TABLE task_deferral_request(id int PRIMARY KEY, task_id int REFERENCES "MaintenanceTasks");
+                INSERT INTO task_deferral_request VALUES(1,1),(2,2);
+                CREATE TABLE maintenance_histories(id int PRIMARY KEY, schedule_id int, task_id int);
+                INSERT INTO maintenance_histories VALUES(1,1,1),(2,2,2);
+                """);
+            var reset = new DemoResetCoordinator(edge, shore);
+            var preview = await reset.PreviewAsync("RESET-A", a);
+            Assert.Equal(1, preview["shore:MaintenanceTasks"]); Assert.Equal(1, preview["shore:task_deferral_request"]);
+            Assert.Equal(1, preview["shore:maintenance_histories"]);
+            await Sql(shore, "UPDATE maintenance_histories SET task_id=2 WHERE id=1");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => reset.ApplyAsync("RESET-A", a, Guid.Parse("11111111-1111-4111-8111-111111111111")));
+            await Sql(shore, "UPDATE maintenance_histories SET task_id=1 WHERE id=1");
+            await reset.ApplyAsync("RESET-A", a, Guid.Parse("11111111-1111-4111-8111-111111111111"));
+            Assert.Equal(1L, await Sql(shore, "SELECT count(*) FROM \"MaintenanceTasks\" WHERE \"VesselId\"=@b", ("b", b)));
+            Assert.Equal(1L, await Sql(shore, "SELECT count(*) FROM task_deferral_request WHERE task_id=2"));
+            Assert.Equal(0L, await Sql(shore, "SELECT count(*) FROM task_deferral_request WHERE task_id=1"));
+            Assert.Equal(1L, await Sql(shore, "SELECT count(*) FROM maintenance_histories WHERE schedule_id=2"));
+        }
+        finally { await Drop(edge); await Drop(shore); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
