@@ -2,7 +2,7 @@ using MaritimeEdge.Data;
 
 namespace MaritimeEdge.Services.Maintenance;
 
-/// <summary>Protocol-2 only. The persisted dataset handshake gates every sweep.</summary>
+/// <summary>Protocol-2 only. Local commissioning gates each sweep; Shore connectivity does not.</summary>
 public sealed class PmsPeriodicReleaseWorker(IServiceScopeFactory scopes, PmsPeriodicReleaseSweep sweep,
     IConfiguration configuration, ILogger<PmsPeriodicReleaseWorker> logger) : BackgroundService
 {

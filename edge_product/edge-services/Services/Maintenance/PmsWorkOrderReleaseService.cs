@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MaritimeEdge.Services.Maintenance;
 
 /// <summary>
-/// Transactional protocol-2 issuer. The worker calls it only after the cutover/sync readiness checks.
+/// Transactional protocol-2 issuer. The worker calls it only after the local cutover/readiness checks.
 /// The transaction includes the Job snapshot, checklist and SaveChanges sync outbox entries.
 /// </summary>
 public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)

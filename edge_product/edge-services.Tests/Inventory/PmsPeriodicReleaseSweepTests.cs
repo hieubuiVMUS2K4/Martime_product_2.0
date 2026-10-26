@@ -113,7 +113,7 @@ public class PmsPeriodicReleaseSweepTests
     }
 
     [PmsPostgresFact]
-    public async Task HostedWorkerRequiresConfirmedDatasetAndStopsDuringCutover()
+    public async Task HostedWorkerRequiresLocalCommissioningButNotShoreAndStopsDuringCutover()
     {
         await using var services = Provider(); await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<EdgeDbContext>(); await db.Database.EnsureCreatedAsync();
@@ -126,17 +126,58 @@ public class PmsPeriodicReleaseSweepTests
                 new() { Key = "pms-cutover-state", Value = "ACTIVE", UpdatedAt = Now }); await db.SaveChangesAsync();
             AddJob(db, 50); await db.SaveChangesAsync();
             var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-            { ["Pms:ReworkApiEnabled"] = "true", ["Pms:VesselTimeZone"] = "Asia/Ho_Chi_Minh" }).Build();
+            { ["Pms:ReworkApiEnabled"] = "true", ["Pms:VesselTimeZone"] = "Asia/Ho_Chi_Minh", ["Pms:AutomaticReleaseEnabled"] = "false" }).Build();
             var worker = new PmsPeriodicReleaseWorker(services.GetRequiredService<IServiceScopeFactory>(), Sweep(services), config,
                 NullLogger<PmsPeriodicReleaseWorker>.Instance);
             Assert.Equal(0, await worker.RunCycleAsync(Now));
-            var ready = new Maritime.Shared.Models.Sync.SyncState { Key = "pms-peer-ready", Value = $"{epoch:D}/{stream:D}/SWEEP-NODE", UpdatedAt = Now };
-            db.SyncState.Add(ready); await db.SaveChangesAsync();
+            config["Pms:AutomaticReleaseEnabled"] = "true";
+            Assert.False(await db.SyncState.AnyAsync(s => s.Key == "pms-peer-ready"));
             Assert.Equal(1, await worker.RunCycleAsync(Now));
+            Assert.Equal(0, await worker.RunCycleAsync(Now));
             var state = await db.SyncState.SingleAsync(s => s.Key == "pms-cutover-state"); state.Value = "PREPARED"; await db.SaveChangesAsync();
             Assert.Equal(0, await worker.RunCycleAsync(Now));
             var order = await db.MaintenanceTasks.SingleAsync(); order.Notes = "must not save during reset";
             Assert.Equal(409, (await Assert.ThrowsAsync<MaritimeEdge.DTOs.PmsRequestException>(() => db.SaveChangesAsync())).Status);
+        }
+        finally { await db.Database.EnsureDeletedAsync(); }
+    }
+
+    [PmsPostgresFact]
+    public async Task OfflineCounterReleasePersistsUnsentOrderAndDoesNotDependOnPeerOrSyncStream()
+    {
+        await using var services = Provider(); await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EdgeDbContext>(); await db.Database.EnsureCreatedAsync();
+        try
+        {
+            var dataset = Guid.NewGuid();
+            db.EdgeProvisioningProfiles.Add(new() { IsActive = true, NodeId = "OFFLINE-NODE" });
+            db.SyncState.AddRange(new() { Key = "pms-dataset-id", Value = dataset.ToString(), UpdatedAt = Now },
+                new() { Key = "pms-cutover-state", Value = "ACTIVE", UpdatedAt = Now });
+            await db.SaveChangesAsync();
+            var automatic = AddJob(db, 60, 0); automatic.ReleasePolicy = "ON_DUE";
+            var manual = AddJob(db, 61, 100); manual.AutoGenerate = false;
+            await db.SaveChangesAsync();
+            var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+                { ["Pms:ReworkApiEnabled"] = "true", ["Pms:VesselTimeZone"] = "Asia/Ho_Chi_Minh" }).Build();
+            var worker = new PmsPeriodicReleaseWorker(services.GetRequiredService<IServiceScopeFactory>(), Sweep(services), config,
+                NullLogger<PmsPeriodicReleaseWorker>.Instance);
+            Assert.Equal(0, await worker.RunCycleAsync(Now));
+            var asset = await db.EquipmentAssets.SingleAsync(a => a.Id == automatic.EquipmentAssetId);
+            asset.CurrentRunningHours = 100; await db.SaveChangesAsync();
+            Assert.Equal(1, await worker.RunCycleAsync(Now));
+            var order = await db.MaintenanceTasks.SingleAsync(); Assert.Equal(automatic.Id, order.ScheduleId);
+            var queued = await db.SyncQueue.SingleAsync(q => q.TableName == "maintenance_task" && q.RecordKey == order.Id.ToString());
+            Assert.Null(queued.SyncedAt); var payload = queued.Payload; var eventId = queued.EventId;
+            using var json = System.Text.Json.JsonDocument.Parse(payload);
+            Assert.Equal(dataset, json.RootElement.GetProperty("PmsDatasetId").GetGuid());
+            Assert.Equal(2, json.RootElement.GetProperty("PmsProtocolVersion").GetInt32());
+            Assert.Equal(0, await worker.RunCycleAsync(Now.AddMinutes(1)));
+            Assert.Single(await db.MaintenanceTasks.ToListAsync());
+            Assert.False(await db.SyncState.AnyAsync(s => s.Key == "sync-stream-id" || s.Key == "pms-peer-ready"));
+            // A stale transport proof also cannot prevent local work.
+            db.SyncState.Add(new() { Key = "pms-peer-ready", Value = "old-dataset/old-stream/other-node", UpdatedAt = Now });
+            await db.SaveChangesAsync(); Assert.True(await PmsReworkRuntime.CanAutoReleaseAsync(db, config));
+            await db.Entry(queued).ReloadAsync(); Assert.Equal(payload, queued.Payload); Assert.Equal(eventId, queued.EventId); Assert.Null(queued.SyncedAt);
         }
         finally { await db.Database.EnsureDeletedAsync(); }
     }

@@ -28,6 +28,8 @@ interface ColumnFilterMenuProps {
   sortable?: boolean;
   onApply: (selected: string[] | null) => void;
   onSort: (direction: SortDirection | null) => void;
+  /** Server-backed text/range filters can reuse the same anchored menu and sort controls. */
+  filterContent?: (close: () => void) => React.ReactNode;
 }
 
 const PANEL_WIDTH = 280;
@@ -42,6 +44,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
   sortable = true,
   onApply,
   onSort,
+  filterContent,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -179,6 +182,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
             </>
           )}
 
+          {filterContent ? filterContent(() => setOpen(false)) : <>
           {isFiltered && (
             <button type="button" className={`${itemClass} text-red-700`} onClick={() => apply(values)}>
               <X className="h-4 w-4" aria-hidden="true" /> Bỏ lọc cột này
@@ -239,6 +243,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
               Áp dụng
             </button>
           </div>
+          </>}
         </div>,
         document.body,
       )}

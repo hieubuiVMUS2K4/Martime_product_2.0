@@ -26,7 +26,9 @@ function fixture(url, method, body) {
   if (p === '/api/pms/work-orders/settings') return { vesselTimeZone: 'Asia/Ho_Chi_Minh', automaticReleaseEnabled: false }
   if (p === '/api/pms/work-orders/references') return [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }]
   if (p === '/api/pms/work-orders/material-options') return page([{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS', onHand: 10 }])
-  if (p === '/api/pms/work-orders') return page([work()])
+  if (p === '/api/pms/work-orders') return page(new URL(url).searchParams.get('status') === 'ALL'
+    ? [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }]
+    : [work()])
   if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: [report], timeline: [], actualDurationMinutes: 90 }
   if (p.includes('/reports/1')) return report
   if (p === '/api/pms/counters') return page([{ id: assetId, assetCode: 'PUMP-001', assetName: job.equipmentName, currentRunningHours: 1000 }])
@@ -50,7 +52,7 @@ const modules=${JSON.stringify(modules)};const qc=new QueryClient();window.testU
 const h=React.createElement;createRoot(document.getElementById('root')).render(h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})})))));
 </script></body></html>`)
   const chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=15308', `--user-data-dir=${path.join(artifacts, 'chrome-profile-' + process.pid + '-' + Date.now())}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' })
-  let ws
+  let ws, closing = false
   try {
     let browser
     for (let i = 0; i < 100; i++) { try { browser = await fetch('http://127.0.0.1:15308/json/version').then(r => r.json()); break } catch { await new Promise(r => setTimeout(r, 100)) } }
@@ -58,6 +60,7 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     ws = new WebSocket(browser.webSocketDebuggerUrl)
     await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject })
     let nextId = 1; const pending = new Map()
+    ws.onclose = () => { for (const p of pending.values()) { clearTimeout(p.timer); p.reject(Error('Browser connection closed')) } pending.clear() }
     const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => { const id = nextId++; const timer = setTimeout(() => { pending.delete(id); reject(Error(`CDP timeout: ${method}`)) }, 20000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params, sessionId })) })
     ws.onmessage = async event => {
       const m = JSON.parse(event.data)
@@ -66,7 +69,8 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
       if (m.method === 'Fetch.requestPaused') {
         const req = m.params.request; let body
         try { body = fixture(req.url, req.method, req.postData ? JSON.parse(req.postData) : undefined) } catch (e) { failures.push(e.message); body = { error: e.message } }
-        await send('Fetch.fulfillRequest', { requestId: m.params.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify(body)).toString('base64') }, m.sessionId)
+        try { await send('Fetch.fulfillRequest', { requestId: m.params.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify(body)).toString('base64') }, m.sessionId) }
+        catch (error) { if (!closing) failures.push(error.message) }
       }
     }
     const { targetId } = await send('Target.createTarget', { url: 'about:blank' }); const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true })
@@ -76,15 +80,38 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     const evaluate = async expression => { const result = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw Error(result.exceptionDetails.text); return result.result.value }
     const wait = async expression => { for (let i = 0; i < 150; i++) { if (await evaluate(expression)) return; await new Promise(r => setTimeout(r, 100)) } throw Error('Browser wait timeout: ' + expression) }
     const click = text => evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)})?.click()`)
+    const fill = (selector, value) => evaluate(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     const screen = async name => { const { data } = await call('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(artifacts, name + '.png'), Buffer.from(data, 'base64')) }
     await call('Page.navigate', { url: 'http://127.0.0.1:15307/pms-rework-preview.local.html' })
     await wait(`document.body.textContent.includes('Kiểm tra và bảo dưỡng máy bơm cứu hỏa')`)
     assert.equal(await evaluate(`(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Thêm công việc');const s=getComputedStyle(b);return s.color!==s.backgroundColor})()`), true)
     await screen('job-list')
-    await evaluate(`document.querySelector('details summary').click();(()=>{const el=document.querySelector('input[aria-label="Hạn tới từ ngày"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'2026-10-26');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    assert.equal(await evaluate(`document.querySelector('thead').rows.length`), 1)
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('table')).borderCollapse`), 'separate')
+    assert.equal(await evaluate(`!!document.querySelector('thead th:nth-child(2)>span svg')`), false)
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('tbody td')).borderRightColor`), 'rgb(163, 177, 188)')
+    await evaluate(`(()=>{const el=document.querySelector('input[aria-label="Tìm tên công việc"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'bơm');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    await wait(`document.querySelector('input[aria-label="Tìm tên công việc"]').value==='bơm'`)
+    await new Promise(r=>setTimeout(r,600));assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/jobs').at(-1).url).searchParams.get('name'),'bơm')
+    assert.equal(await evaluate(`document.body.textContent.includes('Đang lọc:')`), false)
+    await fill('input[aria-label="Tìm tên công việc"]', '')
+    await evaluate(`document.querySelector('button[aria-label="Lọc và sắp xếp cột Hạn tới"]').click()`)
+    await wait(`!!document.querySelector('input[aria-label="Hạn tới từ ngày"]')`)
+    assert.equal(await evaluate(`(()=>{const r=document.querySelector('[aria-label="Bộ lọc cột Hạn tới"]').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()`), true)
+    await screen('column-filter-system-style')
+    await evaluate(`(()=>{const el=document.querySelector('input[aria-label="Hạn tới từ ngày"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'2026-10-26');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     await wait(`document.querySelector('input[aria-label="Hạn tới từ ngày"]').value==='2026-10-26'`)
+    await click('Áp dụng'); await wait(`!document.querySelector('[aria-label="Bộ lọc cột Hạn tới"]')`)
     await new Promise(r=>setTimeout(r,600));assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/jobs').at(-1).url).searchParams.get('dueFrom'),'2026-10-25T17:00:00.000Z')
-    await click('Xóa lọc ngày');await evaluate(`document.querySelector('details summary').click()`)
+    await evaluate(`document.querySelector('button[aria-label^="Lọc và sắp xếp cột Hạn tới"]').click()`)
+    await wait(`!!document.querySelector('[aria-label="Bộ lọc cột Hạn tới"]')`); await click('Bỏ lọc')
+    await evaluate(`document.querySelector('button[aria-label="Lọc và sắp xếp cột Tên công việc"]').click()`)
+    await click('Sắp xếp giảm dần (Z → A)')
+    await new Promise(r=>setTimeout(r,400));assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/jobs').at(-1).url).searchParams.get('descending'),'true')
+    await screen('job-list-system-style')
+    const pinned = await evaluate(`(()=>{const grid=document.querySelector('[aria-label="Bảng dữ liệu, có thể cuộn ngang"]');const before=grid.querySelector('tbody td:nth-child(2)').getBoundingClientRect().left;grid.scrollLeft=500;const after=grid.querySelector('tbody td:nth-child(2)').getBoundingClientRect().left;const head=grid.querySelector('thead th:nth-child(2)');return {before,after,head:head.getBoundingClientRect().left,position:getComputedStyle(head).position}})()`)
+    assert.equal(pinned.before, pinned.after); assert.equal(pinned.head, pinned.after); assert.equal(pinned.position, 'sticky')
+    await evaluate(`document.querySelector('[aria-label="Bảng dữ liệu, có thể cuộn ngang"]').scrollLeft=0`)
     await click('Thêm công việc'); await wait(`!!document.querySelector('[role=dialog]')`)
     await evaluate(`(()=>{const el=document.querySelector('#pms-job-form input');el.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'TEST');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     assert.equal(await evaluate(`document.activeElement===document.querySelector('#pms-job-form input')`), true)
@@ -102,9 +129,45 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await evaluate(`document.querySelector('button[aria-label="Xem báo cáo"]').click()`); await wait(`document.body.textContent.includes('Gioăng bơm')`); await screen('maintenance-report')
     await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' }); await wait(`document.querySelectorAll('[role=dialog]').length===1`)
     await evaluate(`document.querySelector('button[aria-label="Đóng"]').click()`)
-    await click('Work Order'); await wait(`document.body.textContent.includes('Chờ duyệt')`); await screen('work-orders')
-    await click('Lịch'); await wait(`document.body.textContent.includes('T2') && document.body.textContent.includes('Hiển thị WO có hạn ngày')`); await screen('calendar')
-    await click('Gantt chart'); await wait(`document.body.textContent.includes('Tên công việc / mốc hạn')`); await screen('gantt')
+    await evaluate(`window.testNavigate('/pms/jobs/${jobId}')`); await wait(`!!document.querySelector('[aria-label="Đường dẫn công việc"] h1')`)
+    assert.equal(await evaluate(`document.querySelector('[aria-label="Đường dẫn công việc"] h1').textContent`), job.name)
+    await screen('job-detail-redesign')
+    await evaluate(`Array.from(document.querySelectorAll('[aria-label="Nội dung công việc"] button')).find(b=>b.textContent.includes('Vật tư của thiết bị')).click()`)
+    await wait(`document.body.textContent.includes('Gioăng bơm')`); await screen('job-detail-materials')
+    await evaluate(`window.testNavigate('/pms/jobs/${jobId}?edit=1')`); await wait(`!!document.querySelector('[role=dialog]')`)
+    await evaluate(`document.querySelector('button[aria-label="Đóng"]').click()`); await wait(`!document.querySelector('[role=dialog]')`)
+    await evaluate(`window.testNavigate('/pms/work-planning?tab=orders')`); await wait(`document.body.textContent.includes('Chờ duyệt')`)
+    assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status'), 'ALL')
+    assert.equal(await evaluate(`document.body.textContent.includes('Đang lọc:')`), false)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('tbody td:last-child')).every(c=>c.textContent.trim()==='')`), true)
+    await evaluate(`document.querySelector('button[aria-label^="Lọc và sắp xếp cột Tiến độ"]').click()`)
+    await wait(`!!document.querySelector('[aria-label="Bộ lọc cột Tiến độ"]')`)
+    await evaluate(`Array.from(document.querySelectorAll('[aria-label="Bộ lọc cột Tiến độ"] label')).find(l=>l.textContent.trim()==='Chờ duyệt').click()`)
+    await click('Áp dụng'); await new Promise(r=>setTimeout(r,500))
+    assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status'), 'PENDING_APPROVAL')
+    assert.equal(await evaluate(`document.body.textContent.includes('Đang lọc:')`), false)
+    await evaluate(`document.querySelector('button[aria-label^="Lọc và sắp xếp cột Tiến độ"]').click()`)
+    await wait(`!!document.querySelector('[aria-label="Bộ lọc cột Tiến độ"]')`); await click('Bỏ lọc'); await new Promise(r=>setTimeout(r,500))
+    await wait(`document.body.textContent.includes('Bảo dưỡng đã hoàn thành')`)
+    assert.equal(await evaluate(`!!document.querySelector('button[aria-label="Lọc và sắp xếp cột Tiến độ"]')`), true)
+    await screen('work-orders')
+    await click('Lịch'); await wait(`document.body.textContent.includes('T2') && !!document.querySelector('input[aria-label="Chọn tháng"]')`); await screen('calendar')
+    await click('Gantt chart'); await wait(`!!document.querySelector('[aria-label="Biểu đồ Gantt"]')`)
+    assert.equal(await evaluate(`document.querySelector('[aria-label="Bảng công việc Gantt"]').textContent.includes('Phó ba')`), true)
+    assert.equal(await evaluate(`(()=>{const l=document.querySelector('[aria-label="Bảng công việc Gantt"] tbody tr').getBoundingClientRect();const r=document.querySelector('[aria-label="Dòng thời gian Gantt"]>div>div:nth-child(2)').getBoundingClientRect();return l.top===r.top&&l.height===r.height})()`), true)
+    await screen('gantt')
+    const separator = await evaluate(`(()=>{const e=document.querySelector('[role=separator]');const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+70,value:e.getAttribute('aria-valuenow')}})()`)
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:separator.x,y:separator.y})
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',x:separator.x,y:separator.y,button:'left',clickCount:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:separator.x-100,y:separator.y,button:'left',buttons:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:separator.x-100,y:separator.y,button:'left',clickCount:1})
+    assert.notEqual(await evaluate(`document.querySelector('[role=separator]').getAttribute('aria-valuenow')`), separator.value)
+    await screen('gantt-resized')
+    const originalMonth = await evaluate(`document.querySelector('input[aria-label="Chọn tháng"]').value`)
+    await evaluate(`document.querySelector('button[aria-label="Tháng sau"]').click()`)
+    await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value!==${JSON.stringify(originalMonth)}`)
+    await evaluate(`document.querySelector('button[aria-label="Tháng trước"]').click()`)
+    await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value===${JSON.stringify(originalMonth)}`)
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); await screen('counter')
     await evaluate(`window.testNavigate('/pms/work-orders/${woId}/review')`); await wait(`document.body.textContent.includes('Gioăng bơm')`)
     assert.equal(await evaluate(`document.body.textContent.includes('Lưu kết quả')`), false)
@@ -122,9 +185,11 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 780, deviceScaleFactor: 1, mobile: false }); await screen('readonly-responsive')
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); assert.equal(await evaluate(`!!document.querySelector('input[aria-label^="Giờ chạy mới"]')`), false)
     assert.deepEqual(failures, [])
-    fs.writeFileSync(path.join(artifacts, 'browser-summary.json'), JSON.stringify({ checks: ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter'], requests: requests.map(r => ({ path: r.path, method: r.method })), failures }, null, 2))
-    console.log('PMS browser smoke: 18 checks passed; screenshots in ' + artifacts)
-    await send('Browser.close')
+    const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-unfiltered-default-and-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
+    fs.writeFileSync(path.join(artifacts, 'browser-summary.json'), JSON.stringify({ checks, requests: requests.map(r => ({ path: r.path, method: r.method })), failures }, null, 2))
+    closing = true
+    await call('Fetch.disable'); await call('Page.navigate', { url: 'about:blank' })
+    console.log(`PMS browser smoke: ${checks.length} checks passed; screenshots in ` + artifacts)
   } finally {
     ws?.close(); chrome.kill(); await server.close(); fs.rmSync(html, { force: true })
   }
