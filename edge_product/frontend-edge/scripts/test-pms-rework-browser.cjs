@@ -18,7 +18,8 @@ function fixture(url, method, body) {
   requests.push({ path: p, method, body, url })
   if (p === '/api/pms/work-orders/equipment-tree') return [{ id: 'folder', assetName: 'Thiết bị boong', category: 'SYSTEM', isActive: true }, { id: assetId, parentId: 'folder', assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
   if (p === '/api/pms/jobs/references') return { crew: [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }], ranks: [{ id: 1, rankName: 'Đại phó' }] }
-  if (p === '/api/pms/jobs') return page([job])
+  if (p === '/api/pms/jobs/preview') return { previousDueAt: null, nextDueAt: job.nextDueAt, state: 'ACTIVE', openWorkOrders: 0, baselineChanged: false, reasonRequired: false, usesApprovedExecution: false, automaticReleaseRequested: false, missingInformation: [] }
+  if (p === '/api/pms/jobs') return method === 'POST' ? { id: jobId } : page([job])
   if (p === `/api/pms/jobs/${jobId}/history`) return page([{ id: 'report-1', workOrderId: woId, workOrderCode: 'WO-FIRE-PUMP-001', sourceExecutedAt: report.submittedAt, submittedAt: report.submittedAt, approvedAt: report.submittedAt, completedBy: 'Phó ba', isLegacy: false, hasReport: true }])
   if (p.includes('/completed-reports/')) return { ...report, decision: 'APPROVED' }
   if (p === `/api/pms/jobs/${jobId}`) return { job, cycleKey: 'PERIODIC:1', instructions: 'Kiểm tra bơm và ghi nhận áp suất', checklist: [{ sequenceOrder: 1, checkpointDescription: 'Đo áp suất bơm', requiresReading: true, unit: 'bar' }], equipmentMaterials: [{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS' }], missingInformation: [], daysBeforeDue: 7, warningHours: 50, releasePolicy: 'ON_UPCOMING', assignmentPolicy: 'ON_RELEASE', priority: 'HIGH' }
@@ -48,7 +49,7 @@ import '/src/styles/globals.css';import Planning from '/src/features/pms-rework/
 const modules=${JSON.stringify(modules)};const qc=new QueryClient();window.testUser=(execute=false,readonly=false)=>{useAuthStore.setState({accessToken:'browser-fixture-token',user:{id:execute?2:1,crewId:execute?'THIRD-OFFICER':null,username:'fixture'}});usePermissionsStore.setState({loaded:true,error:null,isAdmin:false,modules,grants:modules.flatMap(m=>readonly?[m.code+'.access']:['access',...m.actions].map(a=>m.code+'.'+a))});qc.clear()};window.testUser();window.testNavigate=p=>{history.pushState({},'',p);window.dispatchEvent(new PopStateEvent('popstate'))};history.replaceState({},'','/pms/work-planning');
 const h=React.createElement;createRoot(document.getElementById('root')).render(h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})})))));
 </script></body></html>`)
-  const chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=15308', `--user-data-dir=${path.join(artifacts, 'chrome-profile')}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' })
+  const chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=15308', `--user-data-dir=${path.join(artifacts, 'chrome-profile-' + process.pid + '-' + Date.now())}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' })
   let ws
   try {
     let browser
@@ -87,7 +88,16 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await click('Thêm công việc'); await wait(`!!document.querySelector('[role=dialog]')`)
     await evaluate(`(()=>{const el=document.querySelector('#pms-job-form input');el.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'TEST');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     assert.equal(await evaluate(`document.activeElement===document.querySelector('#pms-job-form input')`), true)
-    await screen('job-form'); await evaluate(`document.querySelector('button[aria-label="Đóng"]').click()`)
+    await screen('job-form')
+    await evaluate(`(()=>{const el=document.querySelectorAll('#pms-job-form input')[1];Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'Preview test');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    await click('Xem trước và lưu'); await wait(`document.body.textContent.includes('Ảnh hưởng sau khi lưu')`)
+    assert.equal(requests.some(r => r.path === '/api/pms/jobs' && r.method === 'POST'), false)
+    await screen('job-impact')
+    await evaluate(`(()=>{const el=document.querySelector('#pms-job-form input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'TEST-EDITED');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    await wait(`!document.body.textContent.includes('Ảnh hưởng sau khi lưu')`)
+    await click('Xem trước và lưu'); await wait(`document.body.textContent.includes('Ảnh hưởng sau khi lưu')`)
+    await click('Xác nhận lưu'); await wait(`!document.querySelector('[role=dialog]')`)
+    assert.equal(requests.find(r => r.path === '/api/pms/jobs' && r.method === 'POST').body.code, 'TEST-EDITED')
     await evaluate(`document.querySelector('button[aria-label="Lịch sử bảo trì"]').click()`); await wait(`document.body.textContent.includes('WO-FIRE-PUMP-001')`)
     await evaluate(`document.querySelector('button[aria-label="Xem báo cáo"]').click()`); await wait(`document.body.textContent.includes('Gioăng bơm')`); await screen('maintenance-report')
     await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' }); await wait(`document.querySelectorAll('[role=dialog]').length===1`)
@@ -112,8 +122,8 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 780, deviceScaleFactor: 1, mobile: false }); await screen('readonly-responsive')
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); assert.equal(await evaluate(`!!document.querySelector('input[aria-label^="Giờ chạy mới"]')`), false)
     assert.deepEqual(failures, [])
-    fs.writeFileSync(path.join(artifacts, 'browser-summary.json'), JSON.stringify({ checks: ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter'], requests: requests.map(r => ({ path: r.path, method: r.method })), failures }, null, 2))
-    console.log('PMS browser smoke: 16 checks passed; screenshots in ' + artifacts)
+    fs.writeFileSync(path.join(artifacts, 'browser-summary.json'), JSON.stringify({ checks: ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter'], requests: requests.map(r => ({ path: r.path, method: r.method })), failures }, null, 2))
+    console.log('PMS browser smoke: 18 checks passed; screenshots in ' + artifacts)
     await send('Browser.close')
   } finally {
     ws?.close(); chrome.kill(); await server.close(); fs.rmSync(html, { force: true })

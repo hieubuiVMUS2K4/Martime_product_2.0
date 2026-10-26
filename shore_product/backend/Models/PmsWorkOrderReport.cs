@@ -9,6 +9,7 @@ namespace ProductApi.Models;
 [Index(nameof(WorkOrderId), nameof(SubmitCommandId), IsUnique = true, Name = "ux_pms_report_command")]
 public class PmsWorkOrderReport
 {
+    [Column("vessel_id")] public Guid? VesselId { get; set; }
     [Key, Column("id")] public Guid Id { get; set; } = Guid.NewGuid();
     [Column("pms_protocol_version")] public int PmsProtocolVersion { get; set; } = 2;
     [Column("work_order_id")] public Guid WorkOrderId { get; set; }
@@ -41,6 +42,7 @@ public class PmsWorkOrderReport
 [Index(nameof(WorkOrderId), nameof(MaterialItemId), IsUnique = true, Name = "ux_pms_material_posting")]
 public class PmsWorkOrderMaterialPosting
 {
+    [Column("vessel_id")] public Guid? VesselId { get; set; }
     [Key, Column("id")] public Guid Id { get; set; } = Guid.NewGuid();
     [Column("pms_protocol_version")] public int PmsProtocolVersion { get; set; } = 2;
     [Column("work_order_id")] public Guid WorkOrderId { get; set; }

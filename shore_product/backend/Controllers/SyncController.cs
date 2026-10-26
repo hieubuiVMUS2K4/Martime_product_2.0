@@ -22,6 +22,18 @@ public class SyncController : ControllerBase
 {
     private const string VerifiedNodeIdItemKey = "VerifiedSyncNodeId";
 
+    [HttpGet("pms-capabilities")]
+    public async Task<IActionResult> PmsCapabilities([FromServices] IConfiguration configuration)
+    {
+        var origin = HttpContext.Items[VerifiedNodeIdItemKey] as string;
+        if (string.IsNullOrWhiteSpace(origin)) return Unauthorized();
+        var vessel = await VesselSyncIdentity.ResolveVesselIdAsync(_context, origin);
+        if (!vessel.HasValue) return Unauthorized();
+        var dataset = await _context.PmsSyncDatasets.AsNoTracking().SingleOrDefaultAsync(d => d.OriginNode == origin && d.VesselId == vessel);
+        return Ok(new { protocolVersion = configuration.GetValue<bool>("Pms:ReworkSyncEnabled") && dataset?.IsActive == true ? 2 : 0,
+            datasetId = dataset?.DatasetId, streamId = dataset?.StreamId });
+    }
+
     private readonly AppDbContext _context;
     private readonly ISyncInboxService _syncInbox;
     private readonly ISyncOutboxService _syncOutbox;
@@ -227,6 +239,7 @@ public class SyncController : ControllerBase
                 acknowledgedEventIds = batchResult.AcknowledgedEventIds,
                 sensorDeferralSyncVersion = 1,
                 approvalEvidenceVersion = 1,
+                pmsSyncVersion = HttpContext.RequestServices.GetRequiredService<IConfiguration>().GetValue<bool>("Pms:ReworkSyncEnabled") ? 2 : 0,
                 serverTime = DateTime.UtcNow
             });
         }

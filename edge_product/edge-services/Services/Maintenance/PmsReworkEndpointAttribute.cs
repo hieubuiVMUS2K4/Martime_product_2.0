@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using MaritimeEdge.DTOs;
+using Microsoft.EntityFrameworkCore;
 
 namespace MaritimeEdge.Services.Maintenance;
 
@@ -18,6 +19,20 @@ public sealed class PmsReworkEndpointAttribute : Attribute, IAsyncActionFilter
         }
         try
         {
+            var db = context.HttpContext.RequestServices.GetRequiredService<MaritimeEdge.Data.EdgeDbContext>();
+            var dataset = await db.SyncState.AsNoTracking().SingleOrDefaultAsync(s => s.Key == "pms-dataset-id");
+            if (dataset != null)
+            {
+                var active = await db.SyncState.AsNoTracking().AnyAsync(s => s.Key == "pms-cutover-state" && s.Value == "ACTIVE");
+                if (!active) throw new PmsRequestException(503, "PMS đang chuyển đổi dữ liệu; vui lòng thử lại sau.");
+                if (context.HttpContext.Request.Method is not ("GET" or "HEAD"))
+                {
+                    var supplied = context.HttpContext.Request.Headers["X-Pms-Dataset-Id"].FirstOrDefault();
+                    if (!Guid.TryParse(supplied, out var expected) || !Guid.TryParse(dataset.Value, out var actual) || actual != expected)
+                        throw new PmsRequestException(409, "Bộ dữ liệu PMS đã thay đổi. Hãy tải lại trang hoặc cập nhật ứng dụng trước khi thao tác.");
+                    db.ExpectedPmsDatasetId = expected;
+                }
+            }
             var executed = await next();
             if (executed.Exception is PmsRequestException requestError)
             {

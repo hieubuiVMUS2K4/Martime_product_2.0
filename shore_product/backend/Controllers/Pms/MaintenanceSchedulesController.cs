@@ -128,6 +128,9 @@ public class MaintenanceSchedulesController : ControllerBase
             .FirstOrDefaultAsync(s => s.Id == id);
         if (entity == null) return NotFound();
 
+        if (entity.PmsProtocolVersion >= 2)
+            return Conflict(new { code = "pms_edge_owned", message = "Công việc PMS được quản lý trên tàu. Bờ chỉ xem dữ liệu đã đồng bộ." });
+
         entity.ScheduleName = dto.ScheduleName;
         entity.EquipmentAssetId = dto.EquipmentAssetId;
         entity.EquipmentGroupId = dto.EquipmentGroupId;
@@ -174,6 +177,8 @@ public class MaintenanceSchedulesController : ControllerBase
     {
         var entity = await _context.MaintenanceSchedules.FindAsync(id);
         if (entity == null) return NotFound();
+        if (entity.PmsProtocolVersion >= 2)
+            return Conflict(new { code = "pms_edge_owned", message = "Công việc PMS được quản lý trên tàu. Bờ chỉ xem dữ liệu đã đồng bộ." });
         entity.IsActive = false;
         entity.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();

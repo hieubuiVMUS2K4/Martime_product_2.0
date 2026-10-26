@@ -2,18 +2,19 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/services/api.client'
 import { useAuthStore } from '@/stores/auth.store'
 import { hasPermission, usePermissionsStore } from '@/stores/permissions.store'
-import type { Job, JobDetail, JobDefinition, WorkOrder, WorkOrderDetail, Page, CrewOption, RankOption, WorkflowResult, AdHocDefinition, ExecutionResult, Report, HistoryRow, MaterialOption, Counter } from './types'
+import type { Job, JobDetail, JobDefinition, JobImpact, WorkOrder, WorkOrderDetail, Page, CrewOption, RankOption, WorkflowResult, AdHocDefinition, ExecutionResult, Report, HistoryRow, MaterialOption, Counter } from './types'
 export const pms = {
   jobs: (params: Record<string, unknown>) => apiClient.get<Page<Job>>('/pms/jobs', { params }),
   job: (id: string) => apiClient.get<JobDetail>(`/pms/jobs/${id}`),
   saveJob: (id: string | undefined, data: JobDefinition) => id ? apiClient.put(`/pms/jobs/${id}`, data) : apiClient.post('/pms/jobs', data),
+  previewJob: (id: string | undefined, data: JobDefinition) => apiClient.post<JobImpact>(id ? `/pms/jobs/${id}/preview` : '/pms/jobs/preview', data),
   jobState: (job: Job, state: string, reason: string) => apiClient.post(`/pms/jobs/${job.id}/state`, { expectedVersion: job.version, state, reason }),
   deleteJob: (job: Job) => apiClient.delete(`/pms/jobs/${job.id}?expectedVersion=${job.version}`),
   jobReferences: () => apiClient.get<{ crew: CrewOption[]; ranks: RankOption[] }>('/pms/jobs/references'),
   orders: (params: Record<string, unknown>) => apiClient.get<Page<WorkOrder>>('/pms/work-orders', { params }),
   order: (id: string) => apiClient.get<WorkOrderDetail>(`/pms/work-orders/${id}`),
   crew: () => apiClient.get<CrewOption[]>('/pms/work-orders/references'),
-  settings: () => apiClient.get<{ vesselTimeZone: string; automaticReleaseEnabled: boolean }>('/pms/work-orders/settings'),
+  settings: () => apiClient.get<{ vesselTimeZone: string; automaticReleaseEnabled: boolean; pmsDatasetId?: string }>('/pms/work-orders/settings'),
   release: (detail: JobDetail, earlyReleaseReason: string) => apiClient.post<WorkflowResult>('/pms/work-orders/from-job', { jobId: detail.job.id, expectedJobVersion: detail.job.version, expectedCycleKey: detail.cycleKey, earlyReleaseReason }),
   createOrder: (data: AdHocDefinition, commandId: string, issueNow: boolean) => apiClient.post<WorkflowResult>('/pms/work-orders/ad-hoc', { ...data, commandId, issueNow }),
   saveDraft: (order: WorkOrder, data: AdHocDefinition) => apiClient.put<WorkflowResult>(`/pms/work-orders/${order.id}/draft`, { ...data, expectedVersion: order.workflowVersion }),
@@ -50,7 +51,7 @@ export function usePmsPermissions() {
 export function usePmsClock() {
   const settings = usePmsQuery(['settings'], pms.settings)
   const zone = settings.data?.vesselTimeZone
-  return { zone, error: settings.error,
+  return { zone, automaticReleaseEnabled: settings.data?.automaticReleaseEnabled === true, error: settings.error,
     date: (value?: string | null) => !value ? '—' : zone ? new Intl.DateTimeFormat('vi-VN', { timeZone: zone, dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value)) : 'Đang tải múi giờ…',
     due: (at?: string | null, hours?: number | null) => [at ? zone ? new Intl.DateTimeFormat('vi-VN', { timeZone: zone }).format(new Date(at)) : 'Đang tải múi giờ…' : '', hours != null ? `${hours.toLocaleString('vi-VN')} giờ` : ''].filter(Boolean).join(' / ') || '—' }
 }

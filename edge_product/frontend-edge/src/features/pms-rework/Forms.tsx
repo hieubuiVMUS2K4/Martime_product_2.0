@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { apiClient } from '@/services/api.client'
 import { button, primary, input, Field, Section, Modal, ErrorBox, useAction } from './ui'
 import { ChecklistEditor } from './ChecklistEditor'
-import type { AdHocDefinition, JobDefinition, JobDetail, WorkOrderDetail, ChecklistTemplate, CrewOption, EquipmentNode } from './types'
+import type { AdHocDefinition, JobDefinition, JobDetail, JobImpact, WorkOrderDetail, ChecklistTemplate, CrewOption, EquipmentNode } from './types'
 export const useEquipment = () => usePmsQuery(['equipment-tree'], () => apiClient.get<EquipmentNode[]>('/pms/work-orders/equipment-tree'))
 export function EquipmentSelect({ value, onChange }: { value?: string | null; onChange: (id: string | null) => void }) {
   const tree = useEquipment()
@@ -26,14 +26,28 @@ export function JobForm({ detail, onClose }: { detail?: JobDetail; onClose: () =
     warningDays: detail?.daysBeforeDue ?? 7, warningHours: detail?.warningHours ?? 50, releasePolicy: detail?.releasePolicy || 'ON_UPCOMING', autoGenerate: j?.autoGenerate || false,
     priority: detail?.priority || 'NORMAL', department: j?.department || null, responsibleRankId: j?.responsibleRankId ?? null, responsibleCrewId: j?.responsibleCrewId || null,
     assignmentPolicy: detail?.assignmentPolicy || 'ON_RELEASE', defaultCrewId: detail?.defaultCrewId || null, instructions: detail?.instructions || null, checklist: detail?.checklist || [] }))
-  const update = (patch: Partial<JobDefinition>) => setForm(previous => ({ ...previous, ...patch }))
+  const [impact, setImpact] = useState<JobImpact | null>(null)
+  const update = (patch: Partial<JobDefinition>) => { setImpact(null); setForm(previous => ({ ...previous, ...patch })) }
   const refs = usePmsQuery(['job-references'], pms.jobReferences)
   const { busy, run } = useAction(); const refresh = usePmsRefresh()
-  const save = async (e: FormEvent) => { e.preventDefault(); if (await run(async () => { await pms.saveJob(j?.id, form); await refresh() }, 'Đã lưu công việc.')) onClose() }
+  const save = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!impact) { await run(async () => setImpact(await pms.previewJob(j?.id, form)), 'Đã tính ảnh hưởng. Kiểm tra trước khi xác nhận lưu.'); return }
+    if (impact.reasonRequired && !form.changeReason?.trim()) return void toast.error('Cần lý do thay mốc của công việc đã vận hành.')
+    if (await run(async () => { await pms.saveJob(j?.id, form); await refresh() }, 'Đã lưu công việc.')) onClose()
+  }
   const calendar = form.category === 'PERIODIC' && form.intervalType !== 'RUNNING_HOURS'
   const hours = form.category === 'PERIODIC' && form.intervalType !== 'CALENDAR'
-  return <Modal title={j ? 'Sửa công việc' : 'Thêm công việc'} onClose={onClose} busy={busy} footer={<button className={primary} disabled={busy || !!refs.error} form="pms-job-form" type="submit">Lưu công việc</button>}>
+  return <Modal title={j ? 'Sửa công việc' : 'Thêm công việc'} onClose={onClose} busy={busy} footer={<button className={primary} disabled={busy || !!refs.error} form="pms-job-form" type="submit">{impact ? 'Xác nhận lưu' : 'Xem trước và lưu'}</button>}>
     <form id="pms-job-form" onSubmit={save} className="space-y-4"><fieldset disabled={busy} className="space-y-4">
+      {impact && <Section title="Ảnh hưởng sau khi lưu"><div role="status" className="space-y-2 text-sm text-gray-700">
+        <div className="overflow-auto"><table className="w-full border-collapse text-left text-xs"><thead className="bg-blue-50"><tr><th className="border border-gray-200 p-2">Hạn hiện tại</th><th className="border border-gray-200 p-2">Hạn sau khi lưu</th><th className="border border-gray-200 p-2">Trạng thái Job</th></tr></thead><tbody><tr><td className="border border-gray-200 p-2">{clock.due(impact.previousDueAt, impact.previousDueHours)}</td><td className="border border-gray-200 p-2">{clock.due(impact.nextDueAt, impact.nextDueHours)}</td><td className="border border-gray-200 p-2">{label[impact.state] || impact.state}</td></tr></tbody></table></div>
+        {impact.openWorkOrders > 0 && <p>{impact.openWorkOrders} WO đang mở giữ nguyên hạn, checklist và nội dung đã phát hành.</p>}
+        {impact.usesApprovedExecution && <p>Hạn kỳ sau tính từ lần thực hiện đã được duyệt; sửa mốc ban đầu không ghi đè kết quả đó.</p>}
+        {impact.reasonRequired && <p className="text-amber-700">Thay mốc của công việc đã vận hành cần lý do; thay đổi được ghi nhật ký.</p>}
+        {impact.automaticReleaseRequested && <p>Job được đưa vào lượt kiểm tra tự động. Nếu đủ điều kiện, hệ thống sẽ phát hành WO; lưu form chưa có nghĩa đã tạo WO.</p>}
+        {impact.missingInformation.length > 0 && <p className="text-amber-700">Còn {impact.missingInformation.length} thông tin cần bổ sung; chưa phát hành WO tự động.</p>}
+      </div></Section>}
       <Section title="Thông tin công việc"><div className="grid gap-4 md:grid-cols-3">
         <Field name="Mã công việc *"><input className={input} value={form.code} required maxLength={50} onChange={e => update({ code: e.target.value })} /></Field>
         <Field name="Tên công việc *"><input className={input} value={form.name} required maxLength={200} onChange={e => update({ name: e.target.value })} /></Field>
@@ -52,7 +66,9 @@ export function JobForm({ detail, onClose }: { detail?: JobDetail; onClose: () =
         <Field name="Lý do thay đổi mốc"><input className={input} maxLength={1000} value={form.changeReason || ''} onChange={e => update({ changeReason: e.target.value || null })} /></Field>
         <Field name="Cảnh báo trước (ngày)"><input className={input} type="number" min={0} max={3650} value={form.warningDays} onChange={e => update({ warningDays: Number(e.target.value) })} /></Field>
         <Field name="Cảnh báo trước (giờ chạy)"><input className={input} type="number" min={0} value={form.warningHours} onChange={e => update({ warningHours: Number(e.target.value) })} /></Field>
-        <p className="text-xs text-gray-500 md:col-span-3">Chưa đủ mốc vẫn có thể lưu để bổ sung sau. Lưu công việc không ghi nhận một lần bảo trì đã hoàn tất. Tự động phát hành WO chưa được bật cho tàu này.</p>
+        <Field name="Phát hành WO khi"><select className={input} value={form.releasePolicy} onChange={e => update({ releasePolicy: e.target.value })}><option value="ON_UPCOMING">Sắp đến hạn</option><option value="ON_DUE">Đến hạn</option></select></Field>
+        <Field name="Tự động phát hành"><label className="flex h-8 items-center gap-2"><input type="checkbox" checked={form.autoGenerate} disabled={!clock.automaticReleaseEnabled} onChange={e => update({ autoGenerate: e.target.checked })} />Tạo WO theo chu kỳ</label></Field>
+        <p className="text-xs text-gray-500 md:col-span-3">Chưa đủ mốc vẫn có thể lưu để bổ sung sau. Lưu công việc không ghi nhận một lần bảo trì đã hoàn tất. {!clock.automaticReleaseEnabled && 'Tự động phát hành sẽ sẵn sàng sau khi tàu xác nhận đồng bộ bộ dữ liệu mới với bờ.'}</p>
       </div></Section>}
       <Section title="Trách nhiệm"><div className="grid gap-4 md:grid-cols-3">
         <Field name="Bộ phận"><input className={input} maxLength={20} value={form.department || ''} onChange={e => update({ department: e.target.value || null })} /></Field>

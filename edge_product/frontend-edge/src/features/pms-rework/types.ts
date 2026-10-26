@@ -22,6 +22,11 @@ export interface JobDetail {
   baselineSource?: string; daysBeforeDue: number; warningHours: number; releasePolicy: string; assignmentPolicy: string; defaultCrewId?: string;
   priority: string; checklist: ChecklistTemplate[]; equipmentMaterials: { id: string; itemCode: string; name: string; unit?: string }[]; missingInformation: string[];
 }
+export interface JobImpact {
+  previousDueAt?: string; previousDueHours?: number; nextDueAt?: string; nextDueHours?: number;
+  state: string; openWorkOrders: number; baselineChanged: boolean; reasonRequired: boolean;
+  usesApprovedExecution: boolean; automaticReleaseRequested: boolean; missingInformation: string[];
+}
 export interface WorkOrder {
   id: string; code: string; jobId?: string; name: string; equipmentAssetId?: string; equipmentName?: string;
   dueAt?: string; dueHours?: number; dueState: string; status: string; assignedTo?: string; assignedName?: string; department?: string;

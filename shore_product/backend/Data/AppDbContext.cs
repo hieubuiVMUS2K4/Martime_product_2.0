@@ -19,6 +19,8 @@ namespace ProductApi.Data
         public DbSet<CrewMember> CrewMembers { get; set; } = null!;
         public DbSet<MaintenanceTask> MaintenanceTasks { get; set; } = null!;
         public DbSet<PmsWorkOrderReport> PmsWorkOrderReports { get; set; } = null!;
+        public DbSet<PmsSyncDataset> PmsSyncDatasets { get; set; } = null!;
+        public DbSet<PmsSyncMirrorRecord> PmsSyncMirrorRecords { get; set; } = null!;
         public DbSet<PmsWorkOrderMaterialPosting> PmsWorkOrderMaterialPostings { get; set; } = null!;
         
         // Maritime entities

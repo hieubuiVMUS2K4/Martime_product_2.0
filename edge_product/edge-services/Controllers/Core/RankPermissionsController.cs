@@ -17,10 +17,13 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
     private Task<EffectivePermissions> Current() => HttpContext.Items["EffectivePermissions"] is EffectivePermissions current
         ? Task.FromResult(current) : permissions.GetAsync(HttpContext.GetUserId()!.Value);
     private async Task<bool> IsAdmin() => (await Current()).IsAdmin;
+    private bool Rework => configuration?.GetValue<bool>("Pms:ReworkApiEnabled") == true;
+    private string[] Grants(string? json) => PermissionRegistry.ForPmsModel(JsonSerializer.Deserialize<string[]>(json ?? "[]") ?? [], Rework);
 
     [HttpGet("catalog")]
     public IActionResult Catalog() => Ok(PermissionRegistry.Data.Modules.Where(m => m.Code != "dashboard" &&
-        (m.Code != "pms.jobs" || configuration?.GetValue<bool>("Pms:ReworkApiEnabled") == true)).ToArray());
+        (Rework ? m.Code != "pms.config" : m.Code != "pms.jobs"))
+        .Select(m => Rework && m.Code == "pms.work" ? m with { Name = "Work Order" } : m).ToArray());
 
     [HttpGet("ranks")]
     public async Task<IActionResult> Ranks()
@@ -36,7 +39,7 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
             {
                 r.Id, r.RankCode, r.RankName, r.Department, IsConfigured = config != null,
                 Version = config?.Version ?? 0,
-                Grants = config == null ? Array.Empty<string>() : PermissionRegistry.ConfigurableGrants(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? [])
+                Grants = Grants(config?.GrantsJson)
             };
         }).ToArray());
     }
@@ -47,7 +50,7 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
         if (!await IsAdmin()) return StatusCode(403);
         if (!await db.Ranks.AnyAsync(r => r.Id == rankId && r.IsActive)) return NotFound();
         var config = await db.RankPermissionConfigs.AsNoTracking().SingleOrDefaultAsync(c => c.RankId == rankId);
-        return Ok(new { Version = config?.Version ?? 0, Grants = config == null ? Array.Empty<string>() : PermissionRegistry.ConfigurableGrants(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? []) });
+        return Ok(new { Version = config?.Version ?? 0, Grants = Grants(config?.GrantsJson) });
     }
 
     public record SavePermissions(long Version, string[] Grants);
@@ -64,7 +67,7 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
         var config = await db.RankPermissionConfigs.SingleOrDefaultAsync(c => c.RankId == rankId);
         if ((config?.Version ?? 0) != request.Version) return Conflict(new { error = "Cấu hình đã được thay đổi. Hãy tải lại trước khi lưu." });
         var before = config?.GrantsJson ?? "[]";
-        var grants = PermissionRegistry.ConfigurableGrants(request.Grants).Order().ToArray();
+        var grants = PermissionRegistry.ForPmsModel(request.Grants, Rework).Order().ToArray();
         if (config == null) { config = new() { RankId = rankId, Version = 0 }; db.RankPermissionConfigs.Add(config); }
         config.GrantsJson = JsonSerializer.Serialize(grants);
         config.Version++;

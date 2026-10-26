@@ -18,6 +18,33 @@ namespace MaritimeEdge.Tests.Services.Core;
 public class RankPermissionTests
 {
     [Fact]
+    public async Task ReworkCatalogProjectsLegacyDefinitionRightsWithoutGrantingWorkOrderRights()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        const string stored = "[\"pms.config.access\",\"pms.config.update\"]";
+        db.RankPermissionConfigs.Add(new() { RankId = rankId, GrantsJson = stored, Version = 7 }); await db.SaveChangesAsync();
+        var enabled = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["Pms:ReworkApiEnabled"] = "true" }).Build();
+        var service = new RankPermissionService(db, enabled);
+        var effective = await service.GetAsync(user.Id);
+        Assert.Contains("pms.jobs.access", effective.Grants); Assert.Contains("pms.jobs.update", effective.Grants);
+        Assert.DoesNotContain(effective.Grants, g => g.StartsWith("pms.config.") || g.StartsWith("pms.work."));
+        Assert.DoesNotContain("pms.jobs.create", effective.Grants);
+        var old = await new RankPermissionService(db).GetAsync(user.Id);
+        Assert.Contains("pms.config.access", old.Grants); Assert.DoesNotContain("pms.jobs.access", old.Grants);
+        var context = new DefaultHttpContext(); context.Items["UserId"] = user.Id;
+        context.Items["EffectivePermissions"] = new EffectivePermissions(true, null, null, []);
+        var controller = new RankPermissionsController(db, service, enabled) { ControllerContext = new() { HttpContext = context } };
+        var catalog = Assert.IsType<PermissionModule[]>(Assert.IsType<OkObjectResult>(controller.Catalog()).Value);
+        Assert.Single(catalog, m => m.Code == "pms.jobs"); Assert.DoesNotContain(catalog, m => m.Code == "pms.config");
+        Assert.Equal("Work Order", catalog.Single(m => m.Code == "pms.work").Name);
+        var detail = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.Get(rankId)).Value);
+        Assert.Equal(7, detail.GetProperty("Version").GetInt32());
+        Assert.Contains(detail.GetProperty("Grants").EnumerateArray(), g => g.GetString() == "pms.jobs.update");
+        Assert.Equal(stored, (await db.RankPermissionConfigs.SingleAsync()).GrantsJson);
+    }
+
+    [Fact]
     public async Task NewPmsSelectorsDoNotGrantInventoryWritesOrCrewProfiles()
     {
         await using var db = Database(); var (user, rankId) = await Seed(db);

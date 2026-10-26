@@ -10,6 +10,9 @@ type UnauthorizedHandler = (token: string) => Promise<boolean>
 let _getToken: TokenProvider | null = null
 let _getAccountName: AccountNameProvider | null = null
 let _onUnauthorized: UnauthorizedHandler | null = null
+let _pmsDataset: { token: string | null; id: string } | null = null
+let _pmsDatasetChanged = false
+let _pmsSettingsLoaded = false
 
 /** Register auth token provider (called from auth store init) */
 export function registerAuthProvider(
@@ -47,6 +50,13 @@ export class ApiClient {
     options: RequestInit = {},
     retryAuth = true
   ): Promise<T> {
+    if (_pmsDatasetChanged && options.method && options.method !== 'GET' && /^\/pms\/(jobs|work-orders)(\/|\?|$)/.test(endpoint)) {
+      throw Object.assign(new Error('Bộ dữ liệu PMS đã thay đổi. Hãy tải lại trang trước khi tiếp tục; dữ liệu đang nhập chưa được gửi.'), { response: { status: 409 } })
+    }
+    if (options.method && options.method !== 'GET' && /^\/pms\/(jobs|work-orders)(\/|\?|$)/.test(endpoint) &&
+      _pmsDataset?.token === (_getToken?.() ?? null)) {
+      options = { ...options, headers: { ...options.headers, 'X-Pms-Dataset-Id': _pmsDataset.id } }
+    }
     if (retryAuth && options.method && options.method !== "GET") {
       const proof = await prepareApproval(endpoint, typeof options.body === "string" ? JSON.parse(options.body) : undefined, _getToken?.() ?? null)
       if (/^\/pms\/work-orders\/[^/]+\/(approve|return)$/.test(endpoint) && typeof options.body === 'string' && proof['X-Approval-Reason'] != null) {
@@ -168,7 +178,13 @@ export class ApiClient {
         return null as T
       }
 
-      return await response.json()
+      const data = await response.json()
+      if (endpoint === '/pms/work-orders/settings') {
+        if (_pmsSettingsLoaded && (_pmsDataset?.id ?? null) !== (data.pmsDatasetId ?? null)) _pmsDatasetChanged = true
+        if (!_pmsDatasetChanged) _pmsDataset = data.pmsDatasetId ? { token: _getToken?.() ?? null, id: data.pmsDatasetId } : null
+        _pmsSettingsLoaded = true
+      }
+      return data
     } catch (error) {
       clearTimeout(timeoutId)
       if (error instanceof Error) {

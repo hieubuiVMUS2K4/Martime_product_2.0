@@ -20,11 +20,17 @@ public sealed class PmsWorkOrdersController(PmsWorkOrderReadService orders, PmsW
     private long UserId => HttpContext.GetUserId() ?? throw new PmsRequestException(401, "Cần đăng nhập.");
     private string Device => Request.Headers["X-Device-Type"].FirstOrDefault()?.ToUpperInvariant() ?? "WEB";
     [HttpGet("settings")]
-    public IActionResult Settings()
+    public async Task<IActionResult> Settings()
     {
         var zone = configuration?["Pms:VesselTimeZone"];
         if (string.IsNullOrWhiteSpace(zone)) throw new PmsRequestException(503, "Chưa cấu hình múi giờ tàu cho PMS.");
-        try { var resolved = TimeZoneInfo.FindSystemTimeZoneById(zone); return Ok(new { vesselTimeZone = TimeZoneInfo.TryConvertWindowsIdToIanaId(resolved.Id, out var iana) ? iana : resolved.Id, automaticReleaseEnabled = false }); }
+        try
+        {
+            var resolved = TimeZoneInfo.FindSystemTimeZoneById(zone);
+            var dataset = await db.SyncState.AsNoTracking().Where(s => s.Key == "pms-dataset-id").Select(s => s.Value).SingleOrDefaultAsync();
+            return Ok(new { vesselTimeZone = TimeZoneInfo.TryConvertWindowsIdToIanaId(resolved.Id, out var iana) ? iana : resolved.Id,
+                pmsDatasetId = dataset, automaticReleaseEnabled = await PmsReworkRuntime.CanAutoReleaseAsync(db, configuration) });
+        }
         catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
         { throw new PmsRequestException(503, "Múi giờ tàu không hợp lệ."); }
     }

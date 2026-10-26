@@ -50,6 +50,12 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
             await next(); return;
         }
         var required = PermissionRegistry.Resolve(controller, name);
+        if (controller is "Maintenance" or "TaskWorkflow" or "PmsForms" or "TaskChecklistItems" or "TaskRealTimeUpdates" or "WorkItemConfig" or "DeferralRequest" &&
+            await db.SyncState.AnyAsync(s => s.Key == "pms-dataset-id"))
+        {
+            context.Result = new ObjectResult(new { code = "PMS_LEGACY_RETIRED", error = "Luồng PMS cũ đã ngừng sử dụng. Hãy mở Job List/Work Order hoặc cập nhật ứng dụng." }) { StatusCode = 410 };
+            return;
+        }
         // Deferral is not part of V1 protocol-2 workflow. Its legacy routes must not alter new WOs.
         if (http.Request.Method != "GET" && controller == "DeferralRequest")
         {

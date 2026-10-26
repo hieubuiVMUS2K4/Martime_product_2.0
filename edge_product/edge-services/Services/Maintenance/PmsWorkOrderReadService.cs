@@ -54,7 +54,11 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
         PmsJobService.ValidateRanges(q.DueFrom, q.DueTo, q.DueHoursFrom, q.DueHoursTo);
         var tasks = db.MaintenanceTasks.AsNoTracking().Where(t => !t.IsDeleted && t.PmsProtocolVersion == 2);
         if (q.JobId.HasValue) tasks = tasks.Where(t => t.ScheduleId == q.JobId);
-        if (q.EquipmentAssetId.HasValue) tasks = tasks.Where(t => t.EquipmentAssetId == q.EquipmentAssetId);
+        if (q.EquipmentAssetId.HasValue)
+        {
+            var ids = await PmsEquipmentScope.DescendantsAsync(db, q.EquipmentAssetId.Value, token);
+            tasks = tasks.Where(t => t.EquipmentAssetId.HasValue && ids.Contains(t.EquipmentAssetId.Value));
+        }
         if (q.Name != null) { var term = q.Name.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.TaskDescription.ToLower().Contains(term)); }
         if (q.Code != null) { var term = q.Code.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.TaskId.ToLower().Contains(term)); }
         if (q.Equipment != null) { var term = q.Equipment.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.EquipmentAssetName != null && t.EquipmentAssetName.ToLower().Contains(term)); }

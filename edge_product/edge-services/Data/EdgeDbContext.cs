@@ -12,6 +12,22 @@ namespace MaritimeEdge.Data;
 /// </summary>
 public class EdgeDbContext : DbContext
 {
+    // Set by the API filter, then rechecked inside the write transaction after any reset lock wait.
+    public Guid? ExpectedPmsDatasetId { get; set; }
+
+    private void ValidatePmsDatasetBoundary()
+    {
+        var writes = ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(e => e.Entity is MaintenanceSchedule or MaintenanceTask or PmsWorkOrderReport or PmsWorkOrderMaterialPosting).ToList();
+        if (writes.Count == 0) return;
+        var dataset = SyncState.AsNoTracking().SingleOrDefault(s => s.Key == "pms-dataset-id");
+        if (dataset == null) return;
+        if (!Guid.TryParse(dataset.Value, out var actual) || ExpectedPmsDatasetId.HasValue && ExpectedPmsDatasetId != actual ||
+            !SyncState.AsNoTracking().Any(s => s.Key == "pms-cutover-state" && s.Value == "ACTIVE"))
+            throw new MaritimeEdge.DTOs.PmsRequestException(409, "Bộ dữ liệu PMS đã thay đổi hoặc đang chuyển đổi; hãy tải lại trước khi thao tác.");
+        if (writes.Any(e => e.Entity is MaintenanceSchedule { PmsProtocolVersion: not 2 } or MaintenanceTask { PmsProtocolVersion: not 2 }))
+            throw new MaritimeEdge.DTOs.PmsRequestException(410, "API PMS cũ đã ngừng ghi sau chuyển đổi Job/Work Order.");
+    }
     public EdgeDbContext(DbContextOptions<EdgeDbContext> options) : base(options)
     {
     }
@@ -2987,6 +3003,10 @@ public class EdgeDbContext : DbContext
         ValidateApprovalEvidence();
         using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
             ? Database.BeginTransaction() : null;
+        if (Database.IsNpgsql() && ChangeTracker.Entries().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
+            e.Entity is MaintenanceSchedule or MaintenanceTask or PmsWorkOrderReport or PmsWorkOrderMaterialPosting))
+            Database.ExecuteSqlRaw("SELECT pg_advisory_xact_lock(7311042026)");
+        ValidatePmsDatasetBoundary();
         NormalizeDateTimesToUtc();
         var deferred = SuppressSyncQueue ? new List<object>() : ProcessSyncQueue();
         var result = base.SaveChanges();
@@ -3004,6 +3024,10 @@ public class EdgeDbContext : DbContext
         ValidateApprovalEvidence();
         await using var transaction = Database.IsRelational() && Database.CurrentTransaction == null
             ? await Database.BeginTransactionAsync(cancellationToken) : null;
+        if (Database.IsNpgsql() && ChangeTracker.Entries().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
+            e.Entity is MaintenanceSchedule or MaintenanceTask or PmsWorkOrderReport or PmsWorkOrderMaterialPosting))
+            await Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(7311042026)", cancellationToken);
+        ValidatePmsDatasetBoundary();
         NormalizeDateTimesToUtc();
         var deferred = SuppressSyncQueue ? new List<object>() : ProcessSyncQueue();
         var result = await base.SaveChangesAsync(cancellationToken);
@@ -3071,6 +3095,12 @@ public class EdgeDbContext : DbContext
         {
             // 1. Skip SyncQueue itself to avoid infinite recursion
             if (entry.Entity is SyncQueue) continue;
+            if (entry.Entity is ScheduleChecklistTemplate template)
+            {
+                var parent = MaintenanceSchedules.Local.FirstOrDefault(j => j.Id == template.ScheduleId)
+                    ?? MaintenanceSchedules.AsNoTracking().SingleOrDefault(j => j.Id == template.ScheduleId);
+                if (parent?.PmsProtocolVersion == 2) continue; // Included atomically in the full Job payload.
+            }
 
             // Global reference data is written only by Shore sync, never uploaded from Edge.
             if (entry.Entity is Port or Rank or Country or Certificate or RankCertificate or CountryCertificate)
@@ -3314,6 +3344,29 @@ public class EdgeDbContext : DbContext
 
     private string SerializeSyncPayload(object entity)
     {
+        if (entity is PmsWorkOrderReport or PmsWorkOrderMaterialPosting or
+            MaintenanceSchedule { PmsProtocolVersion: 2 } or MaintenanceTask { PmsProtocolVersion: 2 })
+        {
+            // Never serialize a tracked navigation graph into PMS transport.
+            // Snapshot/evidence JSON remains an opaque scalar with exact source bytes.
+            var payload = Entry(entity).Properties.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue);
+            var dataset = SyncState.Local.SingleOrDefault(s => s.Key == "pms-dataset-id")
+                ?? SyncState.AsNoTracking().SingleOrDefault(s => s.Key == "pms-dataset-id");
+            if (dataset != null && Guid.TryParse(dataset.Value, out var datasetId)) payload["PmsDatasetId"] = datasetId;
+            if (entity is MaintenanceSchedule { ResponsibleRankId: not null } job)
+                payload["ResponsibleRankCode"] = Ranks.AsNoTracking().Where(r => r.Id == job.ResponsibleRankId).Select(r => r.RankCode).SingleOrDefault();
+            if (entity is MaintenanceSchedule definition)
+            {
+                var local = ChangeTracker.Entries<ScheduleChecklistTemplate>().Where(e => e.Entity.ScheduleId == definition.Id).ToList();
+                var localIds = local.Select(e => e.Entity.Id).ToHashSet();
+                var checklist = ScheduleChecklistTemplates.AsNoTracking().Where(c => c.ScheduleId == definition.Id).ToList()
+                    .Where(c => !localIds.Contains(c.Id)).Concat(local.Where(e => e.State != EntityState.Deleted).Select(e => e.Entity))
+                    .OrderBy(c => c.SequenceOrder).Select(c => new { c.Id, c.SequenceOrder, c.CheckpointDescription,
+                        c.RequiresReading, c.NormalRangeMin, c.NormalRangeMax, c.Unit, c.CreatedAt }).ToArray();
+                payload["PmsChecklistTemplates"] = checklist;
+            }
+            return System.Text.Json.JsonSerializer.Serialize(payload);
+        }
         if (entity is CrewCertificate crewCertificate)
         {
             var payload = new Dictionary<string, object?>

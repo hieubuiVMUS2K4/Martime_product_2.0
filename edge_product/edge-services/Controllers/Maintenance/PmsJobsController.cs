@@ -35,6 +35,14 @@ public sealed class PmsJobsController(PmsJobService jobs, EdgeDbContext db, IEdg
         return Created($"/api/pms/jobs/{id}", new { id, detail = await jobs.DetailAsync(id, token), workOrderCreated = false });
     }
 
+    [HttpPost("preview")]
+    public async Task<IActionResult> Preview([FromBody] SavePmsJobDto dto, CancellationToken token) =>
+        Ok(await jobs.PreviewAsync(null, dto, token));
+
+    [HttpPost("{id:guid}/preview")]
+    public async Task<IActionResult> PreviewUpdate(Guid id, [FromBody] SavePmsJobDto dto, CancellationToken token) =>
+        Ok(await jobs.PreviewAsync(id, dto, token));
+
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SavePmsJobDto dto, CancellationToken token)
     {

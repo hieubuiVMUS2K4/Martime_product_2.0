@@ -10,6 +10,7 @@ public sealed class MaintenanceCycleUpdater(EdgeDbContext db)
 {
     public async Task<int> RefreshAsync(DateTime now, Guid? assetId = null, CancellationToken token = default)
     {
+        if (await db.SyncState.AnyAsync(s => s.Key == "pms-dataset-id", token)) return 0;
         // Share the approval lock so a background tick cannot reset a partially saved report.
         await using var transaction = db.Database.CurrentTransaction == null ? await InventoryWriteScope.BeginAsync(db) : null;
         var tasks = await db.MaintenanceTasks.Where(t => !t.IsDeleted && !t.PmsProtocolVersion.HasValue && t.ScheduleId.HasValue &&

@@ -7,12 +7,20 @@ using Microsoft.EntityFrameworkCore;
 namespace MaritimeEdge.Services.Maintenance;
 
 /// <summary>
-/// Transactional protocol-2 issuer. Not registered with the worker until cutover/sync is ready.
+/// Transactional protocol-2 issuer. The worker calls it only after the cutover/sync readiness checks.
 /// The transaction includes the Job snapshot, checklist and SaveChanges sync outbox entries.
 /// </summary>
 public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)
 {
     public async Task<MaintenanceTask?> ReleasePeriodicAsync(Guid jobId, DateTime now,
+        TimeZoneInfo vesselTimeZone, bool automatic = true, string? earlyReleaseReason = null,
+        CancellationToken token = default, int? expectedJobVersion = null, string? expectedCycleKey = null)
+        => (await ReleasePeriodicWithResultAsync(jobId, now, vesselTimeZone, automatic, earlyReleaseReason,
+            token, expectedJobVersion, expectedCycleKey)).Order;
+
+    internal sealed record ReleaseResult(MaintenanceTask? Order, bool Created);
+
+    internal async Task<ReleaseResult> ReleasePeriodicWithResultAsync(Guid jobId, DateTime now,
         TimeZoneInfo vesselTimeZone, bool automatic = true, string? earlyReleaseReason = null,
         CancellationToken token = default, int? expectedJobVersion = null, string? expectedCycleKey = null)
     {
@@ -34,7 +42,7 @@ public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)
         {
             // A cancelled/deleted order still consumes its cycle identity; never recreate it.
             if (transaction != null) await transaction.CommitAsync(token);
-            return existing;
+            return new(existing, false);
         }
         if (await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == jobId && !t.IsDeleted &&
             t.Status != "COMPLETED" && t.Status != "CANCELLED", token))
@@ -49,7 +57,7 @@ public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)
         if (automatic && !PmsJobRules.CanAutoRelease(job, dueState))
         {
             if (transaction != null) await transaction.CommitAsync(token);
-            return null;
+            return new(null, false);
         }
         if (!automatic && dueState is "NOT_DUE" or "NO_DEADLINE" && string.IsNullOrWhiteSpace(earlyReleaseReason))
             throw new InvalidOperationException("Manual early release requires a reason.");
@@ -95,6 +103,6 @@ public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)
             });
         await db.SaveChangesAsync(token);
         if (transaction != null) await transaction.CommitAsync(token);
-        return order;
+        return new(order, true);
     }
 }

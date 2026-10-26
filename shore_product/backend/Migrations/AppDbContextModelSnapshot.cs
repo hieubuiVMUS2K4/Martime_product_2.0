@@ -11405,6 +11405,7 @@ namespace productapi.Migrations
                 });
             modelBuilder.Entity("ProductApi.Models.PmsWorkOrderReport", b =>
             {
+                b.Property<Guid?>("VesselId").HasColumnType("uuid").HasColumnName("vessel_id");
                 b.Property<double?>("ExecutedRunningHours").HasColumnType("double precision").HasColumnName("executed_running_hours");
                 b.Property<int>("DurationMinutes").HasColumnType("integer").HasColumnName("duration_minutes");
                 b.Property<DateTime?>("DueAt").HasColumnType("timestamp with time zone").HasColumnName("due_at");
@@ -11441,6 +11442,7 @@ namespace productapi.Migrations
             });
             modelBuilder.Entity("ProductApi.Models.PmsWorkOrderMaterialPosting", b =>
             {
+                b.Property<Guid?>("VesselId").HasColumnType("uuid").HasColumnName("vessel_id");
                 b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid").HasColumnName("id");
                 b.Property<int>("PmsProtocolVersion").HasColumnType("integer").HasColumnName("pms_protocol_version");
                 b.Property<Guid>("WorkOrderId").HasColumnType("uuid").HasColumnName("work_order_id");
@@ -11457,6 +11459,32 @@ namespace productapi.Migrations
                 b.HasIndex("ReportId").HasDatabaseName("ix_pms_posting_report");
                 b.HasOne("ProductApi.Models.PmsWorkOrderReport", null).WithMany().HasForeignKey("ReportId").OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_posting_report");
                 b.HasOne("ProductApi.Models.MaintenanceTask", null).WithMany().HasForeignKey("WorkOrderId").OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_pms_work_order_material_postings_order");
+            });
+            modelBuilder.Entity("ProductApi.Models.PmsSyncDataset", b =>
+            {
+                b.Property<string>("OriginNode").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)");
+                b.Property<Guid>("VesselId").HasColumnType("uuid");
+                b.Property<Guid>("DatasetId").HasColumnType("uuid");
+                b.Property<Guid>("StreamId").HasColumnType("uuid");
+                b.Property<bool>("IsActive").HasColumnType("boolean");
+                b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("OriginNode");
+                b.ToTable("pms_sync_datasets");
+            });
+            modelBuilder.Entity("ProductApi.Models.PmsSyncMirrorRecord", b =>
+            {
+                b.Property<string>("Key").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<string>("OriginNode").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)");
+                b.Property<Guid>("VesselId").HasColumnType("uuid");
+                b.Property<Guid>("DatasetId").HasColumnType("uuid");
+                b.Property<string>("TableName").IsRequired().HasMaxLength(60).HasColumnType("character varying(60)");
+                b.Property<Guid>("SourceId").HasColumnType("uuid");
+                b.Property<Guid>("ShoreId").HasColumnType("uuid");
+                b.Property<long>("Sequence").HasColumnType("bigint");
+                b.Property<string>("PayloadHash").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                b.Property<string>("SourceJson").IsRequired().HasColumnType("text");
+                b.HasKey("Key");
+                b.ToTable("pms_sync_mirror_records");
             });
 #pragma warning restore 612, 618
         }

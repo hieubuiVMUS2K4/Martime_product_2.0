@@ -245,6 +245,8 @@ namespace MaritimeEdge
             builder.Services.AddScoped<PmsJobService>();
             builder.Services.AddScoped<PmsWorkOrderReadService>();
             builder.Services.AddScoped<PmsWorkOrderWorkflowService>();
+            builder.Services.AddSingleton<PmsPeriodicReleaseSweep>();
+            builder.Services.AddHostedService<PmsPeriodicReleaseWorker>();
             builder.Services.AddScoped<MaintenanceCycleUpdater>();
             builder.Services.AddHostedService<MaintenanceCycleWorker>();
             builder.Services.AddScoped<PmsPdfService>();

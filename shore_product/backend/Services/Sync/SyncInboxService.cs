@@ -386,6 +386,8 @@ public partial class SyncInboxService : ISyncInboxService
             "approval_document" => 70,
             "approval_revision" => 71,
             "approval_action" => 72,
+            "pms_work_order_report" or "pms_work_order_reports" => 80,
+            "pms_work_order_material_posting" or "pms_work_order_material_postings" => 81,
             // Tier 0: Reference / seed tables
             "certificate" or "country" or "rank" or "rank_certificate" or "country_certificate"
                 or "report_type" or "equipment_group" or "material_category" or "store_location" => 0,
@@ -513,9 +515,13 @@ public partial class SyncInboxService : ISyncInboxService
         // Track all NoonReport IDs processed successfully for auto-enqueue
         var noonReportIdsForEvaluation = new HashSet<Guid>();
 
-        foreach (var origin in items.Select(i => i.OriginNode).Distinct(StringComparer.Ordinal))
+        foreach (var origin in items.Select(i => i.OriginNode).Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
+        {
+            if (_context.Database.IsNpgsql())
+                await _context.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({origin}, 0))");
             if (!(await VesselSyncIdentity.ResolveVesselIdAsync(_context, origin)).HasValue)
                 throw new InvalidOperationException($"Sync node '{origin}' is not bound to a vessel; provisioning is required.");
+        }
 
         // Group by table for more efficient processing.
         // Order groups by dependency level so parent tables are processed before children.
@@ -530,6 +536,31 @@ public partial class SyncInboxService : ISyncInboxService
         foreach (var group in grouped)
         {
             var canonicalTable = CanonicalizeTableName(group.Key);
+            if (group.Any(IsPmsMirror) || IsPmsLegacyTable(canonicalTable) &&
+                await _context.PmsSyncDatasets.AnyAsync(d => group.Select(i => i.OriginNode).Contains(d.OriginNode)))
+            {
+                foreach (var item in group)
+                {
+                    if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.CreateSavepointAsync("sync_item");
+                    try
+                    {
+                        // Dataset and source receipt checks precede legacy idempotency.
+                        // Never strip or rewrite a signed PMS snapshot.
+                        if (IsPmsMirror(item)) await ProcessPmsMirrorAsync(item);
+                        else await GuardRetiredPmsProtocol(item);
+                        await _context.SaveChangesAsync();
+                        result.Succeeded++;
+                    }
+                    catch (Exception error)
+                    {
+                        if (_context.Database.CurrentTransaction != null) await _context.Database.CurrentTransaction.RollbackToSavepointAsync("sync_item");
+                        _context.ChangeTracker.Clear();
+                        await PersistFailureLogAsync(item, error.Message);
+                        result.Failed++; result.FailedItems.Add(CreateFailure(item, error));
+                    }
+                }
+                continue;
+            }
             if (IsShoreManagedMaterial(canonicalTable))
             {
                 _logger.LogInformation("Ignored {Count} obsolete Edge material-definition uploads", group.Count());
@@ -638,6 +669,7 @@ public partial class SyncInboxService : ISyncInboxService
                 {
                     item.TableName = canonicalTable;
                     PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
+                    await GuardRetiredPmsProtocol(item);
 
                     // Idempotency check — skip already processed
                     if (await IsAlreadyProcessedAsync(item.TableName, item.RecordKey, item.SyncVersion, item.OriginNode, item.EventId, item.StreamId))
@@ -1182,6 +1214,8 @@ public partial class SyncInboxService : ISyncInboxService
 
     public async Task ProcessIncomingAsync(SyncQueueItemDto item)
     {
+        if (IsPmsMirror(item)) { await ProcessPmsMirrorAsync(item); return; }
+        await GuardRetiredPmsProtocol(item);
         PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
         if (ApprovalSnapshot.Tables.Contains(item.TableName)) { await ProcessApprovalEvidenceAsync(item); return; }
         _incomingOriginNode = item.OriginNode;

@@ -48,7 +48,8 @@ public class PmsReworkApiTests
         async Task<ActionExecutingContext> Run(bool enabled)
         {
             using var services = new ServiceCollection().AddSingleton<IConfiguration>(new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?> { ["Pms:ReworkApiEnabled"] = enabled.ToString() }).Build()).BuildServiceProvider();
+                .AddInMemoryCollection(new Dictionary<string, string?> { ["Pms:ReworkApiEnabled"] = enabled.ToString() }).Build())
+                .AddDbContext<EdgeDbContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString())).BuildServiceProvider();
             var action = new ActionContext(new DefaultHttpContext { RequestServices = services }, new RouteData(), new ActionDescriptor());
             var context = new ActionExecutingContext(action, [], new Dictionary<string, object?>(), new object());
             await new PmsReworkEndpointAttribute().OnActionExecutionAsync(context, () =>
@@ -63,7 +64,8 @@ public class PmsReworkApiTests
     public async Task BusinessErrorsCapturedByMvcBecomeConflictsInsteadOfUnhandledServerErrors()
     {
         using var services = new ServiceCollection().AddSingleton<IConfiguration>(new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Pms:ReworkApiEnabled"] = "true" }).Build()).BuildServiceProvider();
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Pms:ReworkApiEnabled"] = "true" }).Build())
+            .AddDbContext<EdgeDbContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString())).BuildServiceProvider();
         var action = new ActionContext(new DefaultHttpContext { RequestServices = services }, new RouteData(), new ActionDescriptor());
         var context = new ActionExecutingContext(action, [], new Dictionary<string, object?>(), new object());
         var executed = new ActionExecutedContext(action, [], new object()) { Exception = new PmsRequestException(409, "Stale Job") };
@@ -121,7 +123,7 @@ public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
         Assert.Equal("PCS", item.GetProperty("Unit").GetString()); Assert.Equal(5m, item.GetProperty("onHand").GetDecimal());
         Assert.DoesNotContain("UnitPrice", options.ToString());
         Assert.Equal(400, (await Assert.ThrowsAsync<PmsRequestException>(() => controller.MaterialOptions(new() { SelectedIds = "invalid" }, default))).Status);
-        var settings = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(controller.Settings()).Value);
+        var settings = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.Settings()).Value);
         Assert.Equal("Asia/Ho_Chi_Minh", settings.GetProperty("vesselTimeZone").GetString());
     }
     [PmsPostgresFact]
@@ -251,6 +253,35 @@ public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
         Assert.Equal(PmsJobRules.Paused, job.JobState); Assert.False(job.IsActive);
         var duplicate = Definition(asset.Id); duplicate.Code = dto.Code.ToUpperInvariant();
         Assert.Equal(409, (await Assert.ThrowsAsync<PmsRequestException>(() => service.SaveAsync(null, duplicate, 1, "NODE"))).Status);
+    }
+
+    [PmsPostgresFact]
+    public async Task JobImpactPreviewIsReadOnlyKeepsIssuedOrdersAndUsesApprovedExecution()
+    {
+        var asset = await Asset();
+        await using var db = fixture.CreateContext(); var service = new PmsJobService(db);
+        var dto = Definition(asset.Id); dto.BaselineAt = DateTime.UtcNow.Date.AddMonths(-3);
+        var first = await service.PreviewAsync(null, dto);
+        Assert.Equal(dto.BaselineAt.Value.AddMonths(3), first.NextDueAt);
+        Assert.False(await db.MaintenanceSchedules.AnyAsync(j => j.ScheduleCode == dto.Code));
+        var id = await service.SaveAsync(null, dto, 1, "PREVIEW");
+        var order = (await new PmsWorkOrderReleaseService(db).ReleasePeriodicAsync(id, DateTime.UtcNow, TimeZoneInfo.Utc, false))!;
+        var frozenSnapshot = order.JobSnapshot; var frozenDue = order.WorkOrderDueAt;
+        var job = await db.MaintenanceSchedules.SingleAsync(j => j.Id == id);
+        dto.ExpectedVersion = job.JobVersion; dto.IntervalMonths = 6; dto.BaselineAt = dto.BaselineAt.Value.AddDays(1);
+        var queued = await db.SyncQueue.CountAsync(); var logs = await db.SystemLogs.CountAsync();
+        var impact = await service.PreviewAsync(id, dto);
+        Assert.True(impact.BaselineChanged); Assert.True(impact.ReasonRequired); Assert.Equal(1, impact.OpenWorkOrders);
+        Assert.Equal(dto.BaselineAt.Value.AddMonths(6), impact.NextDueAt);
+        await db.SaveChangesAsync(); // A later unrelated save cannot persist a preview.
+        await db.Entry(job).ReloadAsync(); await db.Entry(order).ReloadAsync();
+        Assert.Equal(3, job.IntervalMonths); Assert.Equal(frozenDue, order.WorkOrderDueAt); Assert.Equal(frozenSnapshot, order.JobSnapshot);
+        Assert.Equal(queued, await db.SyncQueue.CountAsync()); Assert.Equal(logs, await db.SystemLogs.CountAsync());
+        job.LastExecutedAt = DateTime.UtcNow.Date.AddDays(-1); await db.SaveChangesAsync();
+        impact = await service.PreviewAsync(id, dto);
+        Assert.True(impact.UsesApprovedExecution); Assert.Equal(job.LastExecutedAt.Value.AddMonths(6), impact.NextDueAt);
+        dto.ExpectedVersion--;
+        Assert.Equal(409, (await Assert.ThrowsAsync<PmsRequestException>(() => service.PreviewAsync(id, dto))).Status);
     }
 
     [PmsPostgresFact]

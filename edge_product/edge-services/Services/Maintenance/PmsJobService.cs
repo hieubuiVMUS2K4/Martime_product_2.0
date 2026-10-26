@@ -40,7 +40,11 @@ public sealed class PmsJobService(EdgeDbContext db)
             var term = q.Equipment.Trim().ToLowerInvariant();
             jobs = jobs.Where(j => db.EquipmentAssets.Any(a => a.Id == j.EquipmentAssetId && (a.AssetName.ToLower().Contains(term) || a.AssetCode.ToLower().Contains(term))));
         }
-        if (q.EquipmentAssetId.HasValue) jobs = jobs.Where(j => j.EquipmentAssetId == q.EquipmentAssetId);
+        if (q.EquipmentAssetId.HasValue)
+        {
+            var ids = await PmsEquipmentScope.DescendantsAsync(db, q.EquipmentAssetId.Value, token);
+            jobs = jobs.Where(j => j.EquipmentAssetId.HasValue && ids.Contains(j.EquipmentAssetId.Value));
+        }
         if (q.Category != null) jobs = jobs.Where(j => j.MaintenanceCategory == q.Category);
         if (q.State != null) jobs = jobs.Where(j => j.JobState == q.State);
         else jobs = jobs.Where(j => j.JobState != PmsJobRules.Removed);
@@ -94,6 +98,36 @@ public sealed class PmsJobService(EdgeDbContext db)
         return result;
     }
 
+    public sealed record JobImpact(DateTime? PreviousDueAt, double? PreviousDueHours, DateTime? NextDueAt,
+        double? NextDueHours, string State, int OpenWorkOrders, bool BaselineChanged, bool ReasonRequired,
+        bool UsesApprovedExecution, bool AutomaticReleaseRequested, IReadOnlyList<string> MissingInformation);
+
+    public async Task<JobImpact> PreviewAsync(Guid? id, SavePmsJobDto dto, CancellationToken token = default)
+    {
+        ValidateDto(dto);
+        await using var snapshot = db.Database.IsRelational() && db.Database.CurrentTransaction == null
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, token) : null;
+        // Detached definition: preview must never modify the Job, checklist, audit or sync queue.
+        var job = id.HasValue ? await Jobs.SingleOrDefaultAsync(j => j.Id == id, token)
+            ?? throw new PmsRequestException(404, "Không tìm thấy Job.") : new MaintenanceSchedule();
+        if (id.HasValue) Version(job, dto.ExpectedVersion);
+        if (job.JobState == PmsJobRules.Removed) throw new PmsRequestException(409, "Job đã xóa mềm; hãy khôi phục trước khi sửa.");
+        var hasHistory = await ValidateReferencesAsync(id, job, dto, token);
+        var oldDate = job.NextDueDate; var oldHours = job.NextDueRunningHours;
+        var baselineChanged = id.HasValue && (job.BaselineAt != dto.BaselineAt?.ToUniversalTime() || job.BaselineRunningHours != dto.BaselineRunningHours);
+        var orders = id.HasValue ? await db.MaintenanceTasks.AsNoTracking().Where(t => t.ScheduleId == id)
+            .Select(t => new { t.Status, t.IsDeleted }).ToListAsync(token) : [];
+        ApplyDefinition(job, dto);
+        try { PmsJobRules.PrepareForSave(job); }
+        catch (ArgumentOutOfRangeException) { throw new PmsRequestException(400, "Chu kỳ hoặc mốc vượt phạm vi ngày được hỗ trợ."); }
+        var result = new JobImpact(oldDate, oldHours, job.NextDueDate, job.NextDueRunningHours, job.JobState!,
+            orders.Count(t => !t.IsDeleted && t.Status is not ("COMPLETED" or "CANCELLED")), baselineChanged,
+            baselineChanged && hasHistory, job.LastExecutedAt.HasValue || job.LastExecutedRunningHours.HasValue,
+            job.AutoGenerate && job.IsActive && job.MaintenanceCategory == "PERIODIC", PmsJobRules.MissingInformation(job));
+        if (snapshot != null) await snapshot.CommitAsync(token);
+        return result;
+    }
+
     public async Task<Guid> SaveAsync(Guid? id, SavePmsJobDto dto, long actorId, string originNode, CancellationToken token = default)
     {
         ValidateDto(dto);
@@ -107,24 +141,7 @@ public sealed class PmsJobService(EdgeDbContext db)
             Version(job, dto.ExpectedVersion);
             if (job.JobState == PmsJobRules.Removed) throw new PmsRequestException(409, "Job đã xóa mềm; hãy khôi phục trước khi sửa.");
         }
-        if (await db.MaintenanceSchedules.AnyAsync(j => j.Id != job.Id && j.ScheduleCode.ToLower() == dto.Code.Trim().ToLower(), token))
-            throw new PmsRequestException(409, "Mã công việc đã tồn tại, kể cả cấu hình cũ/ngừng áp dụng. Hãy kiểm tra trước khi nhập lại.");
-        if (dto.EquipmentAssetId.HasValue && !await db.EquipmentAssets.AnyAsync(a => a.Id == dto.EquipmentAssetId && a.IsActive && a.Category != "SYSTEM", token))
-            throw new PmsRequestException(400, "Thiết bị không hợp lệ hoặc đã ngừng sử dụng.");
-        if (dto.ResponsibleRankId.HasValue && !await db.Ranks.AnyAsync(r => r.Id == dto.ResponsibleRankId && r.IsActive, token))
-            throw new PmsRequestException(400, "Chức danh chịu trách nhiệm không hợp lệ.");
-        if (dto.ResponsibleCrewId.HasValue && !await db.CrewMembers.AnyAsync(c => c.Id == dto.ResponsibleCrewId && (c.IsOnboard || c.OnboardStatus == "Approved"), token))
-            throw new PmsRequestException(400, "Người chịu trách nhiệm phải đang trên tàu.");
-        if (dto.AssignmentPolicy == "PREASSIGNED" && !string.IsNullOrWhiteSpace(dto.DefaultCrewId) &&
-            !await db.CrewMembers.AnyAsync(c => c.CrewId == dto.DefaultCrewId && (c.IsOnboard || c.OnboardStatus == "Approved") && c.Rank != null && c.Rank.IsActive, token))
-            throw new PmsRequestException(400, "Người thực hiện mặc định không hợp lệ hoặc đã rời tàu.");
-        var hasOrders = id.HasValue && (await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == job.Id, token)
-            || await db.MaintenanceHistories.AnyAsync(h => h.ScheduleId == job.Id, token));
-        if (hasOrders && job.EquipmentAssetId != dto.EquipmentAssetId)
-            throw new PmsRequestException(409, "Job đã có WO/lịch sử; hãy tạo Job riêng cho thiết bị khác.");
-        if (id.HasValue && (job.MaintenanceCategory != dto.Category || job.IntervalType != dto.IntervalType) &&
-            await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == job.Id && t.Status != "COMPLETED" && t.Status != "CANCELLED" && !t.IsDeleted, token))
-            throw new PmsRequestException(409, "Hãy xử lý WO đang mở trước khi đổi loại hoặc cơ chế chu kỳ của Job.");
+        var hasOrders = await ValidateReferencesAsync(id, job, dto, token);
         var baseline = dto.BaselineAt?.ToUniversalTime();
         var baselineChanged = id.HasValue && (job.BaselineAt != baseline || job.BaselineRunningHours != dto.BaselineRunningHours);
         if (baselineChanged && hasOrders && string.IsNullOrWhiteSpace(dto.ChangeReason))
@@ -223,6 +240,29 @@ public sealed class PmsJobService(EdgeDbContext db)
         Audit(id, actorId, "PMS_JOB_REMOVED", null, JsonSerializer.Serialize(new { job.JobState }));
         await db.SaveChangesAsync(token);
         if (transaction != null) await transaction.CommitAsync(token);
+    }
+
+    private async Task<bool> ValidateReferencesAsync(Guid? id, MaintenanceSchedule job, SavePmsJobDto dto, CancellationToken token)
+    {
+        if (await db.MaintenanceSchedules.AnyAsync(j => j.Id != job.Id && j.ScheduleCode.ToLower() == dto.Code.Trim().ToLower(), token))
+            throw new PmsRequestException(409, "Mã công việc đã tồn tại, kể cả cấu hình cũ/ngừng áp dụng. Hãy kiểm tra trước khi nhập lại.");
+        if (dto.EquipmentAssetId.HasValue && !await db.EquipmentAssets.AnyAsync(a => a.Id == dto.EquipmentAssetId && a.IsActive && a.Category != "SYSTEM", token))
+            throw new PmsRequestException(400, "Thiết bị không hợp lệ hoặc đã ngừng sử dụng.");
+        if (dto.ResponsibleRankId.HasValue && !await db.Ranks.AnyAsync(r => r.Id == dto.ResponsibleRankId && r.IsActive, token))
+            throw new PmsRequestException(400, "Chức danh chịu trách nhiệm không hợp lệ.");
+        if (dto.ResponsibleCrewId.HasValue && !await db.CrewMembers.AnyAsync(c => c.Id == dto.ResponsibleCrewId && (c.IsOnboard || c.OnboardStatus == "Approved"), token))
+            throw new PmsRequestException(400, "Người chịu trách nhiệm phải đang trên tàu.");
+        if (dto.AssignmentPolicy == "PREASSIGNED" && !string.IsNullOrWhiteSpace(dto.DefaultCrewId) &&
+            !await db.CrewMembers.AnyAsync(c => c.CrewId == dto.DefaultCrewId && (c.IsOnboard || c.OnboardStatus == "Approved") && c.Rank != null && c.Rank.IsActive, token))
+            throw new PmsRequestException(400, "Người thực hiện mặc định không hợp lệ hoặc đã rời tàu.");
+        var hasOrders = id.HasValue && (await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == job.Id, token)
+            || await db.MaintenanceHistories.AnyAsync(h => h.ScheduleId == job.Id, token));
+        if (hasOrders && job.EquipmentAssetId != dto.EquipmentAssetId)
+            throw new PmsRequestException(409, "Job đã có WO/lịch sử; hãy tạo Job riêng cho thiết bị khác.");
+        if (id.HasValue && (job.MaintenanceCategory != dto.Category || job.IntervalType != dto.IntervalType) &&
+            await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == job.Id && t.Status != "COMPLETED" && t.Status != "CANCELLED" && !t.IsDeleted, token))
+            throw new PmsRequestException(409, "Hãy xử lý WO đang mở trước khi đổi loại hoặc cơ chế chu kỳ của Job.");
+        return hasOrders;
     }
 
     private void Audit(Guid id, long actorId, string action, string? before, string after) => db.SystemLogs.Add(new SystemLog

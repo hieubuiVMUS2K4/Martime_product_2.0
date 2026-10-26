@@ -180,6 +180,9 @@ public class SyncConflictHandler : ISyncConflictHandler
     {
         PmsSyncProtocol.RejectLegacyReceiver(item.TableName, item.Payload);
         if (item.TableName.Equals("maintenance_schedule", StringComparison.OrdinalIgnoreCase) &&
+            await context.SyncState.AnyAsync(s => s.Key == "pms-dataset-id", token))
+            throw new InvalidOperationException("pms_dataset_retired: Shore cannot recreate legacy PMS Jobs after cutover");
+        if (item.TableName.Equals("maintenance_schedule", StringComparison.OrdinalIgnoreCase) &&
             Guid.TryParse(item.RecordKey, out var jobId) && await context.MaintenanceSchedules.AsNoTracking()
                 .AnyAsync(j => j.Id == jobId && j.PmsProtocolVersion >= 2, token))
             throw new InvalidOperationException(PmsSyncProtocol.UpgradeRequired);

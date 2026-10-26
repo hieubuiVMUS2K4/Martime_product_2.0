@@ -48,6 +48,25 @@ public class SyncService : ISyncService
         public List<Guid>? AcknowledgedEventIds { get; set; }
         public int SensorDeferralSyncVersion { get; set; }
         public int ApprovalEvidenceVersion { get; set; }
+        public int PmsSyncVersion { get; set; }
+    }
+
+    private sealed class PmsPeerCapability
+    {
+        public int ProtocolVersion { get; set; }
+        public Guid? DatasetId { get; set; }
+        public Guid? StreamId { get; set; }
+    }
+
+    private static Guid? PmsDatasetInPayload(string payload)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(payload);
+            return json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("PmsDatasetId", out var id) &&
+                id.TryGetGuid(out var parsed) && parsed != Guid.Empty ? parsed : null;
+        }
+        catch (JsonException) { return null; }
     }
 
     private readonly IServiceProvider _serviceProvider;
@@ -229,7 +248,12 @@ public class SyncService : ISyncService
                 .Where(q => q.SyncedAt == null)
                 .Where(q => allowedPriorities.Contains(q.Priority))
                     .Where(q => q.NextRetryAt == null || q.NextRetryAt <= DateTime.UtcNow)
-                .Where(q => !context.SyncQueue.Any(prior => prior.TableName == q.TableName && prior.RecordKey == q.RecordKey && prior.SyncedAt == null && prior.Id < q.Id))
+                // Job definitions are full, versioned snapshots. Deliver the newest
+                // pending definition first so an obsolete crew/rank reference cannot
+                // block its corrected definition; older events then get stale receipts.
+                .Where(q => q.TableName == "maintenance_schedule" && context.MaintenanceSchedules.Any(j => j.Id.ToString() == q.RecordKey && j.PmsProtocolVersion == 2)
+                    ? !context.SyncQueue.Any(later => later.TableName == q.TableName && later.RecordKey == q.RecordKey && later.SyncedAt == null && later.Id > q.Id)
+                    : !context.SyncQueue.Any(prior => prior.TableName == q.TableName && prior.RecordKey == q.RecordKey && prior.SyncedAt == null && prior.Id < q.Id))
                 // Filter before Take: a large import can fill every FIFO batch with
                 // children while their parent is queued later (UUID order). Wait
                 // for the parent's durable receipt, including during its cooldown.
@@ -319,7 +343,7 @@ public class SyncService : ISyncService
             added += await ReconcileTableAsync(context, "schedule_spare_part",
                 context.ScheduleSpareParts.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "schedule_checklist_template",
-                context.ScheduleChecklistTemplates.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
+                context.ScheduleChecklistTemplates.Where(x => !x.IsSynced && !context.MaintenanceSchedules.Any(j => j.Id == x.ScheduleId && j.PmsProtocolVersion == 2)).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "maintenance_task",
                 context.MaintenanceTasks.Where(x => !x.IsSynced).OrderBy(x => x.Id), x => x.Id.ToString(), cancellationToken);
             added += await ReconcileTableAsync(context, "pms_work_order_report",
@@ -728,6 +752,9 @@ public class SyncService : ISyncService
             entity = await context.FindAsync(metadata.ClrType, parsed);
         }
         if (entity != null) context.Entry(entity).Property("IsSynced").CurrentValue = true;
+        if (entity is MaintenanceSchedule { PmsProtocolVersion: 2 } job)
+            foreach (var template in await context.ScheduleChecklistTemplates.Where(c => c.ScheduleId == job.Id && !c.IsSynced).ToListAsync())
+                template.IsSynced = true;
     }
 
     /// <summary>
@@ -775,9 +802,33 @@ public class SyncService : ISyncService
             .Where(j => pmsKeys.Contains(j.Id) && j.PmsProtocolVersion >= 2).Select(j => j.Id).ToListAsync(cancellationToken);
         var newOrders = await context.MaintenanceTasks.AsNoTracking()
             .Where(t => pmsKeys.Contains(t.Id) && t.PmsProtocolVersion >= 2).Select(t => t.Id).ToListAsync(cancellationToken);
-        bool Held(SyncQueue item) => PmsSyncProtocol.RequiresDedicatedReceiver(item.TableName, item.Payload)
+        PmsPeerCapability? pmsPeer = null;
+        if (items.Any(i => PmsSyncProtocol.RequiresDedicatedReceiver(i.TableName, i.Payload) && PmsDatasetInPayload(i.Payload).HasValue))
+        {
+            try
+            {
+                using var capabilityRequest = await _syncRequestSigningService.CreateSignedRequestAsync(HttpMethod.Get,
+                    $"{baseUrl}/api/sync/pms-capabilities", null, cancellationToken);
+                using var capabilityResponse = await SendSyncRequestAsync(_httpClientFactory.CreateClient("ShoreAPI"), capabilityRequest, cancellationToken);
+                if (capabilityResponse.IsSuccessStatusCode)
+                    pmsPeer = JsonSerializer.Deserialize<PmsPeerCapability>(await capabilityResponse.Content.ReadAsStringAsync(cancellationToken), _jsonOptions);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception error) { _logger.LogWarning(error, "PMS capability negotiation failed; retaining PMS events"); }
+        }
+        bool DedicatedReady(SyncQueue item) => PmsSyncProtocol.RequiresDedicatedReceiver(item.TableName, item.Payload) &&
+            pmsPeer?.ProtocolVersion == 2 && pmsPeer.StreamId == streamId && pmsPeer.DatasetId.HasValue &&
+            PmsDatasetInPayload(item.Payload) == pmsPeer.DatasetId;
+        var localDataset = await context.SyncState.AsNoTracking().SingleOrDefaultAsync(s => s.Key == "pms-dataset-id", cancellationToken);
+        if (pmsPeer?.ProtocolVersion == 2 && pmsPeer.StreamId == streamId && Guid.TryParse(localDataset?.Value, out var currentDataset) && pmsPeer.DatasetId == currentDataset)
+        {
+            var ready = await context.SyncState.AsTracking().SingleOrDefaultAsync(s => s.Key == "pms-peer-ready", cancellationToken);
+            if (ready == null) { ready = new SyncState { Key = "pms-peer-ready" }; context.SyncState.Add(ready); }
+            ready.Value = $"{currentDataset:D}/{streamId:D}/{nodeId}"; ready.UpdatedAt = DateTime.UtcNow;
+        }
+        bool Held(SyncQueue item) => !DedicatedReady(item) && (PmsSyncProtocol.RequiresDedicatedReceiver(item.TableName, item.Payload)
             || (Guid.TryParse(item.RecordKey, out var id) &&
-                (item.TableName == "maintenance_schedule" && newJobs.Contains(id) || item.TableName == "maintenance_task" && newOrders.Contains(id)));
+                (item.TableName == "maintenance_schedule" && newJobs.Contains(id) || item.TableName == "maintenance_task" && newOrders.Contains(id))));
         foreach (var item in items.Where(Held))
             ScheduleRetry(item, PmsSyncProtocol.UpgradeRequired, retryPolicy, nodeId);
         items = items.Where(q => !Held(q)).ToList();
@@ -803,6 +854,7 @@ public class SyncService : ISyncService
         var fileMetadataFailures = new HashSet<Guid>();
         foreach (var dto in dtoItems)
         {
+            if (PmsSyncProtocol.RequiresDedicatedReceiver(dto.TableName, dto.Payload)) continue;
             try
             {
                 dto.FileRefs = await BuildOutgoingFileReferencesAsync(dto, nodeId, cancellationToken);
@@ -886,6 +938,7 @@ public class SyncService : ISyncService
                     var mirrorSupported = !SensorDeferralSyncBackfill.Tables.Contains(item.TableName)
                         || batchResponse?.SensorDeferralSyncVersion >= 1;
                     mirrorSupported &= !ApprovalSnapshot.Tables.Contains(item.TableName) || batchResponse?.ApprovalEvidenceVersion >= 1;
+                    mirrorSupported &= !PmsSyncProtocol.RequiresDedicatedReceiver(item.TableName, item.Payload) || batchResponse?.PmsSyncVersion >= 2;
                     if (acknowledged.Contains(item.EventId) && mirrorSupported)
                     {
                         item.SyncedAt = DateTime.UtcNow;
@@ -897,6 +950,18 @@ public class SyncService : ISyncService
                     else
                     {
                         var failure = batchResponse?.FailedItems?.SingleOrDefault(f => f.EventId == item.EventId);
+                        if (item.TableName == "maintenance_schedule" && failure?.Error.Contains("dependency_missing: rank", StringComparison.OrdinalIgnoreCase) == true &&
+                            Guid.TryParse(item.RecordKey, out var jobId) && !await context.SyncQueue.AnyAsync(q => q.TableName == item.TableName && q.RecordKey == item.RecordKey && q.Id > item.Id && q.SyncedAt == null, cancellationToken))
+                        {
+                            var currentJob = await context.MaintenanceSchedules.AsNoTracking().SingleOrDefaultAsync(j => j.Id == jobId && j.PmsProtocolVersion == 2, cancellationToken);
+                            if (currentJob != null)
+                            {
+                                var currentPayload = context.BuildSyncPayload(currentJob);
+                                if (currentPayload != item.Payload)
+                                    context.SyncQueue.Add(new SyncQueue { TableName = item.TableName, RecordKey = item.RecordKey,
+                                        ActionType = SyncActionType.SNAPSHOT, Priority = item.Priority, Payload = currentPayload });
+                            }
+                        }
                         if (failure?.Error.Contains("dependency_missing", StringComparison.OrdinalIgnoreCase) == true)
                             await PromoteUpdateToSnapshotAsync(context, item, cancellationToken);
                         if (item.TableName == "task_deferral_request"

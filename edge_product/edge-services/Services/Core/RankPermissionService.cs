@@ -38,10 +38,15 @@ public static class PermissionRegistry
         var source = grants.Where(Codes.Contains).ToHashSet();
         return Codes.Where(g => !DefaultGrants.Contains(g) && Allows(source, g)).ToArray();
     }
+
+    // Map definition rights only. Legacy configuration never grants execution or review rights.
+    public static string[] ForPmsModel(IEnumerable<string> grants, bool rework) => ConfigurableGrants(rework
+        ? grants.Select(g => g.StartsWith("pms.config.", StringComparison.Ordinal) ? "pms.jobs." + g[11..] : g)
+        : grants);
 }
 
 public record EffectivePermissions(bool IsAdmin, int? RankId, string? RankName, string[] Grants, bool IsAccountActive = true);
-public sealed class RankPermissionService(EdgeDbContext db)
+public sealed class RankPermissionService(EdgeDbContext db, IConfiguration? configuration = null)
 {
     // Resolve current database identity every request: role/rank changes take effect without relogin.
     public async Task<EffectivePermissions> GetAsync(long userId)
@@ -58,7 +63,7 @@ public sealed class RankPermissionService(EdgeDbContext db)
         var config = await db.RankPermissionConfigs.AsNoTracking().SingleOrDefaultAsync(p => p.RankId == crew.RankId);
         return new(false, crew.RankId, crew.Rank.RankName,
             PermissionRegistry.DefaultGrants.Concat(config == null ? [] :
-                PermissionRegistry.ConfigurableGrants(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? []))
+                PermissionRegistry.ForPmsModel(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? [], configuration?.GetValue<bool>("Pms:ReworkApiEnabled") == true))
                 .Distinct().ToArray());
     }
 }

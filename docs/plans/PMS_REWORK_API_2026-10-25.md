@@ -6,6 +6,19 @@
 
 - `Pms:ReworkApiEnabled` mặc định **false**. Khi chưa bật, endpoint mới trả 503 với mã `PMS_REWORK_NOT_ENABLED`; module Job List mới chưa xuất hiện trong catalog quyền.
 - `Pms:VesselTimeZone` là múi giờ tàu hợp lệ (ví dụ `Asia/Ho_Chi_Minh`). API đọc WO không tự lấy múi giờ máy chủ khi thiếu cấu hình. Windows timezone được chuẩn hóa sang IANA khi truy vấn PostgreSQL.
+
+## Đồng bộ protocol 2 và chuyển dữ liệu demo (26/10/2026)
+
+- Shore có migration `20261026110000_AddPmsSyncDatasetFence`: binding NodeId/VesselId/DatasetId/StreamId và biên nhận mirror riêng. `Pms:ReworkSyncEnabled=true` chỉ cho phép nhận khi binding bộ dữ liệu đã active; cấu hình bật đơn thuần chưa đủ.
+- `GET /api/sync/pms-capabilities` yêu cầu danh tính node đã xác thực, trả `protocolVersion`, `datasetId`, `streamId`. Edge thương lượng trước khi gửi gói PMS có dấu dataset; chỉ ACK khi phản hồi batch có biên nhận từng sự kiện hợp lệ và `pmsSyncVersion >= 2`.
+- Dấu `PmsDatasetId` được chụp vào payload lúc xếp hàng. Không gán dataset hiện tại lên lệnh cũ khi retry. Gói khác dataset/stream, legacy sau reset, thiếu dependency hoặc sai bằng chứng giữ trạng thái lỗi/chưa nhận, không ACK bỏ.
+- Bộ nhận riêng áp dụng Job/WO/report/posting; remap thiết bị/crew theo nguồn và tàu, chức danh theo RankCode. Báo cáo giữ nguyên snapshot/hash, decision phải liên kết đúng bằng chứng ký. Posting chỉ là mirror ledger; không trừ tồn kho lần thứ hai trên bờ.
+- Gói Job bắt buộc có `PmsChecklistTemplates` là mảng (có thể rỗng), chụp cùng phiên bản định nghĩa; không gửi mẫu Job mới qua mapper checklist legacy. Thay mẫu trên Shore không đổi snapshot/checklist thực hiện của WO đã phát hành. WO đã phát hành giữ nguyên mã, khóa kỳ, snapshot và hạn đã chụp; gói mới hơn không được reset WO đã hoàn thành/hủy.
+- Job là full snapshot: bản pending mới nhất được ưu tiên trước để một tham chiếu đã được sửa không bị bản cũ chặn. Shore giữ sequence cao nhất trong đúng dataset/stream, ACK gói cũ mà không áp lại dữ liệu; báo cáo/quyết định/ledger vẫn kiểm tra bất biến riêng. Nếu rank master đã đổi và payload Job hiện tại đã khác gói bị lỗi thiếu rank, Edge tạo snapshot với EventId/sequence mới; không viết lại sự kiện đã có.
+- `GET /api/pms/work-orders/settings` bổ sung `pmsDatasetId`; `automaticReleaseEnabled` được tính theo cờ API, mốc cutover ACTIVE và xác nhận peer đúng dataset/stream. Worker quét theo lô tối đa 200, không dùng dịch vụ reset chu kỳ legacy.
+- Sau reset, các lệnh ghi API Job/WO phải có `X-Pms-Dataset-Id` đúng; sai/thiếu trả 409. Bộ dữ liệu đang chuyển đổi trả 503. Context kiểm tra lại dataset sau khi có khóa ghi để chặn request cũ chờ qua mốc reset. Các controller PMS legacy ngừng phục vụ với 410 sau cutover; mobile phải nâng cấp hợp đồng trước khi dùng bộ dữ liệu mới.
+- Web giữ dataset của phiên trang; nếu settings đổi dataset, các lệnh ghi bị khóa cho đến khi tải lại trang, tránh tự gán dataset mới cho form đang nhập. Chức năng tự động phát hành chỉ cho bật khi server báo sẵn sàng.
+- Công cụ reset chỉ xem trước mặc định, xác minh binding hai đầu, giới hạn các bảng PMS và giữ dữ liệu ngoài PMS: [hướng dẫn](../../tools/PmsDemoReset/README.md). Chưa chạy công cụ trên database vận hành trong bước triển khai này.
 - Cần schema nền tảng, `20261025170000_FreezeWorkOrderWarningWindows`, `20261025180000_AddPmsWorkOrderWorkflow` và `20261026090000_AddPmsAdHocOrderDrafts` trên cả Edge/Shore. Schema WO nháp/đột xuất được bổ sung bằng migration mới, không sửa migration đã giao.
 - Không bật cho tàu vận hành chỉ để xem UI: chưa nối worker phát hành protocol mới, chưa hoàn tất capability đồng bộ, giao diện hoặc mobile. Không thay `.env.production` trong bước này.
 
@@ -94,8 +107,11 @@ Job mới không cần quyền API hồ sơ thuyền viên để lấy danh sác
 
 ## Tính toàn vẹn và ranh giới còn lại
 
+- `POST /api/pms/jobs/preview` và `POST /api/pms/jobs/{id}/preview` nhận cùng DTO thêm/sửa; quyền tương ứng tạo/cập nhật. Trả hạn trước/sau, trạng thái, số WO đang mở, yêu cầu lý do và nguồn tính từ lần thực hiện đã duyệt. Preview không ghi Job/checklist/audit/outbox; dùng cùng kiểm tra tham chiếu/phiên bản và công thức với lệnh lưu. Web xem trước rồi xác nhận; mọi sửa form xóa preview. Khi lưu, server vẫn kiểm tra lại phiên bản và điều kiện dưới khóa, không tin preview cũ để ghi đè.
+- Khi bật rework, catalog phân quyền chỉ hiện Job List và Work Order (không lặp Cấu hình công việc). Quyền `pms.config.*` đã lưu được chiếu sang `pms.jobs.*` tương ứng lúc đọc; không cấp thêm quyền thực hiện/duyệt WO, không tự sửa DB khi đọc. Lần admin lưu tiếp dùng mã Job List mới, tăng phiên bản và ghi audit như trước. Khi chưa bật rework, giữ catalog/quyền legacy.
+- API sửa/xóa cấu hình cũ trên Shore trả 409 với Job protocol 2; bờ không chỉnh trực tiếp bản mirror do Edge sở hữu. Checklist Job nhận tối đa 500 dòng, cùng giới hạn API nguồn. Posting vật tư phải khớp ID và số lượng trong báo cáo đã duyệt có bằng chứng ký.
 - Giao dịch/khóa writer bảo vệ ghi Job, import và cập nhật phiên bản. API cấu hình legacy chặn ghi lên Job protocol mới, kể cả admin; tác vụ sửa ngày legacy cũng bỏ qua Job/WO protocol mới.
 - Chi tiết Job/WO đọc trong snapshot repeatable-read, tránh trả tên/phiên bản mới ghép với checklist/kết quả cũ khi có người cập nhật đồng thời.
 - Lịch sử cũ có `isLegacy=true`, `sourceExecutedAt` và `submittedAt=null`; endpoint snapshot legacy giữ `timeSource=LEGACY_EXECUTED_AT`, không đổi ngày nguồn thành “Ngày gửi hoàn tất”. Báo cáo mới đã duyệt có `isLegacy=false`, thời điểm gửi và duyệt riêng. Bản trả lại hiện ở timeline/revision của WO, không tính thành lần bảo trì hoàn tất. Không dựng báo cáo cũ bằng kết quả mutable trên task hiện tại.
 - 400: payload/điều kiện không hợp lệ; 403: thiếu quyền; 404: sai đối tượng; 409: phiên bản/mã/liên kết xung đột; 503: chưa bật hoặc thiếu cấu hình rework. Không dùng 401 cho lỗi thiếu quyền hoặc feature chưa bật.
-- API ghi legacy (kể cả gia hạn cũ) chặn WO protocol mới. Frontend đã có giao diện mới chọn theo catalog backend; chưa tự chuyển Job/WO legacy thành protocol mới, chưa kiểm chứng đồng bộ end-to-end của rework. Outbox mới đã được ghi cùng giao dịch; receiver/capability/fencing chưa sẵn sàng, không coi có outbox là đã đồng bộ được.
+- API ghi legacy (kể cả gia hạn cũ) chặn WO protocol mới. Frontend chọn giao diện mới theo catalog backend; chưa tự chuyển Job/WO legacy thành protocol mới. Receiver/capability/fencing đã bổ sung và kiểm thử riêng như phần đồng bộ phía trên; còn xác minh HTTP toàn hệ thống và nâng cấp mobile trước khi cutover vận hành.

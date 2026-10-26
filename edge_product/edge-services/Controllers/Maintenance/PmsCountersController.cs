@@ -14,7 +14,11 @@ public sealed class PmsCountersController(EdgeDbContext db) : ControllerBase
     {
         PmsJobService.ValidatePage(query.Page, query.PageSize);
         var source = db.EquipmentAssets.AsNoTracking().Where(a => a.IsActive && a.Category != "SYSTEM");
-        if (query.EquipmentAssetId.HasValue) source = source.Where(a => a.Id == query.EquipmentAssetId);
+        if (query.EquipmentAssetId.HasValue)
+        {
+            var ids = await PmsEquipmentScope.DescendantsAsync(db, query.EquipmentAssetId.Value, token);
+            source = source.Where(a => ids.Contains(a.Id));
+        }
         if (!string.IsNullOrWhiteSpace(query.Code)) { var term = query.Code.Trim().ToLower(); source = source.Where(a => a.AssetCode.ToLower().Contains(term)); }
         if (!string.IsNullOrWhiteSpace(query.Name)) { var term = query.Name.Trim().ToLower(); source = source.Where(a => a.AssetName.ToLower().Contains(term)); }
         var total = await source.CountAsync(token);

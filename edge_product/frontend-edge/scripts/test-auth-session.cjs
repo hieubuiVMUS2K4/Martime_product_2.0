@@ -18,6 +18,41 @@ function load(file, imports, globals = {}) {
   return exports
 }
 const user = { id: 1, username: 'admin', roleCode: 'ADMIN' }
+
+test('PMS writes retain the reviewed dataset and never reuse it for another login', async () => {
+  let token = 'first-session'; let dataset = 'dataset-a'; const headers = []
+  const module = load('services/api.client.ts', {
+    '@/config/app.config': { API_CONFIG: { BASE_URL: '/api', TIMEOUT: 30000 } }, './approval': { prepareApproval: async () => ({}) },
+  }, { fetch: async (url, options) => {
+    if (url.endsWith('/settings')) return { ok: true, status: 200, json: async () => ({ pmsDatasetId: dataset }), headers: { get: () => 'application/json' } }
+    headers.push(options.headers['X-Pms-Dataset-Id'])
+    return { ok: true, status: 200, json: async () => ({}), headers: { get: () => 'application/json' } }
+  } })
+  module.registerAuthProvider(() => token, () => 'user', async () => false)
+  await module.apiClient.get('/pms/work-orders/settings')
+  await module.apiClient.post('/pms/jobs', {})
+  dataset = 'dataset-b'
+  await module.apiClient.post('/pms/jobs', {}) // Old form must still be rejected by the server after reset.
+  await module.apiClient.get('/pms/work-orders/settings')
+  await assert.rejects(() => module.apiClient.post('/pms/jobs', {}), /PMS/)
+  token = 'second-session'
+  await assert.rejects(() => module.apiClient.post('/pms/jobs', {}), /PMS/)
+  assert.deepEqual(headers, ['dataset-a', 'dataset-a'])
+})
+
+test('a staged PMS page cannot relabel an open form when the first real dataset is installed', async () => {
+  let dataset = null; let mutations = 0
+  const module = client(async (url, options) => {
+    if (options.method !== 'GET') mutations++
+    return { ok: true, status: 200, json: async () => ({ pmsDatasetId: dataset }), headers: { get: () => 'application/json' } }
+  })
+  module.registerAuthProvider(() => 'same-session', () => 'user', async () => false)
+  await module.apiClient.get('/pms/work-orders/settings')
+  dataset = 'new-dataset'
+  await module.apiClient.get('/pms/work-orders/settings')
+  await assert.rejects(() => module.apiClient.post('/pms/jobs', {}), /PMS/)
+  assert.equal(mutations, 0)
+})
 function materialRequestFormFixture(getCatalog) {
   const { renderToStaticMarkup } = require('react-dom/server')
   const slots = []; let cursor = 0

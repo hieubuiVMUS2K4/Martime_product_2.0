@@ -500,6 +500,16 @@
     },
     {
       "controller": "PmsJobs",
+      "action": "Preview",
+      "grants": ["pms.jobs.create", "pms.config.create"]
+    },
+    {
+      "controller": "PmsJobs",
+      "action": "PreviewUpdate",
+      "grants": ["pms.jobs.update", "pms.config.update"]
+    },
+    {
+      "controller": "PmsJobs",
       "action": "Delete",
       "grants": [
         "pms.jobs.delete",
