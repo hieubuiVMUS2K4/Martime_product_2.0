@@ -105,7 +105,7 @@ public sealed partial class PmsWorkOrderWorkflowService(EdgeDbContext db, RankPe
             var materialSnapshot = usage.Select(m => new PmsSubmittedMaterial(m.MaterialItemId, catalog[m.MaterialItemId].ItemCode,
                 catalog[m.MaterialItemId].Name, catalog[m.MaterialItemId].Unit, m.Quantity)).ToArray();
             order.ReportRevision = (order.ReportRevision ?? 0) + 1;
-            var snapshot = new PmsSubmissionSnapshot(2, order.Id, order.TaskId, order.ScheduleId, order.JobSnapshot,
+            var snapshot = new PmsSubmissionSnapshot(2, order.Id, order.WorkOrderCode ?? order.TaskId, order.ScheduleId, order.JobSnapshot,
                 order.EquipmentAssetId, order.TaskDescription, order.WorkOrderDueAt, order.WorkOrderDueHours, Now,
                 actor.UserId, actor.CrewId!, order.Notes, order.ActualDuration!.Value, order.ActualRunningHours,
                 items.Select(c => new PmsSubmittedChecklist(c.Id, c.CheckpointDescription, c.IsCompleted, c.ReadingValue, c.Unit, c.Remarks, c.IsAbnormal)).ToArray(),

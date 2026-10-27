@@ -1,8 +1,9 @@
+import { AppModal } from '@/components/common/AppModal';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Package, DollarSign, AlertTriangle, Clock, X, Plus, Pencil } from 'lucide-react';
-import { DataTable, TableActions, type Column } from '@/components/common/DataTable';
+import { DataTable, TableActions, TablePagination, type Column } from '@/components/common/DataTable';
 import { usePermission } from '@/stores/permissions.store';
 import { inventoryService } from '@/services/inventory.service';
 import { storeLocationService } from '@/services/store-location.service';
@@ -27,6 +28,7 @@ export default function InventoryPage() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   const [showDeclare, setShowDeclare] = useState(false);
   const [declareItems, setDeclareItems] = useState<{ materialItemId: string; storeLocationId: string; quantity: number; unitCost: number; itemName?: string }[]>([]);
@@ -73,6 +75,7 @@ export default function InventoryPage() {
 
   const loadHistory = async (page: number) => {
     setHistoryLoading(true);
+    setHistoryError('');
     try {
       const res = await inventoryService.getHistory({
         page, pageSize: 20,
@@ -80,7 +83,7 @@ export default function InventoryPage() {
       setHistoryItems(res.items);
       setHistoryTotal(res.total);
       setHistoryPage(page);
-    } catch (e) { console.error(e); }
+    } catch { setHistoryError('Không thể tải lịch sử tồn kho. Vui lòng thử lại.'); setHistoryItems([]); }
     finally { setHistoryLoading(false); }
   };
 
@@ -245,59 +248,26 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* ── HISTORY MODAL ── */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b bg-slate-700 rounded-t-lg">
-              <h3 className="text-sm font-semibold text-white">Lịch sử tồn kho</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-300 hover:text-white"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {historyLoading ? (
-                <div className="text-center py-8 text-gray-400">Đang tải...</div>
-              ) : historyItems.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">Chưa có lịch sử</div>
-              ) : (
-                <table className="min-w-full text-sm">
-                  <thead><tr className="bg-gray-50 text-xs text-gray-600">
-                    <th className="px-3 py-2 text-left">Ngày</th>
-                    <th className="px-3 py-2 text-left">Loại</th>
-                    <th className="px-3 py-2 text-left">Mã VT</th>
-                    <th className="px-3 py-2 text-left">Tên vật tư</th>
-                    <th className="px-3 py-2 text-right">Số lượng</th>
-                    <th className="px-3 py-2 text-left">Ghi chú</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {historyItems.map((h, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-xs">{h.date?.slice(0, 10)}</td>
-                        <td className="px-3 py-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${h.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {h.type === 'IN' ? 'Nhập' : 'Xuất'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-xs font-medium">{h.itemCode}</td>
-                        <td className="px-3 py-2 text-xs">{h.itemName}</td>
-                        <td className="px-3 py-2 text-xs text-right font-semibold">{fmt(h.quantity)}</td>
-                        <td className="px-3 py-2 text-xs text-gray-500 truncate max-w-[120px]">{h.note || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            {historyTotal > 20 && (
-              <div className="flex items-center justify-center gap-2 px-4 py-2 border-t text-xs">
-                <button disabled={historyPage <= 1} onClick={() => loadHistory(historyPage - 1)} className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-40">← Trước</button>
-                <span>Trang {historyPage} / {Math.ceil(historyTotal / 20)}</span>
-                <button disabled={historyPage >= Math.ceil(historyTotal / 20)} onClick={() => loadHistory(historyPage + 1)} className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-40">Sau →</button>
-              </div>
-            )}
+      {showHistory && <AppModal title="Lịch sử tồn kho" onClose={() => setShowHistory(false)} footer={<span className="mr-auto self-center text-xs text-gray-500">{historyTotal} giao dịch</span>}>
+        <div className="-m-4">
+          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3 text-xs text-slate-500"><span>Nhập và xuất vật tư theo thời gian</span><span>{historyLoading ? 'Đang tải…' : `${historyItems.length} / ${historyTotal} giao dịch`}</span></div>
+          {historyError && <div role="alert" className="m-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{historyError}<button className="ml-3 underline" onClick={() => void loadHistory(historyPage)}>Thử lại</button></div>}
+          <div className="max-h-[55vh] overflow-auto" aria-busy={historyLoading}>
+            <table className="w-full min-w-[800px] border-separate border-spacing-0 text-xs text-slate-700">
+              <thead className="sticky top-0 z-10"><tr>{['STT','Ngày','Loại','Mã vật tư','Tên vật tư','Số lượng','Ghi chú'].map(title => <th key={title} className="border-b border-r border-[#a3b1bc] bg-blue-50 px-3 py-3 text-center font-semibold">{title}</th>)}</tr></thead>
+              <tbody>{!historyError && historyItems.map((h, i) => <tr key={i} className={i % 2 ? 'bg-gray-50/50' : 'bg-white'}>
+                <td className="border-b border-r border-[#a3b1bc] px-3 py-3 text-center">{(historyPage - 1) * 20 + i + 1}</td>
+                <td className="whitespace-nowrap border-b border-r border-[#a3b1bc] px-3 py-3">{h.date ? new Date(h.date).toLocaleDateString('vi-VN') : '—'}</td>
+                <td className="border-b border-r border-[#a3b1bc] px-3 py-3 text-center"><span className={`rounded px-2 py-1 ${h.type === 'IN' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{h.type === 'IN' ? 'Nhập' : 'Xuất'}</span></td>
+                <td className="border-b border-r border-[#a3b1bc] px-3 py-3 font-medium">{h.itemCode || '—'}</td><td className="border-b border-r border-[#a3b1bc] px-3 py-3">{h.itemName || '—'}</td>
+                <td className="border-b border-r border-[#a3b1bc] px-3 py-3 text-right font-semibold tabular-nums">{fmt(h.quantity)}</td>
+                <td className="min-w-[230px] whitespace-pre-wrap break-words border-b border-r border-[#a3b1bc] px-3 py-3 text-gray-500">{h.note || '—'}</td>
+              </tr>)}{!historyItems.length && !historyError && <tr><td colSpan={7} className="p-10 text-center text-gray-500">{historyLoading ? 'Đang tải lịch sử…' : 'Chưa có lịch sử tồn kho.'}</td></tr>}</tbody>
+            </table>
           </div>
+          <TablePagination page={historyPage} pageSize={20} totalItems={historyTotal} onPageChange={page => { if (!historyLoading) void loadHistory(page) }} />
         </div>
-      )}
-
+      </AppModal>}
       {/* ── DECLARE MODAL ── */}
       {showDeclare && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

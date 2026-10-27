@@ -32,6 +32,37 @@ public class PmsJobRulesTests
         Assert.Null(job.LastExecutedAt); Assert.False(job.AutoGenerate);
     }
 
+    [Theory]
+    [InlineData("CALENDAR")]
+    [InlineData("RUNNING_HOURS")]
+    [InlineData("HYBRID")]
+    public void SkippingAdvancesOnePlannedIntervalWithoutInventingExecution_AndSurvivesSave(string interval)
+    {
+        var job = Job(interval); PmsJobRules.PrepareForSave(job);
+        var date = job.NextDueDate; var hours = job.NextDueRunningHours;
+        PmsJobRules.SkipCancelledCycle(job);
+        Assert.Null(job.LastExecutedAt); Assert.Null(job.LastExecutedRunningHours);
+        Assert.Equal(2L, job.NextCycleNumber); Assert.Equal("PERIODIC:2", PmsJobRules.CycleKey(job));
+        var expectedDate = date?.AddMonths(3); var expectedHours = hours + 1000;
+        Assert.Equal(expectedDate, job.NextDueDate); Assert.Equal(expectedHours, job.NextDueRunningHours);
+        PmsJobRules.PrepareForSave(job);
+        Assert.Equal(expectedDate, job.NextDueDate); Assert.Equal(expectedHours, job.NextDueRunningHours);
+    }
+
+    [Fact]
+    public void ApprovalOfReplacementClearsSkippedAnchorsAndStartsNextCycleFromRealExecution()
+    {
+        var job = Job("HYBRID"); PmsJobRules.PrepareForSave(job);
+        PmsJobRules.SkipCancelledCycle(job); job.CycleReleaseAttempt = 1;
+        Assert.Equal("PERIODIC:2:R1", PmsJobRules.CycleKey(job));
+        var time = new DateTime(2027, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+        PmsJobRules.ApplyApprovedExecution(job, new MaintenanceTask { PmsProtocolVersion = 2, ScheduleId = job.Id,
+            CycleKey = PmsJobRules.CycleKey(job), Status = "COMPLETED", SubmittedAt = time, ActualRunningHours = 2200 });
+        Assert.Equal(time.AddMonths(3), job.NextDueDate); Assert.Equal(3200d, job.NextDueRunningHours);
+        Assert.Equal("PERIODIC:3", PmsJobRules.CycleKey(job));
+        Assert.Null(job.SkippedCycleAt); Assert.Null(job.SkippedCycleHours);
+    }
+
     [Fact]
     public void SavingPausedJobDoesNotResumeIt_AndGroupJobsCannotBecomeActive()
     {

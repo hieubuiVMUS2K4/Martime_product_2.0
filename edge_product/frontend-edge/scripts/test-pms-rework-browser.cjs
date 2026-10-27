@@ -8,9 +8,12 @@ const artifacts = path.resolve(root, '../../artifacts/test-results/pms-ui-2026-1
 const html = path.join(root, 'pms-rework-preview.local.html')
 const jobId = '11111111-1111-4111-8111-111111111111', woId = '22222222-2222-4222-8222-222222222222', assetId = '33333333-3333-4333-8333-333333333333', materialId = '44444444-4444-4444-8444-444444444444'
 let state = 'PENDING_APPROVAL', version = 3, invalidApproval = false, longContent = false
+let cancelledCycle = false
+let bulkMode = false
+const deletedJobs = new Set()
 const requests = [], failures = []
 const job = { id: jobId, code: 'FIRE-PUMP-001', name: 'Kiểm tra và bảo dưỡng máy bơm cứu hỏa', equipmentAssetId: assetId, equipmentName: 'Máy bơm cứu hỏa', category: 'PERIODIC', intervalType: 'CALENDAR', intervalMonths: 3, state: 'ACTIVE', version: 1, department: 'DECK', nextDueAt: '2026-10-27T00:00:00Z', responsibleName: 'Đại phó' }
-const work = () => ({ id: woId, code: `WO-${woId.replaceAll('-', '')}`, jobId, name: job.name, equipmentAssetId: assetId, equipmentName: job.equipmentName, dueAt: job.nextDueAt, dueState: 'UPCOMING', status: state, assignedTo: 'THIRD-OFFICER', assignedName: 'Phó ba', priority: 'HIGH', reportRevision: 1, workflowVersion: version, updatedAt: '2026-10-27T04:30:00Z' })
+const work = () => ({ id: woId, code: 'WO-2026-000001', jobId, name: job.name, equipmentAssetId: assetId, equipmentName: job.equipmentName, dueAt: job.nextDueAt, dueState: 'UPCOMING', status: state, assignedTo: 'THIRD-OFFICER', assignedName: 'Phó ba', priority: 'HIGH', reportRevision: 1, workflowVersion: version, updatedAt: '2026-10-27T04:30:00Z' })
 const report = { id: 'report-1', revision: 1, contentHash: 'report-hash', submittedAt: '2026-10-26T04:00:00Z', submittedByCrewId: 'THIRD-OFFICER', snapshotJson: JSON.stringify({ Name: job.name, Code: 'WO-22222222222242228222222222222222', SubmittedAt: '2026-10-26T04:00:00Z', SubmittedByCrewId: 'THIRD-OFFICER', DurationMinutes: 90, RunningHours: 1001, Checklist: [{ Id: 'check-1', Description: 'Đo áp suất bơm', Completed: true, Reading: 5, Unit: 'bar' }], Materials: [{ MaterialItemId: materialId, Code: 'GASKET', Name: 'Gioăng bơm', Unit: 'PCS', Quantity: 2 }], Contributors: [{ UserId: 2, CrewId: 'THIRD-OFFICER' }] }) }
 const page = items => ({ items, total: items.length, page: 1, pageSize: 20 })
 function fixture(url, method, body) {
@@ -19,16 +22,25 @@ function fixture(url, method, body) {
   if (p === '/api/pms/work-orders/equipment-tree') return [{ id: 'folder', assetName: 'Thiết bị boong', category: 'SYSTEM', isActive: true }, { id: assetId, parentId: 'folder', assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
   if (p === '/api/pms/jobs/references') return { crew: [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }], ranks: [{ id: 1, rankName: 'Đại phó', department: 'DECK' }, { id: 2, rankName: 'Máy trưởng', department: 'ENGINE' }] }
   if (p === '/api/pms/jobs/preview') return { previousDueAt: null, nextDueAt: job.nextDueAt, state: 'ACTIVE', openWorkOrders: 0, baselineChanged: false, reasonRequired: false, usesApprovedExecution: false, automaticReleaseRequested: false, missingInformation: [] }
-  if (p === '/api/pms/jobs') return method === 'POST' ? { id: jobId } : page([job])
+  if (p.startsWith('/api/pms/jobs/') && method === 'DELETE') { deletedJobs.add(p.split('/').at(-1)); return {} }
+  if (p === '/api/pms/jobs/import') return { valid: true, count: body.rows.length, errors: [], imported: body.validateOnly ? 0 : body.rows.length }
+  if (p === '/api/pms/jobs') return method === 'POST' ? { id: jobId } : page((bulkMode ? [{...job, canDelete:true}, {...job,id:'bulk-second',name:'Công việc có thể xóa',canDelete:true},{...job,id:'bulk-locked',name:'Công việc đã có WO',canDelete:false}] : [{...job,canDelete:false}]).filter(j => !deletedJobs.has(j.id)))
+  if (p === '/api/store-locations' || p === '/api/material/items') return []
+  if (p === '/api/inventory') return { ...page([]), totalValue: 0 }
+  if (p === '/api/inventory/summary') return { totalItems: 0, totalValue: 0, lowStockCount: 0 }
+  if (p === '/api/inventory/history') return page([{date:'2026-10-27T10:00:00Z',type:'OUT',itemCode:'OIL-001',itemName:'Dầu thủy lực',quantity:25,note:'Tiêu hao vật tư bảo trì'}])
+  if (p === `/api/pms/jobs/${jobId}/resolve-cycle`) { assert.ok(body.reason.trim()); assert.equal(body.cancelledWorkOrderId, woId); cancelledCycle = false; return { workOrderId: body.action === 'REPLACE' ? woId : null } }
   if (p === `/api/pms/jobs/${jobId}/history`) return page([{ id: 'report-1', workOrderId: woId, workOrderCode: 'WO-FIRE-PUMP-001', sourceExecutedAt: report.submittedAt, submittedAt: report.submittedAt, approvedAt: report.submittedAt, completedBy: 'Phó ba', isLegacy: false, hasReport: true }])
   if (p.includes('/completed-reports/')) return { ...report, decision: 'APPROVED' }
-  if (p === `/api/pms/jobs/${jobId}`) return { job, cycleKey: 'PERIODIC:1', instructions: 'Kiểm tra bơm và ghi nhận áp suất', checklist: [{ sequenceOrder: 1, checkpointDescription: 'Đo áp suất bơm', requiresReading: true, unit: 'bar' }], equipmentMaterials: [{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS' }], missingInformation: [], daysBeforeDue: 7, warningHours: 50, releasePolicy: 'ON_UPCOMING', assignmentPolicy: 'ON_RELEASE', priority: 'HIGH' }
+  if (p === `/api/pms/jobs/${jobId}`) return { job, cycleKey: 'PERIODIC:1', requiresCycleResolution: cancelledCycle, cancelledWorkOrderId: cancelledCycle ? woId : null, instructions: 'Kiểm tra bơm và ghi nhận áp suất', checklist: [{ sequenceOrder: 1, checkpointDescription: 'Đo áp suất bơm', requiresReading: true, unit: 'bar' }], equipmentMaterials: [{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS' }], missingInformation: [], daysBeforeDue: 7, warningHours: 50, releasePolicy: 'ON_UPCOMING', assignmentPolicy: 'ON_RELEASE', priority: 'HIGH' }
   if (p === '/api/pms/work-orders/settings') return { vesselTimeZone: 'Asia/Ho_Chi_Minh', automaticReleaseEnabled: false }
   if (p === '/api/pms/work-orders/references') return [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }]
   if (p === '/api/pms/work-orders/material-options') return page([{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS', onHand: 10 }])
-  if (p === '/api/pms/work-orders') return page(new URL(url).searchParams.get('status') === 'ALL'
-    ? [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }]
-    : [work()])
+  if (p === '/api/pms/work-orders') {
+    const params = new URL(url).searchParams
+    const rows = [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }, { ...work(), id: '66666666-6666-4666-8666-666666666666', name: 'WO đã hủy cần ẩn', status: 'CANCELLED' }]
+    return page(rows.filter(w => (params.get('status') === 'ALL' || params.get('status') === 'OPEN' ? params.get('status') === 'ALL' || !['COMPLETED','CANCELLED','DRAFT'].includes(w.status) : w.status === params.get('status')) && (params.get('excludeCancelled') !== 'true' || w.status !== 'CANCELLED')))
+  }
   if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: [report], timeline: longContent ? Array.from({length: 70}, (_,i)=>({id: `event-${i}`,changedAt: '2026-10-27T04:00:00Z',changedBy: 'THIRD-OFFICER',reason: `Sự kiện bảo trì ${i+1}`})) : [{id:'event-1',changedAt:'2026-10-26T03:00:00Z',changedBy:'THIRD-OFFICER',reason:'Nhận và bắt đầu công việc'},{id:'event-2',changedAt:'2026-10-26T04:00:00Z',changedBy:'THIRD-OFFICER',reason:'Gửi kết quả kiểm tra'}], actualDurationMinutes: 90 }
   if (p.includes('/reports/1')) {
     if (!longContent) return report
@@ -55,9 +67,9 @@ async function main() {
   const modules = [{ code: 'pms.jobs', actions: ['view', 'create', 'delete', 'import', 'update'], routes: ['/pms/jobs'] }, { code: 'pms.work', actions: ['view', 'create', 'delete', 'update', 'assign', 'execute', 'approve', 'reject'], routes: ['/pms/work-orders'] }, { code: 'pms.counter', actions: ['view', 'update'], routes: [] }]
   fs.writeFileSync(html, `<html><body style="margin:0"><div id="root" style="height:100vh"></div><script type="module">
 import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import '/src/styles/globals.css';import Planning from '/src/features/pms-rework/Planning.tsx';import JobPage from '/src/features/pms-rework/JobPage.tsx';import WorkOrderPage from '/src/features/pms-rework/WorkOrderPage.tsx';import {ApprovalDialog} from '/src/components/ApprovalDialog.tsx';import {usePermissionsStore} from '/src/stores/permissions.store.ts';import {useAuthStore} from '/src/stores/auth.store.ts';
+import '/src/styles/globals.css';import InventoryPage from '/src/pages/Inventory/InventoryPage.tsx';import Planning from '/src/features/pms-rework/Planning.tsx';import JobPage from '/src/features/pms-rework/JobPage.tsx';import WorkOrderPage from '/src/features/pms-rework/WorkOrderPage.tsx';import {ApprovalDialog} from '/src/components/ApprovalDialog.tsx';import {usePermissionsStore} from '/src/stores/permissions.store.ts';import {useAuthStore} from '/src/stores/auth.store.ts';
 const modules=${JSON.stringify(modules)};const qc=new QueryClient();window.testUser=(execute=false,readonly=false)=>{useAuthStore.setState({accessToken:'browser-fixture-token',user:{id:execute?2:1,crewId:execute?'THIRD-OFFICER':null,username:'fixture'}});usePermissionsStore.setState({loaded:true,error:null,isAdmin:false,modules,grants:modules.flatMap(m=>readonly?[m.code+'.access']:['access',...m.actions].map(a=>m.code+'.'+a))});qc.clear()};window.testUser();window.testNavigate=p=>{history.pushState({},'',p);window.dispatchEvent(new PopStateEvent('popstate'))};history.replaceState({},'','/pms/work-planning');
-const h=React.createElement;createRoot(document.getElementById('root')).render(h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})})))));
+const h=React.createElement;createRoot(document.getElementById('root')).render(h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/inventory-test',element:h(InventoryPage)}),h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})})))));
 </script></body></html>`)
   const chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=15308', `--user-data-dir=${path.join(artifacts, 'chrome-profile-' + process.pid + '-' + Date.now())}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' })
   let ws, closing = false
@@ -85,6 +97,7 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     const call = (method, params) => send(method, params, sessionId)
     await call('Runtime.enable'); await call('Page.enable'); await call('Fetch.enable', { patterns: [{ urlPattern: 'http://127.0.0.1:15307/api/*' }] })
     await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false })
+    await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] })
     const evaluate = async expression => { const result = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw Error(result.exceptionDetails.text); return result.result.value }
     const wait = async expression => { for (let i = 0; i < 150; i++) { if (await evaluate(expression)) return; await new Promise(r => setTimeout(r, 100)) } throw Error('Browser wait timeout: ' + expression) }
     const click = text => evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)})?.click()`)
@@ -94,6 +107,34 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await wait(`document.body.textContent.includes('Kiểm tra và bảo dưỡng máy bơm cứu hỏa')`)
     assert.equal(await evaluate(`(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Thêm công việc');const s=getComputedStyle(b);return s.color!==s.backgroundColor})()`), true)
     await screen('job-list')
+    await click('Import Excel'); await wait(`!!document.querySelector('[role=dialog] input[type=file]')`)
+    assert.equal(await evaluate(`document.querySelector('[role=dialog]').textContent.includes('Kiểm tra trước khi nhập')`), true)
+    await screen('job-import-redesign-empty')
+    const XLSX = require('xlsx'), importFile = path.join(artifacts, 'jobs-import-ui.xlsx'), invalidFile = path.join(artifacts, 'jobs-import-invalid.xlsx')
+    const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet([{ ScheduleCode:'IMPORT-001',AssetCode:'PUMP-001',ScheduleName:'Kiểm tra import bơm',MaintenanceCategory:'PERIODIC',IntervalType:'CALENDAR',IntervalMonths:3 }]), 'Maintenance'); XLSX.writeFile(book, importFile)
+    const invalidBook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(invalidBook, XLSX.utils.json_to_sheet([{Name:'Missing required columns'}]), 'Maintenance'); XLSX.writeFile(invalidBook, invalidFile)
+    const chooseFile = async file => { const {root} = await call('DOM.getDocument'); const {nodeId} = await call('DOM.querySelector',{nodeId:root.nodeId,selector:'[role=dialog] input[type=file]'}); await call('DOM.setFileInputFiles',{nodeId,files:[file]}) }
+    await chooseFile(importFile); await wait(`document.querySelector('[role=dialog]').textContent.includes('1 công việc hợp lệ')`)
+    assert.equal(await evaluate(`document.querySelector('[role=dialog] tbody').textContent.includes('Kiểm tra import bơm')`), true)
+    await screen('job-import-redesign-preview')
+    await chooseFile(invalidFile); await wait(`!!document.querySelector('[role=dialog] [role=alert]')`)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('[role=dialog] button')).find(b=>b.textContent.includes('Nhập 0')).disabled`), true)
+    await evaluate(`document.querySelector('[role=dialog] button[aria-label="Đóng"]').click()`)
+    bulkMode = true
+    await evaluate(`window.testUser();window.testNavigate('/pms/work-planning?tab=table')`); await wait(`document.body.textContent.includes('Công việc đã có WO')`)
+    await evaluate(`document.querySelector('input[aria-label="Chọn tất cả dòng trên trang"]').click()`)
+    assert.equal(await evaluate(`document.querySelector('input[aria-label="Chọn dòng 3"]').disabled`), true)
+    await click('Xóa nhiều (2)'); await wait(`!!document.querySelector('[role=dialog]')`); await screen('job-bulk-delete-confirmation')
+    await click('Xóa 2 công việc'); await wait(`!document.querySelector('[role=dialog]') && !document.body.textContent.includes('Công việc có thể xóa')`)
+    assert.equal(deletedJobs.has('bulk-locked'),false); assert.equal(deletedJobs.size,2)
+    bulkMode = false; deletedJobs.clear()
+    await evaluate(`window.testUser();window.testNavigate('/inventory-test')`); await wait(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Lịch sử tồn kho'))`)
+    await evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('Lịch sử tồn kho')).click()`)
+    await wait(`!!document.querySelector('[role=dialog]') && document.querySelector('[role=dialog]').textContent.includes('Dầu thủy lực')`)
+    assert.equal(await evaluate(`document.querySelector('[role=dialog]').textContent.includes('OIL-001')`),true)
+    await screen('inventory-history-redesign')
+    await evaluate(`document.querySelector('[role=dialog] button[aria-label="Đóng"]').click();window.testUser();window.testNavigate('/pms/work-planning?tab=table')`)
+    await wait(`document.body.textContent.includes('Kiểm tra và bảo dưỡng máy bơm cứu hỏa')`)
     assert.equal(await evaluate(`document.querySelector('thead').rows.length`), 1)
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('table')).borderCollapse`), 'separate')
     assert.equal(await evaluate(`!!document.querySelector('thead th:nth-child(2)>span svg')`), false)
@@ -185,27 +226,47 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await evaluate(`window.testNavigate('/pms/jobs/${jobId}')`); await wait(`!!document.querySelector('[aria-label="Đường dẫn công việc"] h1')`)
     assert.equal(await evaluate(`document.querySelector('[aria-label="Đường dẫn công việc"] h1').textContent`), job.name)
     await screen('job-detail-redesign')
+    for (const choice of ['Phát hành WO thay thế', 'Bỏ qua kỳ này']) {
+      cancelledCycle = true
+      await evaluate(`window.testUser();window.testNavigate('/pms/jobs/${jobId}')`)
+      await wait(`document.body.textContent.includes('Bỏ qua kỳ này')`)
+      await click(choice); await wait(`!!document.querySelector('[role=dialog] textarea')`)
+      assert.equal(await evaluate(`document.querySelector('button[type=submit]').disabled`), true)
+      await evaluate(`(()=>{const el=document.querySelector('[role=dialog] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Đối soát kỳ đã hủy');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+      await click('Xác nhận'); await wait(`!document.querySelector('[role=dialog]')`)
+      await wait(choice === 'Phát hành WO thay thế' ? `location.pathname.includes('/pms/work-orders/')` : `!document.body.textContent.includes('Bỏ qua kỳ này')`)
+    }
+    await evaluate(`window.testNavigate('/pms/jobs/${jobId}')`); await wait(`!!document.querySelector('[aria-label="Nội dung công việc"]')`)
     await evaluate(`Array.from(document.querySelectorAll('[aria-label="Nội dung công việc"] button')).find(b=>b.textContent.includes('Vật tư của thiết bị')).click()`)
     await wait(`document.body.textContent.includes('Gioăng bơm')`); await screen('job-detail-materials')
     await evaluate(`window.testNavigate('/pms/jobs/${jobId}?edit=1')`); await wait(`!!document.querySelector('[role=dialog]')`)
     await evaluate(`document.querySelector('button[aria-label="Đóng"]').click()`); await wait(`!document.querySelector('[role=dialog]')`)
     await evaluate(`window.testNavigate('/pms/work-planning?tab=orders')`); await wait(`document.body.textContent.includes('Chờ duyệt')`)
-    assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status'), 'ALL')
+    assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status'), 'OPEN')
+    assert.equal(await evaluate(`document.querySelector('tbody').textContent.includes('WO-2026-000001')`), true)
+    assert.equal(await evaluate(`document.body.textContent.includes('Bảo dưỡng đã hoàn thành') || document.body.textContent.includes('WO đã hủy cần ẩn')`), false)
     assert.equal(await evaluate(`document.body.textContent.includes('Đang lọc:')`), false)
     assert.equal(await evaluate(`Array.from(document.querySelectorAll('tbody td:last-child')).every(c=>c.textContent.trim()==='')`), true)
     await evaluate(`document.querySelector('button[aria-label^="Lọc và sắp xếp cột Tiến độ"]').click()`)
     await wait(`!!document.querySelector('[aria-label="Bộ lọc cột Tiến độ"]')`)
     await evaluate(`Array.from(document.querySelectorAll('[aria-label="Bộ lọc cột Tiến độ"] label')).find(l=>l.textContent.trim()==='Chờ duyệt').click()`)
     await click('Áp dụng'); await new Promise(r=>setTimeout(r,500))
+    for (let i = 0; i < 100 && new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status') !== 'PENDING_APPROVAL'; i++) await new Promise(r=>setTimeout(r,100))
     assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status'), 'PENDING_APPROVAL')
     assert.equal(await evaluate(`document.body.textContent.includes('Đang lọc:')`), false)
     await evaluate(`document.querySelector('button[aria-label^="Lọc và sắp xếp cột Tiến độ"]').click()`)
     await wait(`!!document.querySelector('[aria-label="Bộ lọc cột Tiến độ"]')`); await click('Bỏ lọc'); await new Promise(r=>setTimeout(r,500))
     await wait(`document.body.textContent.includes('Bảo dưỡng đã hoàn thành')`)
+    assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('status'), 'ALL')
+    assert.equal(await evaluate(`document.body.textContent.includes('WO đã hủy cần ẩn')`), true)
     assert.equal(await evaluate(`!!document.querySelector('button[aria-label="Lọc và sắp xếp cột Tiến độ"]')`), true)
     await screen('work-orders')
     await click('Lịch'); await wait(`document.body.textContent.includes('T2') && !!document.querySelector('input[aria-label="Chọn tháng"]')`); await screen('calendar')
+    await wait(`document.body.textContent.includes('Bảo dưỡng đã hoàn thành')`)
+    assert.equal(await evaluate(`document.body.textContent.includes('WO đã hủy cần ẩn')`), false)
+    assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('excludeCancelled'), 'true')
     await click('Gantt chart'); await wait(`!!document.querySelector('[aria-label="Biểu đồ Gantt"]')`)
+    assert.equal(await evaluate(`document.body.textContent.includes('WO đã hủy cần ẩn')`), false)
     assert.equal(await evaluate(`document.querySelector('[aria-label="Bảng công việc Gantt"]').textContent.includes('Phó ba')`), true)
     assert.equal(await evaluate(`(()=>{const l=document.querySelector('[aria-label="Bảng công việc Gantt"] tbody tr').getBoundingClientRect();const r=document.querySelector('[aria-label="Dòng thời gian Gantt"]>div>div:nth-child(2)').getBoundingClientRect();return l.top===r.top&&l.height===r.height})()`), true)
     await screen('gantt')
@@ -302,8 +363,10 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 780, deviceScaleFactor: 1, mobile: false }); await screen('readonly-responsive')
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); assert.equal(await evaluate(`!!document.querySelector('input[aria-label^="Giờ chạy mới"]')`), false)
     assert.deepEqual(failures, [])
-    const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-unfiltered-default-and-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
+    const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-open-default-and-all-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
     checks.push('equipment-search-name-without-accents-and-code', 'equipment-keyboard-selection', 'equipment-search-escape-keeps-selection')
+    checks.push('cancelled-cycle-replace-with-reason-and-navigation', 'cancelled-cycle-skip-with-reason')
+    checks.push('job-import-preview-and-inline-errors', 'job-bulk-delete-only-eligible-rows', 'inventory-history-material-code-name-and-dialog')
     fs.writeFileSync(path.join(artifacts, 'browser-summary.json'), JSON.stringify({ checks, requests: requests.map(r => ({ path: r.path, method: r.method })), failures }, null, 2))
     closing = true
     await call('Fetch.disable'); await call('Page.navigate', { url: 'about:blank' })

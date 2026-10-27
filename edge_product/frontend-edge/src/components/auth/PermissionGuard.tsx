@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { usePermissionsStore, canOpen } from '@/stores/permissions.store'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -15,6 +15,8 @@ export function PermissionGuard({ children }: { children: React.ReactNode }) {
     window.addEventListener('focus', refresh)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
   }, [token])
+  // Resolve the authenticated entry before permission checks can block the index route.
+  if (location.pathname === '/') return <Navigate to="/dashboard" replace />
   if (location.pathname === '/dashboard') return <>{children}</>
   if (!permissions.loaded) return <div className="p-8 text-sm text-gray-500">Đang tải quyền truy cập…</div>
   if (!canOpen(location.pathname)) return <div className="p-8 text-sm">

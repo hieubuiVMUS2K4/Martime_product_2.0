@@ -30,20 +30,23 @@ public class PmsWorkOrderFoundationTests
     [Fact]
     public void MirrorPreservesProtocolIdentityDeadlinesAndSnapshot()
     {
-        var task = new MaintenanceTask { PmsProtocolVersion = 2, CycleKey = "PERIODIC:1", JobVersion = 3,
+        var task = new MaintenanceTask { PmsProtocolVersion = 2, WorkOrderCode = "WO-2026-000001", CycleKey = "PERIODIC:1", JobVersion = 3,
             JobSnapshot = "{\"version\":2}", WorkOrderDueHours = 1200, DueState = "UPCOMING", ReportRevision = 2,
             WorkOrderWarningDays = 7, WorkOrderWarningHours = 50, WorkflowVersion = 8,
             SupportingCrewIds = "[\"PIC-2\"]", ExecutionActors = "[{\"userId\":12,\"crewId\":\"PIC\"}]", ExecutionStartedHours = 1000 };
         var result = JsonSerializer.Deserialize<MaintenanceTask>(JsonSerializer.Serialize(task))!;
         Assert.Equal(2, result.PmsProtocolVersion); Assert.Equal(task.CycleKey, result.CycleKey);
+        Assert.Equal(task.WorkOrderCode, result.WorkOrderCode);
         Assert.Equal(task.JobSnapshot, result.JobSnapshot); Assert.Equal(1200d, result.WorkOrderDueHours);
         Assert.Null(result.WorkOrderDueAt); Assert.Equal(2, result.ReportRevision);
         Assert.Equal(7, result.WorkOrderWarningDays); Assert.Equal(50d, result.WorkOrderWarningHours);
         Assert.Equal(8, result.WorkflowVersion); Assert.Equal(task.SupportingCrewIds, result.SupportingCrewIds);
         Assert.Equal(task.ExecutionActors, result.ExecutionActors); Assert.Equal(1000d, result.ExecutionStartedHours);
         var job = JsonSerializer.Deserialize<MaintenanceSchedule>(JsonSerializer.Serialize(new MaintenanceSchedule
-        { ResponsibleRankId = 12, BaselineRunningHours = 100, WarningHours = 50, JobState = "NEEDS_INFORMATION", NextCycleNumber = 2 }))!;
+        { ResponsibleRankId = 12, BaselineRunningHours = 100, WarningHours = 50, JobState = "NEEDS_INFORMATION", NextCycleNumber = 2,
+            CycleReleaseAttempt = 2, SkippedCycleAt = DateTime.UtcNow, SkippedCycleHours = 1200 }))!;
         Assert.Equal(12, job.ResponsibleRankId); Assert.Equal(50d, job.WarningHours); Assert.Equal(2L, job.NextCycleNumber);
+        Assert.Equal(2, job.CycleReleaseAttempt); Assert.NotNull(job.SkippedCycleAt); Assert.Equal(1200d, job.SkippedCycleHours);
     }
 
     [Fact]

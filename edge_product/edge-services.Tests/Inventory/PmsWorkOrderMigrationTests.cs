@@ -12,6 +12,36 @@ namespace MaritimeEdge.Tests.Inventory;
 public class PmsWorkOrderMigrationTests
 {
     [PmsPostgresFact]
+    public async Task CancelledCycleMigrationPreservesLegacyAndBlocksLossyRollback()
+    {
+        var connection = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("PMS_TEST_CONNECTION_STRING"));
+        if (connection.Database?.StartsWith("codex_pms_tests_", StringComparison.Ordinal) != true) throw new InvalidOperationException("Test database required");
+        connection.Database += "_resolution_" + Guid.NewGuid().ToString("N")[..8];
+        await using var db = new EdgeDbContext(new DbContextOptionsBuilder<EdgeDbContext>().UseNpgsql(connection.ConnectionString).Options);
+        try
+        {
+            await db.Database.EnsureCreatedAsync();
+            var migrations = db.GetService<IMigrationsAssembly>();
+            var migration = migrations.CreateMigration(migrations.Migrations["20261027160000_AddPmsCancelledCycleResolution"], "Npgsql.EntityFrameworkCore.PostgreSQL");
+            async Task Run(IReadOnlyList<MigrationOperation> operations)
+            {
+                foreach (var command in db.GetService<IMigrationsSqlGenerator>().Generate(operations, db.Model))
+                    await db.Database.ExecuteSqlRawAsync(command.CommandText);
+            }
+            var job = new MaintenanceSchedule { ScheduleCode = "LEGACY-RESOLUTION", ScheduleName = "Existing Job", LastExecutedAt = DateTime.UtcNow };
+            db.Add(job); await db.SaveChangesAsync();
+            var last = job.LastExecutedAt;
+            await Run(migration.DownOperations); await Run(migration.UpOperations); db.ChangeTracker.Clear();
+            job = await db.MaintenanceSchedules.SingleAsync();
+            Assert.Equal(last!.Value.Ticks / 10, job.LastExecutedAt!.Value.Ticks / 10);
+            Assert.Null(job.CycleReleaseAttempt); Assert.Null(job.SkippedCycleAt); Assert.Null(job.SkippedCycleHours);
+            job.CycleReleaseAttempt = 1; job.SkippedCycleHours = 300; await db.SaveChangesAsync();
+            Assert.Contains("PMS cycle resolution data exists", (await Assert.ThrowsAsync<PostgresException>(() => Run(migration.DownOperations))).MessageText);
+        }
+        finally { await db.Database.EnsureDeletedAsync(); }
+    }
+
+    [PmsPostgresFact]
     public async Task MigrationRoundTripPreservesLegacyReportAndRejectsDuplicateCycles()
     {
         var connection = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("PMS_TEST_CONNECTION_STRING"));

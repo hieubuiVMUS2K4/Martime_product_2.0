@@ -15,7 +15,7 @@ export function ScheduleViews({ equipmentAssetId, mode }: { equipmentAssetId: st
   const days = month ? new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 0)).getUTCDate() : 0
   const prefix = month ? (new Date(month+'-01T00:00:00Z').getUTCDay()+6)%7 : 0
   const next = month ? new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5)), 1)).toISOString().slice(0, 10) : ''
-  const params = { page, pageSize: 100, status: 'ALL', equipmentAssetId: equipmentAssetId || undefined, dueFrom: month && zone ? vesselMidnight(`${month}-01`, zone) : undefined, dueTo: next && zone ? new Date(Date.parse(vesselMidnight(next, zone)) - 1).toISOString() : undefined }
+  const params = { page, pageSize: 100, status: 'ALL', excludeCancelled: true, equipmentAssetId: equipmentAssetId || undefined, dueFrom: month && zone ? vesselMidnight(`${month}-01`, zone) : undefined, dueTo: next && zone ? new Date(Date.parse(vesselMidnight(next, zone)) - 1).toISOString() : undefined }
   const query = usePmsQuery(['schedule', params], () => pms.orders(params), !!month && !!zone)
   useEffect(() => setPage(1), [equipmentAssetId])
   const changeMonth = (value: string) => { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) { setMonth(value); setPage(1) } }

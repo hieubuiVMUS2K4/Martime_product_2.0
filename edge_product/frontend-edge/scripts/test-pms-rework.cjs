@@ -49,7 +49,7 @@ test('Job-only and legacy config access open Job List without granting Work Orde
   }
 })
 const XLSX = require('xlsx')
-const imports = { '@/services/api.client': {}, './data': {}, './ui': {} }
+const imports = { '@/services/api.client': {}, './data': {}, './ui': {}, './departments': {} }
 const { parseJobWorkbook } = load('features/pms-rework/ImportJobs.tsx', imports)
 function book(row) { const b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, XLSX.utils.json_to_sheet([row]), 'Maintenance'); return b }
 const row = { ScheduleCode: 'PUMP-1', AssetCode: 'ASSET-1', ScheduleName: 'Pump check', MaintenanceCategory: 'PERIODIC', IntervalType: 'HYBRID', IntervalMonths: 3, IntervalHours: 100 }

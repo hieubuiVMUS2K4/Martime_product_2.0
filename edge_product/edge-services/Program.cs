@@ -478,6 +478,9 @@ namespace MaritimeEdge
                         logger.LogInformation("Database auto-migration disabled by configuration");
                     }
 
+                    var assignedWoCodes = await MaritimeEdge.Services.Maintenance.PmsWorkOrderCodes.BackfillAsync(dbContext);
+                    if (assignedWoCodes > 0) logger.LogInformation("Assigned business codes to {Count} existing PMS Work Orders", assignedWoCodes);
+
                     // ── Migration: Add is_running column to engine_data ──
                     await dbContext.Database.ExecuteSqlRawAsync(@"
                         ALTER TABLE engine_data

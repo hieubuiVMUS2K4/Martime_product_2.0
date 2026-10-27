@@ -39,6 +39,7 @@ public sealed partial class PmsWorkOrderWorkflowService
             CreatedByUserId = userId, CreatedAt = Now, UpdatedAt = Now
         };
         order.TaskId = $"WO-{order.Id:N}";
+        order.WorkOrderCode = await PmsWorkOrderCodes.NextAsync(db, originNode, order.CreatedAt, token);
         await ApplyAdHocDefinition(order, dto, actor, token);
         db.MaintenanceTasks.Add(order);
         if (dto.IssueNow) await IssueAdHoc(order, token);

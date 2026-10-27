@@ -529,6 +529,29 @@ test('/admin and /admin/ resolve to the account route instead of dashboard/login
   }
 })
 
+test('authenticated root redirects to dashboard before checking module permissions', () => {
+  const router = require('react-router-dom')
+  for (const permissions of [
+    { loaded: false, error: null },
+    { loaded: true, error: null },
+    { loaded: true, error: 'Permission service unavailable' },
+  ]) {
+    let permissionChecks = 0
+    const { PermissionGuard } = load('components/auth/PermissionGuard.tsx', {
+      react: { useEffect: () => {} },
+      'react-router-dom': { Navigate: router.Navigate, useLocation: () => ({ pathname: '/' }) },
+      '@/stores/permissions.store': { usePermissionsStore: () => ({ modules: [], grants: [], ...permissions }),
+        canOpen: () => { permissionChecks++; return false } },
+      '@/stores/auth.store': { useAuthStore: selector => selector({ accessToken: 'crew-token' }) },
+    })
+    const guard = PermissionGuard({ children: 'index-outlet' })
+    assert.equal(guard.type, router.Navigate)
+    assert.equal(guard.props.to, '/dashboard')
+    assert.equal(guard.props.replace, true)
+    assert.equal(permissionChecks, 0)
+  }
+})
+
 test('dashboard remains the landing page without grants or when permissions are still loading', () => {
   const router = require('react-router-dom')
   const permissions = { loaded: false, error: null, modules: [], grants: [] }

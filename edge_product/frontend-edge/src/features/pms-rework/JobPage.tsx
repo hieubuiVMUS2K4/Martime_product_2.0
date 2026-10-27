@@ -21,6 +21,7 @@ export default function JobPage() {
   const references = usePmsQuery(['job-references'], pms.jobReferences, access.enabled && access.job('view'))
   const [edit, setEdit] = useState(false), [history, setHistory] = useState(false), [change, setChange] = useState<string | null>(null), [release, setRelease] = useState(false)
   const [tab, setTab] = useState<'checklist' | 'materials'>('checklist')
+  const [resolve, setResolve] = useState<'REPLACE' | 'SKIP' | null>(null)
   if (!access.enabled || !access.job('view')) return <p className="p-6 text-sm text-gray-500">Job List chưa được bật hoặc bạn chưa có quyền xem.</p>
   if (query.error) return <ErrorBox error={query.error} retry={() => void query.refetch()} />
   if (!query.data) return <p className="p-6 text-sm text-gray-500">Đang tải công việc…</p>
@@ -38,7 +39,7 @@ export default function JobPage() {
     <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_300px]">
       <main className="min-w-0 space-y-4">
         {!!detail.missingInformation.length && <div role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Cần bổ sung: {detail.missingInformation.join(', ')}.</div>}
-        {detail.requiresCycleResolution && <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Kỳ hiện tại đã hủy. Cần đối soát trước khi phát hành lệnh thay thế.</div>}
+        {detail.requiresCycleResolution && <div className="space-y-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"><p>Kỳ hiện tại đã hủy. WO cũ được giữ lại; kỳ này chưa được ghi nhận bảo trì.</p>{detail.cancelledWorkOrderId && <div className="flex flex-wrap gap-2">{access.work('view') && <Link className={button} to={`/pms/work-orders/${detail.cancelledWorkOrderId}`}>Xem WO đã hủy</Link>}{j.state === 'ACTIVE' && access.job('update') && <>{access.work('create') && <button className={button} onClick={() => setResolve('REPLACE')}>Phát hành WO thay thế</button>}{access.work('update') && <button className={button} onClick={() => setResolve('SKIP')}>Bỏ qua kỳ này</button>}</>}</div>}</div>}
         <Section title="Thông tin công việc"><dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
           <JobField name="Mã công việc">{j.code}</JobField><JobField name="Thiết bị">{j.equipmentName || 'Chưa chọn'}</JobField><JobField name="Trạng thái"><Badge value={j.state} /></JobField>
           <JobField name="Loại bảo trì">{label[j.category] || j.category}</JobField><JobField name="Chu kỳ">{cycle(j)}</JobField><JobField name="Ưu tiên"><Badge value={detail.priority} /></JobField>
@@ -59,6 +60,7 @@ export default function JobPage() {
     </div>
     {editOpen && <JobForm detail={detail} onClose={closeEdit} />}{history && <JobHistory job={j} onClose={() => setHistory(false)} />}
     {change && <ReasonDialog title={`${label[change]} · ${j.name}`} onClose={() => setChange(null)} action={async reason => { await pms.jobState(j, change, reason); await refresh() }} />}
+    {resolve && <ReasonDialog title={resolve === 'REPLACE' ? 'Phát hành WO thay thế' : 'Bỏ qua kỳ bảo trì'} onClose={() => setResolve(null)} action={async reason => { const result = await pms.resolveCycle(detail, resolve, reason); await refresh(); if (result.workOrderId) navigate(`/pms/work-orders/${result.workOrderId}`) }}><p className="text-sm">{j.name} · Hạn kỳ hiện tại: {due(j.nextDueAt, j.nextDueHours)}.</p><p className="text-sm text-slate-600">{resolve === 'REPLACE' ? 'Tạo WO mới cho cùng kỳ và giữ nguyên hạn. WO đã hủy cùng dữ liệu cũ vẫn được lưu để tra cứu.' : 'Chuyển sang đúng một kỳ tiếp theo tính từ hạn hiện tại, không tính từ hôm nay. Không ghi nhận đã bảo trì, không cập nhật counter hoặc lần thực hiện cuối. Nếu kỳ sau đã tới khoảng phát hành, hệ thống có thể tự tạo WO.'}</p></ReasonDialog>}
     {release && <ReasonDialog title="Phát hành WO từ công việc" optional onClose={() => setRelease(false)} action={async reason => { const order = await pms.release(detail, reason); await refresh(); navigate(`/pms/work-orders/${order.id}`) }}><p className="text-sm">{j.name} · {j.equipmentName}</p><p className="text-xs text-gray-500">Hạn: {due(j.nextDueAt, j.nextDueHours)}. Lệnh phát hành giữ một bản nội dung và checklist riêng.</p></ReasonDialog>}
   </div>
 }

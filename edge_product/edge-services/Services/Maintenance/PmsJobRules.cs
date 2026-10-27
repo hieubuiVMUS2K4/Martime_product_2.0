@@ -63,10 +63,10 @@ public static class PmsJobRules
     {
         if (job.MaintenanceCategory != "PERIODIC") return;
         job.NextDueDate = job.IntervalType is "CALENDAR" or "HYBRID"
-            ? MaintenanceCalendar.AddInterval(job, job.LastExecutedAt ?? job.BaselineAt
+            ? MaintenanceCalendar.AddInterval(job, job.SkippedCycleAt ?? job.LastExecutedAt ?? job.BaselineAt
                 ?? throw new InvalidOperationException("Missing calendar baseline.")) : null;
         job.NextDueRunningHours = job.IntervalType is "RUNNING_HOURS" or "HYBRID"
-            ? (job.LastExecutedRunningHours ?? job.BaselineRunningHours
+            ? (job.SkippedCycleHours ?? job.LastExecutedRunningHours ?? job.BaselineRunningHours
                 ?? throw new InvalidOperationException("Missing running-hours baseline.")) + job.IntervalHours!.Value : null;
     }
 
@@ -95,7 +95,20 @@ public static class PmsJobRules
         (dueState is "DUE" or "OVERDUE" || dueState == "UPCOMING" && job.ReleasePolicy != "ON_DUE");
 
     // The identity of a cycle must not change when the Job definition is edited.
-    public static string CycleKey(MaintenanceSchedule job) => $"PERIODIC:{job.NextCycleNumber ?? 1}";
+    public static string CycleKey(MaintenanceSchedule job) => $"PERIODIC:{job.NextCycleNumber ?? 1}" +
+        (job.CycleReleaseAttempt > 0 ? $":R{job.CycleReleaseAttempt}" : "");
+
+    public static void SkipCancelledCycle(MaintenanceSchedule job)
+    {
+        // Advance one planned interval, never pretend a skipped cycle was performed.
+        if (job.IntervalType is "CALENDAR" or "HYBRID")
+            job.SkippedCycleAt = job.NextDueDate ?? throw new InvalidOperationException("Thiếu hạn ngày của kỳ hiện tại.");
+        if (job.IntervalType is "RUNNING_HOURS" or "HYBRID")
+            job.SkippedCycleHours = job.NextDueRunningHours ?? throw new InvalidOperationException("Thiếu hạn giờ của kỳ hiện tại.");
+        job.NextCycleNumber = checked((job.NextCycleNumber ?? 1) + 1);
+        job.CycleReleaseAttempt = null;
+        UpdateDeadlines(job);
+    }
 
     public static void ApplyApprovedExecution(MaintenanceSchedule job, MaintenanceTask order)
     {
@@ -108,6 +121,7 @@ public static class PmsJobRules
             throw new InvalidOperationException("Recorded execution hours are required.");
         job.LastExecutedAt = order.SubmittedAt.Value;
         job.LastExecutedRunningHours = order.ActualRunningHours;
+        job.SkippedCycleAt = null; job.SkippedCycleHours = null; job.CycleReleaseAttempt = null;
         job.NextCycleNumber = checked((job.NextCycleNumber ?? 1) + 1);
         UpdateDeadlines(job);
         // No writes to the completed order or to the current equipment counter.

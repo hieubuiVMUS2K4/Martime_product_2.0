@@ -526,6 +526,11 @@
     },
     {
       "controller": "PmsJobs",
+      "action": "ResolveCycle",
+      "grants": ["pms.jobs.update", "pms.config.update"]
+    },
+    {
+      "controller": "PmsJobs",
       "action": "History",
       "grants": [
         "pms.jobs.view",

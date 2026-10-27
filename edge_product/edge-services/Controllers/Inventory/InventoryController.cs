@@ -173,10 +173,18 @@ public class InventoryController : ControllerBase
                        };
 
         var rows = await receipts.Concat(requests).ToListAsync();
+        // Current WO execution stores material IDs and quantities; legacy snapshots may include names.
+        var materialNames = await _context.MaterialItems.AsNoTracking()
+            .Select(m => new { m.Id, m.ItemCode, m.Name }).ToDictionaryAsync(m => m.Id);
+        string Code(MaintenanceSparePartHistoryItem part) =>
+            FirstText(part.MaterialCode, part.Code, part.ItemCode,
+                materialNames.GetValueOrDefault(part.MaterialItemId)?.ItemCode);
+        string Name(MaintenanceSparePartHistoryItem part) =>
+            FirstText(part.MaterialName, part.Name, materialNames.GetValueOrDefault(part.MaterialItemId)?.Name);
 
         if (!storeLocationId.HasValue)
         {
-            void AddMaintenanceOutRows(DateTime date, string? sparePartsJson, string? notes)
+            void AddMaintenanceOutRows(DateTime date, string? sparePartsJson)
             {
                 List<MaintenanceSparePartHistoryItem>? parts;
                 try
@@ -201,12 +209,10 @@ public class InventoryController : ControllerBase
                     {
                         Date = date,
                         Type = "OUT",
-                        ItemCode = part.MaterialCode ?? "",
-                        ItemName = part.MaterialName ?? "",
+                        ItemCode = Code(part),
+                        ItemName = Name(part),
                         Quantity = (decimal)quantity,
-                        Note = string.IsNullOrWhiteSpace(notes)
-                            ? "Tiêu hao vật tư bảo trì"
-                            : $"Tiêu hao vật tư bảo trì - {notes}"
+                        Note = "Tiêu hao vật tư bảo trì"
                     });
                 }
             }
@@ -218,40 +224,7 @@ public class InventoryController : ControllerBase
                 .ToListAsync();
 
             foreach (var history in maintenanceHistories)
-            {
-                List<MaintenanceSparePartHistoryItem>? parts;
-                try
-                {
-                    parts = JsonSerializer.Deserialize<List<MaintenanceSparePartHistoryItem>>(
-                        history.SparePartsUsed ?? "[]",
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                }
-                catch
-                {
-                    continue;
-                }
-
-                if (parts == null) continue;
-
-                foreach (var part in parts)
-                {
-                    var quantity = part.QuantityUsed ?? part.Quantity ?? 0;
-                    if (quantity <= 0) continue;
-
-                    rows.Add(new InventoryHistoryRow
-                    {
-                        Date = history.ExecutedAt,
-                        Type = "OUT",
-                        ItemCode = part.MaterialCode ?? "",
-                        ItemName = part.MaterialName ?? "",
-                        Quantity = (decimal)quantity,
-                        Note = string.IsNullOrWhiteSpace(history.Notes)
-                            ? $"Tiêu hao vật tư bảo trì"
-                            : $"Tiêu hao vật tư bảo trì - {history.Notes}"
-                    });
-                }
-            }
-
+                AddMaintenanceOutRows(history.ExecutedAt, history.SparePartsUsed);
             var historyTaskIds = maintenanceHistories
                 .Select(h => h.TaskId)
                 .ToHashSet();
@@ -267,7 +240,7 @@ public class InventoryController : ControllerBase
 
             foreach (var task in completedTasksWithoutHistoryParts)
             {
-                AddMaintenanceOutRows(task.ExecutedAt, task.SparePartsUsed, task.Notes);
+                AddMaintenanceOutRows(task.ExecutedAt, task.SparePartsUsed);
             }
         }
 
@@ -281,6 +254,8 @@ public class InventoryController : ControllerBase
         return Ok(new { items = all, total, page, pageSize });
     }
 
+    private static string FirstText(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? "—";
     /// <summary>Declare inventory (initial stock entry)</summary>
     [HttpPost("declare")]
     public async Task<ActionResult> Declare([FromBody] DeclareInventoryDto dto)
@@ -389,6 +364,9 @@ public class MaintenanceSparePartHistoryItem
     public Guid MaterialItemId { get; set; }
     public string? MaterialCode { get; set; }
     public string? MaterialName { get; set; }
+    public string? Code { get; set; }
+    public string? ItemCode { get; set; }
+    public string? Name { get; set; }
     public double? QuantityUsed { get; set; }
     public double? Quantity { get; set; }
 }

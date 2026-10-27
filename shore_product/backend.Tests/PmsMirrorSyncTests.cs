@@ -157,7 +157,7 @@ public partial class SyncReliabilityTests
                     Revision = 1, SubmitCommandId = Guid.Parse("10000000-0000-0000-0000-000000000001"), SubmittedAt = submitted,
                     SubmittedByUserId = 5, SubmittedByCrewId = "PIC", DurationMinutes = 60, DueHours = 100, ExecutedRunningHours = 100,
                     SnapshotJson = snapshot, ContentHash = ApprovalSnapshot.Hash(snapshot) }),
-                PmsEvent(node, epoch, stream, "maintenance_task", orderId, 20, new MaintenanceTask { TaskId = "WO-SAME-SOURCE", ScheduleId = jobId,
+                PmsEvent(node, epoch, stream, "maintenance_task", orderId, 20, new MaintenanceTask { TaskId = "WO-SAME-SOURCE", WorkOrderCode = "WO-2026-000001", ScheduleId = jobId,
                     EquipmentAssetId = assetId, Status = "PENDING_APPROVAL", WorkflowVersion = 3, ReportRevision = 1, JobSnapshot = "{\"source\":true}" }),
                 PmsEvent(node, epoch, stream, "maintenance_schedule", jobId, 10, new MaintenanceSchedule { ScheduleCode = "JOB-SAME", ScheduleName = "Check fire pump",
                     EquipmentAssetId = assetId, JobVersion = 1, JobState = "ACTIVE", NextCycleNumber = 1 })];
@@ -180,16 +180,20 @@ public partial class SyncReliabilityTests
             }
             var revisedJob = JsonNode.Parse(batchA[2].Payload)!.AsObject();
             revisedJob["JobVersion"] = 2; revisedJob["PmsChecklistTemplates"]![0]!["CheckpointDescription"] = "Changed definition";
+            revisedJob["CycleReleaseAttempt"] = 2; revisedJob["SkippedCycleAt"] = submitted.ToString("O"); revisedJob["SkippedCycleHours"] = 1200;
             var changedJob = new SyncQueueItemDto { TableName = "maintenance_schedule", OriginNode = "PMS-A", StreamId = streamA,
                 EventId = Guid.NewGuid(), SyncVersion = 40, RecordKey = jobId.ToString(), ActionType = "SNAPSHOT", Payload = revisedJob.ToJsonString() };
             Assert.Equal(1, (await inbox.ProcessBatchAsync([changedJob])).Succeeded);
             Assert.Equal(1, (await inbox.ProcessBatchAsync([batchA[2]])).Succeeded); // Older definition cannot restore its checklist.
             db.ChangeTracker.Clear();
             var orders = await db.MaintenanceTasks.ToListAsync(); Assert.Equal(2, orders.Count); Assert.Equal(2, orders.Select(t => t.Id).Distinct().Count());
+            Assert.All(orders, w => Assert.Equal("WO-2026-000001", w.WorkOrderCode));
             var jobs = await db.MaintenanceSchedules.ToListAsync(); Assert.All(jobs, j => Assert.Equal(rank.Id, j.ResponsibleRankId));
             // Legacy Shore editors must not mutate the Edge-owned mirror or its checklist.
             var shoreEditor = new ProductApi.Controllers.Pms.MaintenanceSchedulesController(db);
             var mirroredJob = jobs.Single(j => j.VesselId == a);
+            Assert.Equal(2, mirroredJob.CycleReleaseAttempt); Assert.Equal(submitted, mirroredJob.SkippedCycleAt);
+            Assert.Equal(1200d, mirroredJob.SkippedCycleHours);
             Assert.IsType<Microsoft.AspNetCore.Mvc.ConflictObjectResult>(await shoreEditor.Update(mirroredJob.Id,
                 new MaintenanceSchedule { ScheduleName = "Shore overwrite" }));
             Assert.IsType<Microsoft.AspNetCore.Mvc.ConflictObjectResult>(await shoreEditor.Delete(mirroredJob.Id));

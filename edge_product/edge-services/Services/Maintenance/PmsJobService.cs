@@ -24,7 +24,9 @@ public sealed class PmsJobService(EdgeDbContext db)
         db.MaintenanceTasks.Where(t => t.ScheduleId == j.Id && !t.IsDeleted && t.Status != "COMPLETED" && t.Status != "CANCELLED" && t.Status != "DRAFT")
             .OrderByDescending(t => t.CreatedAt).Select(t => (Guid?)t.Id).FirstOrDefault(),
         db.MaintenanceTasks.Where(t => t.ScheduleId == j.Id && !t.IsDeleted && t.Status != "COMPLETED" && t.Status != "CANCELLED" && t.Status != "DRAFT")
-            .OrderByDescending(t => t.CreatedAt).Select(t => t.TaskId).FirstOrDefault()));
+            .OrderByDescending(t => t.CreatedAt).Select(t => t.WorkOrderCode ?? t.TaskId).FirstOrDefault(),
+        j.JobState != PmsJobRules.Removed && !db.MaintenanceTasks.Any(t => t.ScheduleId == j.Id) &&
+        !db.MaintenanceHistories.Any(h => h.ScheduleId == j.Id)));
 
     public async Task<PmsPage<PmsJobRow>> ListAsync(PmsJobQuery q, CancellationToken token = default)
     {
@@ -103,7 +105,9 @@ public sealed class PmsJobService(EdgeDbContext db)
             ItemCode = m.ItemCode ?? (Guid.TryParse(m.CatalogCode, out _) ? "" : m.CatalogCode), m.Name, m.Unit }).ToList();
         var cycleKey = PmsJobRules.CycleKey(entity);
         var requiresCycleResolution = await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == id && t.CycleKey == cycleKey && (t.IsDeleted || t.Status == "CANCELLED"), token);
-        var result = new { job = row, cycleKey, nextCycleNumber = entity.NextCycleNumber ?? 1, requiresCycleResolution,
+        var cancelledWorkOrderId = await db.MaintenanceTasks.Where(t => t.ScheduleId == id && t.CycleKey == cycleKey && !t.IsDeleted && t.Status == "CANCELLED")
+            .Select(t => (Guid?)t.Id).SingleOrDefaultAsync(token);
+        var result = new { job = row, cycleKey, nextCycleNumber = entity.NextCycleNumber ?? 1, requiresCycleResolution, cancelledWorkOrderId,
             entity.Instructions, entity.BaselineAt, entity.BaselineRunningHours, entity.BaselineSource,
             entity.DaysBeforeDue, entity.WarningHours, entity.ReleasePolicy, entity.AssignmentPolicy,
             defaultCrewId = entity.AssignedToCrewId, entity.Priority, checklist, equipmentMaterials = materials,

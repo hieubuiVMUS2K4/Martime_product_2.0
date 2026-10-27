@@ -43,7 +43,7 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
     }
 
     private IQueryable<PmsWorkOrderRow> Rows(IQueryable<ReadShape> source) => source.Select(x => new PmsWorkOrderRow(
-        x.Task.Id, x.Task.TaskId, x.Task.ScheduleId, x.Task.TaskDescription, x.Task.EquipmentAssetId,
+        x.Task.Id, x.Task.WorkOrderCode ?? x.Task.TaskId, x.Task.ScheduleId, x.Task.TaskDescription, x.Task.EquipmentAssetId,
         x.Task.EquipmentAssetName, x.Task.WorkOrderDueAt, x.Task.WorkOrderDueHours, x.DueState, x.Task.Status,
         x.Task.AssignedTo, db.CrewMembers.Where(c => c.CrewId == x.Task.AssignedTo).Select(c => c.FullName).FirstOrDefault(),
         x.Task.AssignedDepartment, x.Task.Priority, x.Task.ReportRevision ?? 0, x.Task.UpdatedAt, x.Task.WorkflowVersion ?? 0));
@@ -60,10 +60,11 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
             tasks = tasks.Where(t => t.EquipmentAssetId.HasValue && ids.Contains(t.EquipmentAssetId.Value));
         }
         if (q.Name != null) { var term = q.Name.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.TaskDescription.ToLower().Contains(term)); }
-        if (q.Code != null) { var term = q.Code.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.TaskId.ToLower().Contains(term)); }
+        if (q.Code != null) { var term = q.Code.Trim().ToLowerInvariant(); tasks = tasks.Where(t => (t.WorkOrderCode ?? t.TaskId).ToLower().Contains(term)); }
         if (q.Equipment != null) { var term = q.Equipment.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.EquipmentAssetName != null && t.EquipmentAssetName.ToLower().Contains(term)); }
         if (q.Status == "OPEN") tasks = tasks.Where(t => t.Status != "COMPLETED" && t.Status != "CANCELLED" && t.Status != "DRAFT");
         else if (q.Status is not (null or "ALL")) tasks = tasks.Where(t => t.Status == q.Status);
+        if (q.ExcludeCancelled) tasks = tasks.Where(t => t.Status != "CANCELLED");
         if (q.AssignedTo != null) tasks = tasks.Where(t => t.AssignedTo == q.AssignedTo);
         if (q.Department != null) tasks = tasks.Where(t => t.AssignedDepartment == q.Department);
         if (q.Priority != null) tasks = tasks.Where(t => t.Priority == q.Priority);
@@ -81,7 +82,7 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
             ("dueHours", false) => source.OrderBy(x => x.Task.WorkOrderDueHours == null).ThenBy(x => x.Task.WorkOrderDueHours),
             ("dueHours", true) => source.OrderBy(x => x.Task.WorkOrderDueHours == null).ThenByDescending(x => x.Task.WorkOrderDueHours),
             ("name", false) => source.OrderBy(x => x.Task.TaskDescription), ("name", true) => source.OrderByDescending(x => x.Task.TaskDescription),
-            ("code", false) => source.OrderBy(x => x.Task.TaskId), ("code", true) => source.OrderByDescending(x => x.Task.TaskId),
+            ("code", false) => source.OrderBy(x => x.Task.WorkOrderCode ?? x.Task.TaskId), ("code", true) => source.OrderByDescending(x => x.Task.WorkOrderCode ?? x.Task.TaskId),
             ("status", false) => source.OrderBy(x => x.Task.Status), ("status", true) => source.OrderByDescending(x => x.Task.Status),
             ("priority", false) => source.OrderBy(x => x.Task.Priority), ("priority", true) => source.OrderByDescending(x => x.Task.Priority),
             _ => throw new PmsRequestException(400, "Cột sắp xếp không hợp lệ.")

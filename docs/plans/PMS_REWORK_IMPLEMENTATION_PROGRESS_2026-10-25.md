@@ -2,6 +2,39 @@
 
 Nhánh: `hiu67-rework`. Thiết kế nguồn: [kế hoạch Job List / Work Order](PMS_JOB_LIST_WORK_ORDER_SEPARATION_PLAN_2026-10-25.md).
 
+## Ghi chú tiêu hao và mã WO — 27/10/2026
+
+- Lịch sử tồn kho chỉ ghi **Tiêu hao vật tư bảo trì** cho dòng tiêu hao PMS. Phần văn bản dài trước đó được nối từ `Notes` của người thực hiện, nay đã bỏ khỏi lịch sử tồn kho; ghi chú trong báo cáo gốc vẫn giữ nguyên.
+- Mã WO từng hiện `—` vì `TaskId` đang có dạng `WO-<UUID>` và frontend chủ động ẩn UUID. Bổ sung trường mã nghiệp vụ riêng `work_order_code`, định dạng **WO-YYYY-NNNNNN**. Chuỗi tăng theo năm UTC/tàu nguồn, bao gồm nháp và WO đã hủy/xóa mềm để không tái sử dụng mã. Tạo WO định kỳ, thay thế và đột xuất đều cấp mã dưới cùng khóa ghi giao dịch.
+- Migration `20261027180000_AddPmsWorkOrderBusinessCodes` thêm trường nullable cho Edge/Shore và khóa duy nhất theo tàu nguồn tại Edge; bờ chỉ tạo index tra cứu vì các dataset lưu trữ cũ có thể dùng lại dãy số sau reset; không đổi UUID, `TaskId`, khóa checklist hoặc JSON/hash báo cáo đã ký. Startup Edge sau khi schema sẵn sàng bổ sung mã một lần cho WO protocol 2 cũ bằng SaveChanges bình thường, đồng thời tạo snapshot đồng bộ trong giao dịch. Không backfill khi dataset đang chuyển đổi; chạy lại sau khi dataset ACTIVE. Nếu tắt tự động migration, cần áp dụng migration trước khi khởi động backend.
+- API danh sách/chi tiết, tìm kiếm/sắp xếp mã, WO mở của Job và lịch sử bảo trì dùng mã nghiệp vụ. Báo cáo gửi mới ghi mã này; snapshot đã ký cũ được giữ nguyên. Bờ nhận mã từ tàu, không tự đánh lại số; đã có mã thì mirror không cho đổi hoặc xóa mã. Cần cập nhật schema/model Shore trước Edge để tránh receiver cũ bỏ qua trường mới.
+- Kiểm tra: 18 test tàu (mã cũ/mới, báo cáo ký, luồng WO và lịch sử tồn kho), 12 test foundation/mirror phía bờ và 53 tình huống trình duyệt đạt. Đã xác nhận ô Mã WO hiển thị `WO-2026-000001`; WO đang vận hành chưa bị chỉnh trực tiếp. Phần bổ sung mã cũ chạy khi khởi động backend đã cập nhật và schema sẵn sàng. Chưa push.
+
+
+## Job List, import và lịch sử tồn kho — 27/10/2026
+
+- Lịch sử tồn kho: dữ liệu thực hiện WO mới chỉ lưu ID/số lượng vật tư, trong khi bộ đọc cũ chỉ lấy `MaterialCode/MaterialName`. API nay tra mã/tên theo ID khi thiếu snapshot; vẫn ưu tiên tên/mã cũ đã lưu và hỗ trợ `Code/Name`, `ItemCode`. Không đổi số lượng, không ghi lại tồn kho, không đưa vật tư của WO chưa hoàn thành vào lịch sử. Vật tư không còn trong danh mục có dấu `—` thay ô trống.
+- Popup tồn kho dùng modal chung với PMS (tiêu đề sáng, footer Đóng, đóng bằng Escape và giữ focus). Bảng có đường viền rõ, STT, header cố định, cuộn riêng, phân trang, lỗi tải và thử lại; ghi chú được xuống dòng thay vì cắt mất nội dung.
+- Popup import Job: vùng chọn/đổi file, hướng dẫn và tải mẫu; trạng thái kiểm tra, bảng preview công việc/chu kỳ/thiết bị và lỗi từng dòng. Lỗi đọc file hiển thị trong popup; file lỗi khóa nút Nhập. Vẫn kiểm tra bằng API trước khi nhập và không tự phát hành WO hay ghi kết quả bảo trì.
+- Job List có checkbox từng dòng/chọn cả trang, trạng thái chọn một phần, nút Xóa nhiều và popup xác nhận. API cung cấp `canDelete` dựa trên mọi WO (kể cả hoàn thành/hủy/xóa mềm) và lịch sử, không chỉ WO đang mở. Dòng không đủ điều kiện không được chọn; nút xóa từng dòng dùng cùng điều kiện. Xóa nhiều thực hiện xóa mềm từng Job bằng phiên bản đã tải, kiểm tra lại tại server và báo rõ số thành công/lỗi nếu dữ liệu đã thay đổi. Chọn lại khi đổi trang, bộ lọc hoặc dữ liệu được tải lại; không tự xóa WO hay lịch sử để ép xóa Job.
+- Kiểm thử: 24 test API trên PostgreSQL riêng, 9 test PMS frontend, production build và 53 tình huống trình duyệt đạt. Có ảnh popup và xác nhận chỉ hai Job đủ điều kiện được gửi DELETE; Job đã có WO không bị gửi xóa. Không xóa dữ liệu thật hoặc import vào dữ liệu vận hành. Container kiểm thử đã dọn; cần khởi động lại Edge để API lịch sử và `canDelete` có hiệu lực. Chưa push đợt thay đổi này.
+
+
+## Xử lý kỳ đã hủy — 27/10/2026
+
+Điều chỉnh hiển thị tiếp theo: tab Work Order mặc định lọc **Đang mở** (`OPEN`: không gồm nháp, hoàn thành, đã hủy). Bỏ lọc Tiến độ hoặc chọn Tất cả vẫn tra cứu đầy đủ các trạng thái. Lịch và Gantt sử dụng `excludeCancelled=true` khi đọc WO theo tháng: chỉ bỏ WO đã hủy, vẫn giữ WO hoàn thành có hạn ngày; bộ lọc áp dụng tại API trước khi đếm và phân trang. Không xóa dữ liệu WO đã hủy. Kiểm tra trình duyệt đã xác nhận mặc định OPEN, đổi sang ALL thấy lại hồ sơ, Lịch/Gantt không có WO đã hủy.
+
+- Chi tiết WO đã hủy có đường dẫn sang Job gốc. Trong Job, vùng cảnh báo có **Phát hành WO thay thế** và **Bỏ qua kỳ này**. Mỗi lựa chọn bắt buộc nhập lý do; WO cũ và dữ liệu đã có luôn được giữ.
+- Thay thế: tạo WO mới, giữ số kỳ và hạn hiện tại; tăng số lần phát hành của kỳ để khóa duy nhất không đụng WO cũ. Nếu hạn Job đã bị sửa khác hạn WO đã hủy, yêu cầu rà soát thay vì phát hành với hạn khác một cách âm thầm.
+- Bỏ qua: tăng đúng một số kỳ; hạn mới bằng hạn hiện tại cộng chu kỳ lịch/giờ (HYBRID tăng cả hai). Không ghi kết quả hoàn thành, không sửa `LastExecutedAt`, `LastExecutedRunningHours`, counter thiết bị hay báo cáo. Kỳ sau có thể phát hành ngay nếu đã tới khoảng cảnh báo; không tự bỏ qua nhiều kỳ để nhảy tới tương lai.
+- Mốc kỳ đã bỏ qua được lưu riêng, nên lưu lại Job hoặc tạm dừng/tiếp tục không kéo hạn về kỳ cũ. Sau lần thực hiện được duyệt thật, xóa mốc bỏ qua và tính hạn từ báo cáo được duyệt theo quy tắc hiện tại.
+- Quyền: cần cập nhật Job; thay thế cần thêm quyền tạo WO, bỏ qua cần cập nhật WO. API kiểm tra lại quyền, Job đang hoạt động, WO đã hủy đúng kỳ và phiên bản Job. Giao dịch dùng cùng khóa ghi với worker; gửi lặp hoặc dùng màn hình cũ trả 409, không sinh trùng.
+- Quyết định được lưu trong nhật ký Job và lịch sử WO cũ, cùng người thao tác và lý do. Job, WO mới và các cập nhật đồng bộ được lưu trong cùng giao dịch; thất bại phát hành phải rollback cả nhận dạng kỳ.
+- Bổ sung migration `20261027160000_AddPmsCancelledCycleResolution` cho Edge và Shore: ba trường nullable `cycle_release_attempt`, `skipped_cycle_at`, `skipped_cycle_hours`. Không sửa dữ liệu cũ. Mirror bờ giữ các trường này trong snapshot; rollback bị chặn nếu có dữ liệu xử lý kỳ để tránh mất hạn/nhận dạng kỳ.
+- Triển khai: cập nhật Shore và áp dụng migration trước, rồi Edge và migration tương ứng; khởi động lại backend và tải lại frontend. Không bật thao tác mới khi bờ còn dùng model cũ. Chưa thao tác xử lý kỳ trên WO thật của `testing3` và chưa thay đổi database vận hành trong đợt kiểm thử này.
+- Xác minh trên PostgreSQL riêng: **34 test quy tắc/quy trình**, **31 test migration/phân quyền**, **12 test foundation/mirror phía bờ**, tất cả đạt và không bỏ qua; **50 tình huống trình duyệt** và production build đạt. Có kiểm tra thay thế nhiều lần cùng kỳ, gửi lặp, thiếu quyền/lý do, bỏ qua không đổi kết quả/counter, rollback khi thiết bị không còn hoạt động, migration không mất dữ liệu cũ và chặn rollback gây mất dữ liệu. Container kiểm thử đã được dọn.
+
+
 Phạm vi chốt lại ngày 26/10/2026: **bỏ mobile khỏi đợt này**; nghiệm thu web–Edge–Shore. API mobile legacy trả 410 sau cutover; không mở lại API cũ hoặc tự chuyển lệnh offline cũ sang bộ dữ liệu mới.
 
 **Điều chỉnh vận hành offline:** việc tạo WO định kỳ là nghiệp vụ local trên tàu, không được yêu cầu mở Shore hoặc xác nhận đồng bộ trước. Worker/settings chỉ xét cờ cấu hình, profile local và dataset ACTIVE; không xét `pms-peer-ready` hoặc stream đồng bộ. Job vẫn phải bật tự động, đủ mốc và tới khoảng phát hành theo chính sách. WO được lưu cùng outbox, chờ gửi khi có mạng; bộ gửi tiếp tục bắt buộc thương lượng đúng protocol/dataset/stream và biên nhận, không nới điều kiện ACK. Các mô tả ràng buộc worker với peer ở những mốc triển khai cũ bên dưới đã được thay bằng quy tắc này.

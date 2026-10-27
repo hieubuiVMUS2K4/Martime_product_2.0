@@ -5,8 +5,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BarChart3, Calendar, ChevronDown, ChevronRight, ClipboardCheck, ClipboardList, Eye, FolderOpen, Gauge, History, Pencil, Plus, Table2, Trash2 } from 'lucide-react'
 import { TableActions } from '@/components/common/DataTable'
 import { useEquipment, JobForm, AdHocForm } from './Forms'
-import { pms, usePmsPermissions, usePmsQuery, usePmsRefresh, label, cycle, usePmsClock } from './data'
-import { ActionIcon, Badge, Grid, button, input, primary, useAction, ErrorBox, type GridColumn } from './ui'
+import { pms, usePmsPermissions, usePmsQuery, usePmsRefresh, label, cycle, usePmsClock, message } from './data'
+import { ActionIcon, Badge, Grid, button, input, primary, useAction, ErrorBox, Modal, type GridColumn } from './ui'
 import type { Job, WorkOrder } from './types'
 import { JobHistory } from './Reports'
 import { ImportJobs } from './ImportJobs'
@@ -40,7 +40,22 @@ function Jobs({ equipmentAssetId }: { equipmentAssetId: string }) {
   const result = usePmsQuery(['jobs', params], () => pms.jobs(params), access.job('view'))
   const refs = usePmsQuery(['job-references'], pms.jobReferences, access.job('view'))
   const [create, setCreate] = useState(false), [history, setHistory] = useState<Job | null>(null), [importing, setImporting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set()), [confirmDelete, setConfirmDelete] = useState(false)
+  useEffect(() => { setSelected(new Set()) }, [result.data, equipmentAssetId])
   const refresh = usePmsRefresh(); const action = useAction()
+  const chosen = (result.data?.items || []).filter(j => selected.has(j.id) && j.canDelete)
+  const selection = access.job('delete') ? { ids: selected, selectable: (j: Job) => j.canDelete === true, disabled: action.busy,
+    toggle: (j: Job) => setSelected(previous => { const next = new Set(previous); next.has(j.id) ? next.delete(j.id) : next.add(j.id); return next }),
+    togglePage: (rows: Job[]) => setSelected(previous => rows.every(j => previous.has(j.id)) ? new Set() : new Set(rows.map(j => j.id))) } : undefined
+  const deleteSelected = async () => {
+    await action.run(async () => {
+      const failed: string[] = []; let removed = 0
+      for (const job of chosen) { try { await pms.deleteJob(job); removed++ } catch (error) { failed.push(`${job.name}: ${message(error)}`) } }
+      await refresh(); setSelected(new Set())
+      if (failed.length) throw new Error(`Đã xóa ${removed}/${chosen.length} công việc. Không xóa được: ${failed.join('; ')}`)
+    }, `Đã xóa ${chosen.length} công việc.`)
+    setConfirmDelete(false)
+  }
   const columns: GridColumn<Job>[] = [
     { key: 'name', title: 'Tên công việc', sort: 'name', filter: 'name', placeholder: 'Tên hoặc mã', width: 260, fixed: 'left', render: j => <Link className="text-blue-600 hover:underline" title={`${j.code} · ${j.name}`} to={`/pms/jobs/${j.id}`}>{j.name}</Link> },
     { key: 'equipment', title: 'Tên thiết bị', filter: 'equipment', width: 230, render: j => <span title={j.equipmentName}>{j.equipmentName || '—'}</span> },
@@ -50,13 +65,13 @@ function Jobs({ equipmentAssetId }: { equipmentAssetId: string }) {
     { key: 'department', title: 'Bộ phận phụ trách', filter: 'department', options: Object.entries(departmentNames), render: j => departmentName(j.department) },
     { key: 'responsible', title: 'Người chịu trách nhiệm', width: 190, filter: 'responsibleCrewId', options: [['', 'Tất cả'], ...(refs.data?.crew || []).map(c => [c.id, c.fullName] as [string, string])], render: j => j.responsibleName || refs.data?.ranks.find(r => r.id === j.responsibleRankId)?.rankName || '—' },
     { key: 'state', title: 'Trạng thái', sort: 'state', filter: 'state', width: 180, options: [['', 'Đang áp dụng'], ...['ACTIVE', 'NEEDS_INFORMATION', 'PAUSED', 'RETIRED', 'REMOVED'].map(s => [s, label[s]] as [string, string])], render: j => <Badge value={j.state} /> },
-    { key: 'actions', title: 'Hành động', width: 135, fixed: 'right', render: j => <TableActions><ActionIcon label={`Xem ${j.name}`} icon={<Eye />} to={`/pms/jobs/${j.id}`} /><ActionIcon label="Lịch sử bảo trì" icon={<History />} onClick={() => setHistory(j)} />{access.job('update') && <ActionIcon label="Sửa công việc" icon={<Pencil />} to={`/pms/jobs/${j.id}?edit=1`} disabled={j.state === 'REMOVED'} />}{access.job('delete') && <ActionIcon label="Xóa công việc chưa có WO" icon={<Trash2 />} danger disabled={action.busy || !!j.openWorkOrderId || j.state === 'REMOVED'} onClick={() => { if (confirm(`Xóa công việc “${j.name}”? Công việc đã có WO/lịch sử chỉ được ngừng áp dụng.`)) void action.run(async () => { await pms.deleteJob(j); await refresh() }, 'Đã xóa công việc.') }} />}</TableActions> },
+    { key: 'actions', title: 'Hành động', width: 135, fixed: 'right', render: j => <TableActions><ActionIcon label={`Xem ${j.name}`} icon={<Eye />} to={`/pms/jobs/${j.id}`} /><ActionIcon label="Lịch sử bảo trì" icon={<History />} onClick={() => setHistory(j)} />{access.job('update') && <ActionIcon label="Sửa công việc" icon={<Pencil />} to={`/pms/jobs/${j.id}?edit=1`} disabled={j.state === 'REMOVED'} />}{access.job('delete') && <ActionIcon label="Xóa công việc chưa có WO" icon={<Trash2 />} danger disabled={action.busy || !j.canDelete} onClick={() => { if (confirm(`Xóa công việc “${j.name}”? Công việc đã có WO/lịch sử chỉ được ngừng áp dụng.`)) void action.run(async () => { await pms.deleteJob(j); await refresh() }, 'Đã xóa công việc.') }} />}</TableActions> },
   ]
-  return <><Grid columns={columns} result={result.data} loading={result.isFetching} error={result.error} {...filter} toolbar={<>{access.job('import') && <button className={button} onClick={() => setImporting(true)}>Import Excel</button>}{access.job('create') && <button className={primary} onClick={() => setCreate(true)}><Plus size={14} />Thêm công việc</button>}</>} />{create && <JobForm onClose={() => setCreate(false)} />}{history && <JobHistory job={history} onClose={() => setHistory(null)} />}{importing && <ImportJobs onClose={() => setImporting(false)} />}</>
+  return <><Grid columns={columns} selection={selection} result={result.data} loading={result.isFetching} error={result.error} {...filter} toolbar={<>{access.job('delete') && <button className={button} disabled={action.busy || !chosen.length} onClick={() => setConfirmDelete(true)}><Trash2 size={14} />Xóa nhiều{chosen.length ? ` (${chosen.length})` : ''}</button>}{access.job('import') && <button className={button} onClick={() => setImporting(true)}>Import Excel</button>}{access.job('create') && <button className={primary} onClick={() => setCreate(true)}><Plus size={14} />Thêm công việc</button>}</>} />{create && <JobForm onClose={() => setCreate(false)} />}{history && <JobHistory job={history} onClose={() => setHistory(null)} />}{importing && <ImportJobs onClose={() => setImporting(false)} />}{confirmDelete && <Modal title="Xóa công việc đã chọn" onClose={() => setConfirmDelete(false)} busy={action.busy} footer={<button className={`${primary} !bg-red-600 hover:!bg-red-700`} disabled={action.busy || !chosen.length} onClick={() => void deleteSelected()}>Xóa {chosen.length} công việc</button>}><p className="mb-3 text-sm text-slate-600">Chỉ xóa công việc chưa có WO hoặc lịch sử bảo trì. Dữ liệu sẽ được xóa mềm; hệ thống kiểm tra lại từng dòng trước khi xóa.</p><ul className="max-h-60 space-y-2 overflow-auto text-sm">{chosen.map(j => <li key={j.id} className="border-b border-gray-100 py-2">{j.code} · {j.name}</li>)}</ul></Modal>}</>
 }
 function Orders({ equipmentAssetId }: { equipmentAssetId: string }) {
   const { due } = usePmsClock()
-  const access = usePmsPermissions(); const filter = useFilters({}, 'due'); const params: Record<string, unknown> = { ...filter.params, equipmentAssetId: equipmentAssetId || undefined }
+  const access = usePmsPermissions(); const filter = useFilters({ status: 'OPEN' }, 'due'); const params: Record<string, unknown> = { ...filter.params, equipmentAssetId: equipmentAssetId || undefined }
   if (!params.status) params.status = 'ALL'
   const result = usePmsQuery(['orders', params], () => pms.orders(params), access.work('view'))
   const crew = usePmsQuery(['wo-crew'], pms.crew, access.work('view'))

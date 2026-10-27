@@ -9,6 +9,7 @@ export const pms = {
   saveJob: (id: string | undefined, data: JobDefinition) => id ? apiClient.put(`/pms/jobs/${id}`, data) : apiClient.post('/pms/jobs', data),
   previewJob: (id: string | undefined, data: JobDefinition) => apiClient.post<JobImpact>(id ? `/pms/jobs/${id}/preview` : '/pms/jobs/preview', data),
   jobState: (job: Job, state: string, reason: string) => apiClient.post(`/pms/jobs/${job.id}/state`, { expectedVersion: job.version, state, reason }),
+  resolveCycle: (detail: JobDetail, action: 'REPLACE' | 'SKIP', reason: string) => apiClient.post<{ workOrderId?: string }>(`/pms/jobs/${detail.job.id}/resolve-cycle`, { expectedJobVersion: detail.job.version, expectedCycleKey: detail.cycleKey, cancelledWorkOrderId: detail.cancelledWorkOrderId, action, reason }),
   deleteJob: (job: Job) => apiClient.delete(`/pms/jobs/${job.id}?expectedVersion=${job.version}`),
   jobReferences: () => apiClient.get<{ crew: CrewOption[]; ranks: RankOption[] }>('/pms/jobs/references'),
   orders: (params: Record<string, unknown>) => apiClient.get<Page<WorkOrder>>('/pms/work-orders', { params }),
@@ -69,5 +70,5 @@ export const label: Record<string, string> = { PERIODIC: 'Định kỳ', AD_HOC:
   NORMAL: 'Trung bình', HIGH: 'Cao', LOW: 'Thấp', CRITICAL: 'Khẩn cấp', APPROVED: 'Đã duyệt', RETURNED: 'Đã trả lại' }
 export const date = (value?: string | null) => value ? new Date(value).toLocaleString('vi-VN') : '—'
 export const due = (at?: string | null, hours?: number | null) => [at ? new Date(at).toLocaleDateString('vi-VN') : '', hours != null ? `${hours.toLocaleString('vi-VN')} giờ` : ''].filter(Boolean).join(' / ') || '—'
-export const cycle = (job: Job) => job.category !== 'PERIODIC' ? label[job.category] : [job.intervalDays ? `${job.intervalDays} ngày` : '', job.intervalMonths ? `${job.intervalMonths} tháng` : '', job.intervalYears ? `${job.intervalYears} năm` : '', job.intervalHours ? `${job.intervalHours} giờ` : ''].filter(Boolean).join(' / ') || 'Chưa có chu kỳ'
+export const cycle = (job: Pick<Job, 'category' | 'intervalDays' | 'intervalMonths' | 'intervalYears' | 'intervalHours'>) => job.category !== 'PERIODIC' ? label[job.category] : [job.intervalDays ? `${job.intervalDays} ngày` : '', job.intervalMonths ? `${job.intervalMonths} tháng` : '', job.intervalYears ? `${job.intervalYears} năm` : '', job.intervalHours ? `${job.intervalHours} giờ` : ''].filter(Boolean).join(' / ') || 'Chưa có chu kỳ'
 export const message = (error: unknown) => error instanceof Error ? error.message : 'Không thể thực hiện thao tác.'

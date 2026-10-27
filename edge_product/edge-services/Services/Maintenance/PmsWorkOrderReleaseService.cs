@@ -92,6 +92,7 @@ public sealed class PmsWorkOrderReleaseService(EdgeDbContext db)
                 checklist = templates.Select(c => new { c.SequenceOrder, c.CheckpointDescription,
                     c.RequiresReading, c.NormalRangeMin, c.NormalRangeMax, c.Unit }) })
         };
+        order.WorkOrderCode = await PmsWorkOrderCodes.NextAsync(db, job.OriginNode, now, token);
         db.MaintenanceTasks.Add(order);
         foreach (var template in templates)
             db.TaskChecklistItems.Add(new TaskChecklistItem

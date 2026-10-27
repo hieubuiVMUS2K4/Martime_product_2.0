@@ -328,4 +328,28 @@ public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
         Assert.DoesNotContain(all.Items, i => i.Id == legacy.Id);
         Assert.NotNull(await service.DetailAsync(rh.Id));
     }
+
+    [PmsPostgresFact]
+    public async Task ScheduleExcludesCancelledBeforePagination_WhileWorkOrdersCanStillQueryAllStates()
+    {
+        var asset = await Asset();
+        await using var db = fixture.CreateContext();
+        var day = DateTime.UtcNow.Date;
+        foreach (var status in new[] { "CANCELLED", "ASSIGNED", "COMPLETED", "DRAFT" })
+            db.MaintenanceTasks.Add(new() { TaskId = Guid.NewGuid().ToString("N"), EquipmentAssetId = asset.Id,
+                PmsProtocolVersion = 2, Status = status, WorkOrderDueAt = day.AddHours(12), TaskDescription = status });
+        await db.SaveChangesAsync();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Pms:VesselTimeZone"] = "UTC" }).Build();
+        var service = new PmsWorkOrderReadService(db, config);
+        var open = await service.ListAsync(new() { EquipmentAssetId = asset.Id });
+        Assert.Equal("ASSIGNED", Assert.Single(open.Items).Status);
+        var calendar = await service.ListAsync(new() { EquipmentAssetId = asset.Id, Status = "ALL", ExcludeCancelled = true,
+            DueFrom = day, DueTo = day.AddDays(1), PageSize = 1 });
+        Assert.Equal(3, calendar.Total); Assert.Single(calendar.Items);
+        var visible = await service.ListAsync(new() { EquipmentAssetId = asset.Id, Status = "ALL", ExcludeCancelled = true });
+        Assert.DoesNotContain(visible.Items, w => w.Status == "CANCELLED");
+        Assert.Contains(visible.Items, w => w.Status == "COMPLETED");
+        Assert.Equal(4, (await service.ListAsync(new() { EquipmentAssetId = asset.Id, Status = "ALL" })).Total);
+        Assert.Equal("CANCELLED", Assert.Single((await service.ListAsync(new() { EquipmentAssetId = asset.Id, Status = "CANCELLED" })).Items).Status);
+    }
 }

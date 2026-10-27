@@ -70,6 +70,12 @@ public sealed class PmsJobsController(PmsJobService jobs, EdgeDbContext db, IEdg
         return Ok(await jobs.DetailAsync(id, token));
     }
 
+    [HttpPost("{id:guid}/resolve-cycle")]
+    public async Task<IActionResult> ResolveCycle(Guid id, [FromBody] ResolvePmsCycleDto dto,
+        [FromServices] PmsWorkOrderWorkflowService workflow, CancellationToken token) =>
+        Ok(await workflow.ResolveCancelledCycleAsync(id, dto,
+            HttpContext.GetUserId() ?? throw new PmsRequestException(401, "Cần đăng nhập."), token));
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, [FromQuery] int expectedVersion, CancellationToken token)
     {

@@ -106,6 +106,8 @@ public partial class SyncInboxService
                 else if (order.Status != "DRAFT") throw new InvalidOperationException("pms_work_order_requires_asset");
                 if (stored is MaintenanceTask previous)
                 {
+                    if (previous.WorkOrderCode != null && previous.WorkOrderCode != order.WorkOrderCode)
+                        throw new InvalidOperationException("pms_work_order_business_code_immutable");
                     if (previous.CreationCommandId != order.CreationCommandId || previous.CreationCommandHash != order.CreationCommandHash ||
                         previous.CreatedByUserId != order.CreatedByUserId || previous.TaskId != order.TaskId)
                         throw new InvalidOperationException("pms_work_order_identity_immutable");

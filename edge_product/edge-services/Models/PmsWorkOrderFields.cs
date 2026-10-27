@@ -24,10 +24,15 @@ public partial class MaintenanceSchedule
     [Column("responsible_crew_id")] public Guid? ResponsibleCrewId { get; set; }
     [Column("assignment_policy"), MaxLength(20)] public string? AssignmentPolicy { get; set; }
     [Column("next_cycle_number")] public long? NextCycleNumber { get; set; }
+    [Column("cycle_release_attempt")] public int? CycleReleaseAttempt { get; set; }
+    [Column("skipped_cycle_at")] public DateTime? SkippedCycleAt { get; set; }
+    [Column("skipped_cycle_hours")] public double? SkippedCycleHours { get; set; }
 }
 
+[Microsoft.EntityFrameworkCore.Index(nameof(OriginNode), nameof(WorkOrderCode), IsUnique = true, Name = "ux_pms_work_order_code")]
 public partial class MaintenanceTask
 {
+    [Column("work_order_code"), MaxLength(32)] public string? WorkOrderCode { get; set; }
     [Column("creation_command_id")] public Guid? CreationCommandId { get; set; }
     [Column("creation_command_hash"), MaxLength(64)] public string? CreationCommandHash { get; set; }
     [Column("created_by_user_id")] public long? CreatedByUserId { get; set; }

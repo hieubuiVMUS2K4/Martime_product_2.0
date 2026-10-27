@@ -7,7 +7,7 @@ export interface Job {
   category: string; intervalType: string; intervalDays?: number; intervalMonths?: number; intervalYears?: number; intervalHours?: number;
   lastSubmittedAt?: string; lastRunningHours?: number; nextDueAt?: string; nextDueHours?: number; department?: string;
   responsibleRankId?: number; responsibleCrewId?: string; responsibleName?: string; state: string; version: number;
-  autoGenerate: boolean; openWorkOrderId?: string; openWorkOrderCode?: string;
+  autoGenerate: boolean; openWorkOrderId?: string; openWorkOrderCode?: string; canDelete?: boolean;
 }
 export interface JobDefinition {
   expectedVersion?: number; code: string; workCode?: string | null; name: string; equipmentAssetId: string | null;
@@ -18,7 +18,7 @@ export interface JobDefinition {
   instructions: string | null; checklist: ChecklistTemplate[];
 }
 export interface JobDetail {
-  job: Job; cycleKey: string; requiresCycleResolution: boolean; instructions?: string; baselineAt?: string; baselineRunningHours?: number;
+  job: Job; cycleKey: string; requiresCycleResolution: boolean; cancelledWorkOrderId?: string; instructions?: string; baselineAt?: string; baselineRunningHours?: number;
   baselineSource?: string; daysBeforeDue: number; warningHours: number; releasePolicy: string; assignmentPolicy: string; defaultCrewId?: string;
   priority: string; checklist: ChecklistTemplate[]; equipmentMaterials: { id: string; itemCode: string; name: string; unit?: string }[]; missingInformation: string[];
 }

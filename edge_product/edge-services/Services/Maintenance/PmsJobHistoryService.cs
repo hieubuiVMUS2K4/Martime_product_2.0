@@ -34,7 +34,7 @@ public sealed class PmsJobHistoryService(EdgeDbContext db)
         });
         var current = db.PmsWorkOrderReports.AsNoTracking().Where(r => r.JobId == jobId && r.Decision == "APPROVED").Select(r => new PmsHistoryRow
         {
-            Id = r.Id, WorkOrderId = r.WorkOrderId, WorkOrderCode = db.MaintenanceTasks.Where(t => t.Id == r.WorkOrderId).Select(t => t.TaskId).FirstOrDefault(),
+            Id = r.Id, WorkOrderId = r.WorkOrderId, WorkOrderCode = db.MaintenanceTasks.Where(t => t.Id == r.WorkOrderId).Select(t => t.WorkOrderCode ?? t.TaskId).FirstOrDefault(),
             SourceExecutedAt = r.SubmittedAt, SubmittedAt = r.SubmittedAt, ApprovedAt = r.DecidedAt,
             CompletedBy = r.SubmittedByCrewId, ApprovedBy = r.DecidedByCrewId,
             ExecutedRunningHours = r.ExecutedRunningHours, WasOverdue = r.WasOverdue, IsLegacy = false, HasReport = true

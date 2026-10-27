@@ -68,6 +68,7 @@ public sealed class PmsWorkOrderQuery
     public Guid? EquipmentAssetId { get; set; }
     public Guid? JobId { get; set; }
     public string? Status { get; set; } = "OPEN";
+    public bool ExcludeCancelled { get; set; }
     public string? DueState { get; set; }
     public string? AssignedTo { get; set; }
     public string? Department { get; set; }
@@ -130,7 +131,7 @@ public sealed record PmsJobRow(Guid Id, string Code, string? WorkCode, string Na
     int? IntervalYears, int? IntervalHours, DateTime? LastSubmittedAt, double? LastRunningHours,
     DateTime? NextDueAt, double? NextDueHours, string? Department, int? ResponsibleRankId,
     Guid? ResponsibleCrewId, string? ResponsibleName, string? State, int Version, bool AutoGenerate,
-    Guid? OpenWorkOrderId, string? OpenWorkOrderCode);
+    Guid? OpenWorkOrderId, string? OpenWorkOrderCode, bool CanDelete = false);
 
 public sealed record PmsWorkOrderRow(Guid Id, string Code, Guid? JobId, string Name,
     Guid? EquipmentAssetId, string? EquipmentName, DateTime? DueAt, double? DueHours,
@@ -150,6 +151,7 @@ public sealed record StartPmsWorkOrderDto(int ExpectedVersion);
 public sealed record CancelPmsWorkOrderDto(int ExpectedVersion, string Reason);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ReleasePmsWorkOrderDto(Guid JobId, int ExpectedJobVersion, string ExpectedCycleKey, string? EarlyReleaseReason);
+public sealed record ResolvePmsCycleDto(int ExpectedJobVersion, string ExpectedCycleKey, Guid CancelledWorkOrderId, string Action, string Reason);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DecidePmsWorkOrderDto(int ExpectedVersion, int Revision, string ReportHash, string? Reason);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
