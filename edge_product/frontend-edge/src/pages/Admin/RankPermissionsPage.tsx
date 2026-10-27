@@ -21,6 +21,7 @@ const actionGroups = [
   { label: 'Từ chối', actions: ['reject'] },
 ]
 const departments: Record<string, string> = { DECK: 'Bộ phận boong', ENGINE: 'Bộ phận máy', CATERING: 'Bộ phận phục vụ', OTHER: 'Khác' }
+const groupOrder = ['Tổng quan', 'Hàng hải', 'Thuyền viên', 'Khai thác', 'PMS – Danh mục', 'PMS – Kho vận', 'PMS – Công việc', 'An toàn', 'Nhật ký', 'Quản trị', 'HSQE']
 function AccessToggle({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: () => void }) {
   return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange}
     className="inline-flex items-center gap-2 rounded px-1 py-1 text-xs text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-40">
@@ -135,7 +136,12 @@ export default function RankPermissionsPage() {
     }
     finally { setSaving(false) }
   }
-  const groups = useMemo(() => [...new Set(modules.map(m => m.group))], [modules])
+  // Catalog insertion order can place the new Job List module before Dashboard.
+  // Keep PMS groups together regardless of the order returned by the server.
+  const groups = useMemo(() => [...new Set(modules.map(m => m.group))].sort((a, b) => {
+    const position = (group: string) => { const index = groupOrder.indexOf(group); return index < 0 ? groupOrder.length : index }
+    return position(a) - position(b)
+  }), [modules])
   const rank = ranks.find(r => r.id === selected)
   if (!isAdmin) return <div className="p-6">Chỉ quản trị viên được cấu hình phân quyền.</div>
   return <div className="flex h-full min-h-0 flex-col bg-white text-sm">

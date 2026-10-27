@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -22,7 +22,18 @@ export function Badge({ value }: { value?: string }) {
   return <span className={`inline-block rounded px-2 py-0.5 text-xs ${color}`}>{label[value || ''] || value || '—'}</span>
 }
 export function Field({ name, children }: { name: string; children: ReactNode }) { return <label className="flex min-w-0 flex-col gap-1.5 text-xs text-gray-600"><span>{name}</span>{children}</label> }
-export function Section({ title, children }: { title: string; children: ReactNode }) { return <section className="overflow-hidden rounded border border-gray-200"><h2 className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-800">{title}</h2><div className="p-4">{children}</div></section> }
+export function Section({ title, children, actions, help, scrollable = false }: { title: string; children: ReactNode; actions?: ReactNode; help?: ReactNode; scrollable?: boolean | 'table' }) { return <section className="overflow-hidden rounded border border-gray-200"><header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2"><h2 className="flex items-center gap-1.5 text-sm font-medium text-gray-800">{help}{title}</h2>{actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}</header><div role={scrollable ? 'region' : undefined} aria-label={scrollable ? `Nội dung ${title}` : undefined} tabIndex={scrollable ? 0 : undefined} className={scrollable ? `max-h-[min(360px,45vh)] overflow-auto overscroll-contain outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-blue-300 ${scrollable === 'table' ? 'px-4' : 'p-4'}` : 'p-4'}>{children}</div></section> }
+export function InfoField({ name, children }: { name: string; children: ReactNode }) {
+  return <div className="min-w-0"><dt className="mb-1 text-xs text-slate-500">{name}</dt><dd className="break-words text-sm font-medium text-slate-800">{children}</dd></div>
+}
+export interface DetailTab { key: string; name: string; count?: number; content: ReactNode }
+export function DetailTabs({ items, value, onChange }: { items: DetailTab[]; value?: string; onChange?: (key: string) => void }) {
+  const [local, setLocal] = useState(items[0]?.key)
+  const id = useId(), active = items.find(t => t.key === (value ?? local)) || items[0]
+  if (!active) return null
+  const select = (key: string) => { setLocal(key); onChange?.(key) }
+  return <section className="min-w-0 overflow-hidden rounded border border-gray-200"><nav role="tablist" aria-label="Nội dung Work Order" className="flex overflow-x-auto border-b border-gray-200 bg-gray-50 px-3">{items.map((tab, i) => <button type="button" role="tab" key={tab.key} id={`${id}-${tab.key}`} aria-controls={`${id}-panel`} aria-selected={active.key === tab.key} tabIndex={active.key === tab.key ? 0 : -1} className={`inline-flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm ${active.key === tab.key ? 'border-blue-600 font-medium text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`} onClick={() => select(tab.key)} onKeyDown={e => { const index = e.key === 'ArrowRight' ? (i + 1) % items.length : e.key === 'ArrowLeft' ? (i - 1 + items.length) % items.length : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : -1; if (index >= 0) { e.preventDefault(); select(items[index].key); document.getElementById(`${id}-${items[index].key}`)?.focus() } }}>{tab.name}{tab.count != null && <span className="rounded bg-white px-1.5 text-xs text-slate-500">{tab.count}</span>}</button>)}</nav><div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active.key}`} className="overflow-auto p-3">{active.content}</div></section>
+}
 export function Modal({ title, children, onClose, busy = false, footer }: { title: string; children: ReactNode; onClose: () => void; busy?: boolean; footer?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const close = useRef(onClose); close.current = onClose

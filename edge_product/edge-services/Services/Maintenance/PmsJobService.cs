@@ -83,10 +83,24 @@ public sealed class PmsJobService(EdgeDbContext db)
             .OrderBy(c => c.SequenceOrder).Select(c => new ChecklistItemTemplateDto { SequenceOrder = c.SequenceOrder,
                 CheckpointDescription = c.CheckpointDescription, RequiresReading = c.RequiresReading,
                 NormalRangeMin = c.NormalRangeMin, NormalRangeMax = c.NormalRangeMax, Unit = c.Unit }).ToListAsync(token);
-        var materials = await (from link in db.MaterialItemEquipments.AsNoTracking()
-            join material in db.MaterialItems.AsNoTracking() on link.MaterialItemId equals material.Id
-            where link.EquipmentAssetId == entity.EquipmentAssetId
-            select new { material.Id, material.ItemCode, material.Name, material.Unit }).ToListAsync(token);
+        // Equipment links reference the company catalog, not the ship's stock item ID.
+        // Match the Equipment screen: include links inherited from ancestor equipment.
+        var equipmentIds = new HashSet<Guid>();
+        var equipmentId = entity.EquipmentAssetId;
+        while (equipmentId.HasValue && equipmentIds.Add(equipmentId.Value))
+            equipmentId = await db.EquipmentAssets.AsNoTracking().Where(a => a.Id == equipmentId.Value)
+                .Select(a => a.ParentId).SingleOrDefaultAsync(token);
+        var materialRows = await (from link in db.MaterialItemEquipments.AsNoTracking()
+            join catalog in db.MaterialCatalogItems.AsNoTracking() on link.MaterialItemId equals catalog.Id
+            where equipmentIds.Contains(link.EquipmentAssetId) && catalog.IsActive
+            select new { catalog.Id, CatalogCode = catalog.ItemCode, catalog.Name,
+                ItemCode = db.MaterialItems.Where(ship => ship.MaterialItemCode == catalog.ItemCode)
+                    .OrderBy(ship => ship.Id).Select(ship => ship.ItemCode).FirstOrDefault(),
+                Unit = db.MaterialItems.Where(ship => ship.MaterialItemCode == catalog.ItemCode)
+                    .OrderBy(ship => ship.Id).Select(ship => ship.Unit).FirstOrDefault() ?? "PCS" })
+            .Distinct().OrderBy(m => m.Name).ThenBy(m => m.ItemCode).ToListAsync(token);
+        var materials = materialRows.Select(m => new { m.Id,
+            ItemCode = m.ItemCode ?? (Guid.TryParse(m.CatalogCode, out _) ? "" : m.CatalogCode), m.Name, m.Unit }).ToList();
         var cycleKey = PmsJobRules.CycleKey(entity);
         var requiresCycleResolution = await db.MaintenanceTasks.AnyAsync(t => t.ScheduleId == id && t.CycleKey == cycleKey && (t.IsDeleted || t.Status == "CANCELLED"), token);
         var result = new { job = row, cycleKey, nextCycleNumber = entity.NextCycleNumber ?? 1, requiresCycleResolution,

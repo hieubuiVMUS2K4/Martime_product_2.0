@@ -7,17 +7,17 @@ const root = path.resolve(__dirname, '..')
 const artifacts = path.resolve(root, '../../artifacts/test-results/pms-ui-2026-10-26')
 const html = path.join(root, 'pms-rework-preview.local.html')
 const jobId = '11111111-1111-4111-8111-111111111111', woId = '22222222-2222-4222-8222-222222222222', assetId = '33333333-3333-4333-8333-333333333333', materialId = '44444444-4444-4444-8444-444444444444'
-let state = 'PENDING_APPROVAL', version = 3
+let state = 'PENDING_APPROVAL', version = 3, invalidApproval = false, longContent = false
 const requests = [], failures = []
 const job = { id: jobId, code: 'FIRE-PUMP-001', name: 'Kiểm tra và bảo dưỡng máy bơm cứu hỏa', equipmentAssetId: assetId, equipmentName: 'Máy bơm cứu hỏa', category: 'PERIODIC', intervalType: 'CALENDAR', intervalMonths: 3, state: 'ACTIVE', version: 1, department: 'DECK', nextDueAt: '2026-10-27T00:00:00Z', responsibleName: 'Đại phó' }
-const work = () => ({ id: woId, code: 'WO-FIRE-PUMP-001', jobId, name: job.name, equipmentAssetId: assetId, equipmentName: job.equipmentName, dueAt: job.nextDueAt, dueState: 'UPCOMING', status: state, assignedTo: 'THIRD-OFFICER', assignedName: 'Phó ba', priority: 'HIGH', reportRevision: 1, workflowVersion: version })
-const report = { id: 'report-1', revision: 1, contentHash: 'report-hash', submittedAt: '2026-10-26T04:00:00Z', submittedByCrewId: 'THIRD-OFFICER', snapshotJson: JSON.stringify({ Name: job.name, Code: 'WO-FIRE-PUMP-001', SubmittedAt: '2026-10-26T04:00:00Z', SubmittedByCrewId: 'THIRD-OFFICER', DurationMinutes: 90, RunningHours: 1001, Checklist: [{ Id: 'check-1', Description: 'Đo áp suất bơm', Completed: true, Reading: 5, Unit: 'bar' }], Materials: [{ MaterialItemId: materialId, Code: 'GASKET', Name: 'Gioăng bơm', Unit: 'PCS', Quantity: 2 }], Contributors: [{ UserId: 2, CrewId: 'THIRD-OFFICER' }] }) }
+const work = () => ({ id: woId, code: `WO-${woId.replaceAll('-', '')}`, jobId, name: job.name, equipmentAssetId: assetId, equipmentName: job.equipmentName, dueAt: job.nextDueAt, dueState: 'UPCOMING', status: state, assignedTo: 'THIRD-OFFICER', assignedName: 'Phó ba', priority: 'HIGH', reportRevision: 1, workflowVersion: version, updatedAt: '2026-10-27T04:30:00Z' })
+const report = { id: 'report-1', revision: 1, contentHash: 'report-hash', submittedAt: '2026-10-26T04:00:00Z', submittedByCrewId: 'THIRD-OFFICER', snapshotJson: JSON.stringify({ Name: job.name, Code: 'WO-22222222222242228222222222222222', SubmittedAt: '2026-10-26T04:00:00Z', SubmittedByCrewId: 'THIRD-OFFICER', DurationMinutes: 90, RunningHours: 1001, Checklist: [{ Id: 'check-1', Description: 'Đo áp suất bơm', Completed: true, Reading: 5, Unit: 'bar' }], Materials: [{ MaterialItemId: materialId, Code: 'GASKET', Name: 'Gioăng bơm', Unit: 'PCS', Quantity: 2 }], Contributors: [{ UserId: 2, CrewId: 'THIRD-OFFICER' }] }) }
 const page = items => ({ items, total: items.length, page: 1, pageSize: 20 })
 function fixture(url, method, body) {
   const p = new URL(url).pathname
   requests.push({ path: p, method, body, url })
   if (p === '/api/pms/work-orders/equipment-tree') return [{ id: 'folder', assetName: 'Thiết bị boong', category: 'SYSTEM', isActive: true }, { id: assetId, parentId: 'folder', assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
-  if (p === '/api/pms/jobs/references') return { crew: [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }], ranks: [{ id: 1, rankName: 'Đại phó' }] }
+  if (p === '/api/pms/jobs/references') return { crew: [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }], ranks: [{ id: 1, rankName: 'Đại phó', department: 'DECK' }, { id: 2, rankName: 'Máy trưởng', department: 'ENGINE' }] }
   if (p === '/api/pms/jobs/preview') return { previousDueAt: null, nextDueAt: job.nextDueAt, state: 'ACTIVE', openWorkOrders: 0, baselineChanged: false, reasonRequired: false, usesApprovedExecution: false, automaticReleaseRequested: false, missingInformation: [] }
   if (p === '/api/pms/jobs') return method === 'POST' ? { id: jobId } : page([job])
   if (p === `/api/pms/jobs/${jobId}/history`) return page([{ id: 'report-1', workOrderId: woId, workOrderCode: 'WO-FIRE-PUMP-001', sourceExecutedAt: report.submittedAt, submittedAt: report.submittedAt, approvedAt: report.submittedAt, completedBy: 'Phó ba', isLegacy: false, hasReport: true }])
@@ -29,11 +29,19 @@ function fixture(url, method, body) {
   if (p === '/api/pms/work-orders') return page(new URL(url).searchParams.get('status') === 'ALL'
     ? [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }]
     : [work()])
-  if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: [report], timeline: [], actualDurationMinutes: 90 }
-  if (p.includes('/reports/1')) return report
+  if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: [report], timeline: longContent ? Array.from({length: 70}, (_,i)=>({id: `event-${i}`,changedAt: '2026-10-27T04:00:00Z',changedBy: 'THIRD-OFFICER',reason: `Sự kiện bảo trì ${i+1}`})) : [{id:'event-1',changedAt:'2026-10-26T03:00:00Z',changedBy:'THIRD-OFFICER',reason:'Nhận và bắt đầu công việc'},{id:'event-2',changedAt:'2026-10-26T04:00:00Z',changedBy:'THIRD-OFFICER',reason:'Gửi kết quả kiểm tra'}], actualDurationMinutes: 90 }
+  if (p.includes('/reports/1')) {
+    if (!longContent) return report
+    const content = JSON.parse(report.snapshotJson)
+    content.Checklist = Array.from({length: 50}, (_, i) => ({...content.Checklist[0], Id: `check-${i}`, Description: `Hạng mục kiểm tra ${i + 1}`}))
+    content.Materials = Array.from({length: 50}, (_, i) => ({...content.Materials[0], MaterialItemId: `material-${i}`, Name: `Vật tư sử dụng ${i + 1}`}))
+    return {...report, snapshotJson: JSON.stringify(content)}
+  }
   if (p === '/api/pms/counters') return page([{ id: assetId, assetCode: 'PUMP-001', assetName: job.equipmentName, currentRunningHours: 1000 }])
-  if (p.startsWith('/api/approvals/pms/')) return { actor: { name: 'Đại phó', rank: 'Đại phó', username: 'reviewer', authority: 'pms.work.approve' }, module: 'pms', recordKey: woId, action: new URL(url).searchParams.get('action'), state, version: 0, revision: 0, contentHash: 'approval-hash', snapshot: {} }
+  if (p.startsWith('/api/approvals/pms/')) return { actor: { name: 'Đại phó', rank: 'Đại phó', username: 'reviewer', authority: 'pms.work.approve' }, module: 'pms', recordKey: woId, action: new URL(url).searchParams.get('action'), state, version: 0, revision: 0, contentHash: 'approval-hash', snapshot: { Id: woId, Revision: 1, ContentHash: 'approval-hash', SubmittedReport: invalidApproval ? 'invalid-json' : report.snapshotJson } }
   if (p.endsWith('/return')) { state = 'RECTIFY'; version++; return { id: woId, status: state, version, revision: 1 } }
+  if (p.endsWith('/start')) { state = 'IN_PROGRESS'; version++; return { id: woId, status: state, version, revision: 1 } }
+  if (p.endsWith('/approve')) { state = 'COMPLETED'; report.decision='APPROVED'; report.decidedAt='2026-10-27T04:30:00Z'; version++; return { id: woId, status: state, version, revision: 1 } }
   if (p.endsWith('/submit')) { state = 'PENDING_APPROVAL'; version++; return { id: woId, status: state, version, revision: 2 } }
   throw Error(`Unexpected fixture request: ${method} ${p}`)
 }
@@ -115,7 +123,48 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await click('Thêm công việc'); await wait(`!!document.querySelector('[role=dialog]')`)
     await evaluate(`(()=>{const el=document.querySelector('#pms-job-form input');el.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'TEST');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     assert.equal(await evaluate(`document.activeElement===document.querySelector('#pms-job-form input')`), true)
+    for (const [group, expected] of [['Thông tin công việc', 'Mã công việc nguồn'], ['Chu kỳ và mốc bắt đầu tính hạn', 'mốc 0 giờ'], ['Trách nhiệm', 'không mặc nhiên'], ['Checklist mẫu', 'Sửa mẫu Job']]) {
+      await evaluate(`(()=>{const b=document.querySelector('button[aria-label=${JSON.stringify('Giải thích: '+group)}]');b.focus();b.click()})()`)
+      await wait(`document.querySelectorAll('[role="dialog"]').length===2`)
+      assert.equal(await evaluate(`Array.from(document.querySelectorAll('[role="dialog"]')).at(-1).textContent.includes(${JSON.stringify(expected)})`), true)
+      if (group === 'Chu kỳ và mốc bắt đầu tính hạn') await screen('job-cycle-help')
+      await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' })
+      await wait(`document.querySelectorAll('[role="dialog"]').length===1`)
+      assert.equal(await evaluate(`document.activeElement.getAttribute('aria-label')===${JSON.stringify('Giải thích: '+group)}`), true)
+    }
+    assert.equal(requests.some(r=>r.path==='/api/pms/jobs' && r.method==='POST'), false)
+    for (const [interval, days, hours] of [['CALENDAR',true,false], ['RUNNING_HOURS',false,true], ['HYBRID',true,true], ['CALENDAR',true,false]]) {
+      await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Tính chu kỳ theo"]');s.value=${JSON.stringify(interval)};s.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+      await wait(`document.querySelector('select[aria-label="Tính chu kỳ theo"]').value===${JSON.stringify(interval)}`)
+      const visible = await evaluate(`(()=>{const names=Array.from(document.querySelectorAll('#pms-job-form label>span:first-child')).map(e=>e.textContent);return [names.includes('Cảnh báo trước (ngày)'),names.includes('Cảnh báo trước (giờ chạy)')]})()`)
+      assert.deepEqual(visible, [days,hours])
+    }
+    await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Chức danh chịu trách nhiệm"]');s.value='1';s.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+    await wait(`document.querySelector('select[aria-label="Bộ phận phụ trách"]').value==='DECK'`)
+    assert.equal(await evaluate(`document.querySelector('select[aria-label="Bộ phận phụ trách"]').disabled`), true)
+    await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Chức danh chịu trách nhiệm"]');s.value='2';s.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+    await wait(`document.querySelector('select[aria-label="Bộ phận phụ trách"]').value==='ENGINE'`)
+    await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Chức danh chịu trách nhiệm"]');s.value='';s.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+    await wait(`!document.querySelector('select[aria-label="Bộ phận phụ trách"]').disabled`)
+    await evaluate(`(()=>{const s=document.querySelector('select[aria-label="Bộ phận phụ trách"]');s.value='CATERING';s.dispatchEvent(new Event('change',{bubbles:true}))})()`)
     await screen('job-form')
+    await evaluate(`document.querySelector('input[role=combobox][aria-label="Thiết bị"]').focus()`)
+    await fill('input[role=combobox][aria-label="Thiết bị"]', 'may bom')
+    await wait(`!!document.querySelector('[role=listbox] [role=option]')`)
+    assert.equal(await evaluate(`document.querySelectorAll('[role=listbox] [role=option]').length`), 1)
+    assert.equal(await evaluate(`document.querySelector('[role=listbox]').textContent.includes('Máy bơm cứu hỏa')`), true)
+    await fill('input[role=combobox][aria-label="Thiết bị"]', 'PUMP-001')
+    await wait(`document.querySelector('[role=listbox]').textContent.includes('PUMP-001')`)
+    await screen('equipment-search')
+    await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter' })
+    await wait(`!document.querySelector('[role=listbox]')`)
+    assert.equal(await evaluate(`document.querySelector('input[role=combobox][aria-label="Thiết bị"]').value.includes('PUMP-001')`), true)
+    await evaluate(`document.querySelector('input[role=combobox][aria-label="Thiết bị"]').dispatchEvent(new FocusEvent('focusin',{bubbles:true}))`)
+    await fill('input[role=combobox][aria-label="Thiết bị"]', 'khong-ton-tai')
+    await wait(`document.body.textContent.includes('Không tìm thấy thiết bị phù hợp.')`)
+    await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' })
+    await wait(`!document.querySelector('[role=listbox]')`)
+    assert.equal(await evaluate(`!!document.querySelector('#pms-job-form') && document.querySelector('input[role=combobox][aria-label="Thiết bị"]').value.includes('PUMP-001')`), true)
     await evaluate(`(()=>{const el=document.querySelectorAll('#pms-job-form input')[1];Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'Preview test');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     await click('Xem trước và lưu'); await wait(`document.body.textContent.includes('Ảnh hưởng sau khi lưu')`)
     assert.equal(requests.some(r => r.path === '/api/pms/jobs' && r.method === 'POST'), false)
@@ -125,8 +174,12 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await click('Xem trước và lưu'); await wait(`document.body.textContent.includes('Ảnh hưởng sau khi lưu')`)
     await click('Xác nhận lưu'); await wait(`!document.querySelector('[role=dialog]')`)
     assert.equal(requests.find(r => r.path === '/api/pms/jobs' && r.method === 'POST').body.code, 'TEST-EDITED')
+    assert.equal(requests.find(r => r.path === '/api/pms/jobs' && r.method === 'POST').body.equipmentAssetId, assetId)
+    assert.equal(requests.find(r => r.path === '/api/pms/jobs' && r.method === 'POST').body.department, 'CATERING')
     await evaluate(`document.querySelector('button[aria-label="Lịch sử bảo trì"]').click()`); await wait(`document.body.textContent.includes('WO-FIRE-PUMP-001')`)
-    await evaluate(`document.querySelector('button[aria-label="Xem báo cáo"]').click()`); await wait(`document.body.textContent.includes('Gioăng bơm')`); await screen('maintenance-report')
+    await evaluate(`document.querySelector('button[aria-label="Xem báo cáo"]').click()`); await wait(`document.body.textContent.includes('Báo cáo đã gửi')`)
+    await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] [role="tab"]')).find(b=>b.textContent.includes('Vật tư đã sử dụng')).click()`)
+    await wait(`document.body.textContent.includes('Gioăng bơm')`); await screen('maintenance-report')
     await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' }); await wait(`document.querySelectorAll('[role=dialog]').length===1`)
     await evaluate(`document.querySelector('button[aria-label="Đóng"]').click()`)
     await evaluate(`window.testNavigate('/pms/jobs/${jobId}')`); await wait(`!!document.querySelector('[aria-label="Đường dẫn công việc"] h1')`)
@@ -169,23 +222,88 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await evaluate(`document.querySelector('button[aria-label="Tháng trước"]').click()`)
     await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value===${JSON.stringify(originalMonth)}`)
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); await screen('counter')
-    await evaluate(`window.testNavigate('/pms/work-orders/${woId}/review')`); await wait(`document.body.textContent.includes('Gioăng bơm')`)
+    await evaluate(`window.testNavigate('/pms/work-orders/${woId}/review')`); await wait(`document.body.textContent.includes('Báo cáo đã gửi')`)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('section>header')).some(h=>h.textContent.includes('Thông tin lệnh thực hiện') && h.textContent.includes('Chờ duyệt'))`), true)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('section>header')).some(h=>h.textContent.includes('Báo cáo đã gửi') && h.textContent.includes('Lượt 1'))`), true)
+    assert.equal(await evaluate(`(()=>{const a=Array.from(document.querySelectorAll('a')).find(a=>a.textContent==='Chi tiết WO');const g=document.querySelector('[aria-label="Quyết định kiểm tra WO"]');const boxes=[a,...g.querySelectorAll('button')].map(e=>e.getBoundingClientRect());return boxes.length===3 && boxes.every(r=>Math.abs(r.top-boxes[0].top)<1 && Math.abs(r.height-boxes[0].height)<1)})()`), true)
+    assert.equal(await evaluate(`document.querySelector('aside[aria-label="Kết quả thực hiện WO"]').textContent.includes('Đo áp suất bơm') && document.querySelector('aside[aria-label="Kết quả thực hiện WO"]').textContent.includes('Gioăng bơm')`), true)
+    assert.equal(await evaluate(`(()=>{const m=document.querySelector('[aria-label="Bố cục chi tiết WO"] main').getBoundingClientRect(),a=document.querySelector('[aria-label="Kết quả thực hiện WO"]').getBoundingClientRect();return a.left>=m.right && Math.abs(a.top-m.top)<2})()`), true)
     assert.equal(await evaluate(`document.body.textContent.includes('Lưu kết quả')`), false)
-    await click('Trả lại'); await wait(`document.body.textContent.includes('Nhập lại mật khẩu')`)
+    assert.equal(await evaluate(`document.body.textContent.includes('WO-${woId.replaceAll('-', '')}')`), false)
+    await screen('work-order-review'); await click('Trả lại'); await wait(`document.body.textContent.includes('Nhập lại mật khẩu')`)
+    assert.equal(await evaluate(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('${woId}')`), false)
+    await evaluate(`document.querySelector('[aria-label="Ký xác nhận"] summary').click()`)
+    await evaluate(`Array.from(document.querySelectorAll('[aria-label="Ký xác nhận"] [role="tab"]')).find(b=>b.textContent.includes('Vật tư đã sử dụng')).click()`)
+    await wait(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('Gioăng bơm')`)
+    assert.equal(await evaluate(`document.querySelector('[aria-label="Ký xác nhận"] pre')!==null`), false)
+    assert.equal(await evaluate(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('ContentHash')`), false)
+    await screen('approval-readable-summary')
     await evaluate(`(()=>{const p=document.querySelector('input[type=password]');const r=document.querySelector('[aria-label="Ký xác nhận"] textarea');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(p,'fixture-password');p.dispatchEvent(new Event('input',{bubbles:true}));Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(r,'Kiểm tra lại áp suất');r.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[aria-label="Ký xác nhận"] input[type=checkbox]').click()})()`)
     await click('Xác nhận'); await wait(`document.body.textContent.includes('Cần làm lại')`)
     const returned = requests.find(r => r.path.endsWith('/return')); assert.equal(returned.body.reason, 'Kiểm tra lại áp suất'); assert.equal(returned.body.reportHash, 'report-hash')
-    state = 'IN_PROGRESS'; version++
+    const startsBefore = requests.filter(r=>r.path.endsWith('/start')).length
+    await evaluate(`window.testUser(true);window.testNavigate('/pms/work-orders/${woId}')`)
+    await wait(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent==='Nhận / bắt đầu')`)
+    await click('Nhận / bắt đầu')
+    await wait(`location.pathname.endsWith('/execute') && document.body.textContent.includes('Lưu kết quả')`)
+    assert.equal(requests.filter(r=>r.path.endsWith('/start')).length, startsBefore + 1)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent.startsWith('Nhận và bắt đầu'))`), false)
     await evaluate(`window.testUser(true);window.testNavigate('/pms/work-orders/${woId}/execute')`); await wait(`document.body.textContent.includes('Lưu kết quả')`); await screen('execution')
     await evaluate(`(()=>{document.querySelector('input[aria-label="Hoàn tất Đo áp suất bơm"]').click();const el=document.querySelector('input[aria-label="Số đo Đo áp suất bơm"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'5');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+    await evaluate(`Array.from(document.querySelectorAll('[role="tab"]')).find(b=>b.textContent.includes('Vật tư đã sử dụng')).click()`)
+    await wait(`Array.from(document.querySelectorAll('[role="tabpanel"] button')).some(b=>b.textContent.includes('Gioăng bơm'))`)
+    await evaluate(`Array.from(document.querySelectorAll('[role="tabpanel"] button')).find(b=>b.textContent.includes('Gioăng bơm')).click()`)
+    await wait(`!!document.querySelector('input[aria-label="Số lượng đã sử dụng"]')`)
+    await screen('execution-material-tab')
+    await evaluate(`Array.from(document.querySelectorAll('[role="tab"]')).find(b=>b.textContent.includes('Checklist thực hiện')).click()`)
+    assert.equal(await evaluate(`document.querySelector('input[aria-label="Hoàn tất Đo áp suất bơm"]').checked && document.querySelector('input[aria-label="Số đo Đo áp suất bơm"]').value==='5'`), true)
     await click('Gửi kiểm tra'); await wait(`!!document.querySelector('h1') && document.querySelector('h1').textContent.includes('Chi tiết WO')`)
     const submitted = requests.find(r => r.path.endsWith('/submit')); assert.equal(submitted.body.actualDurationMinutes, 90); assert.equal(submitted.body.checklist[0].reading, 5); assert.equal(submitted.body.checklist[0].completed, true); assert.ok(submitted.body.commandId); assert.equal('photos' in submitted.body, false)
+    assert.deepEqual(submitted.body.materials, [{materialItemId: materialId, quantity: 1}])
+    await evaluate(`window.testUser();window.testNavigate('/pms/work-orders/${woId}/review')`)
+    await wait(`document.body.textContent.includes('Báo cáo đã gửi')`)
+    invalidApproval = true
+    await click('Phê duyệt'); await wait(`!!document.querySelector('[aria-label="Ký xác nhận"]')`)
+    await evaluate(`document.querySelector('[aria-label="Ký xác nhận"] summary').click()`)
+    await wait(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('Không đọc được bản báo cáo')`)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('[aria-label="Ký xác nhận"] button')).find(b=>b.textContent==='Xác nhận').disabled`), true)
+    await evaluate(`document.querySelector('button[aria-label="Đóng xác nhận"]').click()`)
+    invalidApproval = false
+    await click('Phê duyệt'); await wait(`!!document.querySelector('[aria-label="Ký xác nhận"]')`)
+    await evaluate(`(()=>{const p=document.querySelector('input[type=password]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(p,'fixture-password');p.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[aria-label="Ký xác nhận"] input[type=checkbox]').click()})()`)
+    await click('Xác nhận'); await wait(`!!document.querySelector('h1') && document.querySelector('h1').textContent.includes('Chi tiết WO')`)
+    assert.equal(requests.find(r=>r.path.endsWith('/approve')).body.reportHash, 'report-hash')
+    await wait(`!!document.querySelector('[aria-label="Kết quả thực hiện WO"]')`)
+    await evaluate(`Array.from(document.querySelectorAll('summary')).find(b=>b.textContent.includes('Các lượt báo cáo')).click()`)
+    await wait(`!!document.querySelector('button[aria-label="Xem bản gửi"]')`)
+    await screen('work-order-reference-layout')
+    await evaluate(`document.querySelector('button[aria-label="Xem bản gửi"]').click()`)
+    await wait(`document.querySelector('[aria-label="Kết quả thực hiện WO"]').textContent.includes('Đo áp suất bơm')`)
+    await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 780, deviceScaleFactor: 1, mobile: false })
+    assert.equal(await evaluate(`(()=>{const m=document.querySelector('[aria-label="Bố cục chi tiết WO"] main').getBoundingClientRect(),a=document.querySelector('[aria-label="Kết quả thực hiện WO"]').getBoundingClientRect();return a.top>=m.bottom && document.documentElement.scrollWidth<=innerWidth})()`), true)
+    await screen('work-order-reference-narrow')
+    await call('Emulation.clearDeviceMetricsOverride')
+    await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false })
+    longContent = true
+    await evaluate(`window.testUser();window.testNavigate('/pms/work-orders/${woId}');window.scrollTo(0,0)`)
+    await wait(`document.body.textContent.includes('Hạng mục kiểm tra 50') && document.body.textContent.includes('Vật tư sử dụng 50')`)
+    const scrollLabels = ['Nội dung Checklist và số đo', 'Nội dung Vật tư đã sử dụng', 'Nội dung Lịch sử & Ghi chú']
+    for (const name of scrollLabels) {
+      assert.equal(await evaluate(`(()=>{const all=${JSON.stringify(scrollLabels)}.map(n=>document.querySelector('[aria-label="'+n+'"]'));const p=all.find(e=>e.getAttribute('aria-label')===${JSON.stringify(name)});const before=all.map(e=>e.scrollTop);const page=window.scrollY;p.scrollTop=160;return p.clientHeight<=360 && p.scrollHeight>p.clientHeight && p.scrollTop>0 && all.every((e,i)=>e===p || e.scrollTop===before[i]) && window.scrollY===page})()`), true)
+      if (name !== 'Nội dung Lịch sử & Ghi chú') {
+        const heading = await evaluate(`(()=>{const p=document.querySelector('[aria-label=${JSON.stringify(name)}]'),th=p.querySelector('th'),top=th.getBoundingClientRect().top;p.scrollTop+=80;return {name:${JSON.stringify(name)},top,after:th.getBoundingClientRect().top,panel:p.getBoundingClientRect().top,padding:parseFloat(getComputedStyle(p).paddingTop),position:getComputedStyle(th).position}})()`)
+        assert.ok(heading.position==='sticky' && Math.abs(heading.top-heading.after)<2 && Math.abs(heading.top-heading.panel-heading.padding)<2, JSON.stringify(heading))
+      }
+    }
+    await screen('work-order-independent-scroll')
+    longContent = false
     await evaluate(`window.testUser(false,true);window.testNavigate('/pms/work-planning')`); await wait(`!!document.querySelector('nav[aria-label="PMS"]') && document.body.textContent.includes('Kiểm tra và bảo dưỡng máy bơm cứu hỏa')`)
     assert.equal(await evaluate(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Thêm công việc'))`), false)
     await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 780, deviceScaleFactor: 1, mobile: false }); await screen('readonly-responsive')
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); assert.equal(await evaluate(`!!document.querySelector('input[aria-label^="Giờ chạy mới"]')`), false)
     assert.deepEqual(failures, [])
-    const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-unfiltered-default-and-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
+    const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-unfiltered-default-and-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
+    checks.push('equipment-search-name-without-accents-and-code', 'equipment-keyboard-selection', 'equipment-search-escape-keeps-selection')
     fs.writeFileSync(path.join(artifacts, 'browser-summary.json'), JSON.stringify({ checks, requests: requests.map(r => ({ path: r.path, method: r.method })), failures }, null, 2))
     closing = true
     await call('Fetch.disable'); await call('Page.navigate', { url: 'about:blank' })

@@ -21,6 +21,57 @@ Xác minh sửa offline: **35 test worker/API/capability đạt, 0 lỗi, 0 bỏ
 - Chi tiết Job có breadcrumb Danh sách công việc › tên Job; nhóm thông tin/hướng dẫn bên trái, kế hoạch/trách nhiệm/WO đang mở bên phải; checklist và vật tư readonly thành hai tab. Đường dẫn sửa từ bảng mở đúng form, vẫn giữ kiểm tra quyền/trạng thái.
 - Xác minh UI: production build/TypeScript và 9 test PMS đạt; 31 tình huống Chrome đạt, có ảnh kiểm tra chi tiết/Gantt/trạng thái sau kéo trong `artifacts/test-results/pms-ui-2026-10-26/` (thư mục artifact của bộ kiểm thử hiện hữu). Kiểm tra dùng HTTP fixture, không thay dữ liệu Job/WO vận hành. Chưa push các thay đổi UI này.
 
+### Chi tiết WO và xác nhận duyệt — 27/10/2026
+
+- Trang chi tiết/thực hiện/duyệt WO có breadcrumb theo tên công việc; tách nhãn và giá trị của thiết bị, người phụ trách, hạn, bộ phận, hướng dẫn và trạng thái. Thanh quyết định ở trang duyệt có hướng dẫn và hai nút Trả lại/Phê duyệt. Tên người gửi/người xử lý được đối chiếu danh sách thuyền viên khi có thông tin.
+- Ẩn UUID và mã WO tự sinh từ UUID trong bảng, chi tiết, báo cáo, lịch sử và liên kết WO đang mở; mã nghiệp vụ dễ đọc vẫn giữ. Không đổi ID/mã đã lưu hoặc dữ liệu đồng bộ.
+- Popup duyệt WO protocol 2 trình bày tên công việc, lượt báo cáo và bản báo cáo có checklist/số đo/vật tư thay cho JSON, hash, node/dataset ID và trạng thái kỹ thuật. Nội dung lấy từ chính SubmittedReport trong context xác nhận, không lấy bản nháp hiện tại. Giữ nguyên hash/phiên bản/mật khẩu/idempotency và cơ chế xác nhận phía server. Báo cáo đối chiếu không đọc được thì khóa xác nhận; trả lại bắt buộc có lý do.
+- Bộ chọn thiết bị dùng ô tìm kiếm tên/mã tích hợp, không phân biệt dấu, hỗ trợ phím điều hướng/Enter/Escape; không cho gán chữ nhập tự do thành ID.
+- Xác minh: production build đạt; 9 test PMS và 39 tình huống Chrome đạt, gồm ẩn UUID, hiển thị báo cáo thay JSON, ký trả lại, ký phê duyệt, khóa báo cáo lỗi và chọn thiết bị. Đây là kiểm thử giao diện với HTTP fixture, không duyệt hoặc sửa dữ liệu vận hành. Các thay đổi ở mục này chưa push; phần UI trước đó đã có trên remote tại b9457ce3.
+
+### Giới hạn các khối dài ở chi tiết/duyệt WO — 27/10/2026
+
+- Checklist, Vật tư và Lịch sử & Ghi chú có vùng cuộn độc lập, cao tối đa min(360px, 45vh); ít dữ liệu tự co lại. Tiêu đề khối và số lượng nằm ngoài vùng cuộn. Vùng cuộn có tên và nhận focus để dùng bàn phím; overscroll không đẩy sang trang ngoài.
+- Tiêu đề cột checklist/vật tư và bảng lượt báo cáo neo khi cuộn; bỏ vùng overflow trung gian cản sticky. Bảng báo cáo dùng border riêng từng ô để tránh đường kẻ/chữ chồng trên header; phần trên vùng cuộn bảng không có padding gây lộ dòng phía sau.
+- Chrome 47 kiểm tra đạt, gồm 50 dòng checklist, 50 dòng vật tư, 70 sự kiện; đo chiều cao, kiểm tra cuộn không đổi vị trí các khối còn lại/trang ngoài và header đứng yên khi tiếp tục cuộn. Ảnh work-order-independent-scroll.png đã rà trực quan. Chưa push.
+### Tab thực hiện và sửa nguồn vật tư của Job — 27/10/2026
+
+- Giao diện thực hiện dùng hai tab Checklist thực hiện / Vật tư đã sử dụng cùng style chi tiết Job. Báo cáo và nút lưu/gửi dùng chung; state ở form cha giữ nguyên checkbox/số đo/vật tư khi đổi tab. Chrome xác minh nhập số đo, chọn vật tư, đổi tab rồi gửi đủ cả hai.
+- Xác nhận chỉ đọc Job testing2 (928e19d7-558a-4718-9e59-8917743ef19f) trỏ đúng Aft mooring winch Hyd' oil tank, có liên kết vật tư danh mục; ID danh mục khác ID vật tư trên tàu. DetailAsync trước đây join nhầm MaterialItems nên mất dòng.
+- Chi tiết Job nay join MaterialCatalogItems theo ID liên kết, lấy mã/đơn vị vật tư tàu qua MaterialItemCode, giữ tên danh mục; bao gồm liên kết từ nhóm cha, loại trùng và danh mục ngừng hoạt động, có visited set chống vòng lặp. Không sửa liên kết hoặc tồn kho, không cho gán vật tư trong form Job.
+- Xác minh: 14 test PostgreSQL API/đọc vật tư đạt, 0 bỏ qua (job-equipment-materials.trx); Chrome 45 kiểm tra đạt; TypeScript và build production đạt. Ảnh execution-material-tab.png đã rà trực quan. Không ghi dữ liệu vận hành; cần khởi động lại backend Edge để nạp sửa nguồn đọc. Chưa push.
+### Bộ phận phụ trách theo chức danh — 27/10/2026
+
+- Đổi nhãn thành Bộ phận phụ trách; form Job chọn từ DECK/ENGINE/CATERING/OTHER (Boong/Máy/Phục vụ/Khác) như danh mục chức danh. Bổ sung bộ phận mới từ metadata chức danh đồng bộ và giữ lựa chọn cũ chưa chuẩn hóa để không tự làm mất dữ liệu khi sửa.
+- Chọn/đổi chức danh tự điền bộ phận; khi chức danh có bộ phận, không cho sửa lệch ở ô riêng. Bỏ chọn chức danh giữ bộ phận hiện tại và mở lại khả năng chọn thủ công. Metadata tải sau cũng được đối chiếu trước xem trước/lưu; không tự lưu database khi mở form. Bộ phận vẫn là trách nhiệm riêng của Job, được kế thừa khi phát hành WO.
+- WO đột xuất cũng dùng danh sách chọn; bảng và trang chi tiết Job/WO hiển thị tên bộ phận thay mã nội bộ. Hướng dẫn form cập nhật theo quy tắc mới. Không đổi chức danh/quyền tài khoản, không đổi cách phân công người thực hiện.
+- Chrome 45 kiểm tra đạt, gồm Đại phó → DECK, Máy trưởng → ENGINE, bỏ chức danh → tự chọn CATERING và POST giữ đúng mã. Không sửa dữ liệu vận hành; chưa push.
+### Bố cục WO theo ảnh tham chiếu mới — 27/10/2026
+
+- Thay bố cục 4 tab ở trang WO bằng hai cột theo yêu cầu mới: cột trái khoảng 64% chứa Thông tin lệnh thực hiện, Báo cáo đã gửi, Lịch sử & Ghi chú; cột phải chứa Checklist và số đo và Vật tư đã sử dụng, hiển thị đồng thời. Màn hình hẹp xếp một cột, không đẩy tràn trang. Form thực hiện vẫn dùng toàn chiều rộng.
+- Khối thông tin chia ba nhóm: thiết bị/bộ phận/hướng dẫn; người phụ trách/ưu tiên; hạn và xác nhận đã duyệt. Chỉ hiển thị xác nhận duyệt khi có quyết định thực tế; không tự đặt mã WO dễ đọc hoặc bịa dữ liệu từ ảnh mẫu. Có thời điểm cập nhật cuối từ WO.
+- Lịch sử có timeline ngày/nội dung/người xử lý; các lượt báo cáo nằm trong mục thu gọn, chọn icon vẫn mở đúng revision cho cả hai cột. Popup báo cáo/xác nhận vẫn dùng hai tab checklist/vật tư như trước. Không thêm nút In, Xuất hoặc Quay lại.
+- Chrome 44 kiểm tra đạt, gồm hình học hai cột ở màn hình rộng, một cột không tràn ở 900px, xem báo cáo và luồng ký trả lại/phê duyệt. Ảnh work-order-reference-layout.png và work-order-reference-narrow.png đã tạo; ảnh màn hình rộng đã rà trực quan. Không sửa dữ liệu vận hành, chưa push.
+### Hướng dẫn các trường thêm/sửa Job — 27/10/2026
+
+- Thêm icon CircleAlert (!) trước tiêu đề Thông tin công việc, Chu kỳ và mốc bắt đầu tính hạn, Trách nhiệm và Checklist mẫu. Bấm mở hướng dẫn theo nhóm, có giải thích từng trường, ví dụ và ranh giới Job/WO; cùng style modal hệ thống, hỗ trợ đọc trên màn hình hẹp.
+- Hướng dẫn nêu rõ mốc không phải lịch sử thực hiện, tự sinh khi bật tự động/đủ điều kiện kể cả offline, trách nhiệm Job khác người thực hiện/người duyệt, hạn kỳ sau dựa báo cáo được duyệt và giới hạn phát hành theo sự kiện hiện tại.
+- Hướng dẫn chỉ đọc: không submit form hoặc thay giá trị; Escape chỉ đóng hướng dẫn trên cùng và trả focus về icon. Chrome 43 kiểm tra đạt, gồm đủ 4 nhóm, nội dung ví dụ, focus/Escape và tiếp tục nhập/lưu Job. Ảnh job-cycle-help.png đã kiểm tra trực quan. Chưa push.
+### Cải thiện khối thông tin WO/báo cáo và làm rõ Lịch/Gantt — 27/10/2026
+
+- Trạng thái nằm trên tiêu đề khối; thông tin WO dùng nhãn–giá trị có thứ bậc rõ, hướng dẫn ngăn bằng đường kẻ. Báo cáo gom người gửi/thời điểm/thời lượng/giờ chạy thành một hàng; kết quả và ý kiến kiểm tra tách riêng, bỏ lặp tên công việc trên chính trang WO. Popup/lịch sử vẫn giữ tên công việc để có ngữ cảnh.
+- Kiểm tra chỉ đọc WO testing1 `d0398e85-5c2e-406d-b03c-7fcdd2379c94`: work_order_due_at NULL, work_order_due_hours 100, protocol 2. Lịch/Gantt đang lọc theo hạn ngày trong tháng; WO chỉ theo giờ chạy không có vị trí ngày để vẽ. Không tự gán ngày phát hành hoặc quy đổi 100 giờ thành hạn ngày. Toolbar ghi rõ số WO có hạn ngày và có liên kết xem WO theo giờ chạy tại tab Work Order.
+- Chrome 41 kiểm tra đạt sau thay đổi, bao gồm vị trí trạng thái/lượt báo cáo ở tiêu đề và các luồng xem/duyệt. Ảnh work-order-review.png đã rà trực quan. Chưa push.
+### Gom nội dung chi tiết WO thành tab — 27/10/2026
+
+- Thông tin WO và tóm tắt lượt báo cáo nằm trên; phần dưới là một hàng tab cùng style chi tiết Job: Checklist và số đo / Vật tư đã sử dụng / Các lượt báo cáo / Nhật ký xử lý, có số lượng và cuộn ngang khi hẹp. Chỉ hiển thị panel được chọn; hỗ trợ bàn phím trái/phải/Home/End.
+- Trang duyệt và popup báo cáo dùng hai tab nội dung checklist/vật tư. Trang xem WO tự lấy lượt báo cáo mới nhất khi có; chọn icon xem ở Các lượt báo cáo mở đúng revision và chuyển về checklist. Nội dung vẫn lấy từ snapshot đã gửi, không đổi kết quả hoặc quyền thao tác.
+- Chrome: 41 kiểm tra đạt, gồm chuyển checklist/vật tư và mở lại lượt báo cáo từ tab lịch sử; ảnh `work-order-report-tabs.png` đã rà trực quan. Kiểm tra dùng fixture HTTP, không ghi dữ liệu vận hành. Chưa push.
+### Sửa lỗi 500 khi phê duyệt/trả lại WO — 27/10/2026
+
+- Tái hiện được lỗi trước khi sửa qua ApprovalActionFilter với đủ tham số MVC (`id`, `dto`, `token`): `NotSupportedException: System.IntPtr`, đường dẫn `$.arguments.WaitHandle.Handle`. Hash nhận diện request đã serialize cả CancellationToken của server; lỗi xảy ra trước quyết định nghiệp vụ ở cả approve/return.
+- Chỉ loại các giá trị CancellationToken khỏi bộ tham số tính request hash; giữ nguyên ID/DTO, hash nội dung, phiên bản, lý do, mật khẩu, kiểm tra quyền và idempotency. Không bỏ bước ký hoặc nới kiểm tra báo cáo.
+- Regression workflow nay đưa token MVC vào filter. Kiểm thử trước sửa thất bại đúng lỗi trên (`approval-repro.trx`); sau sửa **27 test workflow/approval đạt, 0 lỗi, 0 bỏ qua** trên PostgreSQL riêng (`artifacts/test-results/pms-approval-2026-10-27/approval-fix.trx`), gồm trả lại → làm lại → duyệt, duyệt lặp/đồng thời, bằng chứng ký và rollback khi thiếu tồn kho. Không thực hiện duyệt/trả lại trên WO vận hành để thử lỗi. Cần khởi động lại backend Edge đang chạy để nạp bản sửa; thay đổi chưa push.
 ## Đã triển khai nền tảng
 
 - Bổ sung metadata protocol 2 cho Job và WO ở cả Edge/Shore, migration và model snapshot tương ứng. Các trường mới nullable; dữ liệu legacy không tự chuyển protocol, không tự bật sinh WO.

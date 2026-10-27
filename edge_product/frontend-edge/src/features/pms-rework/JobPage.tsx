@@ -1,3 +1,5 @@
+import { departmentName } from './departments'
+import { readableCode } from './presentation'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Archive, ChevronRight, ClipboardList, History, Pause, Pencil, Play, Plus } from 'lucide-react'
@@ -51,8 +53,8 @@ export default function JobPage() {
       </main>
       <aside className="min-w-0 space-y-4">
         <Section title="Kế hoạch bảo trì"><dl className="space-y-4"><JobField name="Hạn tiếp theo">{due(j.nextDueAt, j.nextDueHours)}</JobField><JobField name="Gửi hoàn tất lần cuối">{date(j.lastSubmittedAt)}</JobField><JobField name="Giờ chạy lần cuối">{j.lastRunningHours != null ? `${j.lastRunningHours.toLocaleString('vi-VN')} giờ` : '—'}</JobField><JobField name="Phát hành WO">{j.autoGenerate ? 'Tự động theo chu kỳ' : 'Thủ công'}</JobField>{j.category === 'PERIODIC' && <JobField name="Thời điểm phát hành">{detail.releasePolicy === 'ON_DUE' ? 'Khi đến hạn' : 'Khi sắp đến hạn'}</JobField>}</dl></Section>
-        <Section title="Trách nhiệm"><dl className="space-y-4"><JobField name="Bộ phận">{j.department || 'Chưa xác định'}</JobField><JobField name="Chức danh">{rank || 'Chưa xác định'}</JobField><JobField name="Người chịu trách nhiệm">{j.responsibleName || 'Chưa chọn'}</JobField></dl></Section>
-        {j.openWorkOrderId && <Section title="Work Order đang mở"><p className="mb-3 break-all text-xs text-slate-600">{j.openWorkOrderCode}</p>{access.work('view') ? <Link className={`${button} w-full text-blue-600`} to={`/pms/work-orders/${j.openWorkOrderId}`}><ClipboardList size={14} />Xem Work Order</Link> : <p className="text-xs text-gray-500">Bạn chưa có quyền xem Work Order.</p>}</Section>}
+        <Section title="Trách nhiệm"><dl className="space-y-4"><JobField name="Bộ phận phụ trách">{departmentName(j.department)}</JobField><JobField name="Chức danh">{rank || 'Chưa xác định'}</JobField><JobField name="Người chịu trách nhiệm">{j.responsibleName || 'Chưa chọn'}</JobField></dl></Section>
+        {j.openWorkOrderId && <Section title="Work Order đang mở"><p className="mb-3 break-all text-xs text-slate-600">{readableCode(j.openWorkOrderCode) || j.name}</p>{access.work('view') ? <Link className={`${button} w-full text-blue-600`} to={`/pms/work-orders/${j.openWorkOrderId}`}><ClipboardList size={14} />Xem Work Order</Link> : <p className="text-xs text-gray-500">Bạn chưa có quyền xem Work Order.</p>}</Section>}
       </aside>
     </div>
     {editOpen && <JobForm detail={detail} onClose={closeEdit} />}{history && <JobHistory job={j} onClose={() => setHistory(false)} />}

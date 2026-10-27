@@ -1,3 +1,5 @@
+import { departmentName, departmentNames } from './departments'
+import { readableCode } from './presentation'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BarChart3, Calendar, ChevronDown, ChevronRight, ClipboardCheck, ClipboardList, Eye, FolderOpen, Gauge, History, Pencil, Plus, Table2, Trash2 } from 'lucide-react'
@@ -45,7 +47,7 @@ function Jobs({ equipmentAssetId }: { equipmentAssetId: string }) {
     { key: 'category', title: 'Loại / chu kỳ', filter: 'category', width: 180, options: [['', 'Tất cả'], ...['PERIODIC', 'DRY_DOCK', 'ON_DEMAND', 'VOYAGE'].map(s => [s, label[s]] as [string, string])], render: j => <span>{label[j.category]}{j.category === 'PERIODIC' ? ` · ${cycle(j)}` : ''}</span> },
     { key: 'last', title: 'Lần cuối thực hiện', sort: 'lastCompleted', width: 180, render: j => date(j.lastSubmittedAt) },
     { key: 'due', title: 'Hạn tới', sort: 'due', width: 190, dateRange: ['dueFrom', 'dueTo'], render: j => due(j.nextDueAt, j.nextDueHours) },
-    { key: 'department', title: 'Bộ phận', filter: 'department', render: j => j.department || '—' },
+    { key: 'department', title: 'Bộ phận phụ trách', filter: 'department', options: Object.entries(departmentNames), render: j => departmentName(j.department) },
     { key: 'responsible', title: 'Người chịu trách nhiệm', width: 190, filter: 'responsibleCrewId', options: [['', 'Tất cả'], ...(refs.data?.crew || []).map(c => [c.id, c.fullName] as [string, string])], render: j => j.responsibleName || refs.data?.ranks.find(r => r.id === j.responsibleRankId)?.rankName || '—' },
     { key: 'state', title: 'Trạng thái', sort: 'state', filter: 'state', width: 180, options: [['', 'Đang áp dụng'], ...['ACTIVE', 'NEEDS_INFORMATION', 'PAUSED', 'RETIRED', 'REMOVED'].map(s => [s, label[s]] as [string, string])], render: j => <Badge value={j.state} /> },
     { key: 'actions', title: 'Hành động', width: 135, fixed: 'right', render: j => <TableActions><ActionIcon label={`Xem ${j.name}`} icon={<Eye />} to={`/pms/jobs/${j.id}`} /><ActionIcon label="Lịch sử bảo trì" icon={<History />} onClick={() => setHistory(j)} />{access.job('update') && <ActionIcon label="Sửa công việc" icon={<Pencil />} to={`/pms/jobs/${j.id}?edit=1`} disabled={j.state === 'REMOVED'} />}{access.job('delete') && <ActionIcon label="Xóa công việc chưa có WO" icon={<Trash2 />} danger disabled={action.busy || !!j.openWorkOrderId || j.state === 'REMOVED'} onClick={() => { if (confirm(`Xóa công việc “${j.name}”? Công việc đã có WO/lịch sử chỉ được ngừng áp dụng.`)) void action.run(async () => { await pms.deleteJob(j); await refresh() }, 'Đã xóa công việc.') }} />}</TableActions> },
@@ -60,15 +62,15 @@ function Orders({ equipmentAssetId }: { equipmentAssetId: string }) {
   const crew = usePmsQuery(['wo-crew'], pms.crew, access.work('view'))
   const [create, setCreate] = useState(false)
   const columns: GridColumn<WorkOrder>[] = [
-    { key: 'name', title: 'Tên công việc', fixed: 'left', width: 260, sort: 'name', filter: 'name', render: w => <Link className="text-blue-600 hover:underline" title={`${w.code} · ${w.name}`} to={`/pms/work-orders/${w.id}`}>{w.name || 'WO nháp chưa có tên'}</Link> },
-    { key: 'code', title: 'Mã WO', width: 180, filter: 'code', sort: 'code', render: w => <span title={w.code}>{w.code}</span> },
+    { key: 'name', title: 'Tên công việc', fixed: 'left', width: 260, sort: 'name', filter: 'name', render: w => <Link className="text-blue-600 hover:underline" title={w.name} to={`/pms/work-orders/${w.id}`}>{w.name || 'WO nháp chưa có tên'}</Link> },
+    { key: 'code', title: 'Mã WO', width: 180, filter: 'code', sort: 'code', render: w => <span>{readableCode(w.code) || '—'}</span> },
     { key: 'equipment', title: 'Thiết bị', width: 220, filter: 'equipment', render: w => <span title={w.equipmentName}>{w.equipmentName || '—'}</span> },
     { key: 'due', title: 'Hạn hoàn thành', width: 190, sort: 'due', dateRange: ['dueFrom', 'dueTo'], render: w => due(w.dueAt, w.dueHours) },
+    { key: 'pic', title: 'Người thực hiện', width: 180, filter: 'assignedTo', options: [['', 'Tất cả'], ...(crew.data || []).map(c => [c.crewId, c.fullName] as [string, string])], render: w => w.assignedName || 'Chưa phân công' },
+    { key: 'department', title: 'Bộ phận phụ trách', width: 120, filter: 'department', options: Object.entries(departmentNames), render: w => departmentName(w.department) },
+    { key: 'priority', title: 'Ưu tiên', sort: 'priority', filter: 'priority', options: [['', 'Tất cả'], ...['LOW', 'NORMAL', 'HIGH', 'CRITICAL'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.priority} /> },
     { key: 'dueState', title: 'Tình trạng hạn', filter: 'dueState', width: 160, options: [['', 'Tất cả'], ...['NOT_DUE', 'UPCOMING', 'DUE', 'OVERDUE'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.dueState} /> },
     { key: 'status', title: 'Tiến độ', sort: 'status', filter: 'status', width: 180, options: [['', 'Tất cả'], ['OPEN', 'Đang mở'], ...['DRAFT', 'UNASSIGNED', 'ASSIGNED', 'IN_PROGRESS', 'RECTIFY', 'PENDING_APPROVAL', 'COMPLETED', 'CANCELLED'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.status} /> },
-    { key: 'pic', title: 'Người thực hiện', width: 180, filter: 'assignedTo', options: [['', 'Tất cả'], ...(crew.data || []).map(c => [c.crewId, c.fullName] as [string, string])], render: w => w.assignedName || 'Chưa phân công' },
-    { key: 'department', title: 'Bộ phận', width: 120, filter: 'department', render: w => w.department || '—' },
-    { key: 'priority', title: 'Ưu tiên', sort: 'priority', filter: 'priority', options: [['', 'Tất cả'], ...['LOW', 'NORMAL', 'HIGH', 'CRITICAL'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.priority} /> },
     { key: 'actions', title: 'Hành động', width: 115, fixed: 'right', render: w => <TableActions><ActionIcon label="Chi tiết WO" icon={<Eye />} to={`/pms/work-orders/${w.id}`} />{w.status === 'DRAFT' && access.work('update') && <ActionIcon label="Sửa nháp" icon={<Pencil />} to={`/pms/work-orders/${w.id}?edit=1`} />}{w.status === 'PENDING_APPROVAL' && (access.work('approve') || access.work('reject')) && <ActionIcon label="Kiểm tra và duyệt WO" icon={<ClipboardCheck />} to={`/pms/work-orders/${w.id}/review`} />}</TableActions> },
   ]
   return <><Grid columns={columns} result={result.data} loading={result.isFetching} error={result.error} {...filter} toolbar={access.work('create') && <button className={primary} onClick={() => setCreate(true)}><Plus size={14} />Tạo WO đột xuất</button>} />{create && <AdHocForm onClose={() => setCreate(false)} />}</>

@@ -90,7 +90,12 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
             if (!Guid.TryParse(idempotency, out _)) throw new ApprovalException(428, "Thiếu mã yêu cầu ký.");
             var versionText = http.Request.Headers["X-Approval-Version"].ToString();
             var hash = http.Request.Headers["X-Approval-Hash"].ToString();
-            var requestHash = ApprovalSnapshot.Hash(ApprovalSnapshot.Canonicalize(new { module, key, action, hash, versionText, reason = http.Request.Headers["X-Approval-Reason"].ToString(), arguments = context.ActionArguments }));
+            // MVC binds CancellationToken alongside the business DTO. Its WaitHandle is
+            // process-local infrastructure (and cannot be serialized); it must not affect
+            // the identity of an approval or an idempotent retry on another request.
+            var arguments = context.ActionArguments.Where(a => a.Value is not CancellationToken)
+                .ToDictionary(a => a.Key, a => a.Value);
+            var requestHash = ApprovalSnapshot.Hash(ApprovalSnapshot.Canonicalize(new { module, key, action, hash, versionText, reason = http.Request.Headers["X-Approval-Reason"].ToString(), arguments }));
             await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync() : null;
             if (db.Database.IsNpgsql()) await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(7311042026)");
             if (db.Database.IsNpgsql())

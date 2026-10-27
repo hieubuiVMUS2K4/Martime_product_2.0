@@ -96,7 +96,9 @@ public partial class PmsWorkOrderWorkflowTests(PmsDatabaseFixture fixture)
         http.Request.Headers["X-Approval-Reason"] = Uri.EscapeDataString(request.Body.Reason ?? "");
         var descriptor = new ControllerActionDescriptor { ControllerName = "PmsWorkOrders", ActionName = request.Approve ? "Approve" : "Return" };
         var action = new ActionContext(http, new(), descriptor, new ModelStateDictionary());
-        var context = new ActionExecutingContext(action, [], new Dictionary<string, object?> { ["id"] = state.Id, ["dto"] = request.Body }, new object());
+        // MVC also binds the CancellationToken declared by Approve/Return. It is runtime
+        // request infrastructure, not part of the signed business command.
+        var context = new ActionExecutingContext(action, [], new Dictionary<string, object?> { ["id"] = state.Id, ["dto"] = request.Body, ["token"] = http.RequestAborted }, new object());
         PmsWorkflowResult? result = null;
         await new ApprovalActionFilter(db, Approvals(db), Runtime()).OnActionExecutionAsync(context, async () =>
         {
