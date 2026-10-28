@@ -259,4 +259,6 @@ shore_product/scripts/tmp-*
 /artifacts/database-backups/
 /scripts/database/__pycache__/
 /artifacts/pms-sync-repair-2026-10-27/
+/outputs/pms-job-bqbd-20261028/
+/artifacts/pms-bqbd-file-verification.json
 

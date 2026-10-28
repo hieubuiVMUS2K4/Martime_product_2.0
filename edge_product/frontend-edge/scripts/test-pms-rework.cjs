@@ -50,7 +50,7 @@ test('Job-only and legacy config access open Job List without granting Work Orde
 })
 const XLSX = require('xlsx')
 const imports = { '@/services/api.client': {}, './data': {}, './ui': {}, './departments': {} }
-const { parseJobWorkbook } = load('features/pms-rework/ImportJobs.tsx', imports)
+const { parseJobWorkbook } = load('features/pms-rework/planWorkbook.ts', imports)
 function book(row) { const b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, XLSX.utils.json_to_sheet([row]), 'Maintenance'); return b }
 const row = { ScheduleCode: 'PUMP-1', AssetCode: 'ASSET-1', ScheduleName: 'Pump check', MaintenanceCategory: 'PERIODIC', IntervalType: 'HYBRID', IntervalMonths: 3, IntervalHours: 100 }
 test('Excel maps source definition columns to the new Job contract without enabling generation', async () => {
@@ -61,6 +61,76 @@ test('Excel maps source definition columns to the new Job contract without enabl
 test('Excel rejects execution dates and invalid numeric intervals before preview', async () => {
   await assert.rejects(() => parseJobWorkbook(book({ ...row, LastExecutedAt: '2026-01-01' })), /lịch sử/)
   await assert.rejects(() => parseJobWorkbook(book({ ...row, IntervalHours: 'abc' })), /số nguyên dương/)
+})
+
+function planBook(sheets) {
+  const b = XLSX.utils.book_new()
+  for (const [name, rows] of sheets) XLSX.utils.book_append_sheet(b, XLSX.utils.aoa_to_sheet(rows), name)
+  return b
+}
+const planHeaders = ['STT', 'Mã công việc', 'Mã nguồn', 'Mã thiết bị', 'Tên thiết bị', 'Nội dung bảo dưỡng', 'Loại bảo trì', 'Chu kỳ', 'Ưu tiên', 'Hướng dẫn', 'Ghi chú']
+test('BQBD Job template reads both departments, title/group rows and all four categories', async () => {
+  const sheets = [['Máy', [['DANH MỤC CÔNG VIỆC BẢO DƯỠNG'], [], planHeaders,
+    ['', '', '', '', 'I. THIẾT BỊ MÁY'],
+    [1, 'M-1', 'A001', 'ASSET-1', '', 'Overhaul', 'Định kỳ', 'M3/H1000', 'Cao', 'Isolate', 'Record pressure'],
+    [2, 'M-2', '', 'ASSET-2', '', 'Repair when required', 'Theo yêu cầu', '', 'Trung bình'],
+    ['Người lập danh mục: ................................']]],
+  ['Boong', [planHeaders, [1, 'D-1', '1.1', 'ASSET-3', '', 'Dry dock repair', 'Lên đà', '', 'Cao'],
+    [2, 'D-2', '', 'ASSET-4', '', 'Voyage inspection', 'Theo chuyến', '', 'Thấp']]]]
+  const rows = await parseJobWorkbook(planBook(sheets))
+  assert.equal(rows.length, 4)
+  assert.deepEqual(Array.from(rows, r => r.category), ['PERIODIC', 'ON_DEMAND', 'DRY_DOCK', 'VOYAGE'])
+  assert.deepEqual(Array.from(rows, r => r.department), ['ENGINE', 'ENGINE', 'DECK', 'DECK'])
+  assert.equal(rows[0].intervalType, 'HYBRID'); assert.equal(rows[0].intervalMonths, 3); assert.equal(rows[0].intervalHours, 1000)
+  assert.equal(rows[0].instructions, 'Isolate\nRecord pressure'); assert.equal(rows[0].workCode, 'A001')
+  assert.equal(rows[1].issues, undefined); assert.equal(new Set(rows.map(r => r.rowNumber)).size, 4)
+})
+test('original BIENDONG plan keeps work codes distinct from equipment and never imports actual dates', async () => {
+  const equipment = [{ id: 'one', assetCode: 'PUMP-1', assetName: 'Fire pump', isActive: true, category: 'PUMP', status: 'STANDBY' }]
+  const rows = await parseJobWorkbook(planBook([['May BD.star 2026', [['maintenance plan for machinery and equipment'], [],
+    ['Code', 'Equipment Name', 'Maintenance Description', 'Freq.', 'Last Time', 'Plan', 'Carry Out Date'],
+    ['Mã', 'Tên thiết bị', 'Nội dung', 'Chu kỳ', 'Lần trước', 'Kế hoạch', 'Jan.'],
+    ['A', 'Main machinery'], ['A001', 'Fire pump', 'Inspect', 'M 03', 45997, 'X', 46000],
+    ['A001', 'Fire pump', 'Overhaul', 'As request', 45998, '', 'X'], ['', 'CHIEF ENGINEER', '', 'CAPTAIN']]]]), equipment)
+  assert.equal(rows.length, 2); assert.equal(rows[0].assetCode, 'PUMP-1'); assert.equal(rows[0].workCode, 'A001')
+  assert.notEqual(rows[0].code, rows[1].code); assert.equal(rows[0].intervalMonths, 3)
+  assert.equal(rows[0].instructions, 'Inspect')
+  assert.equal(rows[1].category, 'ON_DEMAND')
+  for (const r of rows) for (const name of ['lastExecutedAt', 'baselineAt', 'nextDueDate', 'monthlyMarks', 'autoGenerate']) assert.equal(name in r, false)
+})
+test('original plan refuses ambiguous equipment names and interval ranges without guessing', async () => {
+  const book = planBook([['May 2026', [['Code', 'Equipment Name', 'Maintenance Description', 'Freq.'], [], ['A1', 'Pump', 'Overhaul', 'H8000-12000']]]])
+  const equipment = ['P1', 'P2'].map(assetCode => ({ id: assetCode, assetCode, assetName: 'Pump', isActive: true, category: 'PUMP', status: 'STANDBY' }))
+  const [r] = await parseJobWorkbook(book, equipment)
+  assert.equal(r.assetCode, ''); assert.equal(r.intervalHours, undefined)
+  assert.ok(r.issues.some(e => e.includes('bị trùng'))); assert.ok(r.issues.some(e => e.includes('cận dưới')))
+})
+test('legacy TCVN3 and modern Unicode categories are both readable', async () => {
+  const { planText } = load('features/pms-rework/planWorkbook.ts')
+  assert.equal(planText('3 th¸ng'), '3 tháng'); assert.equal(planText('Theo yêu cầu'), 'Theo yêu cầu')
+  const rows = await parseJobWorkbook(planBook([['BOONG BD STAR 2026', [['Code', 'Equipment Name', 'Maintenance Description', 'Freq.'], [], ['1', 'Tời neo', 'Kiểm tra', 'chuyÕn']]]]))
+  assert.equal(rows[0].category, 'VOYAGE')
+})
+test('preview metadata and errors are never sent as unknown import fields', async () => {
+  const { jobImportPayload } = load('features/pms-rework/planWorkbook.ts')
+  const [r] = await parseJobWorkbook(book(row))
+  const [payload] = jobImportPayload([r])
+  assert.equal(payload.code, row.ScheduleCode)
+  for (const key of ['sourceSheet', 'sourceRow', 'assetName', 'sourceFrequency', 'issues']) assert.equal(key in payload, false)
+})
+
+test('source equipment groups disambiguate matching names without choosing an arbitrary asset', async () => {
+  const equipment = [
+    { id: 'g1', assetCode: 'G1', assetName: 'Main Engine', isActive: true, category: 'SYSTEM' },
+    { id: 'g2', assetCode: 'G2', assetName: 'Generator', isActive: true, category: 'SYSTEM' },
+    { id: 'p1', parentId: 'g1', assetCode: 'P1', assetName: 'Pump', isActive: true, category: 'PUMP' },
+    { id: 'p2', parentId: 'g2', assetCode: 'P2', assetName: 'Pump', isActive: true, category: 'PUMP' },
+  ]
+  const [r] = await parseJobWorkbook(planBook([['May 2026', [['Code', 'Equipment Name', 'Maintenance Description', 'Freq.'], [],
+    ['A', 'Main Engine'], ['A1', 'Pump', 'Inspect', 'M3']]]]), equipment)
+  assert.equal(r.assetCode, 'P1'); assert.equal(r.issues, undefined)
+  const [wrong] = await parseJobWorkbook(planBook([['Máy', [planHeaders, [1, 'JOB1', '', 'P1', 'Other pump', 'Inspect', 'Định kỳ', 'M3']]]]), equipment)
+  assert.ok(wrong.issues.some(e => e.includes('không khớp')))
 })
 test('read-only snapshot normalization preserves exact source strings and material units', () => {
   const { snapshot } = load('features/pms-rework/data.ts', { '@tanstack/react-query': {}, '@/services/api.client': {}, '@/stores/auth.store': {}, '@/stores/permissions.store': {} })
