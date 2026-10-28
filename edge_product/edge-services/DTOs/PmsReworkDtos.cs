@@ -151,6 +151,10 @@ public sealed record StartPmsWorkOrderDto(int ExpectedVersion);
 public sealed record CancelPmsWorkOrderDto(int ExpectedVersion, string Reason);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ReleasePmsWorkOrderDto(Guid JobId, int ExpectedJobVersion, string ExpectedCycleKey, string? EarlyReleaseReason);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ReleasePmsManualOrderDto(Guid JobId, int ExpectedJobVersion, Guid CommandId,
+    string Reason, DateOnly? DueDate, double? DueHours);
 public sealed record ResolvePmsCycleDto(int ExpectedJobVersion, string ExpectedCycleKey, Guid CancelledWorkOrderId, string Action, string Reason);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record DecidePmsWorkOrderDto(int ExpectedVersion, int Revision, string ReportHash, string? Reason);

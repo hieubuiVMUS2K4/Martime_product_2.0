@@ -16,6 +16,43 @@ namespace ProductApi.Tests;
 
 public partial class SyncReliabilityTests
 {
+    [ShorePostgresTheory]
+    [InlineData("ON_DEMAND")]
+    [InlineData("DRY_DOCK")]
+    [InlineData("VOYAGE")]
+    public async Task PmsMirror_DemandJobAndRequestOrderPreserveEventIdentityAndFrozenDefinition(string category)
+    {
+        await using var db = await Database();
+        db.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+        try
+        {
+            const string node = "PMS-DEMAND";
+            var vessel = await BindNode(db, node); var epoch = Guid.NewGuid(); var stream = Guid.NewGuid();
+            db.PmsSyncDatasets.Add(new() { OriginNode = node, VesselId = vessel, DatasetId = epoch, StreamId = stream, IsActive = true });
+            var asset = new EquipmentAsset { AssetCode = "REQUEST-PUMP", AssetName = "Pump", VesselId = vessel };
+            db.EquipmentAssets.Add(asset); await db.SaveChangesAsync();
+            var jobId = Guid.NewGuid(); var orderId = Guid.NewGuid(); var key = "REQUEST:" + Guid.NewGuid().ToString("N");
+            var frozen = ApprovalSnapshot.Canonicalize(new { MaintenanceCategory = category, requestReason = "Pressure decreased", requestId = key });
+            var job = PmsEvent(node, epoch, stream, "maintenance_schedule", jobId, 1,
+                new MaintenanceSchedule { ScheduleCode = "REQUEST-001", ScheduleName = "Inspect pump", MaintenanceCategory = category,
+                    EquipmentAssetId = asset.Id, JobVersion = 1, JobState = "ACTIVE", AutoGenerate = false });
+            var order = PmsEvent(node, epoch, stream, "maintenance_task", orderId, 2,
+                new MaintenanceTask { TaskId = "WO-DEMAND-SOURCE", WorkOrderCode = "WO-2026-000001", ScheduleId = jobId,
+                    EquipmentAssetId = asset.Id, TaskType = category, CycleKey = key, JobVersion = 1, JobSnapshot = frozen,
+                    WorkOrderDueHours = 1200, Status = "UNASSIGNED", WorkflowVersion = 1, ReportRevision = 0 });
+            var inbox = PmsInbox(db);
+            var result = await inbox.ProcessBatchAsync([order, job]);
+            Assert.True(result.Failed == 0, string.Join("; ", result.FailedItems.Select(e => e.Error)));
+            Assert.Equal(2, (await inbox.ProcessBatchAsync([job, order])).Succeeded);
+            var stored = await db.MaintenanceTasks.SingleAsync(); var storedJob = await db.MaintenanceSchedules.SingleAsync();
+            Assert.Equal(category, storedJob.MaintenanceCategory); Assert.Equal(category, stored.TaskType); Assert.Null(storedJob.NextDueDate);
+            Assert.Equal(storedJob.Id, stored.ScheduleId); Assert.Equal(key, stored.CycleKey);
+            Assert.Equal(frozen, stored.JobSnapshot); Assert.Equal(1200d, stored.WorkOrderDueHours);
+            Assert.Equal(vessel, stored.VesselId); Assert.Equal(2, await db.PmsSyncMirrorRecords.CountAsync());
+        }
+        finally { await db.Database.EnsureDeletedAsync(); }
+    }
+
     [ShorePostgresFact]
     public async Task PmsMirror_MigrationUpDownPreservesFoundationAndCannotRemoveInstalledFence()
     {

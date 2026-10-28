@@ -159,6 +159,13 @@ public sealed partial class PmsWorkOrderWorkflowService(EdgeDbContext db, RankPe
                         try { PmsJobRules.ApplyApprovedExecution(job, order); }
                         catch (InvalidOperationException e) { throw new PmsRequestException(409, e.Message); }
                     }
+                    else
+                    {
+                        // Event-driven jobs record the approved execution, never invent a calendar cycle.
+                        job.LastExecutedAt = order.SubmittedAt;
+                        job.LastExecutedRunningHours = order.ActualRunningHours;
+                        job.NextDueDate = null; job.NextDueRunningHours = null;
+                    }
                     job.UpdatedAt = Now; job.IsSynced = false;
                 }
                 if (order.EquipmentAssetId.HasValue)

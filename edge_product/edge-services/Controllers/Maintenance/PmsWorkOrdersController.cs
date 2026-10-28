@@ -79,6 +79,9 @@ public sealed class PmsWorkOrdersController(PmsWorkOrderReadService orders, PmsW
         .Select(a => new { a.Id, a.AssetCode, a.AssetName, a.Category, a.ParentId, a.IsActive, a.Status }).ToListAsync(token));
     [HttpPost("from-job")]
     public async Task<IActionResult> Release(ReleasePmsWorkOrderDto dto, CancellationToken token) => Ok(await workflow.ReleaseAsync(dto, UserId, token));
+    [HttpPost("from-demand-job")]
+    [HttpPost("from-manual-job")]
+    public async Task<IActionResult> ReleaseDemand(ReleasePmsManualOrderDto dto, CancellationToken token) => Ok(await workflow.ReleaseManualAsync(dto, UserId, Device, token));
     [HttpPost("{id:guid}/assignment")]
     public async Task<IActionResult> Assign(Guid id, AssignPmsWorkOrderDto dto, CancellationToken token) => Ok(await workflow.AssignAsync(id, dto, UserId, Device, token));
     [HttpPost("{id:guid}/start")]

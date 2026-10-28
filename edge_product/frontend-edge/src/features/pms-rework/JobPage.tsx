@@ -1,6 +1,8 @@
+import { isManualJob } from './manualJobs'
 import { departmentName } from './departments'
 import { readableCode } from './presentation'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import type { JobDetail } from './types'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Archive, ChevronRight, ClipboardList, History, Pause, Pencil, Play, Plus } from 'lucide-react'
 import { JobForm } from './Forms'
@@ -13,6 +15,26 @@ export function ReasonDialog({ title, onClose, action, optional = false, childre
 }
 function JobField({ name, children }: { name: string; children: React.ReactNode }) {
   return <div className="min-w-0"><dt className="text-xs text-slate-500">{name}</dt><dd className="mt-1 break-words text-sm font-medium text-slate-800">{children}</dd></div>
+}
+function ManualReleaseDialog({ detail, onClose, onReleased }: { detail: JobDetail; onClose: () => void; onReleased: (id: string) => Promise<void> }) {
+  const [reason, setReason] = useState(''), [dueDate, setDueDate] = useState(''), [hours, setHours] = useState('')
+  const command = useRef<{ body: string; id: string } | null>(null)
+  const { busy, run } = useAction()
+  const valid = reason.trim() && (dueDate || hours !== '') && (hours === '' || Number.isFinite(Number(hours)) && Number(hours) >= 0 && Number(hours) <= 1000000000)
+  return <Modal title="Phát hành WO thủ công" busy={busy} onClose={onClose} footer={<button type="submit" form="pms-demand-release" className={primary} disabled={busy || !valid}>Phát hành WO</button>}>
+    <form id="pms-demand-release" className="space-y-4" onSubmit={async e => {
+      e.preventDefault(); if (!valid) return
+      const fields = { reason: reason.trim(), dueDate: dueDate || null, dueHours: hours === '' ? null : Number(hours) }
+      const body = JSON.stringify({ ...fields, jobVersion: detail.job.version })
+      if (!command.current || command.current.body !== body) command.current = { body, id: crypto.randomUUID() }
+      if (await run(async () => { const order = await pms.releaseManual(detail, { ...fields, commandId: command.current!.id }); await onReleased(order.id) }, 'Đã phát hành WO theo yêu cầu.')) onClose()
+    }}>
+      <p className="text-sm font-medium">{label[detail.job.category]} · {detail.job.name} · {detail.job.equipmentName}</p>
+      <Field name="Lý do / yêu cầu bảo trì *"><textarea autoFocus required maxLength={2000} className={`${input} !h-24 py-2`} value={reason} onChange={e => setReason(e.target.value)} disabled={busy} /></Field>
+      <div className="grid gap-3 sm:grid-cols-2"><Field name="Hạn hoàn thành (ngày tàu)"><input type="date" className={input} value={dueDate} onChange={e => setDueDate(e.target.value)} disabled={busy} /></Field><Field name="Hạn giờ chạy"><input type="number" min={0} max={1000000000} step="any" className={input} value={hours} onChange={e => setHours(e.target.value)} disabled={busy} /></Field></div>
+      <p className="text-xs leading-5 text-slate-500">Nhập ít nhất một hạn. Nếu nhập cả hai, điều kiện đến trước được áp dụng. WO kế thừa hướng dẫn và checklist hiện tại; khi được duyệt, Job chờ lần phát hành tiếp theo, không tự cộng chu kỳ.</p>
+    </form>
+  </Modal>
 }
 export default function JobPage() {
   const {date,due}=usePmsClock(); const { id = '' } = useParams(); const access = usePmsPermissions(); const refresh = usePmsRefresh(); const navigate = useNavigate()
@@ -34,7 +56,7 @@ export default function JobPage() {
   return <div className="min-h-full bg-white">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
       <nav aria-label="Đường dẫn công việc" className="min-w-0 flex-1"><ol className="flex min-w-0 items-center gap-2 text-sm"><li className="shrink-0"><Link className="text-blue-600 hover:underline" to="/pms/work-planning?tab=table">Danh sách công việc</Link></li><li aria-hidden="true"><ChevronRight size={15} className="text-slate-400" /></li><li className="min-w-0" aria-current="page"><h1 className="truncate font-semibold text-slate-900" title={j.name}>{j.name}</h1></li></ol></nav>
-      <div className="flex flex-wrap gap-2"><button className={button} onClick={() => setHistory(true)}><History size={14} />Lịch sử bảo trì</button>{access.job('update') && <><button className={button} onClick={() => setEdit(true)} disabled={j.state === 'REMOVED'}><Pencil size={14} />Sửa công việc</button>{(j.state === 'PAUSED' || j.state === 'RETIRED' || j.state === 'REMOVED') ? <button className={button} onClick={() => setChange('ACTIVE')}><Play size={14} />{j.state === 'REMOVED' ? 'Khôi phục' : 'Tiếp tục áp dụng'}</button> : <><button className={button} onClick={() => setChange('PAUSED')}><Pause size={14} />Tạm dừng</button><button className={button} onClick={() => setChange('RETIRED')}><Archive size={14} />Ngừng áp dụng</button></>}</>}{access.work('create') && j.state === 'ACTIVE' && j.category === 'PERIODIC' && !j.openWorkOrderId && !detail.requiresCycleResolution && <button className={primary} onClick={() => setRelease(true)}><Plus size={14} />Phát hành WO</button>}</div>
+      <div className="flex flex-wrap gap-2"><button className={button} onClick={() => setHistory(true)}><History size={14} />Lịch sử bảo trì</button>{access.job('update') && <><button className={button} onClick={() => setEdit(true)} disabled={j.state === 'REMOVED'}><Pencil size={14} />Sửa công việc</button>{(j.state === 'PAUSED' || j.state === 'RETIRED' || j.state === 'REMOVED') ? <button className={button} onClick={() => setChange('ACTIVE')}><Play size={14} />{j.state === 'REMOVED' ? 'Khôi phục' : 'Tiếp tục áp dụng'}</button> : <><button className={button} onClick={() => setChange('PAUSED')}><Pause size={14} />Tạm dừng</button><button className={button} onClick={() => setChange('RETIRED')}><Archive size={14} />Ngừng áp dụng</button></>}</>}{access.work('create') && j.state === 'ACTIVE' && (j.category === 'PERIODIC' || isManualJob(j.category)) && !j.openWorkOrderId && !detail.requiresCycleResolution && <button className={primary} onClick={() => setRelease(true)}><Plus size={14} />Phát hành WO</button>}</div>
     </header>
     <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_300px]">
       <main className="min-w-0 space-y-4">
@@ -53,7 +75,7 @@ export default function JobPage() {
         </section>
       </main>
       <aside className="min-w-0 space-y-4">
-        <Section title="Kế hoạch bảo trì"><dl className="space-y-4"><JobField name="Hạn tiếp theo">{due(j.nextDueAt, j.nextDueHours)}</JobField><JobField name="Gửi hoàn tất lần cuối">{date(j.lastSubmittedAt)}</JobField><JobField name="Giờ chạy lần cuối">{j.lastRunningHours != null ? `${j.lastRunningHours.toLocaleString('vi-VN')} giờ` : '—'}</JobField><JobField name="Phát hành WO">{j.autoGenerate ? 'Tự động theo chu kỳ' : 'Thủ công'}</JobField>{j.category === 'PERIODIC' && <JobField name="Thời điểm phát hành">{detail.releasePolicy === 'ON_DUE' ? 'Khi đến hạn' : 'Khi sắp đến hạn'}</JobField>}</dl></Section>
+        <Section title="Kế hoạch bảo trì"><dl className="space-y-4"><JobField name="Hạn tiếp theo">{isManualJob(j.category) ? (j.openWorkOrderId ? 'Đã phát hành WO' : 'Chờ phát hành WO') : due(j.nextDueAt, j.nextDueHours)}</JobField><JobField name="Gửi hoàn tất lần cuối">{date(j.lastSubmittedAt)}</JobField><JobField name="Giờ chạy lần cuối">{j.lastRunningHours != null ? `${j.lastRunningHours.toLocaleString('vi-VN')} giờ` : '—'}</JobField><JobField name="Phát hành WO">{isManualJob(j.category) ? 'Thủ công từ Job' : j.autoGenerate ? 'Tự động theo chu kỳ' : 'Thủ công'}</JobField>{j.category === 'PERIODIC' && <JobField name="Thời điểm phát hành">{detail.releasePolicy === 'ON_DUE' ? 'Khi đến hạn' : 'Khi sắp đến hạn'}</JobField>}</dl></Section>
         <Section title="Trách nhiệm"><dl className="space-y-4"><JobField name="Bộ phận phụ trách">{departmentName(j.department)}</JobField><JobField name="Chức danh">{rank || 'Chưa xác định'}</JobField><JobField name="Người chịu trách nhiệm">{j.responsibleName || 'Chưa chọn'}</JobField></dl></Section>
         {j.openWorkOrderId && <Section title="Work Order đang mở"><p className="mb-3 break-all text-xs text-slate-600">{readableCode(j.openWorkOrderCode) || j.name}</p>{access.work('view') ? <Link className={`${button} w-full text-blue-600`} to={`/pms/work-orders/${j.openWorkOrderId}`}><ClipboardList size={14} />Xem Work Order</Link> : <p className="text-xs text-gray-500">Bạn chưa có quyền xem Work Order.</p>}</Section>}
       </aside>
@@ -61,6 +83,7 @@ export default function JobPage() {
     {editOpen && <JobForm detail={detail} onClose={closeEdit} />}{history && <JobHistory job={j} onClose={() => setHistory(false)} />}
     {change && <ReasonDialog title={`${label[change]} · ${j.name}`} onClose={() => setChange(null)} action={async reason => { await pms.jobState(j, change, reason); await refresh() }} />}
     {resolve && <ReasonDialog title={resolve === 'REPLACE' ? 'Phát hành WO thay thế' : 'Bỏ qua kỳ bảo trì'} onClose={() => setResolve(null)} action={async reason => { const result = await pms.resolveCycle(detail, resolve, reason); await refresh(); if (result.workOrderId) navigate(`/pms/work-orders/${result.workOrderId}`) }}><p className="text-sm">{j.name} · Hạn kỳ hiện tại: {due(j.nextDueAt, j.nextDueHours)}.</p><p className="text-sm text-slate-600">{resolve === 'REPLACE' ? 'Tạo WO mới cho cùng kỳ và giữ nguyên hạn. WO đã hủy cùng dữ liệu cũ vẫn được lưu để tra cứu.' : 'Chuyển sang đúng một kỳ tiếp theo tính từ hạn hiện tại, không tính từ hôm nay. Không ghi nhận đã bảo trì, không cập nhật counter hoặc lần thực hiện cuối. Nếu kỳ sau đã tới khoảng phát hành, hệ thống có thể tự tạo WO.'}</p></ReasonDialog>}
-    {release && <ReasonDialog title="Phát hành WO từ công việc" optional onClose={() => setRelease(false)} action={async reason => { const order = await pms.release(detail, reason); await refresh(); navigate(`/pms/work-orders/${order.id}`) }}><p className="text-sm">{j.name} · {j.equipmentName}</p><p className="text-xs text-gray-500">Hạn: {due(j.nextDueAt, j.nextDueHours)}. Lệnh phát hành giữ một bản nội dung và checklist riêng.</p></ReasonDialog>}
+    {release && isManualJob(j.category) && <ManualReleaseDialog detail={detail} onClose={() => setRelease(false)} onReleased={async orderId => { await refresh(); navigate('/pms/work-orders/' + orderId) }} />}
+    {release && j.category === 'PERIODIC' && <ReasonDialog title="Phát hành WO từ công việc" optional onClose={() => setRelease(false)} action={async reason => { const order = await pms.release(detail, reason); await refresh(); navigate(`/pms/work-orders/${order.id}`) }}><p className="text-sm">{j.name} · {j.equipmentName}</p><p className="text-xs text-gray-500">Hạn: {due(j.nextDueAt, j.nextDueHours)}. Lệnh phát hành giữ một bản nội dung và checklist riêng.</p></ReasonDialog>}
   </div>
 }

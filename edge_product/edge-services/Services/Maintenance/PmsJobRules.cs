@@ -12,6 +12,7 @@ public static class PmsJobRules
     public const string Paused = "PAUSED";
     public const string Retired = "RETIRED";
     public const string Removed = "REMOVED";
+    public static bool IsManualCategory(string? category) => category is "ON_DEMAND" or "DRY_DOCK" or "VOYAGE";
 
     public static IReadOnlyList<string> MissingInformation(MaintenanceSchedule job)
     {
@@ -23,7 +24,7 @@ public static class PmsJobRules
         if (job.DaysBeforeDue < 0 || job.WarningHours < 0 || job.WarningHours.HasValue && !double.IsFinite(job.WarningHours.Value))
             errors.Add("Warning windows must be finite and non-negative.");
         if (job.ReleasePolicy is not (null or "ON_UPCOMING" or "ON_DUE")) errors.Add("Unsupported release policy.");
-        if (job.MaintenanceCategory is "DRY_DOCK" or "ON_DEMAND" or "VOYAGE") return errors;
+        if (IsManualCategory(job.MaintenanceCategory)) return errors;
         if (job.MaintenanceCategory != "PERIODIC") { errors.Add("Unsupported Job category."); return errors; }
         if (job.IntervalType is not ("CALENDAR" or "RUNNING_HOURS" or "HYBRID"))
             errors.Add("Unsupported interval type.");
@@ -61,7 +62,11 @@ public static class PmsJobRules
 
     public static void UpdateDeadlines(MaintenanceSchedule job)
     {
-        if (job.MaintenanceCategory != "PERIODIC") return;
+        if (job.MaintenanceCategory != "PERIODIC")
+        {
+            job.NextDueDate = null; job.NextDueRunningHours = null; job.AutoGenerate = false;
+            return;
+        }
         job.NextDueDate = job.IntervalType is "CALENDAR" or "HYBRID"
             ? MaintenanceCalendar.AddInterval(job, job.SkippedCycleAt ?? job.LastExecutedAt ?? job.BaselineAt
                 ?? throw new InvalidOperationException("Missing calendar baseline.")) : null;

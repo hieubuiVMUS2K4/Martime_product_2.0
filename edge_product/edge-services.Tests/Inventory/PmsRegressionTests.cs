@@ -56,6 +56,15 @@ public sealed class PmsPostgresFactAttribute : FactAttribute
     }
 }
 
+public sealed class PmsPostgresTheoryAttribute : TheoryAttribute
+{
+    public PmsPostgresTheoryAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PMS_TEST_CONNECTION_STRING")))
+            Skip = "Requires a separate PostgreSQL database via PMS_TEST_CONNECTION_STRING.";
+    }
+}
+
 [Collection("PMS inventory")]
 public class PmsRegressionTests(PmsDatabaseFixture database)
 {

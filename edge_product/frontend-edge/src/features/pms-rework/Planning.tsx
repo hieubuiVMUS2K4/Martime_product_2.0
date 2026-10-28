@@ -1,3 +1,4 @@
+import { isManualJob } from './manualJobs'
 import { departmentName, departmentNames } from './departments'
 import { readableCode } from './presentation'
 import { useEffect, useMemo, useState } from 'react'
@@ -61,7 +62,7 @@ function Jobs({ equipmentAssetId }: { equipmentAssetId: string }) {
     { key: 'equipment', title: 'Tên thiết bị', filter: 'equipment', width: 230, render: j => <span title={j.equipmentName}>{j.equipmentName || '—'}</span> },
     { key: 'category', title: 'Loại / chu kỳ', filter: 'category', width: 180, options: [['', 'Tất cả'], ...['PERIODIC', 'DRY_DOCK', 'ON_DEMAND', 'VOYAGE'].map(s => [s, label[s]] as [string, string])], render: j => <span>{label[j.category]}{j.category === 'PERIODIC' ? ` · ${cycle(j)}` : ''}</span> },
     { key: 'last', title: 'Lần cuối thực hiện', sort: 'lastCompleted', width: 180, render: j => date(j.lastSubmittedAt) },
-    { key: 'due', title: 'Hạn tới', sort: 'due', width: 190, dateRange: ['dueFrom', 'dueTo'], render: j => due(j.nextDueAt, j.nextDueHours) },
+    { key: 'due', title: 'Hạn tới', sort: 'due', width: 190, dateRange: ['dueFrom', 'dueTo'], render: j => isManualJob(j.category) ? (j.openWorkOrderId ? 'Đã phát hành WO' : 'Chờ phát hành WO') : due(j.nextDueAt, j.nextDueHours) },
     { key: 'department', title: 'Bộ phận phụ trách', filter: 'department', options: Object.entries(departmentNames), render: j => departmentName(j.department) },
     { key: 'responsible', title: 'Người chịu trách nhiệm', width: 190, filter: 'responsibleCrewId', options: [['', 'Tất cả'], ...(refs.data?.crew || []).map(c => [c.id, c.fullName] as [string, string])], render: j => j.responsibleName || refs.data?.ranks.find(r => r.id === j.responsibleRankId)?.rankName || '—' },
     { key: 'state', title: 'Trạng thái', sort: 'state', filter: 'state', width: 180, options: [['', 'Đang áp dụng'], ...['ACTIVE', 'NEEDS_INFORMATION', 'PAUSED', 'RETIRED', 'REMOVED'].map(s => [s, label[s]] as [string, string])], render: j => <Badge value={j.state} /> },

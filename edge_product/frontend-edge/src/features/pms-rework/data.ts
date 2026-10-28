@@ -17,6 +17,7 @@ export const pms = {
   crew: () => apiClient.get<CrewOption[]>('/pms/work-orders/references'),
   settings: () => apiClient.get<{ vesselTimeZone: string; automaticReleaseEnabled: boolean; pmsDatasetId?: string }>('/pms/work-orders/settings'),
   release: (detail: JobDetail, earlyReleaseReason: string) => apiClient.post<WorkflowResult>('/pms/work-orders/from-job', { jobId: detail.job.id, expectedJobVersion: detail.job.version, expectedCycleKey: detail.cycleKey, earlyReleaseReason }),
+  releaseManual: (detail: JobDetail, data: { commandId: string; reason: string; dueDate: string | null; dueHours: number | null }) => apiClient.post<WorkflowResult>('/pms/work-orders/from-manual-job', { jobId: detail.job.id, expectedJobVersion: detail.job.version, ...data }),
   createOrder: (data: AdHocDefinition, commandId: string, issueNow: boolean) => apiClient.post<WorkflowResult>('/pms/work-orders/ad-hoc', { ...data, commandId, issueNow }),
   saveDraft: (order: WorkOrder, data: AdHocDefinition) => apiClient.put<WorkflowResult>(`/pms/work-orders/${order.id}/draft`, { ...data, expectedVersion: order.workflowVersion }),
   issue: (order: WorkOrder) => apiClient.post<WorkflowResult>(`/pms/work-orders/${order.id}/issue`, { expectedVersion: order.workflowVersion }),

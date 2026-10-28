@@ -109,9 +109,9 @@ Tách thời điểm phát hành khỏi quyền tự động phát hành: Job c�
 | Định kỳ ngày/tháng/năm | Theo hạn lịch và chính sách phát hành đã chọn |
 | Giờ chạy | Theo counter thực tế; ngày dự kiến chỉ để tham khảo, không tự làm việc quá hạn |
 | HYBRID | Ngưỡng đến trước trong hai điều kiện, theo cấu hình đã duyệt |
-| Lên đà | Gắn đợt lên đà cụ thể; không giả lập bằng hạn ngày mặc định |
-| Theo yêu cầu | Có yêu cầu/sự kiện được người có quyền phát hành xác nhận |
-| Theo chuyến | Gắn chuyến đi/sự kiện cụ thể, đúng tàu |
+| Lên đà | Job mẫu phân loại Lên đà; phát hành thủ công, nhập lý do và hạn; chưa bắt chọn đợt |
+| Theo yêu cầu | Job mẫu phân loại Theo yêu cầu; phát hành thủ công, nhập lý do và hạn |
+| Theo chuyến | Job mẫu phân loại Theo chuyến; phát hành thủ công, nhập lý do và hạn; chưa bắt liên kết chuyến |
 | Hư hỏng/đột xuất | Tạo WO trực tiếp cho thiết bị; không bắt buộc tạo một Job định kỳ giả |
 
 ### 4.1. Khởi tạo lần đầu — nhập mốc và Lưu, không kích hoạt riêng
@@ -119,7 +119,7 @@ Tách thời điểm phát hành khỏi quyền tự động phát hành: Job c�
 - Form Thêm/Sửa Job có nhóm **Mốc bắt đầu tính chu kỳ** và lựa chọn **Tự động tạo WO**. Đủ thông tin thì bấm Lưu là Job được theo dõi; không thêm popup/nút Kích hoạt.
 - Job thiếu mốc hoặc thiết bị/thông tin bắt buộc được lưu ở Cần bổ sung thông tin, chỉ rõ phần thiếu, không tự thành Quá hạn và không phát hành WO. Mở cùng form Sửa để bổ sung; đủ dữ liệu rồi Lưu thì chuyển Hoạt động, trừ khi Job đang được chủ động tạm dừng/ngừng áp dụng.
 - Với chu kỳ lịch, mốc bắt đầu cộng chu kỳ ra hạn đầu; theo giờ dùng số counter mốc cộng chu kỳ giờ, không đặt lại counter thiết bị. HYBRID phải đủ cả hai mốc. Có thể nhập mốc bảo trì có nguồn đối chiếu nhưng không tạo báo cáo hoàn thành giả hoặc coi là lần làm được duyệt.
-- Job sự kiện dùng quy tắc/sự kiện tương ứng, không bắt nhập ngày/counter không liên quan. Mỗi đợt/chuyến/yêu cầu phải được xác định rõ khi phát hành WO.
+- Lên đà/Theo yêu cầu/Theo chuyến không cấu hình chu kỳ hoặc bật tự động. Tạo Job mẫu rồi vào chi tiết Job để phát hành WO thủ công, nhập lý do và hạn ngày/giờ chạy cho từng lần. Chưa bắt chọn đợt lên đà hoặc chuyến; sau duyệt chỉ ghi nhận lần thực hiện cuối, không cộng kỳ mới.
 - Giữ quyết định bỏ hai cột “Lần thực hiện cuối” và “Hạn tiếp theo” khỏi Excel import thông thường. Import không nhập lịch sử thực hiện, không tự bật AutoGenerate. Nếu thiếu mốc thì bổ sung bằng form Sửa; import lại không thay mốc hoặc chính sách của Job đang vận hành một cách ngầm định.
 - Checkbox Tự động tạo WO mặc định tắt cho Job mới; Job cũ giữ lựa chọn hiện có. Job Hoạt động vẫn được theo dõi hạn khi tắt tự động, nhưng người có quyền phải phát hành WO thủ công.
 - Lưu Job không đồng nghĩa phát hành ngay: chỉ Job Hoạt động, đủ điều kiện và bật tự động mới được service phát hành WO. Nếu tại thời điểm lưu đã vào khoảng phát hành thì có thể phát hành ngay; form phải xem trước/cảnh báo điều này, phản hồi mã WO hoặc trạng thái chờ worker rõ ràng. Thiếu dữ liệu hoặc lỗi phát hành không được báo thành công có WO khi chưa tạo.
@@ -130,7 +130,7 @@ Tách thời điểm phát hành khỏi quyền tự động phát hành: Job c�
 - Thêm `CycleKey`/số thứ tự kỳ ổn định, có unique constraint theo tàu + Job + phạm vi thiết bị + kỳ.
 - Với Job mới V1, phạm vi là đúng thiết bị của Job. Trường phạm vi trong khóa được giữ để đối soát legacy, không có nghĩa form mới cho chọn cả nhóm. Đổi thiết bị của Job đã có WO/lịch sử phải tạo Job riêng hoặc qua chuyển đổi có kiểm soát; không sửa AssetId để né khóa kỳ.
 - Bản phát hành mang `JobVersion`; **không dùng phiên bản Job làm khóa kỳ**, tránh sửa cấu hình lại sinh thêm WO cho cùng kỳ.
-- Với sự kiện, khóa kỳ lấy từ ID đợt lên đà/yêu cầu/chuyến đi tương ứng. WO đột xuất dùng idempotency key riêng cho thao tác tạo.
+- Với ba loại thủ công, khóa lần phát hành lấy từ CommandId (REQUEST:<CommandId>), giữ nguyên khi retry cùng nội dung; không dùng ID đợt/chuyến. Mặc định tối đa một WO mở cho Job. WO đột xuất dùng idempotency key riêng cho thao tác tạo.
 - Giai đoạn đầu tối đa một WO chưa kết thúc cho một Job/phạm vi thiết bị. Worker chạy lại hoặc tàu offline lâu không sinh hàng trăm WO bù khi kỳ trước vẫn đang làm/chờ duyệt.
 - Nếu nhiều chu kỳ đã bị bỏ lỡ, ghi nhận số kỳ bỏ lỡ/tình trạng quá hạn để xử lý; không tạo các WO “đã hoàn thành” thay cho dữ liệu thiếu.
 - Phát hành thủ công và worker dùng cùng một service, khóa giao dịch và unique constraint. Không gọi hai luồng tạo độc lập.
@@ -299,7 +299,7 @@ Tiêu đề ghi **Chi tiết công việc — [Tên Job]**. Nội dung gồm thi
 
 Các hành động: **Sửa công việc**, **Xem Work Order**, **Lịch sử bảo trì**, **Phát hành WO** nếu có quyền và chưa có lệnh cho kỳ này. Không có nút Bắt đầu, Hoàn thành hay Phê duyệt trên chi tiết Job. Job không phải đối tượng được báo cáo hoàn thành.
 
-Menu quản lý Job có **Tạm dừng**, **Ngừng áp dụng**, **Tiếp tục áp dụng** theo trạng thái/quyền; không có Kích hoạt. Bổ sung mốc dùng nút Sửa. Tạm dừng/ngừng áp dụng chỉ dừng phát hành kỳ mới, không tự hủy WO đang mở. Tiếp tục áp dụng phải xem trước mốc/hạn, giữ khóa kỳ và lịch sử; thiếu dữ liệu chuyển Cần bổ sung thông tin, không tự sinh bù. Phát hành thủ công mở popup xác nhận thiết bị, kỳ/sự kiện, hạn và lý do nếu phát hành sớm ngoài khoảng cảnh báo, không chỉ bấm là tạo. Khi đã phát hành và phân công thì người được giao được thực hiện, không cần quyền làm sớm khác. Job chưa hoạt động/thiếu mốc/sự kiện hoặc kỳ đã có WO (kể cả đã hủy) không được phát hành bằng đường này.
+Menu quản lý Job có **Tạm dừng**, **Ngừng áp dụng**, **Tiếp tục áp dụng** theo trạng thái/quyền; không có Kích hoạt. Bổ sung mốc dùng nút Sửa. Tạm dừng/ngừng áp dụng chỉ dừng phát hành kỳ mới, không tự hủy WO đang mở. Tiếp tục áp dụng phải xem trước mốc/hạn, giữ khóa kỳ và lịch sử; thiếu dữ liệu chuyển Cần bổ sung thông tin, không tự sinh bù. Phát hành Định kỳ mở popup xác nhận thiết bị, kỳ, hạn và lý do nếu làm sớm. Ba loại Lên đà/Theo yêu cầu/Theo chuyến dùng popup chung bắt buộc lý do và ít nhất một hạn ngày hoặc giờ; không bắt chọn đợt/chuyến. Khi đã phát hành và phân công thì người được giao được thực hiện, không cần quyền làm sớm khác. Job chưa hoạt động/thiếu thông tin hoặc đang có WO mở không được phát hành thêm. Định kỳ đã có WO hủy phải xử lý kỳ; với ba loại thủ công, lần phát hành mới cần CommandId và lý do mới, không tự sinh lại WO đã hủy.
 
 Popup sửa Job dùng cùng form với Thêm công việc. Sửa chu kỳ/checklist tại đây chỉ có hiệu lực với các WO phát hành sau, hoặc phải dùng thao tác cập nhật lệnh chưa bắt đầu có kiểm soát như mục 6.
 
@@ -668,7 +668,7 @@ Khung này dùng cho cả năm tab. Cây thiết bị lọc nội dung tab, có 
 +--------------------------------------------------------------------------------+
 ```
 
-Loại/chu kỳ quyết định trường xuất hiện: theo giờ dùng ngưỡng giờ; lên đà/theo yêu cầu/theo chuyến dùng sự kiện phù hợp. Không dùng một ô “ngày” cho mọi loại cảnh báo. Người chịu trách nhiệm quản lý Job khác với người thực hiện mặc định. Mục vật tư không có nút thêm/chọn/gán/bỏ gán/số lượng dự kiến; chỉ lấy danh sách từ giao diện thiết bị. Không có kết quả thực hiện, ảnh, ĐGRR, BBKT hay nút duyệt.
+Loại/chu kỳ quyết định trường xuất hiện: theo giờ dùng ngưỡng giờ; Lên đà/Theo yêu cầu/Theo chuyến chỉ có nội dung mẫu và phát hành thủ công với lý do, hạn cho mỗi WO, không có trường chu kỳ hay bật tự động. Không dùng một ô “ngày” cho mọi loại cảnh báo. Người chịu trách nhiệm quản lý Job khác với người thực hiện mặc định. Mục vật tư không có nút thêm/chọn/gán/bỏ gán/số lượng dự kiến; chỉ lấy danh sách từ giao diện thiết bị. Không có kết quả thực hiện, ảnh, ĐGRR, BBKT hay nút duyệt.
 
 Sau Lưu, đủ thông tin thì Job Hoạt động, thiếu mốc/thông tin bắt buộc thì Cần bổ sung thông tin và chỉ rõ phần thiếu. Không có popup hoặc nút Kích hoạt. Bổ sung bằng cùng form Sửa, nhập mốc theo loại: ngày bắt đầu áp dụng, counter hoặc mốc có nguồn đối chiếu; Job sự kiện không dùng trường ngày/counter không liên quan. Checkbox Tự động tạo WO mặc định tắt cho Job mới; Job cũ giữ lựa chọn hiện có. Nếu bật và đủ điều kiện phát hành ngay, hiện cảnh báo trước Lưu và phản hồi rõ kết quả tạo/chờ tạo WO. Job HYBRID hiển thị cả hai chu kỳ, hai mốc/cảnh báo riêng từng đơn vị. Không cho nhập trực tiếp kết quả Lần cuối thực hiện hoặc Hạn tới; hạn tính được chỉ đọc. Tạm dừng/ngừng/tiếp tục áp dụng trong menu quản lý, không tự hủy WO đang mở; sửa Job đã tạm dừng không tự bật lại.
 
