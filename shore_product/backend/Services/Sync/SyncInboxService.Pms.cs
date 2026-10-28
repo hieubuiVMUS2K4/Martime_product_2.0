@@ -66,7 +66,7 @@ public partial class SyncInboxService
             throw new InvalidOperationException("pms_mirror_source_identity_mismatch");
 
         var key = MirrorKey(item.OriginNode, datasetId, table, sourceId);
-        var receipt = await _context.PmsSyncMirrorRecords.SingleOrDefaultAsync(r => r.Key == key);
+        var receipt = await _context.PmsSyncMirrorRecords.AsTracking().SingleOrDefaultAsync(r => r.Key == key);
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(item.Payload)));
         if (receipt != null && item.SyncVersion <= receipt.Sequence)
         {
@@ -167,7 +167,7 @@ public partial class SyncInboxService
                 t.CheckpointDescription.Length > 500 || t.Unit?.Length > 20) || templates.Select(t => t.Id).Distinct().Count() != templates.Length ||
                 templates.Select(t => t.SequenceOrder).Distinct().Count() != templates.Length)
                 throw new InvalidOperationException("pms_job_checklist_invalid");
-            var existingTemplates = await _context.ScheduleChecklistTemplates.Where(c => c.ScheduleId == shoreId).ToListAsync();
+            var existingTemplates = await _context.ScheduleChecklistTemplates.AsTracking().Where(c => c.ScheduleId == shoreId).ToListAsync();
             var kept = new HashSet<Guid>();
             foreach (var template in templates)
             {
@@ -181,7 +181,13 @@ public partial class SyncInboxService
             }
             _context.ScheduleChecklistTemplates.RemoveRange(existingTemplates.Where(c => !kept.Contains(c.Id)));
         }
-        if (stored != null) _context.Entry(stored).CurrentValues.SetValues(incoming);
+        if (stored != null)
+        {
+            // Production uses NoTracking by default. Never ACK a detached update:
+            // both the mirror row and its sequence receipt must be saved together.
+            if (_context.Entry(stored).State == EntityState.Detached) _context.Attach(stored);
+            _context.Entry(stored).CurrentValues.SetValues(incoming);
+        }
         else
         {
             // Copy scalars only; payload navigation graphs may never insert other entities.

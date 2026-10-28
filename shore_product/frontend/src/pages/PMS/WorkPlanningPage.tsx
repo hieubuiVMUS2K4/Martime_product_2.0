@@ -33,6 +33,16 @@ import { DataTable, TableActions, TableIconButton, type Column } from '@/compone
 
 type ViewTab = 'table' | 'calendar' | 'gantt' | 'config';
 
+// Protocol 2 deadlines must not fall back to the legacy compatibility date.
+const workOrderCodeOf = (task: MaintenanceTask) => task.workOrderCode || (task.pmsProtocolVersion === 2 ? '—' : task.taskId);
+const workOrderDateOf = (task: MaintenanceTask) => task.pmsProtocolVersion === 2 ? task.workOrderDueAt : task.nextDueAt;
+const workOrderDueLabel = (task: MaintenanceTask) => {
+  const date = workOrderDateOf(task);
+  const parts = date ? [format(parseISO(date), 'dd/MM/yyyy')] : [];
+  if (task.pmsProtocolVersion === 2 && task.workOrderDueHours != null) parts.push(`${task.workOrderDueHours.toLocaleString('vi-VN')} giờ`);
+  return parts.join(' / ') || '—';
+};
+
 // Checklist templates for common equipment
 const CHECKLIST_TEMPLATES: Record<string, { label: string; items: { desc: string; reading?: boolean; unit?: string; min?: number; max?: number }[] }> = {
   MAIN_ENGINE: {
@@ -750,9 +760,9 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
   const ganttTasksFromFiltered = useMemo((): GanttTask[] => {
     const WORK_HOURS_PER_DAY = 8;
     return filteredTasks
-      .filter(t => t.nextDueAt)
+      .filter(t => t.status !== 'CANCELLED' && workOrderDateOf(t))
       .map(t => {
-        const dueDate = parseISO(t.nextDueAt);
+        const dueDate = parseISO(workOrderDateOf(t)!);
         const today = new Date(); today.setHours(0,0,0,0);
         const dueDt = new Date(dueDate); dueDt.setHours(0,0,0,0);
         const daysUntil = Math.ceil((dueDt.getTime() - today.getTime()) / 86400000);
@@ -795,14 +805,14 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
     try {
       const data = filteredTasks.map((task, idx) => ({
         [t('pms.workPlanning.table.index')]: idx + 1,
-        [t('pms.workPlanning.export.taskCode')]: task.taskId,
+        [t('pms.workPlanning.export.taskCode')]: workOrderCodeOf(task),
         [t('pms.workPlanning.export.equipmentName')]: task.equipmentName || task.equipmentAssetName || task.equipmentGroupName || '',
         [t('pms.workPlanning.export.taskName')]: task.taskDescription?.split('\n')[0] || task.taskType,
         [t('pms.workPlanning.export.taskDescription')]: task.taskDescription,
         [t('pms.workPlanning.export.priority')]: getPriorityLabel(task.priority),
         [t('pms.workPlanning.export.status')]: getStatusLabel(task.status),
         [t('pms.workPlanning.export.type')]: (task.taskType === 'AD_HOC' || task.taskType === 'CORRECTIVE') ? t('pms.workPlanning.filters.adhoc') : t('pms.workPlanning.filters.periodic'),
-        [t('pms.workPlanning.export.dueDate')]: task.nextDueAt ? format(parseISO(task.nextDueAt), 'dd/MM/yyyy') : '',
+        [t('pms.workPlanning.export.dueDate')]: workOrderDueLabel(task),
         [t('pms.workPlanning.export.assignee')]: task.assignedTo ? (crewList.find(c => c.crewId === task.assignedTo)?.fullName || task.assignedTo) : '',
         [t('pms.workPlanning.export.startDate')]: task.startedAt ? format(parseISO(task.startedAt), 'dd/MM/yyyy HH:mm') : '',
         [t('pms.workPlanning.export.completedDate')]: task.completedAt ? format(parseISO(task.completedAt), 'dd/MM/yyyy HH:mm') : '',
@@ -905,8 +915,8 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
     const map = new Map<string, MaintenanceTask[]>();
     const WORK_HOURS_PER_DAY = 8;
     filteredTasks.forEach(task => {
-      if (task.nextDueAt) {
-        const dueDate = parseISO(task.nextDueAt);
+      if (task.status !== 'CANCELLED' && workOrderDateOf(task)) {
+        const dueDate = parseISO(workOrderDateOf(task)!);
         const isRunningHours = !!task.intervalHours && !task.intervalDays;
         // RUNNING_HOURS: chỉ hiện 1 ngày (mốc ước tính, counter mới là trigger thực)
         // CALENDAR: span theo estimatedDuration (giờ → ngày làm việc)
@@ -961,8 +971,8 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
 
   const taskColumns: Column<MaintenanceTask>[] = [
     {
-      key: 'code', header: t('pms.workPlanning.table.taskCode'), width: 150, filter: false, value: task => task.taskId,
-      render: task => <span className="font-mono text-xs font-semibold text-primary">{task.taskId}</span>,
+      key: 'code', header: t('pms.workPlanning.table.taskCode'), width: 150, filter: false, value: workOrderCodeOf,
+      render: task => <span className="font-mono text-xs font-semibold text-primary">{workOrderCodeOf(task)}</span>,
     },
     { key: 'equipment', header: t('pms.workPlanning.table.equipmentName'), width: 190, value: equipmentOf },
     { key: 'name', header: t('pms.workPlanning.table.taskName'), width: 190, filter: false, value: taskNameOf, className: 'font-semibold' },
@@ -971,9 +981,9 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
       render: task => { const d = taskDetailOf(task); return d ? <span className="text-ink-muted" title={d}>{d}</span> : <span className="text-ink-light">—</span>; },
     },
     {
-      key: 'due', header: 'Đến hạn', width: 110, align: 'center', filter: false, value: task => task.nextDueAt ?? '',
-      exportValue: task => (task.nextDueAt ? format(parseISO(task.nextDueAt), 'dd/MM/yyyy') : ''),
-      render: task => (task.nextDueAt ? format(parseISO(task.nextDueAt), 'dd/MM/yyyy') : '—'),
+      key: 'due', header: 'Đến hạn', width: 110, align: 'center', filter: false, value: workOrderDueLabel,
+      exportValue: workOrderDueLabel,
+      render: workOrderDueLabel,
     },
     {
       key: 'priority', header: t('pms.workPlanning.table.priority'), width: 120, align: 'center', value: task => getPriorityLabel(task.priority),
@@ -1004,11 +1014,11 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
       key: 'actions', header: 'Thao tác', width: readOnly ? 80 : 120, align: 'center', exportable: false,
       render: task => (
         <TableActions>
-          <TableIconButton label={`${t('pms.workPlanning.table.view')} ${task.taskId}`} icon={<Eye />} onClick={() => navigate(`/pms/work-report/${task.id}`)} />
+          <TableIconButton label={`${t('pms.workPlanning.table.view')} ${workOrderCodeOf(task)}`} icon={<Eye />} onClick={() => navigate(`/pms/work-report/${task.id}`)} />
           {!readOnly && (
             <>
-              <TableIconButton label={`${t('pms.workPlanning.table.editConfig')} ${task.taskId}`} icon={<Pencil />} onClick={() => handleEditTaskConfig(task)} />
-              <TableIconButton label={`${t('pms.workPlanning.table.delete')} ${task.taskId}`} icon={<Trash2 />} variant="danger" onClick={() => handleTaskDelete(task.id)} />
+              <TableIconButton label={`${t('pms.workPlanning.table.editConfig')} ${workOrderCodeOf(task)}`} icon={<Pencil />} onClick={() => handleEditTaskConfig(task)} />
+              <TableIconButton label={`${t('pms.workPlanning.table.delete')} ${workOrderCodeOf(task)}`} icon={<Trash2 />} variant="danger" onClick={() => handleTaskDelete(task.id)} />
             </>
           )}
         </TableActions>
@@ -1227,9 +1237,9 @@ export default function WorkPlanningPage({ vesselId: vesselIdProp, readOnly = fa
                                 onClick={() => navigate(`/pms/work-report/${task.id}`)}
                                 className="w-full text-left px-1.5 py-0.5 rounded text-xs truncate hover:opacity-80 transition-opacity"
                                 style={{ backgroundColor: colors.bg, color: colors.text }}
-                                title={`${task.taskId} - ${task.taskDescription}${task.status === 'UPCOMING' ? ` ⚠️ ${t('pms.workPlanning.calendar.upcomingTooltip')}` : ''}`}
+                                title={`${workOrderCodeOf(task)} - ${task.taskDescription}${task.status === 'UPCOMING' ? ` ⚠️ ${t('pms.workPlanning.calendar.upcomingTooltip')}` : ''}`}
                               >
-                                {task.status === 'UPCOMING' ? '⚠️ ' : ''}{task.taskId}
+                                {task.status === 'UPCOMING' ? '⚠️ ' : ''}{workOrderCodeOf(task)}
                               </button>
                             );
                           })}

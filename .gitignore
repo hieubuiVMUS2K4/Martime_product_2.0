@@ -258,4 +258,5 @@ shore_product/scripts/tmp-*
 /artifacts/tmp-catalog-tests/
 /artifacts/database-backups/
 /scripts/database/__pycache__/
+/artifacts/pms-sync-repair-2026-10-27/
 

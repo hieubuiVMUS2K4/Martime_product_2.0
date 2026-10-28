@@ -1480,6 +1480,8 @@
       "crewDesc": "Crew, chứng chỉ, hồ sơ, danh mục tham chiếu",
       "pms": "PMS - Thiết bị / Vật tư / Kho",
       "pmsDesc": "Thiết bị, vật tư, kho, phiếu nhập, yêu cầu vật tư, tồn kho",
+      "pmsWork": "PMS – Công việc và Work Order",
+      "pmsWorkDesc": "Job List, lệnh thực hiện, báo cáo và vật tư tiêu hao; giữ nguyên hồ sơ đã ký",
       "voyage": "Chuyến đi",
       "voyageDesc": "Hành trình, cảng ghé, trạng thái chuyến đi",
       "report": "Báo cáo",

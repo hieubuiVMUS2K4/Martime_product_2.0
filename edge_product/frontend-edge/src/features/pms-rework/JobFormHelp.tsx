@@ -51,7 +51,7 @@ const guides = {
     fields: [
       ['Nội dung kiểm tra', 'Bước cần thực hiện hoặc hạng mục cần kiểm tra.'],
       ['Cần số đo', 'Bắt buộc ghi giá trị đo khi hoàn tất bước này.'],
-      ['Đơn vị', 'Đơn vị của số đo, ví dụ °C, bar, mm.'],
+      ['Đơn vị', 'Chọn đơn vị số đo trong danh sách có sẵn, ví dụ °C, bar, mm. Không nhập tự do. Đơn vị cũ đã lưu vẫn được giữ nguyên khi sửa.'],
       ['Min / Max', 'Khoảng tham chiếu. Giá trị đo ngoài khoảng được đánh dấu bất thường.'],
       ['Thêm mục / Xóa mục', 'Chỉnh danh sách các bước mẫu cho những WO phát hành sau này.'],
     ],

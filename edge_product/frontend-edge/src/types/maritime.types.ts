@@ -821,7 +821,8 @@ export interface OilRecordBook {
 export interface SyncQueue {
   id: number
   tableName: string
-  recordId: number
+  recordKey: string
+  recordId?: number
   payload: string
   priority: number
   retryCount: number

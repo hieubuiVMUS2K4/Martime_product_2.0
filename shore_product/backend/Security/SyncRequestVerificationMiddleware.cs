@@ -61,6 +61,11 @@ public sealed class SyncRequestVerificationMiddleware : IMiddleware
         if (request.Method.Equals(HttpMethods.Get, StringComparison.OrdinalIgnoreCase) && remaining.Equals("/pull", StringComparison.OrdinalIgnoreCase))
             return true;
 
+        // Capability negotiation must identify and authenticate the node just like
+        // the batch endpoint; otherwise PmsCapabilities cannot resolve its dataset.
+        if (request.Method.Equals(HttpMethods.Get, StringComparison.OrdinalIgnoreCase) && remaining.Equals("/pms-capabilities", StringComparison.OrdinalIgnoreCase))
+            return true;
+
         if (request.Method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase) && remaining.Equals("/acknowledge", StringComparison.OrdinalIgnoreCase))
             return true;
 

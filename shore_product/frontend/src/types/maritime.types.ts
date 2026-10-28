@@ -390,6 +390,10 @@ export type MaintenanceTaskStatus =
 export interface MaintenanceTask {
   id: string  // GUID from backend
   taskId: string
+  pmsProtocolVersion?: number
+  workOrderCode?: string | null
+  workOrderDueAt?: string | null
+  workOrderDueHours?: number | null
   taskTypeId?: number
   
   // LEGACY: Individual asset fields (nullable for backward compatibility)

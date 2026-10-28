@@ -401,10 +401,17 @@ public class SyncController : ControllerBase
             return BadRequest(new { error = "Cần chỉ định ít nhất một nhóm dữ liệu" });
 
         var validGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "ship_data", "crew", "voyage", "report", "pms" };
+            { "ship_data", "crew", "voyage", "report", "pms", "pms_work" };
         var unknown = request.Groups.Where(g => !validGroups.Contains(g)).ToList();
         if (unknown.Count > 0)
             return BadRequest(new { error = $"Nhóm không hợp lệ: {string.Join(", ", unknown)}" });
+
+        await using var snapshotWrite = await MaritimeEdge.Services.Inventory.InventoryWriteScope.BeginAsync(_context);
+        if (request.Groups.Contains("pms_work", StringComparer.OrdinalIgnoreCase) &&
+            (!_configuration.GetValue<bool>("Pms:ReworkApiEnabled") ||
+             !await _context.SyncState.AnyAsync(s => s.Key == "pms-cutover-state" && s.Value == "ACTIVE") ||
+             !await _context.SyncState.AnyAsync(s => s.Key == "pms-dataset-id")))
+            return StatusCode(503, new { error = "PMS chưa sẵn sàng hoặc đang chuyển đổi dữ liệu; chưa tạo snapshot công việc." });
 
         _logger.LogInformation("Snapshot initiated for groups: {Groups}", string.Join(", ", request.Groups));
 
@@ -438,7 +445,10 @@ public class SyncController : ControllerBase
                 TableName  = tableName,
                 RecordKey  = recordKey,
                 ActionType = SyncActionType.SNAPSHOT,   // UPSERT on Shore — safe to repeat
-                Payload    = System.Text.Json.JsonSerializer.Serialize(entity, jsonOptions),
+                Payload    = entity is MaritimeEdge.Models.MaintenanceSchedule { PmsProtocolVersion: 2 }
+                    or MaritimeEdge.Models.MaintenanceTask { PmsProtocolVersion: 2 }
+                    or MaritimeEdge.Models.PmsWorkOrderReport or MaritimeEdge.Models.PmsWorkOrderMaterialPosting
+                    ? _context.BuildSyncPayload(entity) : System.Text.Json.JsonSerializer.Serialize(entity, jsonOptions),
                 Priority   = SyncPriority.Operational,
                 RetryCount = 0,
                 MaxRetries = 5,
@@ -447,7 +457,7 @@ public class SyncController : ControllerBase
         }
 
         // Process groups in fixed dependency-safe order regardless of request order
-        var orderedGroups = new[] { "ship_data", "crew", "voyage", "report", "pms" }
+        var orderedGroups = new[] { "ship_data", "crew", "voyage", "report", "pms", "pms_work" }
             .Where(g => request.Groups.Contains(g, StringComparer.OrdinalIgnoreCase));
 
         var groupResults = new List<object>();
@@ -566,6 +576,21 @@ public class SyncController : ControllerBase
                         var maintenanceHistories = await _context.MaintenanceHistories.AsNoTracking().ToListAsync();
                         foreach (var x in maintenanceHistories) Enqueue("maintenance_history", x.Id.ToString(), x);
 
+                        foreach (var x in await _context.MaintenanceSchedules.AsNoTracking().Where(j => j.PmsProtocolVersion == 2).ToListAsync()) Enqueue("maintenance_schedule", x.Id.ToString(), x);
+                        foreach (var x in await _context.PmsWorkOrderReports.AsNoTracking().ToListAsync()) Enqueue("pms_work_order_report", x.Id.ToString(), x);
+                        foreach (var x in await _context.PmsWorkOrderMaterialPostings.AsNoTracking().ToListAsync()) Enqueue("pms_work_order_material_posting", x.Id.ToString(), x);
+
+                        break;
+                    }
+
+                    // A narrow repair snapshot does not resend the equipment/catalog inventory.
+                    case "pms_work":
+                    {
+                        foreach (var x in await _context.MaintenanceSchedules.AsNoTracking().Where(j => j.PmsProtocolVersion == 2).ToListAsync()) Enqueue("maintenance_schedule", x.Id.ToString(), x);
+                        foreach (var x in await _context.MaintenanceTasks.AsNoTracking().Where(w => w.PmsProtocolVersion == 2).ToListAsync()) Enqueue("maintenance_task", x.Id.ToString(), x);
+                        foreach (var x in await _context.PmsWorkOrderReports.AsNoTracking().ToListAsync()) Enqueue("pms_work_order_report", x.Id.ToString(), x);
+                        foreach (var x in await _context.PmsWorkOrderMaterialPostings.AsNoTracking().ToListAsync()) Enqueue("pms_work_order_material_posting", x.Id.ToString(), x);
+
                         break;
                     }
 
@@ -618,6 +643,7 @@ public class SyncController : ControllerBase
                     "voyage"    => "Chuyến đi",
                     "report"    => "Báo cáo",
                     "pms"       => "PMS (Thiết bị / Vật tư / Kho)",
+                    "pms_work"  => "PMS – Công việc và Work Order",
                     _           => group
                 },
                 count = toAdd.Count - before
@@ -632,6 +658,8 @@ public class SyncController : ControllerBase
 
         _logger.LogInformation("Snapshot queued {Count} items for groups: {Groups}",
             toAdd.Count, string.Join(", ", request.Groups));
+
+        if (snapshotWrite != null) await snapshotWrite.CommitAsync();
 
         return Ok(new
         {

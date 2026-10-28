@@ -133,6 +133,43 @@ public partial class PmsWorkOrderWorkflowTests
         Assert.Equal("DRAFT", task.Status); Assert.Null(task.JobSnapshot);
     }
 
+    [PmsPostgresFact]
+    public async Task AdHocDeadlinesPersistAndDriveLiveReadAndCalendarFiltering()
+    {
+        var setup = await Seed();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["Pms:ReworkApiEnabled"] = "true", ["Pms:VesselTimeZone"] = "Asia/Ho_Chi_Minh" }).Build();
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone));
+        foreach (var (days, expected) in new[] { (12, "NOT_DUE"), (7, "UPCOMING"), (0, "DUE"), (-1, "OVERDUE") })
+        {
+            await using var write = fixture.CreateContext();
+            var dto = AdHoc(setup, true); dto.DueDate = today.AddDays(days);
+            var created = await new PmsWorkOrderWorkflowService(write, new(write), config)
+                .CreateAdHocAsync(dto, setup.Reviewer.Id, "PMS-WORKFLOW", "WEB");
+            await using var read = fixture.CreateContext();
+            var stored = await read.MaintenanceTasks.AsNoTracking().SingleAsync(t => t.Id == created.Id);
+            var expectedUtc = TimeZoneInfo.ConvertTimeToUtc(dto.DueDate.Value.ToDateTime(TimeOnly.MinValue), zone);
+            Assert.Equal(expectedUtc, stored.WorkOrderDueAt);
+            Assert.Equal(expected, stored.DueState);
+            var reader = new PmsWorkOrderReadService(read, config);
+            var detail = JsonSerializer.SerializeToElement(await reader.DetailAsync(created.Id), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            Assert.Equal(dto.DueDate.Value.ToString("yyyy-MM-dd"), detail.GetProperty("dueDate").GetString());
+            Assert.Equal(expected, detail.GetProperty("workOrder").GetProperty("dueState").GetString());
+            var calendar = await reader.ListAsync(new() { EquipmentAssetId = setup.AssetId, DueFrom = expectedUtc,
+                DueTo = expectedUtc.AddDays(1).AddTicks(-1), Status = "ALL", ExcludeCancelled = true });
+            Assert.Contains(calendar.Items, item => item.Id == created.Id && item.DueAt == expectedUtc);
+        }
+        // A future date must not hide an already reached equipment-counter deadline.
+        await using var hoursDb = fixture.CreateContext();
+        var counter = (await hoursDb.EquipmentAssets.SingleAsync(a => a.Id == setup.AssetId)).CurrentRunningHours ?? 0;
+        var hybrid = AdHoc(setup, true); hybrid.DueDate = today.AddDays(12); hybrid.DueHours = counter;
+        var hybridOrder = await new PmsWorkOrderWorkflowService(hoursDb, new(hoursDb), config)
+            .CreateAdHocAsync(hybrid, setup.Reviewer.Id, "PMS-WORKFLOW", "WEB");
+        var hybridDetail = JsonSerializer.SerializeToElement(await new PmsWorkOrderReadService(hoursDb, config).DetailAsync(hybridOrder.Id), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal("DUE", hybridDetail.GetProperty("workOrder").GetProperty("dueState").GetString());
+    }
+
     [Fact]
     public void AdHocDefinitionRejectsExecutionAndLegacyFormFields()
     {

@@ -42,6 +42,7 @@ public partial class SyncReliabilityTests
     public async Task PmsMirror_ApprovedReportRequiresSignedEvidenceKeepsDecisionAndNeverDeductsShoreStock()
     {
         await using var db = await Database();
+        db.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
         try
         {
             const string node = "PMS-SIGNED"; var vessel = await BindNode(db, node); var dataset = Guid.NewGuid(); var stream = Guid.NewGuid();
@@ -130,6 +131,7 @@ public partial class SyncReliabilityTests
     public async Task PmsMirror_RemapsTwoVesselsPreservesReportAndRejectsStaleDatasetEvenForDuplicateReceipt()
     {
         await using var db = await Database();
+        db.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
         try
         {
             var a = await BindNode(db, "PMS-A"); var b = await BindNode(db, "PMS-B");
@@ -192,6 +194,8 @@ public partial class SyncReliabilityTests
             // Legacy Shore editors must not mutate the Edge-owned mirror or its checklist.
             var shoreEditor = new ProductApi.Controllers.Pms.MaintenanceSchedulesController(db);
             var mirroredJob = jobs.Single(j => j.VesselId == a);
+            Assert.Equal(2, mirroredJob.JobVersion);
+            Assert.Equal(40, (await db.PmsSyncMirrorRecords.SingleAsync(r => r.OriginNode == "PMS-A" && r.TableName == "maintenance_schedule")).Sequence);
             Assert.Equal(2, mirroredJob.CycleReleaseAttempt); Assert.Equal(submitted, mirroredJob.SkippedCycleAt);
             Assert.Equal(1200d, mirroredJob.SkippedCycleHours);
             Assert.IsType<Microsoft.AspNetCore.Mvc.ConflictObjectResult>(await shoreEditor.Update(mirroredJob.Id,
@@ -207,7 +211,7 @@ public partial class SyncReliabilityTests
             Assert.Equal(crewB.Id, jobs.Single(j => j.VesselId == b).ResponsibleCrewId);
             var reports = await db.PmsWorkOrderReports.ToListAsync(); Assert.Equal(2, reports.Count);
             Assert.All(reports, r => { Assert.Equal(snapshot, r.SnapshotJson); Assert.Contains(orders, t => t.Id == r.WorkOrderId && t.VesselId == r.VesselId); });
-            var epoch = await db.PmsSyncDatasets.SingleAsync(d => d.OriginNode == "PMS-A"); epoch.IsActive = false; await db.SaveChangesAsync();
+            var epoch = await db.PmsSyncDatasets.AsTracking().SingleAsync(d => d.OriginNode == "PMS-A"); epoch.IsActive = false; await db.SaveChangesAsync();
             var stale = await inbox.ProcessBatchAsync(batchA.ToList()); Assert.Equal(3, stale.Failed); Assert.Empty(stale.AcknowledgedEventIds);
             var legacy = Event("PMS-A", streamA, jobId, 99, "UPDATE", new { ScheduleName = "Legacy overwrite" }); legacy.TableName = "maintenance_schedule";
             Assert.Equal(1, (await inbox.ProcessBatchAsync([legacy])).Failed);

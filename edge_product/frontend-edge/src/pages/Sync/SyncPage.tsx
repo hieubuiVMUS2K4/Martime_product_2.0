@@ -304,6 +304,7 @@ const SNAPSHOT_GROUPS = [
   { id: 'ship_data', labelKey: 'sync.groups.shipData',  descKey: 'sync.groups.shipDataDesc',  icon: Ship,       dateFilter: false, color: 'blue'    },
   { id: 'crew',      labelKey: 'sync.groups.crew',      descKey: 'sync.groups.crewDesc',      icon: Users,      dateFilter: false, color: 'emerald' },
   { id: 'pms',       labelKey: 'sync.groups.pms',       descKey: 'sync.groups.pmsDesc',       icon: Package,    dateFilter: false, color: 'orange'  },
+  { id: 'pms_work',  labelKey: 'sync.groups.pmsWork',   descKey: 'sync.groups.pmsWorkDesc',   icon: Calendar,   dateFilter: false, color: 'blue'    },
   { id: 'voyage',    labelKey: 'sync.groups.voyage',    descKey: 'sync.groups.voyageDesc',    icon: Navigation, dateFilter: true,  color: 'violet'  },
   { id: 'report',    labelKey: 'sync.groups.report',    descKey: 'sync.groups.reportDesc',    icon: FileText,   dateFilter: true,  color: 'amber'   },
 ] as const
@@ -629,7 +630,7 @@ export function SyncPage() {
         </span>
       ),
     },
-    { key: 'record', header: t('sync.recordId'), width: 150, value: q => String(q.recordId), className: 'font-mono' },
+    { key: 'record', header: t('sync.recordId'), width: 150, value: q => q.recordKey || (q.recordId != null ? String(q.recordId) : '—'), className: 'font-mono' },
     {
       key: 'priority', header: t('sync.priority'), width: 100, align: 'center', value: q => getPriorityLabel(q.priority),
       render: q => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getPriorityColor(q.priority)}`}>{getPriorityLabel(q.priority)}</span>,

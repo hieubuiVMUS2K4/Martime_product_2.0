@@ -1480,6 +1480,8 @@
       "crewDesc": "Crew, certificates, records, reference categories",
       "pms": "PMS - Equipment / Materials / Warehouse",
       "pmsDesc": "Equipment, materials, warehouse, receipts, requests, inventory",
+      "pmsWork": "PMS – Jobs and Work Orders",
+      "pmsWorkDesc": "Jobs, work orders, reports and material postings; signed records are preserved",
       "voyage": "Voyage",
       "voyageDesc": "Routes, port calls, voyage status",
       "report": "Reports",
