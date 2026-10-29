@@ -103,7 +103,7 @@ public sealed class ImportPmsJobsDto
     [Required, MinLength(1), MaxLength(1000)] public List<ImportPmsJobRow> Rows { get; set; } = [];
 }
 
-// Import intentionally has no baseline, last-execution, next-due, auto-generate or result fields.
+// Optional calendar baseline defines the first due date; it is not an execution record.
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class ImportPmsJobRow
 {
@@ -118,6 +118,7 @@ public sealed class ImportPmsJobRow
     public int? IntervalMonths { get; set; }
     public int? IntervalYears { get; set; }
     public int? IntervalHours { get; set; }
+    public DateTime? BaselineAt { get; set; }
     public string Priority { get; set; } = "NORMAL";
     public string? Department { get; set; }
     public string? Instructions { get; set; }

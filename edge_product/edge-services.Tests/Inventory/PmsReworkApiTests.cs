@@ -34,13 +34,20 @@ public class PmsReworkApiTests
             "{\"" + field + "\":null}", new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 
     [Theory]
-    [InlineData("baselineAt")]
+    [InlineData("baselineRunningHours")]
     [InlineData("lastExecutedAt")]
     [InlineData("nextDueDate")]
     [InlineData("autoGenerate")]
-    public void ImportCannotReintroduceExecutionBaselinesOrEnableAutomaticRelease(string field) =>
+    public void ImportCannotReintroduceHistoryCounterBaselineOrEnableAutomaticRelease(string field) =>
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<ImportPmsJobRow>(
             "{\"" + field + "\":null}", new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
+    [Fact]
+    public void ImportAcceptsOptionalCalendarBaseline()
+    {
+        var row = JsonSerializer.Deserialize<ImportPmsJobRow>("{\"baselineAt\":\"2026-01-31T02:30:00Z\"}", new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal(new DateTime(2026, 1, 31, 2, 30, 0, DateTimeKind.Utc), row!.BaselineAt);
+    }
 
     [Fact]
     public async Task NewEndpointsAreDisabledUntilExplicitlyEnabled_AndTranslateBusinessConflicts()

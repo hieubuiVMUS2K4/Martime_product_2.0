@@ -225,9 +225,12 @@ public sealed class PmsJobService(EdgeDbContext db)
             if (matches.Length != 1) errors.Add("Mã thiết bị không tồn tại, không duy nhất hoặc là nhóm/ngừng sử dụng.");
             if (duplicates.Contains(code)) errors.Add("Mã công việc trùng trong file.");
             if (existing.Contains(code)) errors.Add("Mã công việc đã tồn tại (kể cả legacy/ngừng áp dụng); không tự ghi đè hoặc đổi mã.");
+            if (row.BaselineAt.HasValue && (row.Category != "PERIODIC" || row.IntervalType is not ("CALENDAR" or "HYBRID")))
+                errors.Add("Mốc bắt đầu chỉ áp dụng cho Job Định kỳ theo lịch hoặc kết hợp lịch và giờ chạy.");
             var dto = new SavePmsJobDto { Code = code, Name = row.Name, WorkCode = row.WorkCode, EquipmentAssetId = matches.FirstOrDefault()?.Id,
                 Category = row.Category, IntervalType = row.IntervalType, IntervalDays = row.IntervalDays, IntervalMonths = row.IntervalMonths,
                 IntervalYears = row.IntervalYears, IntervalHours = row.IntervalHours, Instructions = row.Instructions,
+                BaselineAt = row.BaselineAt, BaselineSource = row.BaselineAt.HasValue ? "Import Excel" : null,
                 Priority = row.Priority, Department = row.Department, AutoGenerate = false };
             try { ValidateDto(dto); } catch (PmsRequestException e) { errors.Add(e.Message); }
             if (errors.Count != 0) { issues.Add(new(row.RowNumber, code, errors.ToArray())); continue; }

@@ -3992,6 +3992,14 @@
       ]
     },
     {
+      "controller": "PmsJobs",
+      "action": "ImportEquipment",
+      "grants": [
+        "pms.jobs.import",
+        "pms.config.import"
+      ]
+    },
+    {
       "controller": "PmsWorkOrders",
       "action": "Release",
       "grants": [

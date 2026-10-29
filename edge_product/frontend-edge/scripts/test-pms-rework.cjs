@@ -7,7 +7,7 @@ const ts = require('typescript')
 function load(file, imports = {}) {
   const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src', file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const exports = {}
-  vm.runInNewContext(code, { exports, require: name => imports[name] ?? require(name), console, setTimeout, clearTimeout, URLSearchParams, crypto: globalThis.crypto, Intl, Date }, { filename: file })
+  vm.runInNewContext(code, { exports, require: name => imports[name] ?? (name === './time' ? time : require(name)), console, setTimeout, clearTimeout, URLSearchParams, crypto: globalThis.crypto, Intl, Date, Blob }, { filename: file })
   return exports
 }
 const time = load('features/pms-rework/time.ts')
@@ -50,7 +50,7 @@ test('Job-only and legacy config access open Job List without granting Work Orde
 })
 const XLSX = require('xlsx')
 const imports = { '@/services/api.client': {}, './data': {}, './ui': {}, './departments': {} }
-const { parseJobWorkbook } = load('features/pms-rework/planWorkbook.ts', imports)
+const { parseJobWorkbook, jobImportPayload } = load('features/pms-rework/planWorkbook.ts', imports)
 function book(row) { const b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, XLSX.utils.json_to_sheet([row]), 'Maintenance'); return b }
 const row = { ScheduleCode: 'PUMP-1', AssetCode: 'ASSET-1', ScheduleName: 'Pump check', MaintenanceCategory: 'PERIODIC', IntervalType: 'HYBRID', IntervalMonths: 3, IntervalHours: 100 }
 test('Excel maps source definition columns to the new Job contract without enabling generation', async () => {
@@ -61,6 +61,28 @@ test('Excel maps source definition columns to the new Job contract without enabl
 test('Excel rejects execution dates and invalid numeric intervals before preview', async () => {
   await assert.rejects(() => parseJobWorkbook(book({ ...row, LastExecutedAt: '2026-01-01' })), /lịch sử/)
   await assert.rejects(() => parseJobWorkbook(book({ ...row, IntervalHours: 'abc' })), /số nguyên dương/)
+})
+
+test('optional calendar baseline accepts Excel dates and vessel-local text without treating them as execution', async () => {
+  const headers = [...planHeaders, 'Mốc bắt đầu (giờ tàu)']
+  const source = value => planBook([['Máy', [headers, [1, 'BASE', '', 'P1', '', 'Inspect', 'Định kỳ', 'M3', '', '', '', value]]]])
+  for (const value of ['31/01/2026 09:30', '2026-01-31 09:30', 46053 + 9.5/24]) {
+    const [r] = await parseJobWorkbook(source(value), [], 'Asia/Ho_Chi_Minh')
+    assert.equal(r.baselineAt, '2026-01-31T02:30:00.000Z'); assert.equal(r.issues, undefined)
+    assert.equal(jobImportPayload([r])[0].baselineAt, r.baselineAt)
+    assert.equal('lastExecutedAt' in r, false)
+  }
+  const [blank] = await parseJobWorkbook(source('')); assert.equal(blank.baselineAt, undefined); assert.equal(blank.issues, undefined)
+  const [bad] = await parseJobWorkbook(source('31/02/2026'), [], 'Asia/Ho_Chi_Minh'); assert.ok(bad.issues.length)
+  const alternateEpoch = source(46053 - 1462); alternateEpoch.Workbook = { WBProps: { date1904: true } }
+  const [oldEpoch] = await parseJobWorkbook(alternateEpoch, [], 'Asia/Ho_Chi_Minh'); assert.equal(oldEpoch.baselineAt, '2026-01-30T17:00:00.000Z')
+  const [noZone] = await parseJobWorkbook(source('01/02/2026')); assert.ok(noZone.issues.some(s => s.includes('múi giờ')))
+  for (const [category, cycle] of [['Định kỳ','H100'],['Lên đà',''],['Theo chuyến',''],['Theo yêu cầu','']]) {
+    const [r] = await parseJobWorkbook(planBook([['Máy',[headers,[1,'X','','P1','','Inspect',category,cycle,'','','','01/02/2026']]]]), [], 'Asia/Ho_Chi_Minh')
+    assert.equal(r.baselineAt, undefined); assert.ok(r.issues.some(s => s.includes('Mốc bắt đầu')))
+  }
+  const [hybrid] = await parseJobWorkbook(planBook([['Máy',[headers,[1,'H','','P1','','Inspect','Định kỳ','M3/H100','','','','01/02/2026']]]]), [], 'Asia/Ho_Chi_Minh')
+  assert.equal(hybrid.baselineAt, '2026-01-31T17:00:00.000Z'); assert.equal(hybrid.intervalType,'HYBRID')
 })
 
 function planBook(sheets) {
@@ -131,6 +153,40 @@ test('source equipment groups disambiguate matching names without choosing an ar
   assert.equal(r.assetCode, 'P1'); assert.equal(r.issues, undefined)
   const [wrong] = await parseJobWorkbook(planBook([['Máy', [planHeaders, [1, 'JOB1', '', 'P1', 'Other pump', 'Inspect', 'Định kỳ', 'M3']]]]), equipment)
   assert.ok(wrong.issues.some(e => e.includes('không khớp')))
+})
+
+test('downloaded BQBD workbook contains current equipment, eligible dropdowns and a guide without importing helper sheets', async () => {
+  const { fillJobTemplate } = load('features/pms-rework/jobTemplate.ts')
+  const ExcelJS = require('exceljs')
+  const bytes = fs.readFileSync(path.join(__dirname, '../public/templates/Mau_Job_BQBD.xlsx'))
+  const equipment = [
+    { id: 'g', assetCode: 'GR-01', assetName: 'Main Engine', category: 'SYSTEM', isActive: true, status: 'STANDBY' },
+    { id: 'a', parentId: 'g', assetCode: 'PUMP-01', assetName: 'Sea water pump', category: 'PUMP', isActive: true, status: 'STANDBY' },
+    { id: 'i', assetCode: 'OLD-01', assetName: 'Old pump', category: 'PUMP', isActive: false, status: 'STANDBY' },
+    { id: 'r', assetCode: 'RET-01', assetName: 'Retired pump', category: 'PUMP', isActive: true, status: 'DECOMMISSIONED' },
+  ]
+  const blob = await fillJobTemplate(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), equipment)
+  const file = await blob.arrayBuffer(), workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(file)
+  assert.deepEqual(workbook.worksheets.map(s => s.name), ['Máy', 'Boong', 'Danh_muc_thiet_bi', 'Huong_dan'])
+  const catalog = workbook.getWorksheet('Danh_muc_thiet_bi')
+  assert.equal(catalog.rowCount, 7)
+  const codes = Array.from({length:4}, (_, i) => catalog.getCell(i+4, 2).value)
+  assert.deepEqual(codes, ['GR-01', 'OLD-01', 'PUMP-01', 'RET-01'])
+  const parentRow = codes.indexOf('PUMP-01') + 4
+  assert.equal(catalog.getCell(parentRow, 4).value, 'GR-01 — Main Engine')
+  assert.equal(catalog.getCell(4, 8).value, 'PUMP-01'); assert.equal(catalog.getColumn(8).hidden, true)
+  assert.deepEqual(workbook.getWorksheet('Máy').getCell('D9').dataValidation.formulae, ['MaThietBiChoJob'])
+  assert.equal(workbook.getWorksheet('Máy').getCell('D9').value, null)
+  assert.equal(workbook.getWorksheet('Boong').getCell('D10').value, null)
+  assert.equal(workbook.getWorksheet('Máy').getCell('L7').value, 'Mốc bắt đầu (giờ tàu)')
+  assert.equal(workbook.getWorksheet('Máy').getCell('L9').numFmt, 'dd/mm/yyyy hh:mm')
+  const parsed = await parseJobWorkbook(XLSX.read(file, {type:'array'}))
+  assert.equal(parsed.length, 7)
+  assert.ok(parsed.every(r => r.sourceSheet === 'Máy' || r.sourceSheet === 'Boong'))
+  const fresh = await fillJobTemplate(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), [{ ...equipment[1], assetCode: 'NEW-01' }])
+  const newer = new ExcelJS.Workbook(); await newer.xlsx.load(await fresh.arrayBuffer())
+  assert.equal(newer.getWorksheet('Danh_muc_thiet_bi').getCell('B4').value, 'NEW-01')
+  await assert.rejects(() => fillJobTemplate(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), [equipment[0], equipment[2]]), /Chưa có thiết bị/)
 })
 test('read-only snapshot normalization preserves exact source strings and material units', () => {
   const { snapshot } = load('features/pms-rework/data.ts', { '@tanstack/react-query': {}, '@/services/api.client': {}, '@/stores/auth.store': {}, '@/stores/permissions.store': {} })

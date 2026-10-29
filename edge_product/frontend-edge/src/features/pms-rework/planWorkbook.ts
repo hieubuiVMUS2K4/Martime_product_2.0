@@ -1,9 +1,11 @@
 import type { WorkBook } from 'xlsx'
 import type { EquipmentNode } from './types'
+import { vesselLocalToUtc, vesselInput } from './time'
 
 export interface ImportRow {
   rowNumber: number; code: string; name: string; assetCode: string; workCode: string; category: string; intervalType: string;
   intervalDays?: number; intervalMonths?: number; intervalYears?: number; intervalHours?: number;
+  baselineAt?: string;
   instructions: string; priority: string; department: string;
   sourceSheet?: string; sourceRow?: number; assetName?: string; sourceFrequency?: string; issues?: string[];
 }
@@ -27,6 +29,7 @@ const aliases: Record<string, string[]> = {
   assetCode: ['assetcode', 'mathietbi'], assetName: ['assetname', 'tenthietbi', 'equipmentname', 'tencuatrangthietbi'],
   category: ['maintenancecategory', 'loaibaotri'], frequency: ['freq', 'frequency', 'chuky'], intervalType: ['intervaltype'],
   intervalDays: ['intervaldays'], intervalMonths: ['intervalmonths'], intervalYears: ['intervalyears'], intervalHours: ['intervalhours'],
+  baselineAt: ['baselineat', 'mocbatdau', 'mocbatdaugiotau'],
   instructions: ['instructions', 'huongdan'], notes: ['ghichu', 'notes'], priority: ['priority', 'uutien', 'douutien'], department: ['department', 'bophan', 'bophanphutrach'],
 }
 const categories: Record<string, string> = { periodic: 'PERIODIC', dinhky: 'PERIODIC', drydock: 'DRY_DOCK', docking: 'DRY_DOCK', lenda: 'DRY_DOCK', ondemand: 'ON_DEMAND', theoyeucau: 'ON_DEMAND', asneed: 'ON_DEMAND', asrequest: 'ON_DEMAND', voyage: 'VOYAGE', theochuyen: 'VOYAGE', chuyen: 'VOYAGE' }
@@ -53,7 +56,7 @@ function frequency(raw: string) {
   return result
 }
 
-export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[] = []): Promise<ImportRow[]> {
+export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[] = [], zone?: string): Promise<ImportRow[]> {
   const XLSX = await import('xlsx')
   const rows: ImportRow[] = []
   let found = false
@@ -71,7 +74,7 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
     const technical = headers.includes('schedulecode')
     if (technical) {
       for (const h of ['schedulecode', 'assetcode', 'schedulename', 'maintenancecategory', 'intervaltype']) if (!headers.includes(h)) throw new Error(`Thiếu cột ${h}. Hãy dùng mẫu import công việc.`)
-      if (headers.some(h => ['lastexecutedat', 'nextduedate', 'lastexecutedrunninghours', 'baselineat', 'baselinerunninghours', 'lanthuchiencuoi', 'hantieptheo'].includes(h))) throw new Error('File import chỉ chứa định nghĩa công việc. Hãy bỏ các cột lịch sử, mốc và hạn tiếp theo.')
+      if (headers.some(h => ['lastexecutedat', 'nextduedate', 'lastexecutedrunninghours', 'baselinerunninghours', 'lanthuchiencuoi', 'hantieptheo'].includes(h))) throw new Error('Hãy bỏ các cột lịch sử, counter mốc và hạn tiếp theo; chỉ được nhập mốc bắt đầu theo lịch.')
     }
     const columns = Object.fromEntries(Object.entries(aliases).map(([field, names]) => [field, headers.findIndex(h => names.includes(h))]))
     const nameOfSheet = fold(sheetName)
@@ -139,12 +142,39 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
       }
       const rowNumber = sheetIndex * 100000 + r + 1
       const code = original ? `BD${year}-${department === 'ENGINE' ? 'M' : department === 'DECK' ? 'D' : sheetIndex + 1}-R${String(r + 1).padStart(4, '0')}` : get('code')
+      let baselineAt: string | undefined
+      const baseline = columns.baselineAt < 0 ? '' : cells[columns.baselineAt]
+      if (!original && clean(baseline)) {
+        const intervalType = technical ? get('intervalType') : schedule.intervalType
+        if (schedule.category !== 'PERIODIC' || !['CALENDAR', 'HYBRID'].includes(intervalType || '')) issues.push('Mốc bắt đầu chỉ áp dụng cho Định kỳ theo lịch hoặc kết hợp lịch và giờ chạy.')
+        else try {
+          if (!zone) throw new Error('Chưa lấy được múi giờ tàu; hãy thử lại trước khi nhập mốc bắt đầu.')
+          let parts: number[]
+          if (typeof baseline === 'number') {
+            const date = XLSX.SSF.parse_date_code(baseline, { date1904: !!book.Workbook?.WBProps?.date1904 })
+            if (!date) throw new Error('Mốc bắt đầu không phải ngày Excel hợp lệ.')
+            parts = [date.y, date.m, date.d, date.H, date.M]
+          } else {
+            const value = clean(baseline)
+            const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/)
+            const vn = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?$/)
+            if (!iso && !vn) throw new Error('Mốc bắt đầu dùng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm (giờ tàu).')
+            parts = iso ? [Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4] || 0), Number(iso[5] || 0)] : [Number(vn![3]), Number(vn![2]), Number(vn![1]), Number(vn![4] || 0), Number(vn![5] || 0)]
+          }
+          const [y, m, d, h, min] = parts, check = new Date(Date.UTC(y, m - 1, d, h, min))
+          if (y < 1900 || y > 9999 || check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d || h < 0 || h > 23 || min < 0 || min > 59) throw new Error('Mốc bắt đầu có ngày hoặc giờ không hợp lệ.')
+          const local = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+          baselineAt = vesselLocalToUtc(local, zone)
+          if (vesselInput(baselineAt, zone) !== local) throw new Error('Mốc bắt đầu không tồn tại trong múi giờ tàu.')
+        } catch (error) { issues.push(error instanceof Error ? error.message : 'Mốc bắt đầu không hợp lệ.') }
+      }
       rows.push({ rowNumber, code, workCode: original ? clean(cells[0]) : get('workCode'), assetCode, assetName, name: original ? name.slice(0, 200) : name,
         category: schedule.category!, intervalType: schedule.intervalType!,
         intervalDays: technical ? positive('intervalDays') : schedule.intervalDays,
         intervalMonths: technical ? positive('intervalMonths') : schedule.intervalMonths,
         intervalYears: technical ? positive('intervalYears') : schedule.intervalYears,
         intervalHours: technical ? positive('intervalHours') : schedule.intervalHours,
+        ...(baselineAt ? { baselineAt } : {}),
         instructions: [original ? name : '', planText(get('instructions')), planText(get('notes'))].filter(Boolean).join('\n'),
         priority: priorities[key(get('priority'))] || get('priority') || 'NORMAL',
         department: departments[key(get('department'))] || get('department') || department,

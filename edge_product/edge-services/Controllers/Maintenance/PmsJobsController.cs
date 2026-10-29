@@ -63,6 +63,11 @@ public sealed class PmsJobsController(PmsJobService jobs, EdgeDbContext db, IEdg
         return Ok(new { crew, ranks });
     }
 
+    [HttpGet("import-equipment")]
+    public async Task<IActionResult> ImportEquipment(CancellationToken token) => Ok(await db.EquipmentAssets.AsNoTracking()
+        .OrderBy(a => a.AssetCode).ThenBy(a => a.Id)
+        .Select(a => new { a.Id, a.AssetCode, a.AssetName, a.Category, a.ParentId, a.IsActive, a.Status }).ToListAsync(token));
+
     [HttpPost("{id:guid}/state")]
     public async Task<IActionResult> ChangeState(Guid id, [FromBody] ChangePmsJobStateDto dto, CancellationToken token)
     {
