@@ -416,7 +416,8 @@ public class RankPermissionTests
         {
             var name = type.Name[..^10]; if (!controllers.Contains(name)) continue;
             foreach (var method in type.GetMethods().Where(m => m.GetCustomAttributes(true).OfType<Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute>().Any()))
-                Assert.NotNull(PermissionRegistry.Resolve(name, method.Name));
+                Assert.True(PermissionRegistry.Resolve(name, method.Name) != null,
+                    $"Missing permission binding: {name}.{method.Name}");
         }
         Assert.All(PermissionRegistry.Data.Bindings.SelectMany(b => b.Grants), g => Assert.Contains(g, PermissionRegistry.Codes));
     }
