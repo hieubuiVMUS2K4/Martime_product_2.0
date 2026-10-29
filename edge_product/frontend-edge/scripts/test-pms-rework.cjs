@@ -4,13 +4,64 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
+let testLanguage = 'vi'
+let testMessages
 function load(file, imports = {}) {
   const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src', file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const exports = {}
-  vm.runInNewContext(code, { exports, require: name => imports[name] ?? (name === './time' ? time : require(name)), console, setTimeout, clearTimeout, URLSearchParams, crypto: globalThis.crypto, Intl, Date, Blob }, { filename: file })
+  vm.runInNewContext(code, { exports, require: name => imports[name] ?? (name === '@/i18n/messages' ? testMessages : name === './time' ? time : require(name)), console, setTimeout, clearTimeout, URLSearchParams, crypto: globalThis.crypto, Intl, Date, Blob }, { filename: file })
   return exports
 }
+const enCatalog = require('../src/locales/en.json'), viCatalog = require('../src/locales/vi.json')
+const catalogImports = { '@/locales/en.json': { default: enCatalog }, '@/locales/vi.json': { default: viCatalog } }
+const translationCore = load('contexts/I18nContext.tsx', { ...catalogImports, '@/stores/settings.store': {} })
+testMessages = load('i18n/messages.ts', { ...catalogImports, '@/contexts/I18nContext': translationCore, '@/stores/settings.store': { useSettingsStore: { getState: () => ({ language: testLanguage }) } } })
 const time = load('features/pms-rework/time.ts')
+
+test('PMS catalogs have matching keys and placeholders; switching language refreshes utility labels without changing user text', () => {
+  assert.deepEqual(Object.keys(enCatalog.pmsRework).sort(), Object.keys(viCatalog.pmsRework).sort())
+  for (const [key, value] of Object.entries(enCatalog.pmsRework)) {
+    assert.ok(value.trim(), key)
+    const params = text => [...text.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort()
+    assert.deepEqual(params(value), params(viCatalog.pmsRework[key]), key)
+  }
+  const { label, cycle, snapshot } = load('features/pms-rework/data.ts', { '@tanstack/react-query': {}, '@/services/api.client': {}, '@/stores/auth.store': {}, '@/stores/permissions.store': {} })
+  const departments = load('features/pms-rework/departments.ts')
+  try {
+    testLanguage = 'en'
+    assert.equal(label.PERIODIC, 'Periodic'); assert.equal(label.HIGH, 'High'); assert.equal(label.CANCELLED, 'Cancelled')
+    assert.equal(cycle({category:'PERIODIC',intervalMonths:3,intervalHours:100}), '3 months / 100 hours')
+    assert.equal(departments.departmentName('ENGINE'), 'Engine'); assert.equal(departments.departmentCode('Máy'), 'ENGINE')
+    assert.equal(testMessages.translateMessage('pmsRework.view526'), 'View')
+    const userText = 'Định kỳ · testing1 · không thay đổi nội dung'
+    assert.equal(testMessages.translateMessage('pmsRework.view', {p0:userText}), 'View ' + userText)
+    assert.equal(snapshot(JSON.stringify({Notes:userText})).notes, userText)
+    assert.equal(testMessages.localizePmsMessage('Ghi chú riêng của người dùng'), 'Ghi chú riêng của người dùng')
+    assert.equal(testMessages.localizePmsMessage('Cần mốc bắt đầu theo lịch.'), 'Calendar baseline is required.')
+    testLanguage = 'vi'
+    assert.equal(label.PERIODIC, 'Định kỳ'); assert.equal(departments.departmentName('ENGINE'), 'Máy')
+    assert.equal(testMessages.localizePmsMessage('Calendar baseline is required.'), 'Cần mốc bắt đầu theo lịch.')
+  } finally { testLanguage = 'vi' }
+})
+
+test('every PMS UI translation key resolves and visible JSX text uses the catalog', () => {
+  const directory = path.join(__dirname, '../src/features/pms-rework')
+  const files = fs.readdirSync(directory).filter(name => name.endsWith('.tsx')).map(name => path.join(directory, name))
+  files.push(...['components/common/AppModal.tsx', 'components/common/DataTable/ColumnFilterMenu.tsx', 'components/common/DataTable/TablePagination.tsx', 'components/ApprovalDialog.tsx'].map(file => path.join(__dirname, '../src', file)))
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf8')
+    for (const match of source.matchAll(/tx\(["']pmsRework\.([^"']+)["']/g)) {
+      assert.equal(typeof enCatalog.pmsRework[match[1]], 'string', `${file}: ${match[1]}`)
+      assert.equal(typeof viCatalog.pmsRework[match[1]], 'string', `${file}: ${match[1]}`)
+    }
+    const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    function visit(node) {
+      if (ts.isJsxText(node)) assert.equal(/[À-ỹđĐ]/.test(node.text.trim()), false, `${file}: hardcoded JSX text ${node.text.trim()}`)
+      ts.forEachChild(node, visit)
+    }
+    visit(ast)
+  }
+})
 test('calendar ranges use vessel midnight rather than the browser timezone', () => {
   assert.equal(time.vesselMidnight('2026-10-26', 'Asia/Ho_Chi_Minh'), '2026-10-25T17:00:00.000Z')
   assert.equal(time.vesselDate('2026-10-25T18:00:00Z', 'Asia/Ho_Chi_Minh'), '2026-10-26')

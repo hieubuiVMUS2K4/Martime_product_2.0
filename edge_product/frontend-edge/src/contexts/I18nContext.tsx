@@ -62,6 +62,12 @@ function interpolate(text: string, params: Record<string, string | number>): str
   });
 }
 
+/** Same catalog and fallback for React views and non-React formatting/validation helpers. */
+export function translateForLocale(locale: Language, key: string, params?: Record<string, string | number>): string {
+  const value = getNestedValue(translations[locale] ?? translations.en, key) ?? getNestedValue(translations.en, key) ?? key;
+  return params ? interpolate(value, params) : value;
+}
+
 // ============================================
 // Provider Component
 // ============================================

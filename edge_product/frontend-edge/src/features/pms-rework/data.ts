@@ -1,3 +1,4 @@
+import { translateMessage as tx, localizePmsMessage, messageLocale, useMessageLocale } from '@/i18n/messages'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/services/api.client'
 import { useAuthStore } from '@/stores/auth.store'
@@ -51,11 +52,13 @@ export function usePmsPermissions() {
     work: (action: string) => hasPermission(state, `pms.work.${action}`), counter: (action: string) => hasPermission(state, `pms.counter.${action}`) }
 }
 export function usePmsClock() {
+  useMessageLocale()
+
   const settings = usePmsQuery(['settings'], pms.settings)
   const zone = settings.data?.vesselTimeZone
   return { zone, automaticReleaseEnabled: settings.data?.automaticReleaseEnabled === true, error: settings.error,
-    date: (value?: string | null) => !value ? '—' : zone ? new Intl.DateTimeFormat('vi-VN', { timeZone: zone, dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value)) : 'Đang tải múi giờ…',
-    due: (at?: string | null, hours?: number | null) => [at ? zone ? new Intl.DateTimeFormat('vi-VN', { timeZone: zone }).format(new Date(at)) : 'Đang tải múi giờ…' : '', hours != null ? `${hours.toLocaleString('vi-VN')} giờ` : ''].filter(Boolean).join(' / ') || '—' }
+    date: (value?: string | null) => !value ? '—' : zone ? new Intl.DateTimeFormat(messageLocale(), { timeZone: zone, dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value)) : tx("pmsRework.loadingVesselTimeZone"),
+    due: (at?: string | null, hours?: number | null) => [at ? zone ? new Intl.DateTimeFormat(messageLocale(), { timeZone: zone }).format(new Date(at)) : tx("pmsRework.loadingVesselTimeZone") : '', hours != null ? tx(hours === 1 ? "pmsRework.hoursSingular" : "pmsRework.hours", { p0: hours.toLocaleString(messageLocale()) }) : ''].filter(Boolean).join(' / ') || '—' }
 }
 // Snapshots preserve their exact bytes/hash. Normalize keys only in this read-only view model.
 export function snapshot<T>(text?: string): T | null {
@@ -64,12 +67,12 @@ export function snapshot<T>(text?: string): T | null {
     ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key[0].toLowerCase() + key.slice(1), normalize(item)])) : value
   return normalize(JSON.parse(text)) as T
 }
-export const label: Record<string, string> = { PERIODIC: 'Định kỳ', AD_HOC: 'Đột xuất', DRY_DOCK: 'Lên đà', ON_DEMAND: 'Theo yêu cầu', VOYAGE: 'Theo chuyến',
-  ACTIVE: 'Hoạt động', NEEDS_INFORMATION: 'Cần bổ sung thông tin', PAUSED: 'Tạm dừng', RETIRED: 'Ngừng áp dụng', REMOVED: 'Đã xóa',
-  DRAFT: 'Nháp', UNASSIGNED: 'Chờ phân công', ASSIGNED: 'Đã phân công', IN_PROGRESS: 'Đang thực hiện', RECTIFY: 'Cần làm lại', PENDING_APPROVAL: 'Chờ duyệt', COMPLETED: 'Hoàn thành', CANCELLED: 'Đã hủy',
-  UPCOMING: 'Sắp đến hạn', DUE: 'Đến hạn', OVERDUE: 'Quá hạn', NOT_DUE: 'Chưa đến hạn', NO_DEADLINE: 'Chưa có hạn',
-  NORMAL: 'Trung bình', HIGH: 'Cao', LOW: 'Thấp', CRITICAL: 'Khẩn cấp', APPROVED: 'Đã duyệt', RETURNED: 'Đã trả lại' }
-export const date = (value?: string | null) => value ? new Date(value).toLocaleString('vi-VN') : '—'
-export const due = (at?: string | null, hours?: number | null) => [at ? new Date(at).toLocaleDateString('vi-VN') : '', hours != null ? `${hours.toLocaleString('vi-VN')} giờ` : ''].filter(Boolean).join(' / ') || '—'
-export const cycle = (job: Pick<Job, 'category' | 'intervalDays' | 'intervalMonths' | 'intervalYears' | 'intervalHours'>) => job.category !== 'PERIODIC' ? label[job.category] : [job.intervalDays ? `${job.intervalDays} ngày` : '', job.intervalMonths ? `${job.intervalMonths} tháng` : '', job.intervalYears ? `${job.intervalYears} năm` : '', job.intervalHours ? `${job.intervalHours} giờ` : ''].filter(Boolean).join(' / ') || 'Chưa có chu kỳ'
-export const message = (error: unknown) => error instanceof Error ? error.message : 'Không thể thực hiện thao tác.'
+export const label: Record<string, string> = { get PERIODIC() { return tx("pmsRework.periodic") }, get AD_HOC() { return tx("pmsRework.adHoc") }, get DRY_DOCK() { return tx("pmsRework.dryDock") }, get ON_DEMAND() { return tx("pmsRework.onDemand") }, get VOYAGE() { return tx("pmsRework.perVoyage") },
+  get ACTIVE() { return tx("pmsRework.active") }, get NEEDS_INFORMATION() { return tx("pmsRework.informationRequired") }, get PAUSED() { return tx("pmsRework.paused") }, get RETIRED() { return tx("pmsRework.retired") }, get REMOVED() { return tx("pmsRework.deleted") },
+  get DRAFT() { return tx("pmsRework.draft") }, get UNASSIGNED() { return tx("pmsRework.awaitingAssignment") }, get ASSIGNED() { return tx("pmsRework.assigned") }, get IN_PROGRESS() { return tx("pmsRework.inProgress") }, get RECTIFY() { return tx("pmsRework.reworkRequired") }, get PENDING_APPROVAL() { return tx("pmsRework.pendingApproval") }, get COMPLETED() { return tx("pmsRework.completed") }, get CANCELLED() { return tx("pmsRework.cancelled") },
+  get UPCOMING() { return tx("pmsRework.upcoming") }, get DUE() { return tx("pmsRework.due") }, get OVERDUE() { return tx("pmsRework.overdue") }, get NOT_DUE() { return tx("pmsRework.notDue") }, get NO_DEADLINE() { return tx("pmsRework.noDeadline") },
+  get NORMAL() { return tx("pmsRework.normal") }, get HIGH() { return tx("pmsRework.high") }, get LOW() { return tx("pmsRework.low") }, get CRITICAL() { return tx("pmsRework.critical") }, get APPROVED() { return tx("pmsRework.approved") }, get RETURNED() { return tx("pmsRework.returned") } }
+export const date = (value?: string | null) => value ? new Date(value).toLocaleString(messageLocale()) : '—'
+export const due = (at?: string | null, hours?: number | null) => [at ? new Date(at).toLocaleDateString(messageLocale()) : '', hours != null ? tx(hours === 1 ? "pmsRework.hoursSingular" : "pmsRework.hours", { p0: hours.toLocaleString(messageLocale()) }) : ''].filter(Boolean).join(' / ') || '—'
+export const cycle = (job: Pick<Job, 'category' | 'intervalDays' | 'intervalMonths' | 'intervalYears' | 'intervalHours'>) => job.category !== 'PERIODIC' ? label[job.category] : [job.intervalDays ? tx(job.intervalDays === 1 ? "pmsRework.daysSingular" : "pmsRework.days", { p0: job.intervalDays }) : '', job.intervalMonths ? tx(job.intervalMonths === 1 ? "pmsRework.monthsSingular" : "pmsRework.months", { p0: job.intervalMonths }) : '', job.intervalYears ? tx(job.intervalYears === 1 ? "pmsRework.yearsSingular" : "pmsRework.years", { p0: job.intervalYears }) : '', job.intervalHours ? tx(job.intervalHours === 1 ? "pmsRework.hoursSingular" : "pmsRework.hours", { p0: job.intervalHours }) : ''].filter(Boolean).join(' / ') || tx("pmsRework.noIntervalConfigured")
+export const message = (error: unknown) => error instanceof Error ? localizePmsMessage(error.message) : tx("pmsRework.theActionCouldNotBeCompleted")

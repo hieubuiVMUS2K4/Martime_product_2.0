@@ -1,3 +1,4 @@
+import { translateMessage as tx, useMessageLocale } from '@/i18n/messages'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDownAZ, ArrowDownZA, ListFilter, Search, X } from 'lucide-react';
@@ -46,6 +47,8 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
   onSort,
   filterContent,
 }) => {
+  useMessageLocale()
+
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   /** Bản nháp, chỉ ghi vào bộ lọc thật khi bấm Áp dụng. */
@@ -147,8 +150,8 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
         onClick={() => (open ? setOpen(false) : show())}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Lọc và sắp xếp cột ${label}${isFiltered ? ' (đang lọc)' : ''}`}
-        title={isFiltered ? `Đang lọc cột ${label}` : `Lọc và sắp xếp cột ${label}`}
+        aria-label={tx("pmsRework.filterAndSortColumn", { p0: label, p1: isFiltered ? tx("pmsRework.filtered") : '' })}
+        title={isFiltered ? tx("pmsRework.filteringColumn", { p0: label }) : tx("pmsRework.filterAndSortColumn505", { p0: label })}
         className={`absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-sm border transition-colors ${
           isFiltered
             ? 'border-blue-600 bg-blue-600 text-white'
@@ -164,7 +167,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
         <div
           ref={panelRef}
           role="dialog"
-          aria-label={`Bộ lọc cột ${label}`}
+          aria-label={tx("pmsRework.columnFilter", { p0: label })}
           style={{ ...style, width: PANEL_WIDTH }}
           className="fixed z-[1350] flex flex-col overflow-hidden rounded-md border border-gray-300 bg-white p-1.5 text-left font-normal normal-case tracking-normal shadow-xl"
         >
@@ -172,12 +175,10 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
             <>
               <button type="button" className={`${itemClass} ${sortDirection === 'asc' ? 'font-semibold text-blue-600' : ''}`}
                 onClick={() => { onSort(sortDirection === 'asc' ? null : 'asc'); setOpen(false); }}>
-                <ArrowDownAZ className="h-4 w-4" aria-hidden="true" /> Sắp xếp tăng dần (A → Z)
-              </button>
+                <ArrowDownAZ className="h-4 w-4" aria-hidden="true" />{tx("pmsRework.sortAscendingAZ")}</button>
               <button type="button" className={`${itemClass} ${sortDirection === 'desc' ? 'font-semibold text-blue-600' : ''}`}
                 onClick={() => { onSort(sortDirection === 'desc' ? null : 'desc'); setOpen(false); }}>
-                <ArrowDownZA className="h-4 w-4" aria-hidden="true" /> Sắp xếp giảm dần (Z → A)
-              </button>
+                <ArrowDownZA className="h-4 w-4" aria-hidden="true" />{tx("pmsRework.sortDescendingZA")}</button>
               <div className="my-1 border-t border-gray-300" />
             </>
           )}
@@ -185,8 +186,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
           {filterContent ? filterContent(() => setOpen(false)) : <>
           {isFiltered && (
             <button type="button" className={`${itemClass} text-red-700`} onClick={() => apply(values)}>
-              <X className="h-4 w-4" aria-hidden="true" /> Bỏ lọc cột này
-            </button>
+              <X className="h-4 w-4" aria-hidden="true" />{tx("pmsRework.clearThisColumnFilter")}</button>
           )}
 
           {quickFilters?.map(q => (
@@ -198,12 +198,12 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
           {(isFiltered || (quickFilters && quickFilters.length > 0)) && <div className="my-1 border-t border-gray-300" />}
 
           <label className="relative mb-1 block">
-            <span className="sr-only">Tìm giá trị trong cột {label}</span>
+            <span className="sr-only">{tx("pmsRework.searchValuesInColumn") + " "}{label}</span>
             <input
               type="text"
               autoFocus
               value={search}
-              placeholder="Tìm giá trị..."
+              placeholder={tx("pmsRework.searchValues")}
               onChange={e => changeSearch(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && draft.length > 0) apply(draft); }}
               className="h-8 w-full rounded border border-gray-300 pl-2 pr-7 text-xs text-gray-900 focus:border-blue-500 focus:outline-none"
@@ -211,21 +211,19 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
             <Search className="pointer-events-none absolute right-2 top-2 h-4 w-4 text-gray-400" aria-hidden="true" />
           </label>
 
-          <div role="group" aria-label="Giá trị của cột" className="min-h-[80px] flex-1 overflow-y-auto rounded border border-gray-300 py-1">
+          <div role="group" aria-label={tx("pmsRework.columnValues")} className="min-h-[80px] flex-1 overflow-y-auto rounded border border-gray-300 py-1">
             {visible.length === 0 ? (
-              <p className="px-2 py-3 text-center text-xs text-gray-600">Không có giá trị nào khớp.</p>
+              <p className="px-2 py-3 text-center text-xs text-gray-600">{tx("pmsRework.noMatchingValues")}</p>
             ) : (
               <>
                 <label className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs font-medium text-gray-900 hover:bg-blue-50">
                   <input type="checkbox" className="h-3.5 w-3.5 accent-blue-600" checked={allChecked}
-                    ref={node => { if (node) node.indeterminate = someChecked; }} onChange={toggleAll} />
-                  (Chọn tất cả)
-                </label>
+                    ref={node => { if (node) node.indeterminate = someChecked; }} onChange={toggleAll} />{tx("pmsRework.selectAll")}</label>
                 {visible.map(value => (
                   <label key={value} className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs text-gray-900 hover:bg-blue-50">
                     <input type="checkbox" className="h-3.5 w-3.5 shrink-0 accent-blue-600" checked={draft.includes(value)}
                       onChange={() => toggle(value)} />
-                    <span className="truncate" title={value}>{value === '' ? '(trống)' : value}</span>
+                    <span className="truncate" title={value}>{value === '' ? tx("pmsRework.blank") : value}</span>
                   </label>
                 ))}
               </>
@@ -234,14 +232,10 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
 
           <div className="mt-1.5 flex justify-end gap-1.5">
             <button type="button" onClick={() => setOpen(false)}
-              className="h-8 rounded border border-gray-300 px-3 text-xs text-gray-900 hover:bg-blue-50">
-              Hủy
-            </button>
+              className="h-8 rounded border border-gray-300 px-3 text-xs text-gray-900 hover:bg-blue-50">{tx("pmsRework.cancel")}</button>
             <button type="button" disabled={draft.length === 0} onClick={() => apply(draft)}
-              title={draft.length === 0 ? 'Phải chọn ít nhất một giá trị' : undefined}
-              className="h-8 rounded bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-              Áp dụng
-            </button>
+              title={draft.length === 0 ? tx("pmsRework.selectAtLeastOneValue") : undefined}
+              className="h-8 rounded bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">{tx("pmsRework.apply")}</button>
           </div>
           </>}
         </div>,

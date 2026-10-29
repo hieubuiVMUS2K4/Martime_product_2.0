@@ -1,3 +1,4 @@
+import { translateMessage as tx } from '@/i18n/messages'
 import type { WorkBook } from 'xlsx'
 import type { EquipmentNode } from './types'
 import { vesselLocalToUtc, vesselInput } from './time'
@@ -45,11 +46,11 @@ function frequency(raw: string) {
   for (const part of parts) {
     const text = part.replace(/\s+/g, '')
     const match = text.match(/^(m|y|d|h)(\d+)$/) || text.match(/^(\d+)(thang|nam|ngay|gio|hours?|months?|years?|days?)$/)
-    if (!match) throw new Error(raw ? `Chu kỳ “${raw}” chưa rõ; dùng M3, Y1, D7, H1000 hoặc M3/H1000. Khoảng giờ cần được chọn lại, không tự lấy cận dưới.` : 'Chưa có chu kỳ cho công việc Định kỳ.')
+    if (!match) throw new Error(raw ? tx("pmsRework.intervalIsUnclearUseM3Y1D7H1000", { p0: raw }) : tx("pmsRework.noIntervalSpecifiedForThePeriodicJob"))
     const unit = /^\d+$/.test(match[1]) ? match[2] : match[1], count = Number(/^\d+$/.test(match[1]) ? match[1] : match[2])
-    if (!Number.isSafeInteger(count) || count < 1) throw new Error('Chu kỳ phải là số nguyên dương.')
+    if (!Number.isSafeInteger(count) || count < 1) throw new Error(tx("pmsRework.theIntervalMustBeAPositiveInteger"))
     const field = /^(h|gio|hours?)$/.test(unit) ? 'intervalHours' : /^(m|thang|months?)$/.test(unit) ? 'intervalMonths' : /^(y|nam|years?)$/.test(unit) ? 'intervalYears' : 'intervalDays'
-    if (seen.has(field) || field !== 'intervalHours' && [...seen].some(value => value !== 'intervalHours')) throw new Error('Chỉ chọn một chu kỳ lịch và tối đa một chu kỳ giờ chạy.')
+    if (seen.has(field) || field !== 'intervalHours' && [...seen].some(value => value !== 'intervalHours')) throw new Error(tx("pmsRework.selectOneCalendarIntervalAndAtMostOne"))
     seen.add(field); result[field] = count
   }
   result.intervalType = seen.has('intervalHours') ? seen.size > 1 ? 'HYBRID' : 'RUNNING_HOURS' : 'CALENDAR'
@@ -73,8 +74,8 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
     const original = headers.includes('code') && headers.includes('maintenancedescription') && headers.includes('freq')
     const technical = headers.includes('schedulecode')
     if (technical) {
-      for (const h of ['schedulecode', 'assetcode', 'schedulename', 'maintenancecategory', 'intervaltype']) if (!headers.includes(h)) throw new Error(`Thiếu cột ${h}. Hãy dùng mẫu import công việc.`)
-      if (headers.some(h => ['lastexecutedat', 'nextduedate', 'lastexecutedrunninghours', 'baselinerunninghours', 'lanthuchiencuoi', 'hantieptheo'].includes(h))) throw new Error('Hãy bỏ các cột lịch sử, counter mốc và hạn tiếp theo; chỉ được nhập mốc bắt đầu theo lịch.')
+      for (const h of ['schedulecode', 'assetcode', 'schedulename', 'maintenancecategory', 'intervaltype']) if (!headers.includes(h)) throw new Error(tx("pmsRework.missingColumnUseTheJobImportTemplate", { p0: h }))
+      if (headers.some(h => ['lastexecutedat', 'nextduedate', 'lastexecutedrunninghours', 'baselinerunninghours', 'lanthuchiencuoi', 'hantieptheo'].includes(h))) throw new Error(tx("pmsRework.removeHistoryCounterBaselineAndNextDeadlineColumns"))
     }
     const columns = Object.fromEntries(Object.entries(aliases).map(([field, names]) => [field, headers.findIndex(h => names.includes(h))]))
     const nameOfSheet = fold(sheetName)
@@ -104,17 +105,17 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
       let schedule: Partial<ImportRow> = { category: categories[key(get('category'))] || get('category') || 'PERIODIC', intervalType: get('intervalType') || 'CALENDAR' }
       if (!technical) {
         const category = categories[key(get('category'))]
-        if (get('category') && !category) issues.push(`Loại bảo trì “${get('category')}” chưa được hỗ trợ.`)
+        if (get('category') && !category) issues.push(tx("pmsRework.maintenanceTypeIsNotSupported", { p0: get('category') }))
         try {
           const parsed = frequency(sourceFrequency || (category && category !== 'PERIODIC' ? category : ''))
-          if (category && parsed.category !== category) issues.push('Loại bảo trì và chu kỳ không thống nhất.')
+          if (category && parsed.category !== category) issues.push(tx("pmsRework.theMaintenanceTypeAndIntervalDoNotMatch"))
           schedule = { ...schedule, ...parsed }
-        } catch (error) { issues.push(error instanceof Error ? error.message : 'Chu kỳ không hợp lệ.') }
+        } catch (error) { issues.push(error instanceof Error ? error.message : tx("pmsRework.invalidInterval")) }
       }
       const positive = (field: string) => {
         const raw = get(field); if (!raw) return undefined
         const value = Number(raw)
-        if (!Number.isSafeInteger(value) || value < 1) throw new Error(`Dòng ${r + 1}: ${field} phải là số nguyên dương.`)
+        if (!Number.isSafeInteger(value) || value < 1) throw new Error(tx("pmsRework.rowMustBeAPositiveInteger", { p0: r + 1, p1: field }))
         return value
       }
       let assetCode = get('assetCode')
@@ -134,11 +135,11 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
           if (inGroup.length === 1) matches = inGroup
         }
         if (matches.length === 1) assetCode = matches[0].assetCode
-        else issues.push(matches.length ? `Tên thiết bị “${assetName}” bị trùng; bổ sung mã thiết bị cụ thể.` : `Chưa đối chiếu được thiết bị “${assetName}”; bổ sung mã thiết bị đang có.`)
+        else issues.push(matches.length ? tx("pmsRework.equipmentNameIsAmbiguousEnterTheSpecificEquipment", { p0: assetName }) : tx("pmsRework.couldNotMatchEquipmentEnterAnExistingEquipment", { p0: assetName }))
       }
       if (get('assetCode') && assetName) {
         const asset = equipment.find(a => a.assetCode.toLowerCase() === assetCode.toLowerCase())
-        if (asset && fold(asset.assetName) !== fold(assetName)) issues.push('Tên thiết bị không khớp mã thiết bị; sửa tên đối chiếu hoặc để trống tên.')
+        if (asset && fold(asset.assetName) !== fold(assetName)) issues.push(tx("pmsRework.theEquipmentNameDoesNotMatchItsCode"))
       }
       const rowNumber = sheetIndex * 100000 + r + 1
       const code = original ? `BD${year}-${department === 'ENGINE' ? 'M' : department === 'DECK' ? 'D' : sheetIndex + 1}-R${String(r + 1).padStart(4, '0')}` : get('code')
@@ -146,27 +147,27 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
       const baseline = columns.baselineAt < 0 ? '' : cells[columns.baselineAt]
       if (!original && clean(baseline)) {
         const intervalType = technical ? get('intervalType') : schedule.intervalType
-        if (schedule.category !== 'PERIODIC' || !['CALENDAR', 'HYBRID'].includes(intervalType || '')) issues.push('Mốc bắt đầu chỉ áp dụng cho Định kỳ theo lịch hoặc kết hợp lịch và giờ chạy.')
+        if (schedule.category !== 'PERIODIC' || !['CALENDAR', 'HYBRID'].includes(intervalType || '')) issues.push(tx("pmsRework.theInitialDateBaselineOnlyAppliesToPeriodic"))
         else try {
-          if (!zone) throw new Error('Chưa lấy được múi giờ tàu; hãy thử lại trước khi nhập mốc bắt đầu.')
+          if (!zone) throw new Error(tx("pmsRework.theVesselTimeZoneIsNotAvailableRetry"))
           let parts: number[]
           if (typeof baseline === 'number') {
             const date = XLSX.SSF.parse_date_code(baseline, { date1904: !!book.Workbook?.WBProps?.date1904 })
-            if (!date) throw new Error('Mốc bắt đầu không phải ngày Excel hợp lệ.')
+            if (!date) throw new Error(tx("pmsRework.theBaselineIsNotAValidExcelDate"))
             parts = [date.y, date.m, date.d, date.H, date.M]
           } else {
             const value = clean(baseline)
             const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/)
             const vn = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?$/)
-            if (!iso && !vn) throw new Error('Mốc bắt đầu dùng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm (giờ tàu).')
+            if (!iso && !vn) throw new Error(tx("pmsRework.useDdMMYyyyOrDdMMYyyy"))
             parts = iso ? [Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4] || 0), Number(iso[5] || 0)] : [Number(vn![3]), Number(vn![2]), Number(vn![1]), Number(vn![4] || 0), Number(vn![5] || 0)]
           }
           const [y, m, d, h, min] = parts, check = new Date(Date.UTC(y, m - 1, d, h, min))
-          if (y < 1900 || y > 9999 || check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d || h < 0 || h > 23 || min < 0 || min > 59) throw new Error('Mốc bắt đầu có ngày hoặc giờ không hợp lệ.')
+          if (y < 1900 || y > 9999 || check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d || h < 0 || h > 23 || min < 0 || min > 59) throw new Error(tx("pmsRework.theBaselineDateOrTimeIsInvalid"))
           const local = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
           baselineAt = vesselLocalToUtc(local, zone)
-          if (vesselInput(baselineAt, zone) !== local) throw new Error('Mốc bắt đầu không tồn tại trong múi giờ tàu.')
-        } catch (error) { issues.push(error instanceof Error ? error.message : 'Mốc bắt đầu không hợp lệ.') }
+          if (vesselInput(baselineAt, zone) !== local) throw new Error(tx("pmsRework.theBaselineDoesNotExistInTheVessel"))
+        } catch (error) { issues.push(error instanceof Error ? error.message : tx("pmsRework.invalidBaseline")) }
       }
       rows.push({ rowNumber, code, workCode: original ? clean(cells[0]) : get('workCode'), assetCode, assetName, name: original ? name.slice(0, 200) : name,
         category: schedule.category!, intervalType: schedule.intervalType!,
@@ -181,8 +182,8 @@ export async function parseJobWorkbook(book: WorkBook, equipment: EquipmentNode[
         sourceSheet: sheetName, sourceRow: r + 1, sourceFrequency, ...(issues.length ? { issues } : {}) })
     }
   }
-  if (!found) throw new Error('Không tìm thấy bảng công việc. Dùng mẫu Job BQBD hoặc bảng Code / Equipment Name / Maintenance Description / Freq. trong file BIENDONG.')
-  if (rows.length < 1 || rows.length > 1000) throw new Error('Mỗi file cần từ 1 đến 1.000 công việc.')
+  if (!found) throw new Error(tx("pmsRework.noJobTableFoundUseTheBQBDJob"))
+  if (rows.length < 1 || rows.length > 1000) throw new Error(tx("pmsRework.eachFileMustContain11000Jobs"))
   return rows
 }
 

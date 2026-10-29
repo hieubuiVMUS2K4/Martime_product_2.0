@@ -1,3 +1,4 @@
+import { translateMessage as tx, useMessageLocale } from '@/i18n/messages'
 import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
@@ -20,8 +21,10 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   onPageChange,
   pageSizeOptions,
   onPageSizeChange,
-  itemLabel = 'kết quả',
+  itemLabel = tx(totalItems === 1 ? "pmsRework.result" : "pmsRework.results"),
 }) => {
+  useMessageLocale()
+
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const first = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, totalItems);
@@ -31,13 +34,12 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   return (
     <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#a3b1bc] px-3 py-2 text-xs text-gray-600">
       <div className="flex items-center gap-3">
-        <span>
-          Hiển thị <strong className="text-gray-900">{first}</strong>–<strong className="text-gray-900">{last}</strong> trên{' '}
+        <span>{tx("pmsRework.showing")}<strong className="text-gray-900">{first}</strong>–<strong className="text-gray-900">{last}</strong>{" " + tx("pmsRework.of")}{' '}
           <strong className="text-gray-900">{totalItems}</strong> {itemLabel}
         </span>
         {pageSizeOptions && onPageSizeChange && (
           <label className="flex items-center gap-1.5">
-            <span>Mỗi trang</span>
+            <span>{tx("pmsRework.perPage")}</span>
             <select
               value={pageSize}
               onChange={e => onPageSizeChange(Number(e.target.value))}
@@ -48,20 +50,20 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
           </label>
         )}
       </div>
-      <nav className="flex items-center gap-1" aria-label="Phân trang">
-        <button type="button" className={btn} disabled={page <= 1} onClick={() => onPageChange(1)} aria-label="Trang đầu" title="Trang đầu">
+      <nav className="flex items-center gap-1" aria-label={tx("pmsRework.pagination")}>
+        <button type="button" className={btn} disabled={page <= 1} onClick={() => onPageChange(1)} aria-label={tx("pmsRework.firstPage")} title={tx("pmsRework.firstPage")}>
           <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
         </button>
-        <button type="button" className={btn} disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label="Trang trước" title="Trang trước">
+        <button type="button" className={btn} disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label={tx("pmsRework.previousPage")} title={tx("pmsRework.previousPage")}>
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </button>
         <span className="min-w-[64px] text-center" aria-current="page">
           <strong className="text-gray-900">{page}</strong> / {totalPages}
         </span>
-        <button type="button" className={btn} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label="Trang sau" title="Trang sau">
+        <button type="button" className={btn} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label={tx("pmsRework.nextPage")} title={tx("pmsRework.nextPage")}>
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
-        <button type="button" className={btn} disabled={page >= totalPages} onClick={() => onPageChange(totalPages)} aria-label="Trang cuối" title="Trang cuối">
+        <button type="button" className={btn} disabled={page >= totalPages} onClick={() => onPageChange(totalPages)} aria-label={tx("pmsRework.lastPage")} title={tx("pmsRework.lastPage")}>
           <ChevronsRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </nav>

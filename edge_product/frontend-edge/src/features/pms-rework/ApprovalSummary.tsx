@@ -1,3 +1,4 @@
+import { translateMessage as tx, useMessageLocale } from '@/i18n/messages'
 import type { ApprovalContext } from '@/services/approval'
 import { snapshot } from './data'
 import { ReportView } from './Reports'
@@ -20,7 +21,9 @@ export function pmsApprovalReport(context: ApprovalContext) {
 }
 
 export function PmsApprovalSummary({ context }: { context: ApprovalContext }) {
+  useMessageLocale()
+
   const report = pmsApprovalReport(context)
-  if (!report) return <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Không đọc được bản báo cáo để đối chiếu. Hãy đóng và tải lại báo cáo trước khi xác nhận.</p>
+  if (!report) return <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{tx("pmsRework.theSubmittedReportCouldNotBeReadClose")}</p>
   return <ReportView report={{ id: '', revision: report.revision, contentHash: context.contentHash, submittedAt: report.data.submittedAt, submittedByCrewId: report.data.submittedByCrewId, snapshotJson: report.json }} />
 }

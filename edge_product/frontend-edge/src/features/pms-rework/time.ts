@@ -1,3 +1,4 @@
+import { translateMessage as tx } from '@/i18n/messages'
 export function vesselDate(utc: string, zone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(utc))
   const get = (type: string) => parts.find(p => p.type === type)!.value
@@ -17,7 +18,7 @@ export function vesselLocalToUtc(value: string, zone: string): string {
     if (difference === 0) return new Date(guess).toISOString()
     guess += difference
   }
-  throw new Error('Ngày được chọn không có đầu ngày hợp lệ trong múi giờ tàu.')
+  throw new Error(tx("pmsRework.theSelectedDateHasNoValidStartIn"))
 }
 export function vesselInput(utc: string | null | undefined, zone?: string): string {
   if (!utc || !zone) return ''
