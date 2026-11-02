@@ -18,10 +18,9 @@ public class VesselMaterialsController(AppDbContext context, ISyncOutboxService 
     private static string? Validate(VesselMaterialDefinition row)
     {
         row.ItemCode = (row.ItemCode ?? "").Trim();
-        row.Name = (row.Name ?? "").Trim();
         row.Unit = (row.Unit ?? "").Trim();
-        if (row.ItemCode.Length is 0 or > 50 || row.Name.Length is 0 or > 200 || row.Unit.Length is 0 or > 20)
-            return "Cần mã vật tư (tối đa 50 ký tự), tên (200 ký tự) và đơn vị (20 ký tự).";
+        if (row.ItemCode.Length is 0 or > 50 || row.Unit.Length is 0 or > 20)
+            return "Cần mã vật tư trên tàu (tối đa 50 ký tự) và đơn vị (20 ký tự).";
         if (row.UnitCost < 0) return "Đơn giá không được âm.";
         if (row.Manufacturer?.Length > 100 || row.PartNumber?.Length > 100 || row.Supplier?.Length > 200)
             return "Hãng sản xuất/mã phụ tùng tối đa 100 ký tự; nhà cung cấp tối đa 200 ký tự.";
@@ -67,7 +66,7 @@ public class VesselMaterialsController(AppDbContext context, ISyncOutboxService 
                 UnitCost = s.UnitCost, IsActive = s.IsActive
             });
             var status = !matches ? "NotSynced" : last!.DeliveredAt == null ? "Pending" : "Synced";
-            return new { s.Id, r.catalogId, itemCode = s.ShipItemCode, r.name, s.Unit, s.Specification, s.Manufacturer,
+            return new { s.Id, r.catalogId, s.MaterialItemCode, itemCode = s.ShipItemCode, r.name, s.Unit, s.Specification, s.Manufacturer,
                 s.PartNumber, s.Supplier, s.Notes, s.UnitCost, s.OnHandQuantity, s.MinStock, s.MaxStock,
                 s.IsActive, s.VesselId, s.CreatedAt, s.UpdatedAt, syncStatus = status, syncedAt = last?.DeliveredAt };
         }));
@@ -79,24 +78,34 @@ public class VesselMaterialsController(AppDbContext context, ISyncOutboxService 
         var error = Validate(row);
         if (error != null) return BadRequest(new { message = error });
         if (!await context.Vessels.AnyAsync(v => v.Id == vesselId)) return NotFound();
-        if (await context.MaterialItemShips.AnyAsync(s => s.VesselId == vesselId && s.ShipItemCode == row.ItemCode))
-            return Conflict(new { message = "Mã vật tư đã có trên tàu này." });
         await using var transaction = await context.Database.BeginTransactionAsync();
-        var catalog = new MaterialItem { ItemCode = Guid.NewGuid().ToString("N"), Name = row.Name };
-        var ship = new MaterialItemShip { VesselId = vesselId, MaterialItemCode = catalog.ItemCode, ShipItemCode = row.ItemCode };
-        Apply(ship, catalog, row);
-        context.MaterialItems.Add(catalog);
+        await LockVessel(vesselId);
+        var catalog = await SelectedCatalog(row);
+        if (catalog == null) return BadRequest(new { message = "Hãy chọn vật tư đang hoạt động trong danh mục công ty." });
+        if (await context.MaterialItemShips.AnyAsync(s => s.VesselId == vesselId &&
+            (s.ShipItemCode == row.ItemCode || s.MaterialItemCode == catalog.ItemCode)))
+            return Conflict(new { message = "Mã trên tàu hoặc vật tư danh mục này đã được gán cho tàu, kể cả bản ghi đã ngừng dùng." });
+        var ship = new MaterialItemShip { VesselId = vesselId, MaterialItemCode = catalog.ItemCode, CategoryId = catalog.CategoryId };
+        Apply(ship, row);
         context.MaterialItemShips.Add(ship);
         await context.SaveChangesAsync();
         await transaction.CommitAsync();
         return Ok(new { ship.Id });
     }
 
-    private static void Apply(MaterialItemShip ship, MaterialItem catalog, VesselMaterialDefinition row)
+    private Task LockVessel(Guid vesselId) => context.Database.ExecuteSqlInterpolatedAsync(
+        $"SELECT pg_advisory_xact_lock(hashtextextended({vesselId.ToString()}, 0))");
+
+    private Task<MaterialItem?> SelectedCatalog(VesselMaterialDefinition row)
     {
-        catalog.Name = row.Name;
-        catalog.UnitPrice = row.UnitCost;
-        catalog.UpdatedAt = DateTime.UtcNow;
+        var code = row.MaterialItemCode?.Trim();
+        return context.MaterialItems.AsNoTracking().SingleOrDefaultAsync(c => c.IsActive &&
+            (row.CatalogId != Guid.Empty ? c.Id == row.CatalogId : !string.IsNullOrEmpty(code) && c.ItemCode == code) &&
+            (string.IsNullOrEmpty(code) || c.ItemCode == code));
+    }
+
+    private static void Apply(MaterialItemShip ship, VesselMaterialDefinition row)
+    {
         ship.ShipItemCode = row.ItemCode;
         ship.Unit = row.Unit;
         ship.Specification = row.Specification;
@@ -105,7 +114,7 @@ public class VesselMaterialsController(AppDbContext context, ISyncOutboxService 
         ship.Supplier = row.Supplier;
         ship.Notes = row.Notes;
         ship.UnitCost = row.UnitCost;
-        ship.UpdatedAt = catalog.UpdatedAt;
+        ship.UpdatedAt = DateTime.UtcNow;
     }
 
     [HttpPut("{id:guid}")]
@@ -113,31 +122,19 @@ public class VesselMaterialsController(AppDbContext context, ISyncOutboxService 
     {
         var error = Validate(row);
         if (error != null) return BadRequest(new { message = error });
+        await using var transaction = await context.Database.BeginTransactionAsync();
+        await LockVessel(vesselId);
         var ship = await context.MaterialItemShips.AsTracking().SingleOrDefaultAsync(s => s.Id == id && s.VesselId == vesselId && s.IsActive);
         if (ship == null) return NotFound();
         if (await context.MaterialItemShips.AnyAsync(s => s.VesselId == vesselId && s.Id != id && s.ShipItemCode == row.ItemCode))
             return Conflict(new { message = "Mã vật tư đã có trên tàu này." });
-        await using var transaction = await context.Database.BeginTransactionAsync();
-        var catalog = await context.MaterialItems.AsTracking().SingleOrDefaultAsync(c => c.ItemCode == ship.MaterialItemCode);
-        // A legacy shared catalog must not change another vessel's name/price.
-        if (catalog == null || await context.MaterialItemShips.AnyAsync(s => s.MaterialItemCode == ship.MaterialItemCode && s.VesselId != vesselId))
-        {
-            var oldCatalogId = catalog?.Id;
-            catalog = new MaterialItem { ItemCode = Guid.NewGuid().ToString("N") };
-            context.MaterialItems.Add(catalog);
-            ship.MaterialItemCode = catalog.ItemCode;
-            if (oldCatalogId.HasValue)
-            {
-                var oldLinks = await (from l in context.MaterialItemEquipments
-                                      join e in context.EquipmentAssets on l.EquipmentAssetId equals e.Id
-                                      where l.MaterialItemId == oldCatalogId.Value && e.VesselId == vesselId select l).ToListAsync();
-                foreach (var link in oldLinks) context.MaterialItemEquipments.Add(new MaterialItemEquipment {
-                    MaterialItemId = catalog.Id, EquipmentAssetId = link.EquipmentAssetId, Notes = link.Notes
-                });
-                context.MaterialItemEquipments.RemoveRange(oldLinks);
-            }
-        }
-        Apply(ship, catalog, row);
+        var catalog = await context.MaterialItems.AsNoTracking().SingleOrDefaultAsync(c => c.ItemCode == ship.MaterialItemCode);
+        if (catalog == null) return Conflict(new { message = "Không tìm thấy vật tư danh mục gốc. Cần kiểm tra liên kết trước khi cập nhật." });
+        if (row.CatalogId != Guid.Empty && row.CatalogId != catalog.Id ||
+            !string.IsNullOrWhiteSpace(row.MaterialItemCode) && row.MaterialItemCode.Trim() != catalog.ItemCode)
+            return Conflict(new { message = "Không thể đổi vật tư danh mục của bản ghi đã gán. Hãy gán vật tư khác thành một bản ghi mới." });
+        // Preserve the shared catalogue, equipment links, stock and historical material identity.
+        Apply(ship, row);
         await context.SaveChangesAsync();
         await transaction.CommitAsync();
         return Ok(new { ship.Id });
@@ -160,21 +157,28 @@ public class VesselMaterialsController(AppDbContext context, ISyncOutboxService 
         if (!await context.Vessels.AnyAsync(v => v.Id == vesselId)) return NotFound();
         if (rows.Count is 0 or > 1000) return BadRequest(new { message = "Mỗi lần import cần 1–1000 vật tư." });
         var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var selected = new List<(VesselMaterialDefinition Row, MaterialItem Catalog)>();
+        var catalogIds = new HashSet<Guid>();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+        await LockVessel(vesselId);
         foreach (var row in rows)
         {
             var error = Validate(row);
             if (error != null || !codes.Add(row.ItemCode)) return BadRequest(new { message = error ?? "File có mã vật tư trùng nhau." });
+            var catalog = await SelectedCatalog(row);
+            if (catalog == null) return BadRequest(new { message = $"Mã danh mục '{row.MaterialItemCode}' không tồn tại hoặc đã ngừng dùng. Tạo vật tư tại danh mục công ty trước khi gán cho tàu." });
+            if (!catalogIds.Add(catalog.Id)) return BadRequest(new { message = "File gán cùng một vật tư danh mục nhiều lần cho tàu." });
+            selected.Add((row, catalog));
         }
         // Reject collisions rather than silently overwriting existing vessel definitions.
-        if (await context.MaterialItemShips.AnyAsync(s => s.VesselId == vesselId && codes.Contains(s.ShipItemCode)))
+        var catalogCodes = selected.Select(s => s.Catalog.ItemCode).ToArray();
+        if (await context.MaterialItemShips.AnyAsync(s => s.VesselId == vesselId &&
+            (codes.Contains(s.ShipItemCode) || catalogCodes.Contains(s.MaterialItemCode))))
             return Conflict(new { message = "File có mã vật tư đã tồn tại trên tàu. Hãy chỉnh sửa vật tư đã có hoặc bỏ dòng trùng." });
-        await using var transaction = await context.Database.BeginTransactionAsync();
-        foreach (var row in rows)
+        foreach (var (row, catalog) in selected)
         {
-            var catalog = new MaterialItem { ItemCode = Guid.NewGuid().ToString("N"), Name = row.Name };
-            var ship = new MaterialItemShip { VesselId = vesselId, MaterialItemCode = catalog.ItemCode };
-            Apply(ship, catalog, row);
-            context.MaterialItems.Add(catalog);
+            var ship = new MaterialItemShip { VesselId = vesselId, MaterialItemCode = catalog.ItemCode, CategoryId = catalog.CategoryId };
+            Apply(ship, row);
             context.MaterialItemShips.Add(ship);
         }
         await context.SaveChangesAsync();

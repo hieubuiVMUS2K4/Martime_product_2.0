@@ -905,6 +905,7 @@ export interface MaterialItem {
   syncStatus?: 'NotSynced' | 'Pending' | 'Synced';
   syncedAt?: string;
   catalogId?: string;
+  materialItemCode?: string;
   id: string; // Guid
   itemCode: string;
   name: string;

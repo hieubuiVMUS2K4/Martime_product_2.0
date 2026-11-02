@@ -333,6 +333,9 @@ export interface CatalogImportRow {
 }
 
 export const materialCatalogService = {
+  search: (q: string) => apiClient.get<{ items: MaterialCatalogItem[]; total: number }>(
+    `/material/catalog?${new URLSearchParams({ q, page: '1', pageSize: '50' })}`,
+  ),
   import: (rows: CatalogImportRow[]) =>
     apiClient.post<{ created: number; updated: number }>('/material/catalog/import', rows),
   getAll: async (options?: { q?: string; categoryId?: number }): Promise<MaterialCatalogItem[]> => {

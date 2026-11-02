@@ -93,7 +93,8 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
 
   // ---------- Columns ----------
   const columns: Column<MaterialItem>[] = [
-    { key: 'code', header: t('materials.page.colCode'), width: 150, value: i => i.itemCode, className: 'font-mono' },
+    { key: 'code', header: 'Mã trên tàu', width: 150, value: i => i.itemCode, className: 'font-mono' },
+    { key: 'catalogCode', header: 'Mã danh mục', width: 150, value: i => i.materialItemCode ?? '', className: 'font-mono' },
     {
       key: 'name', header: t('materials.page.colName'), width: 300, value: i => i.name,
       render: i => (
@@ -161,7 +162,7 @@ export function MaterialPage({ vesselId: vesselIdProp, readOnly = false }: { ves
         exportOptions={{ fileName: 'vat-tu-cua-tau', title: 'DANH SÁCH VẬT TƯ CỦA TÀU' }}
         onImport={readOnly ? undefined : () => setCatalogImportOpen(true)}
         onAdd={readOnly ? undefined : () => { setEditingItem(null); setItemModalOpen(true); }}
-        addLabel="Thêm vật tư"
+        addLabel="Gán vật tư"
         toolbarActions={
           <Button variant="secondary" icon={<RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />} disabled={syncing || !vesselId}
             onClick={handleSync} title="Gửi danh sách vật tư xuống tàu">

@@ -30,9 +30,18 @@ public class VesselMaterialsTests
     private static VesselMaterialsController Controller(AppDbContext context) => new(context,
         new SyncOutboxService(context, NullLogger<SyncOutboxService>.Instance, Mock.Of<ISyncFileStorageService>()));
     private static JsonElement Body(IActionResult result) => JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(result).Value);
+    private static async Task<IActionResult> Assign(AppDbContext context, VesselMaterialsController controller, Guid vesselId, VesselMaterialDefinition input)
+    {
+        if (input.CatalogId == Guid.Empty)
+        {
+            var catalog = new MaterialItem { ItemCode = Guid.NewGuid().ToString("N"), Name = input.Name };
+            context.MaterialItems.Add(catalog); await context.SaveChangesAsync(); input.CatalogId = catalog.Id;
+        }
+        return await controller.Create(vesselId, input);
+    }
 
     [ShorePostgresFact]
-    public async Task Definitions_AreScoped_NoCategoryRequired_AndSyncWaitsForAcknowledgement()
+    public async Task Assignments_AreScoped_PreserveCatalog_AndSyncWaitsForAcknowledgement()
     {
         await using var context = Database(); await context.Database.EnsureCreatedAsync();
         var a = Vessel(); var b = Vessel();
@@ -41,8 +50,8 @@ public class VesselMaterialsTests
         await context.SaveChangesAsync();
         var controller = Controller(context);
         var input = new VesselMaterialDefinition { ItemCode = "SP-001", Name = "Pump", Unit = "PCS" };
-        var id = Body(await controller.Create(a.Id, input)).GetProperty("Id").GetGuid();
-        Assert.IsType<OkObjectResult>(await controller.Create(b.Id, input));
+        var id = Body(await Assign(context, controller, a.Id, input)).GetProperty("Id").GetGuid();
+        Assert.IsType<OkObjectResult>(await Assign(context, controller, b.Id, new() { ItemCode = input.ItemCode, Name = "Other pump", Unit = "PCS" }));
         Assert.Equal(1, Body(await controller.List(a.Id)).GetArrayLength());
         Assert.IsType<NotFoundResult>(await controller.Update(b.Id, id, input));
         Assert.Equal("NotSynced", Body(await controller.List(a.Id))[0].GetProperty("syncStatus").GetString());
@@ -69,8 +78,9 @@ public class VesselMaterialsTests
         stock.OnHandQuantity = 9; stock.UpdatedAt = DateTime.UtcNow.AddSeconds(1); await context.SaveChangesAsync();
         Assert.Equal("Synced", Body(await controller.List(a.Id))[0].GetProperty("syncStatus").GetString());
         input.Name = "New pump";
+        input.UnitCost = 45;
         Assert.IsType<OkObjectResult>(await controller.Update(a.Id, id, input));
-        Assert.Equal("New pump", Body(await controller.List(a.Id))[0].GetProperty("name").GetString());
+        Assert.Equal("Pump", Body(await controller.List(a.Id))[0].GetProperty("name").GetString());
         Assert.Equal("NotSynced", Body(await controller.List(a.Id))[0].GetProperty("syncStatus").GetString());
         Assert.IsType<OkObjectResult>(await controller.Delete(a.Id, [id]));
         Assert.Empty(Body(await controller.List(a.Id)).EnumerateArray());
@@ -88,12 +98,12 @@ public class VesselMaterialsTests
         context.SyncNodeTrackers.Add(new() { NodeId = vessel.IMO, VesselId = vessel.Id, IsRegistered = true });
         await context.SaveChangesAsync();
         var controller = Controller(context);
-        var id = Body(await controller.Create(vessel.Id, new() { ItemCode = "ACK", Name = "Filter", Unit = "PCS" })).GetProperty("Id").GetGuid();
+        var id = Body(await Assign(context, controller, vessel.Id, new() { ItemCode = "ACK", Name = "Filter", Unit = "PCS" })).GetProperty("Id").GetGuid();
         await controller.Sync(vessel.Id);
         var first = await context.SyncOutbox.SingleAsync(o => o.RecordKey == id.ToString());
         var outbox = new SyncOutboxService(context, NullLogger<SyncOutboxService>.Instance, Mock.Of<ISyncFileStorageService>());
         await outbox.AcknowledgeDeliveryAsync(vessel.IMO, [first.Id]);
-        await controller.Update(vessel.Id, id, new() { ItemCode = "ACK", Name = "Updated filter", Unit = "PCS" });
+        await controller.Update(vessel.Id, id, new() { ItemCode = "ACK", Notes = "Updated filter", Unit = "PCS" });
         await controller.Sync(vessel.Id);
         var second = await context.SyncOutbox.OrderByDescending(o => o.Id).FirstAsync(o => o.RecordKey == id.ToString());
         await outbox.AcknowledgeDeliveryAsync(vessel.IMO, [first.Id]);
@@ -116,8 +126,8 @@ public class VesselMaterialsTests
         var controller = Controller(context);
         Assert.IsType<ConflictObjectResult>(await controller.Sync(vessel.Id));
         var input = new VesselMaterialDefinition { ItemCode = "A", Name = "Filter", Unit = "PCS", PartNumber = "PN-1" };
-        var id = Body(await controller.Create(vessel.Id, input)).GetProperty("Id").GetGuid();
-        await controller.Create(vessel.Id, new() { ItemCode = "B", Name = "Pump", Unit = "PCS" });
+        var id = Body(await Assign(context, controller, vessel.Id, input)).GetProperty("Id").GetGuid();
+        await Assign(context, controller, vessel.Id, new() { ItemCode = "B", Name = "Pump", Unit = "PCS" });
         Assert.Equal(2, Body(await controller.Sync(vessel.Id)).GetProperty("queued").GetInt32());
         var pending = Assert.IsType<ConflictObjectResult>(await controller.Sync(vessel.Id));
         Assert.Equal("MATERIAL_SYNC_PENDING", JsonSerializer.SerializeToElement(pending.Value).GetProperty("code").GetString());
@@ -144,7 +154,7 @@ public class VesselMaterialsTests
         var vessel = Vessel(); context.Vessels.Add(vessel);
         context.SyncNodeTrackers.Add(new() { NodeId = vessel.IMO, VesselId = vessel.Id, IsRegistered = true });
         await context.SaveChangesAsync();
-        await Controller(context).Create(vessel.Id, new() { ItemCode = "CONCURRENT", Name = "Filter", Unit = "PCS" });
+        await Assign(context, Controller(context), vessel.Id, new() { ItemCode = "CONCURRENT", Name = "Filter", Unit = "PCS" });
         await using var first = Database(); await using var second = Database();
         var results = await Task.WhenAll(Controller(first).Sync(vessel.Id), Controller(second).Sync(vessel.Id));
         Assert.Single(results.OfType<OkObjectResult>());
@@ -159,6 +169,8 @@ public class VesselMaterialsTests
         var vessel = Vessel(); context.Vessels.Add(vessel); await context.SaveChangesAsync();
         var controller = Controller(context);
         var valid = new VesselMaterialDefinition { ItemCode = "A", Name = "Filter", Unit = "PCS" };
+        var catalog = new MaterialItem { ItemCode = Guid.NewGuid().ToString("N"), Name = "Filter" };
+        context.MaterialItems.Add(catalog); await context.SaveChangesAsync(); valid.CatalogId = catalog.Id;
         Assert.IsType<BadRequestObjectResult>(await controller.Import(vessel.Id, [valid, new() { ItemCode = "B", Name = "", Unit = "PCS" }]));
         Assert.False(await context.MaterialItemShips.AnyAsync(s => s.VesselId == vessel.Id));
         Assert.IsType<OkObjectResult>(await controller.Import(vessel.Id, [valid]));
@@ -177,7 +189,7 @@ public class VesselMaterialsTests
         await context.SaveChangesAsync();
         var controller = Controller(context);
         var input = new VesselMaterialDefinition { ItemCode = "SHORE", Name = "Shore definition", Unit = "PCS", Notes = "New" };
-        var id = Body(await controller.Create(vessel.Id, input)).GetProperty("Id").GetGuid();
+        var id = Body(await Assign(context, controller, vessel.Id, input)).GetProperty("Id").GetGuid();
         await controller.Delete(vessel.Id, [id]); context.ChangeTracker.Clear();
         var inbox = new SyncInboxService(context, Mock.Of<IConflictResolverService>(), NullLogger<SyncInboxService>.Instance,
             Mock.Of<INotificationService>(), new ConfigurationBuilder().Build(), Mock.Of<ISyncFileStorageService>(), new ReportEvaluationQueue());
@@ -192,7 +204,7 @@ public class VesselMaterialsTests
         Assert.Equal(0, row.OnHandQuantity); Assert.Null(row.MinStock);
         item.OriginNode = other.IMO; item.SyncVersion++;
         await inbox.ProcessIncomingAsync(item);
-        var activeId = Body(await controller.Create(vessel.Id, new() { ItemCode = "ACTIVE", Name = "Active", Unit = "PCS" })).GetProperty("Id").GetGuid();
+        var activeId = Body(await Assign(context, controller, vessel.Id, new() { ItemCode = "ACTIVE", Name = "Active", Unit = "PCS" })).GetProperty("Id").GetGuid();
         item.RecordKey = activeId.ToString(); item.ActionType = "DELETE"; item.OriginNode = vessel.IMO;
         await inbox.ProcessIncomingAsync(item); await context.SaveChangesAsync(); context.ChangeTracker.Clear();
         Assert.True((await context.MaterialItemShips.SingleAsync(s => s.Id == activeId)).IsActive);

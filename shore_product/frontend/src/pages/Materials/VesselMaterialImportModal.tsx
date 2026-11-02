@@ -28,8 +28,8 @@ export function VesselMaterialImportModal({ vesselId, onClose, onSuccess }: { ve
       busy={saving}
       size="lg"
       icon={<FileSpreadsheet />}
-      title="Import vật tư vào tàu đang chọn"
-      subtitle="Mã đã tồn tại sẽ bị từ chối, không tự ghi đè. Sau khi lưu, bấm Đồng bộ để gửi xuống tàu."
+      title="Import gán vật tư cho tàu"
+      subtitle="CatalogCode phải có trong danh mục công ty. Không tạo vật tư danh mục mới. Sau khi lưu, bấm Đồng bộ để gửi xuống tàu."
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>Hủy</Button>
@@ -51,8 +51,8 @@ export function VesselMaterialImportModal({ vesselId, onClose, onSuccess }: { ve
             <table className="w-full text-sm">
               <thead className="bg-primary-soft text-left text-xs text-primary">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">Mã vật tư</th>
-                  <th className="px-3 py-2 font-semibold">Tên vật tư</th>
+                  <th className="px-3 py-2 font-semibold">Mã danh mục</th>
+                  <th className="px-3 py-2 font-semibold">Mã trên tàu</th>
                   <th className="px-3 py-2 font-semibold">Đơn vị</th>
                   <th className="px-3 py-2 font-semibold">Mã phụ tùng</th>
                 </tr>
@@ -60,8 +60,8 @@ export function VesselMaterialImportModal({ vesselId, onClose, onSuccess }: { ve
               <tbody className="divide-y divide-line">
                 {rows.map(row => (
                   <tr key={row.itemCode}>
+                    <td className="px-3 py-2 font-mono">{row.materialItemCode}</td>
                     <td className="px-3 py-2 font-mono">{row.itemCode}</td>
-                    <td className="px-3 py-2">{row.name}</td>
                     <td className="px-3 py-2">{row.unit}</td>
                     <td className="px-3 py-2">{row.partNumber}</td>
                   </tr>
