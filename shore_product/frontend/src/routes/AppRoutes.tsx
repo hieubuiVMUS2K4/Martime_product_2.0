@@ -25,6 +25,8 @@ import LoginPage from '../pages/Auth/LoginPage';
 import { SmsDocumentPage } from '../pages/SMS/SmsDocumentPage';
 import { WeatherRoutingPage } from '../pages/WeatherRouting/WeatherRoutingPage';
 import { useAuth } from '../contexts/AuthContext';
+import ShoreModulesPage from '../pages/SyncManagement/ShoreModulesPage';
+import { ShoreModuleHome } from '../components/layout/ShoreModuleGate';
 
 /**
  * Auth guard — redirects to /login if not authenticated
@@ -70,9 +72,11 @@ export const AppRoutes: React.FC = () => {
 
       {/* Protected routes */}
       <Route element={<RequireAuth />}>
-        <Route path="/" element={<Navigate to="/vessels" replace />} />
+        <Route path="/" element={<ShoreModuleHome />} />
         
         <Route element={<TopNavLayout />}>
+        <Route path="/admin/modules" element={<ShoreModulesPage />} />
+        <Route path="/home" element={<div className="p-5 text-sm text-ink-muted">Chưa có module nào được bật. Liên hệ quản trị viên để mở module cần sử dụng.</div>} />
         {/* Báo cáo nay là nhóm "Báo cáo" trong Chi tiết tàu */}
         <Route path="/report" element={<Navigate to="/vessels" replace />} />
         <Route path="/report/vessel/:vesselId" element={<ReportVesselRedirect />} />

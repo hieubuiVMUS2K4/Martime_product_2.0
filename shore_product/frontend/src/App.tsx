@@ -5,6 +5,7 @@ import { ConfirmDialogProvider } from './components/common/ConfirmDialog';
 import { VesselProvider } from './contexts/VesselContext';
 import { I18nProvider } from './contexts/I18nContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { ShoreModulesProvider } from './contexts/ShoreModulesContext';
 import './styles/variables.css';
 import './styles/common.css';
 import './styles/global.css';
@@ -14,14 +15,14 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <I18nProvider>
+        <ShoreModulesProvider><I18nProvider>
           <VesselProvider>
             <ConfirmDialogProvider>
               <AppRoutes />
               <AppToaster />
             </ConfirmDialogProvider>
           </VesselProvider>
-        </I18nProvider>
+        </I18nProvider></ShoreModulesProvider>
       </AuthProvider>
     </BrowserRouter>
   );

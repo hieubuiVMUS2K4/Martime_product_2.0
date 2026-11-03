@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LogOut, ShieldCheck, ChevronDown } from 'lucide-react'
+import { LogOut, ShieldCheck, ChevronDown, Boxes } from 'lucide-react'
+import { isShoreAdmin } from '../../contexts/ShoreModulesContext'
 
 /** Nút tài khoản ở góc phải thanh điều hướng: tên, vai trò, đăng xuất. */
 export function UserMenu() {
@@ -62,6 +63,11 @@ export function UserMenu() {
             </div>
           </div>
           <div className="p-1">
+            {isShoreAdmin(user.role) && <button type="button" role="menuitem"
+              onClick={() => { setOpen(false); navigate('/admin/modules') }}
+              className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-left text-sm text-ink hover:bg-primary-soft">
+              <Boxes className="h-4 w-4" aria-hidden="true" />Quản lý module
+            </button>}
             <button
               type="button"
               role="menuitem"

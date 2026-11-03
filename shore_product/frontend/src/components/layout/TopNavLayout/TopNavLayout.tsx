@@ -5,6 +5,8 @@ import { UserMenu } from '../UserMenu';
 import { NotificationBell } from '../NotificationBell';
 import { NAVIGATION, isLeafActive, type NavGroup } from '../navigation';
 import './TopNavLayout.css';
+import { moduleForLocation, useShoreModules } from '../../../contexts/ShoreModulesContext';
+import { ShoreModuleGate } from '../ShoreModuleGate';
 
 /*
   Khung của mọi trang sau đăng nhập: thanh điều hướng trên cùng + vùng nội dung.
@@ -86,6 +88,8 @@ const NavDropdown: React.FC<{ group: NavGroup }> = ({ group }) => {
 
 export const TopNavLayout: React.FC = () => {
   const location = useLocation();
+  const { enabled, loading, error } = useShoreModules();
+  const navigation = loading || error ? [] : NAVIGATION.filter(entry => enabled(moduleForLocation(entry.kind === 'link' ? entry.path.split('?')[0] : '/categories')));
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname, location.search]);
@@ -96,7 +100,7 @@ export const TopNavLayout: React.FC = () => {
       <header className="sticky top-0 z-[1100] bg-primary shadow-[0_2px_8px_rgba(11,37,69,0.35)]">
         <div className="flex h-14 items-center gap-3 px-4">
           {/* Thương hiệu */}
-          <NavLink to="/crew" className="flex shrink-0 items-center gap-2.5 rounded-md pr-2 text-white" aria-label="Trang chủ Maritime">
+          <NavLink to="/" className="flex shrink-0 items-center gap-2.5 rounded-md pr-2 text-white" aria-label="Trang chủ Maritime">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20">
               <Anchor className="h-[18px] w-[18px]" aria-hidden="true" />
             </span>
@@ -109,7 +113,7 @@ export const TopNavLayout: React.FC = () => {
 
           {/* Menu chính (desktop) */}
           <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex xl:gap-1" aria-label="Điều hướng chính">
-            {NAVIGATION.map(entry => {
+            {navigation.map(entry => {
               if (entry.kind === 'group') return <NavDropdown key={entry.label} group={entry} />;
               const Icon = entry.icon;
               const on = isLeafActive(entry.path, location);
@@ -142,7 +146,7 @@ export const TopNavLayout: React.FC = () => {
         {/* Menu dọc cho màn hình hẹp */}
         {mobileOpen && (
           <nav className="max-h-[75vh] overflow-y-auto border-t border-white/10 bg-primary px-3 pb-3 pt-2 lg:hidden" aria-label="Điều hướng">
-            {NAVIGATION.map(entry => {
+            {navigation.map(entry => {
               const leaves = entry.kind === 'group' ? entry.items : [entry];
               return (
                 <div key={entry.label} className="py-1">
@@ -169,7 +173,7 @@ export const TopNavLayout: React.FC = () => {
 
       <main className="main-area">
         <div className="main-area-inner">
-          <Outlet />
+          <ShoreModuleGate><Outlet /></ShoreModuleGate>
         </div>
       </main>
     </div>

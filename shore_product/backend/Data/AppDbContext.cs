@@ -11,6 +11,7 @@ namespace ProductApi.Data
         {
         }
 
+        public DbSet<ShoreModuleSettings> ShoreModuleSettings { get; set; } = null!;
         public DbSet<ApprovalDocument> ApprovalDocuments { get; set; } = null!;
         public DbSet<ApprovalRevision> ApprovalRevisions { get; set; } = null!;
         public DbSet<ApprovalAction> ApprovalActions { get; set; } = null!;

@@ -17,6 +17,7 @@ import MaterialRequestPage from '../Materials/MaterialRequestPage';
 import StockReceiptPage from '../Materials/StockReceiptPage';
 import InventoryPage from '../Materials/InventoryPage';
 import { VesselReportsTab } from '../Report/VesselReportsTab';
+import { useShoreModules } from '../../contexts/ShoreModulesContext';
 
 // ============================================================
 // EXTENDED VESSEL TYPE with all fields from backend
@@ -287,6 +288,7 @@ const applyTelemetry = (prev: VesselStatus | null, t: TelemetryRealtime | null):
 // ============================================================
 export const VesselDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { enabled: moduleEnabled } = useShoreModules();
   const navigate = useNavigate();
 
   // Mở thẳng một tab qua ?tab= (vd. từ địa chỉ cũ /report/vessel/:id → ?tab=reports)
@@ -485,7 +487,7 @@ export const VesselDetailPage: React.FC = () => {
 
         {/* Tầng 1: nhóm */}
         <nav className="flex gap-1 overflow-x-auto px-6" role="tablist" aria-label="Nhóm thông tin tàu">
-          {TAB_GROUPS.map(group => {
+          {TAB_GROUPS.filter(group => moduleEnabled(group.id)).map(group => {
             const on = group.id === activeGroup.id;
             return (
               <button

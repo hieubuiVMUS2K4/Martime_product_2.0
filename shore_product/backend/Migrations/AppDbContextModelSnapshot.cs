@@ -22,6 +22,17 @@ namespace productapi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ProductApi.Models.ShoreModuleSettings", b =>
+                {
+                    b.Property<int>("Id").HasColumnType("integer");
+                    b.Property<string>("DisabledModulesJson").IsRequired().HasColumnType("text");
+                    b.Property<int>("Version").HasColumnType("integer");
+                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("UpdatedBy").IsRequired().HasColumnType("text");
+                    b.HasKey("Id");
+                    b.ToTable("shore_module_settings");
+                });
+
             modelBuilder.Entity("Maritime.Shared.Models.Crew.Certificate", b =>
                 {
                     b.Property<int>("Id")
