@@ -1,6 +1,6 @@
+import { CrewNameSelect } from '@/components/common/CrewNameSelect';
 import { CatalogSelect } from '@/components/common/CatalogSelect';
 import { UNITS_OF_MEASURE } from '@/config/catalogs';
-import { ApprovalHistory } from "@/components/ApprovalHistory";
 import { apiClient } from '@/services/api.client';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 import { ReceiptCompletionButton } from './ReceiptCompletionButton';
@@ -562,7 +562,7 @@ export default function StockReceiptPage() {
   // ─────── DETAIL VIEW ───────
   const detailModal = (view === 'detail' && detailData && !showFormModal) && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={e => { if (e.target === e.currentTarget) setView('list'); }}>
-      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '85vw', height: '90vh', maxWidth: 1100 }}>
+      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '94vw', height: '90vh', maxWidth: 1440 }}>
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-700">{detailData.receiptCode}</span>
@@ -572,7 +572,6 @@ export default function StockReceiptPage() {
             {detailData.status === 'Draft' && <PermissionGate permission="pms.receipts.update"><button onClick={() => openEdit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><Edit2 className="w-3.5 h-3.5" /> Sửa</button></PermissionGate>}
             {detailData.status === 'Draft' && canSubmit && <button onClick={() => handleSubmit(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"><Send className="w-3.5 h-3.5" /> Gửi duyệt</button>}
             {detailData.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleApprove(detailData.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"><CheckCircle className="w-3.5 h-3.5" /> Duyệt phiếu nhập</button></PermissionGate>}
-            <ApprovalHistory module="receipt" recordKey={String(detailData.id)} />
             {detailData.status === 'Submitted' && <PermissionGate permission="pms.receipts.approve"><button onClick={() => handleReturn(detailData.id)} className="px-3 py-1.5 text-xs border rounded">Trả lại để sửa</button></PermissionGate>}
             <ReceiptCompletionButton status={detailData.status} onComplete={() => handleComplete(detailData.id)} />
             <button onClick={() => setView('list')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-50"><X className="w-3.5 h-3.5" /> Đóng</button>
@@ -700,7 +699,7 @@ export default function StockReceiptPage() {
   // ─────── FORM MODAL (Create / Edit) ───────
   const formModal = showFormModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={e => { if (e.target === e.currentTarget) setShowFormModal(false); }}>
-      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '85vw', height: '90vh', maxWidth: 1100 }}>
+      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '94vw', height: '90vh', maxWidth: 1440 }}>
         {/* Modal header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2.5">
           <span className="text-sm font-semibold text-gray-700">
@@ -763,7 +762,7 @@ export default function StockReceiptPage() {
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700 shrink-0 w-28 text-right">Người tạo <span className="text-red-500">*</span></label>
-                <input type="text" value={formData.createdBy} onChange={e => setFormData(p => ({ ...p, createdBy: e.target.value }))} className="flex-1 min-w-0 border border-gray-300 px-2 py-1.5 text-sm" placeholder="Nhập thông tin" />
+                <CrewNameSelect label="Người tạo" value={formData.createdBy} onChange={value => setFormData(p => ({ ...p, createdBy: value }))} />
               </div>
               <div className="flex items-start gap-2 col-span-2">
                 <label className="text-sm font-medium text-gray-700 shrink-0 w-28 text-right pt-1.5">Ghi chú</label>
@@ -774,14 +773,14 @@ export default function StockReceiptPage() {
 
           <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm table-fixed">
+                <table className="w-full min-w-[1320px] text-sm table-fixed">
                   <thead className="bg-blue-50">
                     <tr>
                       <th className="px-2 py-2 text-left w-8">TT</th>
                       <th className="px-2 py-2 text-left w-36">Vị trí kho <span className="text-red-500">*</span></th>
                       <th className="px-2 py-2 text-left w-24">Mã vật tư</th>
                       <th className="px-2 py-2 text-left">Tên vật tư <span className="text-red-500">*</span></th>
-                      <th className="px-2 py-2 text-left w-14">ĐVT</th>
+                      <th className="px-2 py-2 text-left w-24">ĐVT</th>
                       <th className="px-2 py-2 text-right w-20">SL YC</th>
                       <th className="px-2 py-2 text-right w-20">SL nhập <span className="text-red-500">*</span></th>
                       <th className="px-2 py-2 text-right w-24">Đơn giá</th>

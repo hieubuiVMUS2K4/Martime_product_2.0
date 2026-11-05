@@ -398,7 +398,7 @@ namespace MaritimeEdge.Controllers.Safety
                 if (record.Status != "Draft" && record.Status != "Returned") return Conflict(new { message = "Chỉ ký gửi hồ sơ nháp hoặc đã trả lại." });
                 var actor = (ApprovalActor)HttpContext.Items["ApprovalActor"]!;
                 var signatures = new List<SignatureEntry>();
-                var newSig = new SignatureEntry { Name = actor.Name, Rank = actor.Rank, Timestamp = DateTime.UtcNow, AuthenticationMethod = "password-reauthentication", ContentHash = (string)HttpContext.Items["ApprovalContentHash"]!, RevisionId = (Guid)HttpContext.Items["ApprovalRevisionId"]!,
+                var newSig = new SignatureEntry { Name = actor.Name, Rank = actor.Rank, Timestamp = DateTime.UtcNow, AuthenticationMethod = (string)HttpContext.Items["ApprovalAuthenticationMethod"]!, ContentHash = (string)HttpContext.Items["ApprovalContentHash"]!, RevisionId = (Guid)HttpContext.Items["ApprovalRevisionId"]!,
                     SigCode = HttpContext.Items["ApprovalActionId"]!.ToString()! };
                 signatures.Add(newSig);
                 record.DigitalSignatures = JsonSerializer.Serialize(signatures, JsonOptions);
@@ -446,7 +446,7 @@ namespace MaritimeEdge.Controllers.Safety
                     return Conflict(new { message = "Hồ sơ cũ chưa có xác nhận gửi bằng tài khoản. Sửa đổi và ký gửi lại." });
                 var actor = (ApprovalActor)HttpContext.Items["ApprovalActor"]!;
                 var signatures = JsonSerializer.Deserialize<List<SignatureEntry>>(record.DigitalSignatures, JsonOptions) ?? new();
-                var approveSig = new SignatureEntry { Name = actor.Name, Rank = actor.Rank, Timestamp = DateTime.UtcNow, AuthenticationMethod = "password-reauthentication", ContentHash = (string)HttpContext.Items["ApprovalContentHash"]!, RevisionId = (Guid)HttpContext.Items["ApprovalRevisionId"]!,
+                var approveSig = new SignatureEntry { Name = actor.Name, Rank = actor.Rank, Timestamp = DateTime.UtcNow, AuthenticationMethod = (string)HttpContext.Items["ApprovalAuthenticationMethod"]!, ContentHash = (string)HttpContext.Items["ApprovalContentHash"]!, RevisionId = (Guid)HttpContext.Items["ApprovalRevisionId"]!,
                     SigCode = HttpContext.Items["ApprovalActionId"]!.ToString()! };
                 signatures.Add(approveSig);
                 record.DigitalSignatures = JsonSerializer.Serialize(signatures, JsonOptions);

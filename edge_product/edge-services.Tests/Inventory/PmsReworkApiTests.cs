@@ -129,6 +129,16 @@ public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
         var item = Assert.Single(options.GetProperty("items").EnumerateArray());
         Assert.Equal("PCS", item.GetProperty("Unit").GetString()); Assert.Equal(5m, item.GetProperty("onHand").GetDecimal());
         Assert.DoesNotContain("UnitPrice", options.ToString());
+        var catalog = new MaterialCatalogItem { ItemCode = prefix, Name = prefix, CategoryId = category.Id };
+        part.MaterialItemCode = catalog.ItemCode;
+        second.ParentId = first.Id;
+        db.AddRange(catalog, new MaterialItemEquipment { MaterialItemId = catalog.Id, EquipmentAssetId = first.Id });
+        await db.SaveChangesAsync();
+        var assigned = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.MaterialOptions(new() { EquipmentAssetId = second.Id }, default)).Value);
+        Assert.Equal(part.Id, Assert.Single(assigned.GetProperty("items").EnumerateArray()).GetProperty("Id").GetGuid());
+        var unrelated = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.MaterialOptions(new() { EquipmentAssetId = Guid.NewGuid() }, default)).Value);
+        Assert.Empty(unrelated.GetProperty("items").EnumerateArray());
+
         Assert.Equal(400, (await Assert.ThrowsAsync<PmsRequestException>(() => controller.MaterialOptions(new() { SelectedIds = "invalid" }, default))).Status);
         var settings = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.Settings()).Value);
         Assert.Equal("Asia/Ho_Chi_Minh", settings.GetProperty("vesselTimeZone").GetString());
@@ -327,6 +337,10 @@ public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
         var service = new PmsWorkOrderReadService(db, config);
         var upcoming = await service.ListAsync(new() { EquipmentAssetId = asset.Id, DueState = "UPCOMING", PageSize = 1 });
         Assert.Equal(1, upcoming.Total); Assert.Equal(rh.Id, Assert.Single(upcoming.Items).Id); Assert.Null(upcoming.Items[0].DueAt);
+        var withoutDate = await service.ListAsync(new() { EquipmentAssetId = asset.Id, Status = "ALL", HasCalendarDeadline = false });
+        Assert.Equal(rh.Id, Assert.Single(withoutDate.Items).Id);
+        var withDate = await service.ListAsync(new() { EquipmentAssetId = asset.Id, Status = "ALL", HasCalendarDeadline = true });
+        Assert.Equal(overdue.Id, Assert.Single(withDate.Items).Id);
         var late = await service.ListAsync(new() { EquipmentAssetId = asset.Id, DueState = "OVERDUE" });
         Assert.Equal(overdue.Id, Assert.Single(late.Items).Id); Assert.Equal("PENDING_APPROVAL", late.Items[0].Status);
         var trackedAsset = await db.EquipmentAssets.SingleAsync(a => a.Id == asset.Id); trackedAsset.CurrentRunningHours = 921; await db.SaveChangesAsync();

@@ -4247,6 +4247,7 @@
     "loading": "Loading accounts...",
     "noAccounts": "No matching accounts.",
     "columns": {
+      "dateOfBirth": "Date of birth",
       "account": "Account",
       "crew": "Crew",
       "role": "Role",
@@ -4586,6 +4587,20 @@
     "title": "Safety & Drills"
   },
   "pmsRework": {
+    "noMatchingMaterials": "No matching materials.",
+    "allMaterials": "All materials",
+    "searchSupportingCrew": "Search crew name or code...",
+    "supportingCrewSelected": "{count} selected",
+    "unavailableCrew": "Crew member no longer available",
+    "removeSupportingCrew": "Remove {name}",
+    "noMatchingCrew": "No matching crew members.",
+    "scheduleStartMonth": "Start month",
+    "scheduleRange": "Display range",
+    "scheduleMonths": "{count} months",
+    "scheduledWorkOrders": "{count} WOs with dated deadlines in this period",
+    "undatedWorkOrders": "WOs without a calendar deadline ({count})",
+    "noUndatedWorkOrders": "No WOs without a calendar deadline.",
+    "viewDetails": "View details",
     "theSubmittedReportCouldNotBeReadClose": "The submitted report could not be read. Close and reload it before confirming.",
     "checklistTemplate": "Checklist template",
     "addItem": "Add item",

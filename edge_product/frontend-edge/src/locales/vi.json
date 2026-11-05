@@ -4247,6 +4247,7 @@
     "loading": "Đang tải danh sách tài khoản...",
     "noAccounts": "Không có tài khoản phù hợp.",
     "columns": {
+      "dateOfBirth": "Ngày sinh",
       "account": "Tài khoản",
       "crew": "Thuyền viên",
       "role": "Vai trò",
@@ -4586,6 +4587,20 @@
     "title": "An toàn & Diễn tập"
   },
   "pmsRework": {
+    "noMatchingMaterials": "Không có vật tư phù hợp.",
+    "allMaterials": "Toàn bộ vật tư",
+    "searchSupportingCrew": "Tìm tên hoặc mã thuyền viên...",
+    "supportingCrewSelected": "Đã chọn {count} người",
+    "unavailableCrew": "Thuyền viên không còn trong danh sách",
+    "removeSupportingCrew": "Bỏ chọn {name}",
+    "noMatchingCrew": "Không tìm thấy thuyền viên phù hợp.",
+    "scheduleStartMonth": "Từ tháng",
+    "scheduleRange": "Phạm vi hiển thị",
+    "scheduleMonths": "{count} tháng",
+    "scheduledWorkOrders": "{count} WO có hạn ngày trong khoảng đang xem",
+    "undatedWorkOrders": "WO chưa có hạn ngày ({count})",
+    "noUndatedWorkOrders": "Không có WO chưa có hạn ngày.",
+    "viewDetails": "Xem chi tiết",
     "theSubmittedReportCouldNotBeReadClose": "Không đọc được bản báo cáo để đối chiếu. Hãy đóng và tải lại báo cáo trước khi xác nhận.",
     "checklistTemplate": "Checklist mẫu",
     "addItem": "Thêm mục",

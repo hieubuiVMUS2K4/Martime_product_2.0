@@ -1,3 +1,4 @@
+import { CrewNameSelect } from '@/components/common/CrewNameSelect';
 import { CatalogSelect } from '@/components/common/CatalogSelect';
 import { UNITS_OF_MEASURE } from '@/config/catalogs';
 import { PermissionGate } from '@/components/auth/PermissionGate'
@@ -554,7 +555,7 @@ export default function MaterialRequestPage() {
   // ─────── FORM MODAL (Create / Edit) ───────
   const formModal = showFormModal && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={e => { if (e.target === e.currentTarget) setShowFormModal(false); }}>
-      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '80vw', height: '88vh', maxWidth: 900 }}>
+      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '94vw', height: '90vh', maxWidth: 1280 }}>
         {/* Modal header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2.5">
           <span className="text-sm font-semibold text-gray-700">
@@ -625,7 +626,7 @@ export default function MaterialRequestPage() {
               {/* Row 4 full */}
               <div className="flex items-center gap-2 col-span-2">
                 <label className="text-sm font-medium text-gray-700 shrink-0 w-28 text-right">Người yêu cầu <span className="text-red-500">*</span></label>
-                <input type="text" value={formData.requestedBy} onChange={e => setFormData(p => ({ ...p, requestedBy: e.target.value }))} className="flex-1 min-w-0 border border-gray-300 px-2 py-1.5 text-sm" placeholder="Nhập thông tin" />
+                <CrewNameSelect label="Người yêu cầu" value={formData.requestedBy} onChange={value => setFormData(p => ({ ...p, requestedBy: value }))} />
               </div>
               {/* Row 5 full */}
               <div className="flex items-start gap-2 col-span-2">
@@ -640,13 +641,13 @@ export default function MaterialRequestPage() {
             <span className="text-sm font-semibold text-gray-700">Danh sách vật tư</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed">
+            <table className="w-full min-w-[1080px] text-sm table-fixed">
               <thead className="bg-blue-50">
                 <tr>
                   <th className="px-2 py-2 text-left w-8">TT</th>
                   <th className="px-2 py-2 text-left w-36">Tên thiết bị</th>
                   <th className="px-2 py-2 text-left">Tên vật tư <span className="text-red-500">*</span></th>
-                  <th className="px-2 py-2 text-left w-14">ĐVT</th>
+                  <th className="px-2 py-2 text-left w-24">ĐVT</th>
                   <th className="px-2 py-2 text-right w-16">SL còn</th>
                   <th className="px-2 py-2 text-right w-20">SL yêu cầu <span className="text-red-500">*</span></th>
                   <th className="px-2 py-2 text-left w-24">Ghi chú</th>
@@ -764,7 +765,7 @@ export default function MaterialRequestPage() {
   // ─────── DETAIL MODAL ───────
   const detailModal = (view === 'detail' && detailData && !showFormModal) && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={e => { if (e.target === e.currentTarget) setView('list'); }}>
-      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '80vw', height: '88vh', maxWidth: 900 }}>
+      <div className="bg-white flex flex-col rounded-lg shadow-2xl" style={{ width: '94vw', height: '90vh', maxWidth: 1280 }}>
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-700">{detailData.requestCode}</span>

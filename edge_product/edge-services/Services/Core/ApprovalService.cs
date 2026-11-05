@@ -176,6 +176,16 @@ public sealed class ApprovalService(EdgeDbContext db, RankPermissionService perm
 
     public async Task ReauthenticateAsync(HttpContext http, ApprovalActor actor)
     {
+        if (http.Request.Headers["X-Approval-Acknowledged"] == "true")
+        {
+            if (http.GetUserId() != actor.UserId) throw new ApprovalException(401, "Cần đăng nhập.");
+            var account = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == actor.UserId && u.IsActive);
+            if (account == null || account.LockoutUntil > DateTime.UtcNow)
+                throw new ApprovalException(403, "Tài khoản không hoạt động hoặc đang khóa.");
+            http.Items["ApprovalAuthenticationMethod"] = "session-confirmation";
+            return;
+        }
+
         var keys = new[] { "user:" + actor.UserId, "ip:" + (http.Connection.RemoteIpAddress?.ToString() ?? "local") };
         foreach (var key in keys)
         {
@@ -194,6 +204,7 @@ public sealed class ApprovalService(EdgeDbContext db, RankPermissionService perm
             foreach (var key in keys) { var queue = Failures[key]; lock (queue) queue.Enqueue(DateTime.UtcNow); }
             throw new ApprovalException(403, "Mật khẩu xác nhận không đúng hoặc tài khoản đang khóa.");
         }
+        http.Items["ApprovalAuthenticationMethod"] = "password-reauthentication";
     }
 
     public async Task<object> ContextAsync(HttpContext http, string module, string key, string action)

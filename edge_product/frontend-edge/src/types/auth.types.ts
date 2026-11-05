@@ -11,6 +11,7 @@ export interface UserInfo {
   roleCode: string
   crewId?: string | null
   fullName?: string | null
+  dateOfBirth?: string | null
   position?: string | null
   rankName?: string | null
   isActive: boolean

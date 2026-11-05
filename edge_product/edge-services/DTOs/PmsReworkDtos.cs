@@ -69,6 +69,7 @@ public sealed class PmsWorkOrderQuery
     public Guid? JobId { get; set; }
     public string? Status { get; set; } = "OPEN";
     public bool ExcludeCancelled { get; set; }
+    public bool? HasCalendarDeadline { get; set; }
     public string? DueState { get; set; }
     public string? AssignedTo { get; set; }
     public string? Department { get; set; }
@@ -226,6 +227,7 @@ public sealed class PmsCounterQuery
 }
 public sealed class PmsMaterialOptionQuery
 {
+    public Guid? EquipmentAssetId { get; set; }
     [Range(1, 100000)] public int Page { get; set; } = 1;
     [Range(1, 200)] public int PageSize { get; set; } = 30;
     [MaxLength(200)] public string? Search { get; set; }

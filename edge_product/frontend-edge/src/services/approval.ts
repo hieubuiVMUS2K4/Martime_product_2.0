@@ -5,14 +5,14 @@ export interface ApprovalContext {
   module: string; recordKey: string; action: string; state: string
   version: number; revision: number; contentHash: string; snapshot: unknown
 }
-type Confirmation = { password: string; reason: string }
+export type ApprovalConfirmation = { acknowledged: true; reason: string }
 export class ApprovalCancelledError extends Error {
   constructor(message = 'Đã hủy ký xác nhận.') {
     super(message)
     this.name = 'ApprovalCancelledError'
   }
 }
-let confirm: ((context: ApprovalContext) => Promise<Confirmation>) | undefined
+let confirm: ((context: ApprovalContext) => Promise<ApprovalConfirmation>) | undefined
 export function registerApprovalConfirmation(handler: typeof confirm) { confirm = handler }
 
 export function approvalTarget(endpoint: string, body: any): { module: string; key: string; action: string } | undefined {
@@ -53,6 +53,7 @@ export async function prepareApproval(endpoint: string, body: any, token: string
   const context = await response.json()
   if (!response.ok) throw new Error(context.message || 'Không có quyền ký xác nhận.')
   const confirmation = await confirm(context)
-  return { 'X-Approval-Password': confirmation.password, 'X-Approval-Reason': encodeURIComponent(confirmation.reason),
+  if (confirmation.acknowledged !== true) throw new ApprovalCancelledError()
+  return { 'X-Approval-Acknowledged': 'true', 'X-Approval-Reason': encodeURIComponent(confirmation.reason),
     'X-Approval-Version': String(context.version), 'X-Approval-Hash': context.contentHash, 'X-Approval-Idempotency-Key': crypto.randomUUID() }
 }

@@ -3367,7 +3367,7 @@ export function SmsDocumentPage() {
                                     <div className="absolute top-1 right-2 text-blue-600/10 dark:text-blue-400/5 select-none font-bold text-5xl">SIG</div>
                                     <div>
                                       <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider">MÃ XÁC THỰC</div>
-                                      <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div><div className="text-[9px] break-all">{(sig.authenticationMethod || (sig as any).AuthenticationMethod) === "password-reauthentication" ? "Đã xác nhận bằng tài khoản" : "Dấu ký cũ / chưa xác thực"} · {sig.contentHash || (sig as any).ContentHash || ""}</div>
+                                      <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{sigCode}</div><div className="text-[9px] break-all">{["password-reauthentication", "session-confirmation"].includes(sig.authenticationMethod || (sig as any).AuthenticationMethod) ? "Đã xác nhận bằng tài khoản" : "Dấu ký cũ / chưa xác thực"} · {sig.contentHash || (sig as any).ContentHash || ""}</div>
                                     </div>
                                     <div className="mt-3 flex items-end justify-between">
                                       <div>
@@ -4327,7 +4327,7 @@ export function SmsDocumentPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div><div className="text-[9px] break-all">{(sig.authenticationMethod || (sig as any).AuthenticationMethod) === "password-reauthentication" ? "Đã xác nhận bằng tài khoản" : "Dấu ký cũ / chưa xác thực"} · {sig.contentHash || (sig as any).ContentHash || ""}</div>
+                              <div className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{sigCode}</div><div className="text-[9px] break-all">{["password-reauthentication", "session-confirmation"].includes(sig.authenticationMethod || (sig as any).AuthenticationMethod) ? "Đã xác nhận bằng tài khoản" : "Dấu ký cũ / chưa xác thực"} · {sig.contentHash || (sig as any).ContentHash || ""}</div>
                               <div className="text-[9px] text-slate-400 font-mono mt-0.5">{timeStr} UTC</div>
                             </div>
                           </div>

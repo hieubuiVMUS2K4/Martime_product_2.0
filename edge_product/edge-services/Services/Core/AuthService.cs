@@ -722,6 +722,7 @@ public class AuthService : IAuthService
                 RoleCode = x.Role.RoleCode,
                 CrewId = x.User.CrewId,
                 FullName = x.Crew != null ? x.Crew.FullName : null,
+                DateOfBirth = x.Crew != null ? x.Crew.DateOfBirth : null,
                 RankName = x.Crew != null && x.Crew.Rank != null ? x.Crew.Rank.RankName : null,
                 IsActive = x.User.IsActive,
                 LastLoginAt = x.User.LastLoginAt

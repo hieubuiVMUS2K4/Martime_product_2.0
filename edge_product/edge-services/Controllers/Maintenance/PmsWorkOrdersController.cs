@@ -61,6 +61,20 @@ public sealed class PmsWorkOrdersController(PmsWorkOrderReadService orders, PmsW
     {
         if (query.Page < 1 || query.Page > 100000 || query.PageSize is < 1 or > 200) throw new PmsRequestException(400, "Phân trang không hợp lệ.");
         var source = db.MaterialItems.AsNoTracking().AsQueryable();
+        if (query.EquipmentAssetId.HasValue)
+        {
+            var equipmentIds = new HashSet<Guid>();
+            var equipmentId = query.EquipmentAssetId;
+            while (equipmentId.HasValue && equipmentIds.Add(equipmentId.Value))
+                equipmentId = await db.EquipmentAssets.AsNoTracking().Where(a => a.Id == equipmentId.Value)
+                    .Select(a => a.ParentId).SingleOrDefaultAsync(token);
+            var catalogCodes = from link in db.MaterialItemEquipments
+                join catalog in db.MaterialCatalogItems on link.MaterialItemId equals catalog.Id
+                where equipmentIds.Contains(link.EquipmentAssetId) && catalog.IsActive
+                select catalog.ItemCode;
+            source = source.Where(material => catalogCodes.Contains(material.MaterialItemCode));
+        }
+
         if (!string.IsNullOrEmpty(query.SelectedIds))
         {
             var keys = query.SelectedIds.Split(',');

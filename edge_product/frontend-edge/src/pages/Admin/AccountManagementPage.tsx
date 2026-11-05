@@ -191,6 +191,7 @@ export function AccountManagementPage() {
                 <th className="w-12 border-b border-r border-gray-200 px-2 py-2 text-center text-xs font-semibold uppercase text-gray-600">#</th>
                 <th className="min-w-[180px] border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.account')}</th>
                 <th className="min-w-[220px] border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.crew')}</th>
+                <th className="w-32 border-b border-r border-gray-200 px-3 py-2 text-center text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.dateOfBirth')}</th>
                 <th className="w-56 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">Chức danh</th>
                 <th className="w-44 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.lastLogin')}</th>
                 <th className="w-32 border-b border-r border-gray-200 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-600">{t('accountManagement.columns.status')}</th>
@@ -212,20 +213,21 @@ export function AccountManagementPage() {
                 <th className="border-r border-gray-200"></th>
                 <th className="border-r border-gray-200"></th>
                 <th className="border-r border-gray-200"></th>
+                <th className="border-r border-gray-200"></th>
                 <th></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
                     <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
                     {t('accountManagement.loading')}
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
                     {t('accountManagement.noAccounts')}
                   </td>
                 </tr>
@@ -249,6 +251,7 @@ export function AccountManagementPage() {
                         <div className="text-gray-900">{item.fullName || '-'}</div>
                         <div className="text-xs text-gray-500">{item.crewId || item.position || '-'}</div>
                       </td>
+                      <td className="border-r border-gray-200 px-3 py-2 text-center text-gray-600">{item.dateOfBirth ? item.dateOfBirth.slice(0, 10).split('-').reverse().join('/') : '—'}</td>
                       <td className="border-r border-gray-200 px-3 py-2">
                         <span className="text-gray-900" title={item.crewId ? 'Chức danh được quản lý trên bờ và đồng bộ xuống tàu' : undefined}>
                           {item.rankName || (item.crewId ? 'Chưa có chức danh' : '—')}
