@@ -22,7 +22,7 @@ type ImportAssetRow = {
 interface ImportAssetsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 const columns: Record<string, keyof ImportAssetRow> = {
@@ -97,9 +97,9 @@ export function ImportAssetsModal({ isOpen, onClose, onSuccess }: ImportAssetsMo
       setLoading(true);
       const importResult = await equipmentAssetService.bulkImport(assets);
       setResult(importResult);
+      if (importResult.imported > 0) await onSuccess();
       if (importResult.success) {
         toast.success(t('pms.assets.importModal.importSuccess', { count: importResult.imported }));
-        onSuccess();
       } else {
         toast.error(t('pms.assets.importModal.importWithErrors'));
       }

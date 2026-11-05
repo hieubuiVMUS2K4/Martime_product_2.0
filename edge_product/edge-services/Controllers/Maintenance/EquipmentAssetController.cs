@@ -270,6 +270,14 @@ public class EquipmentAssetController : ControllerBase
     {
         try
         {
+            if (dtos.Count is < 1 or > 1000)
+                return BadRequest(new { error = "Import requires between 1 and 1000 equipment rows" });
+
+            await using var transaction = await MaritimeEdge.Services.Inventory.InventoryWriteScope.BeginAsync(_context);
+            var existingCodes = (await _context.EquipmentAssets.AsNoTracking()
+                .Select(a => a.AssetCode).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var groups = (await _context.EquipmentGroups.AsNoTracking().ToListAsync())
+                .ToDictionary(g => g.GroupCode, StringComparer.OrdinalIgnoreCase);
             var assets = new List<EquipmentAsset>();
             var errors = new List<string>();
             var importedByCode = new Dictionary<string, EquipmentAsset>(StringComparer.OrdinalIgnoreCase);
@@ -297,7 +305,7 @@ public class EquipmentAssetController : ControllerBase
                 }
 
                 // Validate asset code
-                if (await _assetRepository.AssetCodeExistsAsync(dto.AssetCode))
+                if (existingCodes.Contains(dto.AssetCode))
                 {
                     errors.Add($"Asset code '{dto.AssetCode}' already exists");
                     continue;
@@ -307,10 +315,7 @@ public class EquipmentAssetController : ControllerBase
                 Guid? groupId = null;
                 if (!string.IsNullOrEmpty(dto.EquipmentGroupCode))
                 {
-                    var group = await _context.EquipmentGroups
-                        .FirstOrDefaultAsync(g => g.GroupCode == dto.EquipmentGroupCode);
-                    
-                    if (group != null)
+                    if (groups.TryGetValue(dto.EquipmentGroupCode.Trim(), out var group))
                     {
                         groupId = group.Id;
                     }
@@ -391,7 +396,7 @@ public class EquipmentAssetController : ControllerBase
 
             var importedCount = assets.Count;
             await _assetRepository.BulkCreateAsync(assets);
-            await _context.SaveChangesAsync(); // Save group memberships
+            if (transaction != null) await transaction.CommitAsync();
             
             _logger.LogInformation("Imported {Count} equipment assets", importedCount);
 
