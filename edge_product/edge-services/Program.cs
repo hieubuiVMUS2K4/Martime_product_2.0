@@ -478,6 +478,8 @@ namespace MaritimeEdge
                         logger.LogInformation("Database auto-migration disabled by configuration");
                     }
 
+                    if (await PmsDatasetInitializer.InitializeAsync(dbContext, app.Configuration))
+                        logger.LogInformation("Initialized PMS dataset for the provisioned vessel");
                     var assignedWoCodes = await MaritimeEdge.Services.Maintenance.PmsWorkOrderCodes.BackfillAsync(dbContext);
                     if (assignedWoCodes > 0) logger.LogInformation("Assigned business codes to {Count} existing PMS Work Orders", assignedWoCodes);
 

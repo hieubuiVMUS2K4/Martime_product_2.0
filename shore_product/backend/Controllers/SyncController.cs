@@ -22,6 +22,22 @@ public class SyncController : ControllerBase
 {
     private const string VerifiedNodeIdItemKey = "VerifiedSyncNodeId";
 
+    public sealed record InitializePmsDatasetRequest(Guid DatasetId, Guid StreamId);
+
+    [HttpPost("pms-initialize")]
+    public async Task<IActionResult> InitializePmsDataset(InitializePmsDatasetRequest request, [FromServices] IConfiguration configuration)
+    {
+        var origin = HttpContext.Items[VerifiedNodeIdItemKey] as string;
+        if (string.IsNullOrWhiteSpace(origin)) return Unauthorized();
+        if (!configuration.GetValue<bool>("Pms:ReworkSyncEnabled")) return StatusCode(503);
+        try
+        {
+            var dataset = await PmsDatasetRegistration.InitializeAsync(_context, origin, request.DatasetId, request.StreamId, HttpContext.RequestAborted);
+            return Ok(new { protocolVersion = 2, datasetId = dataset.DatasetId, streamId = dataset.StreamId });
+        }
+        catch (InvalidOperationException error) { return Conflict(new { error = error.Message }); }
+    }
+
     [HttpGet("pms-capabilities")]
     public async Task<IActionResult> PmsCapabilities([FromServices] IConfiguration configuration)
     {

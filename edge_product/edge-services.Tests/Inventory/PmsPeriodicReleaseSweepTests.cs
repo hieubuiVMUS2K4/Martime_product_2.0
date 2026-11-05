@@ -12,6 +12,38 @@ namespace MaritimeEdge.Tests.Inventory;
 
 public class PmsPeriodicReleaseSweepTests
 {
+    [PmsPostgresFact]
+    public async Task FreshProvisionedDatasetInitializesConcurrentlyAndReleasesOneOrderOffline()
+    {
+        await using var services = Provider();
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        try
+        {
+            db.EdgeProvisioningProfiles.Add(new() { NodeId = "INIT-SWEEP", VesselId = Guid.NewGuid(), IsActive = true });
+            var job = AddJob(db, 901);
+            job.OriginNode = "INIT-SWEEP";
+            await db.SaveChangesAsync();
+            var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+                { ["Pms:ReworkApiEnabled"] = "true", ["Pms:VesselTimeZone"] = "Asia/Ho_Chi_Minh" }).Build();
+            async Task<bool> Initialize()
+            {
+                await using var initScope = services.CreateAsyncScope();
+                return await PmsDatasetInitializer.InitializeAsync(initScope.ServiceProvider.GetRequiredService<EdgeDbContext>(), config);
+            }
+            var results = await Task.WhenAll(Initialize(), Initialize());
+            Assert.Single(results, result => result);
+            Assert.True(await PmsReworkRuntime.CanAutoReleaseAsync(db, config));
+            var worker = new PmsPeriodicReleaseWorker(services.GetRequiredService<IServiceScopeFactory>(), Sweep(services), config,
+                NullLogger<PmsPeriodicReleaseWorker>.Instance);
+            Assert.Equal(1, await worker.RunCycleAsync(Now));
+            Assert.Equal(0, await worker.RunCycleAsync(Now));
+            Assert.Single(await db.MaintenanceTasks.ToListAsync());
+        }
+        finally { await db.Database.EnsureDeletedAsync(); }
+    }
+
     private static readonly DateTime Now = new(2026, 10, 26, 0, 0, 0, DateTimeKind.Utc);
     private static Guid Id(int number) => Guid.Parse($"00000000-0000-0000-0000-{number:D12}");
 

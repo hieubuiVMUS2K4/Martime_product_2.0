@@ -13,6 +13,7 @@ public sealed class PmsPeriodicReleaseWorker(IServiceScopeFactory scopes, PmsPer
         {
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<EdgeDbContext>();
+            await PmsDatasetInitializer.InitializeAsync(db, configuration, token);
             if (!await PmsReworkRuntime.CanAutoReleaseAsync(db, configuration, token)) return created;
             var zoneId = configuration["Pms:VesselTimeZone"];
             if (string.IsNullOrWhiteSpace(zoneId)) throw new InvalidOperationException("PMS vessel time zone must be configured.");

@@ -802,6 +802,7 @@ public class SyncService : ISyncService
             .Where(j => pmsKeys.Contains(j.Id) && j.PmsProtocolVersion >= 2).Select(j => j.Id).ToListAsync(cancellationToken);
         var newOrders = await context.MaintenanceTasks.AsNoTracking()
             .Where(t => pmsKeys.Contains(t.Id) && t.PmsProtocolVersion >= 2).Select(t => t.Id).ToListAsync(cancellationToken);
+        var localDataset = await context.SyncState.AsNoTracking().SingleOrDefaultAsync(s => s.Key == "pms-dataset-id", cancellationToken);
         PmsPeerCapability? pmsPeer = null;
         if (items.Any(i => PmsSyncProtocol.RequiresDedicatedReceiver(i.TableName, i.Payload) && PmsDatasetInPayload(i.Payload).HasValue))
         {
@@ -812,6 +813,17 @@ public class SyncService : ISyncService
                 using var capabilityResponse = await SendSyncRequestAsync(_httpClientFactory.CreateClient("ShoreAPI"), capabilityRequest, cancellationToken);
                 if (capabilityResponse.IsSuccessStatusCode)
                     pmsPeer = JsonSerializer.Deserialize<PmsPeerCapability>(await capabilityResponse.Content.ReadAsStringAsync(cancellationToken), _jsonOptions);
+                if (pmsPeer is { ProtocolVersion: 0, DatasetId: null } &&
+                    Guid.TryParse(localDataset?.Value, out var initialDataset) && initialDataset != Guid.Empty &&
+                    await context.SyncState.AnyAsync(s => s.Key == "pms-cutover-state" && s.Value == "ACTIVE", cancellationToken))
+                {
+                    var body = JsonSerializer.Serialize(new { datasetId = initialDataset, streamId });
+                    using var initializeRequest = await _syncRequestSigningService.CreateSignedRequestAsync(HttpMethod.Post,
+                        $"{baseUrl}/api/sync/pms-initialize", body, cancellationToken);
+                    using var initializeResponse = await SendSyncRequestAsync(_httpClientFactory.CreateClient("ShoreAPI"), initializeRequest, cancellationToken);
+                    if (initializeResponse.IsSuccessStatusCode)
+                        pmsPeer = JsonSerializer.Deserialize<PmsPeerCapability>(await initializeResponse.Content.ReadAsStringAsync(cancellationToken), _jsonOptions);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception error) { _logger.LogWarning(error, "PMS capability negotiation failed; retaining PMS events"); }
@@ -819,7 +831,6 @@ public class SyncService : ISyncService
         bool DedicatedReady(SyncQueue item) => PmsSyncProtocol.RequiresDedicatedReceiver(item.TableName, item.Payload) &&
             pmsPeer?.ProtocolVersion == 2 && pmsPeer.StreamId == streamId && pmsPeer.DatasetId.HasValue &&
             PmsDatasetInPayload(item.Payload) == pmsPeer.DatasetId;
-        var localDataset = await context.SyncState.AsNoTracking().SingleOrDefaultAsync(s => s.Key == "pms-dataset-id", cancellationToken);
         if (pmsPeer?.ProtocolVersion == 2 && pmsPeer.StreamId == streamId && Guid.TryParse(localDataset?.Value, out var currentDataset) && pmsPeer.DatasetId == currentDataset)
         {
             var ready = await context.SyncState.AsTracking().SingleOrDefaultAsync(s => s.Key == "pms-peer-ready", cancellationToken);
