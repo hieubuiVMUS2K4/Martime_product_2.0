@@ -4,6 +4,8 @@ using MaritimeEdge.DTOs;
 using MaritimeEdge.Models;
 using MaritimeEdge.Services.Core;
 using MaritimeEdge.Services.Maintenance;
+using MaritimeEdge.Repositories;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -14,6 +16,93 @@ namespace MaritimeEdge.Tests.Inventory;
 [Collection("PMS inventory")]
 public class PmsImportEquipmentTests(PmsDatabaseFixture fixture)
 {
+    [Fact]
+    public async Task LargeEquipmentImportKeepsSyncPayloadsFlatAndTreeVisible()
+    {
+        await using var db = fixture.CreateContext();
+        var prefix = Guid.NewGuid().ToString("N");
+        var group = new EquipmentGroup { GroupCode = prefix, GroupName = "Import test group" };
+        db.EquipmentGroups.Add(group);
+        await db.SaveChangesAsync();
+        var repository = new EquipmentAssetRepository(db);
+        var completion = new MaintenanceCompletionService(db, Mock.Of<IMaintenanceScheduleRepository>(), repository,
+            NullLogger<MaintenanceCompletionService>.Instance);
+        var controller = new EquipmentAssetController(repository, db,
+            NullLogger<EquipmentAssetController>.Instance, completion);
+        var rows = new List<ImportEquipmentAssetDto>
+        {
+            new() { AssetCode = prefix, AssetName = "System", Category = "SYSTEM" }
+        };
+        rows.AddRange(Enumerable.Range(1, 752).Select(i => new ImportEquipmentAssetDto
+        {
+            AssetCode = $"{prefix}-{i}", AssetName = $"Equipment {i}", Category = "PUMP", ParentAssetCode = prefix,
+            EquipmentGroupCode = prefix
+        }));
+
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        var result = Assert.IsType<OkObjectResult>((await controller.BulkImport(rows)).Result);
+        Console.WriteLine($"753-equipment import completed in {timer.ElapsedMilliseconds} ms");
+        var response = JsonSerializer.SerializeToElement(result.Value);
+        Assert.True(response.GetProperty("success").GetBoolean());
+        Assert.Equal(753, response.GetProperty("imported").GetInt32());
+        var imported = await db.EquipmentAssets.Where(a => a.AssetCode.StartsWith(prefix)).ToListAsync();
+        Assert.Equal(753, imported.Count);
+        var root = imported.Single(a => a.AssetCode == prefix);
+        Assert.Equal(752, root.Children.Count);
+        var members = await db.EquipmentGroupMembers.Where(m => m.GroupId == group.Id).ToListAsync();
+        Assert.Equal(752, members.Count);
+        foreach (var member in members)
+        {
+            var payload = db.BuildSyncPayload(member);
+            Assert.DoesNotContain("\"Asset\"", payload);
+            Assert.DoesNotContain("\"Group\"", payload);
+        }
+        foreach (var asset in imported)
+        {
+            var payload = db.BuildSyncPayload(asset);
+            Assert.True(payload.Length < 3000, $"Equipment payload grew to {payload.Length} bytes");
+            var document = JsonSerializer.Deserialize<EquipmentAsset>(payload)!;
+            Assert.Equal(asset.Id, document.Id);
+            Assert.Equal(asset.ParentId, document.ParentId);
+            Assert.Equal(asset.AssetCode, document.AssetCode);
+            Assert.DoesNotContain("\"Children\"", payload);
+            Assert.DoesNotContain("\"Parent\"", payload);
+        }
+        db.ChangeTracker.Clear();
+        var tree = Assert.IsType<OkObjectResult>((await controller.GetTree()).Result);
+        Assert.Equal(753, Assert.IsType<List<EquipmentAssetDto>>(tree.Value).Count(a => a.AssetCode.StartsWith(prefix)));
+    }
+
+    [PmsPostgresFact]
+    public async Task LargeJobImportValidatesAndPersistsAllRows()
+    {
+        await using var db = fixture.CreateContext();
+        var prefix = Guid.NewGuid().ToString("N");
+        var asset = new EquipmentAsset { AssetCode = prefix, AssetName = "Import pump", Category = "PUMP" };
+        db.Add(asset);
+        await db.SaveChangesAsync();
+        var request = new ImportPmsJobsDto
+        {
+            Rows = Enumerable.Range(1, 700).Select(i => new ImportPmsJobRow
+            {
+                RowNumber = i, Code = $"{prefix}-{i}", Name = $"Imported job {i}",
+                AssetCode = prefix, IntervalMonths = 3,
+                BaselineAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }).ToList()
+        };
+        var service = new PmsJobService(db);
+        Assert.True((await service.ImportAsync(request, 1, "NODE")).Valid);
+        request.ValidateOnly = false;
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        var result = await service.ImportAsync(request, 1, "NODE");
+        Console.WriteLine($"700-job import completed in {timer.ElapsedMilliseconds} ms");
+        Assert.True(result.Valid);
+        Assert.Equal(700, result.Imported);
+        db.ChangeTracker.Clear();
+        Assert.Equal(700, await db.MaintenanceSchedules.CountAsync(j => j.ScheduleCode.StartsWith(prefix)));
+        Assert.False(await db.MaintenanceTasks.AnyAsync(t => t.EquipmentAssetId == asset.Id));
+    }
+
     [PmsPostgresFact]
     public async Task CalendarBaselineImportsAtomicallyWithoutExecutionOrWorkOrders()
     {

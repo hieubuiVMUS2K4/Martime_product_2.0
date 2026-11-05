@@ -3082,6 +3082,23 @@ public class EdgeDbContext : DbContext
     /// </summary>
     private List<object> ProcessSyncQueue()
     {
+        // Capture changes once. Local/Entries lookups while building each payload
+        // would otherwise rescan the complete import batch for every row.
+        ChangeTracker.DetectChanges();
+        var autoDetectChanges = ChangeTracker.AutoDetectChangesEnabled;
+        try
+        {
+            ChangeTracker.AutoDetectChangesEnabled = false;
+            return CaptureSyncQueue();
+        }
+        finally
+        {
+            ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+        }
+    }
+
+    private List<object> CaptureSyncQueue()
+    {
         var deferred = new List<object>();
 
         // Detect changes
@@ -3344,6 +3361,14 @@ public class EdgeDbContext : DbContext
 
     private string SerializeSyncPayload(object entity)
     {
+        if (entity is EquipmentAsset or EquipmentGroupMember)
+        {
+            // Each asset travels as one row. Including Parent/Children repeats
+            // the entire tracked hierarchy for every imported asset.
+            return System.Text.Json.JsonSerializer.Serialize(
+                Entry(entity).Properties.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue));
+        }
+
         if (entity is PmsWorkOrderReport or PmsWorkOrderMaterialPosting or
             MaintenanceSchedule { PmsProtocolVersion: 2 } or MaintenanceTask { PmsProtocolVersion: 2 })
         {
@@ -3351,7 +3376,7 @@ public class EdgeDbContext : DbContext
             // Snapshot/evidence JSON remains an opaque scalar with exact source bytes.
             var payload = Entry(entity).Properties.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue);
             var dataset = SyncState.Local.SingleOrDefault(s => s.Key == "pms-dataset-id")
-                ?? SyncState.AsNoTracking().SingleOrDefault(s => s.Key == "pms-dataset-id");
+                ?? SyncState.SingleOrDefault(s => s.Key == "pms-dataset-id");
             if (dataset != null && Guid.TryParse(dataset.Value, out var datasetId)) payload["PmsDatasetId"] = datasetId;
             if (entity is MaintenanceSchedule { ResponsibleRankId: not null } job)
                 payload["ResponsibleRankCode"] = Ranks.AsNoTracking().Where(r => r.Id == job.ResponsibleRankId).Select(r => r.RankCode).SingleOrDefault();
@@ -3359,7 +3384,10 @@ public class EdgeDbContext : DbContext
             {
                 var local = ChangeTracker.Entries<ScheduleChecklistTemplate>().Where(e => e.Entity.ScheduleId == definition.Id).ToList();
                 var localIds = local.Select(e => e.Entity.Id).ToHashSet();
-                var checklist = ScheduleChecklistTemplates.AsNoTracking().Where(c => c.ScheduleId == definition.Id).ToList()
+                var storedChecklist = Entry(definition).State == EntityState.Added
+                    ? new List<ScheduleChecklistTemplate>()
+                    : ScheduleChecklistTemplates.AsNoTracking().Where(c => c.ScheduleId == definition.Id).ToList();
+                var checklist = storedChecklist
                     .Where(c => !localIds.Contains(c.Id)).Concat(local.Where(e => e.State != EntityState.Deleted).Select(e => e.Entity))
                     .OrderBy(c => c.SequenceOrder).Select(c => new { c.Id, c.SequenceOrder, c.CheckpointDescription,
                         c.RequiresReading, c.NormalRangeMin, c.NormalRangeMax, c.Unit, c.CreatedAt }).ToArray();
