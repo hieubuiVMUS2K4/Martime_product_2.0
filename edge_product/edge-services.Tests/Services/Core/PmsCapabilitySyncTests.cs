@@ -11,6 +11,49 @@ namespace MaritimeEdge.Tests.Services.Core;
 public partial class SyncReliabilityTests
 {
     [Fact]
+    public async Task PmsCapabilitySync_RegistersFreshShoreBeforeDeliveringDatasetSnapshots()
+    {
+        var epoch = Guid.NewGuid();
+        var stream = Guid.NewGuid();
+        var initialized = false;
+        var deliveries = 0;
+        var (services, sync) = Build(true, async request =>
+        {
+            if (request.Method == HttpMethod.Get)
+                return Response(JsonSerializer.Serialize(new { protocolVersion = 0, datasetId = (Guid?)null, streamId = (Guid?)null }));
+            if (request.RequestUri!.AbsolutePath == "/api/sync/pms-initialize")
+            {
+                var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync()).RootElement;
+                Assert.Equal(epoch, body.GetProperty("datasetId").GetGuid());
+                Assert.Equal(stream, body.GetProperty("streamId").GetGuid());
+                initialized = true;
+                return Response(JsonSerializer.Serialize(new { protocolVersion = 2, datasetId = epoch, streamId = stream }));
+            }
+            Assert.True(initialized);
+            var batch = JsonSerializer.Deserialize<List<SyncQueueItemDto>>(await request.Content!.ReadAsStringAsync(),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            deliveries += batch.Count;
+            return Response(JsonSerializer.Serialize(new { total = batch.Count, succeeded = batch.Count, failed = 0,
+                acknowledgedEventIds = batch.Select(i => i.EventId), pmsSyncVersion = 2 }));
+        });
+        using (services)
+        {
+            var db = services.GetRequiredService<EdgeDbContext>();
+            db.SyncState.AddRange(new() { Key = "pms-dataset-id", Value = epoch.ToString() },
+                new() { Key = "sync-stream-id", Value = stream.ToString() },
+                new() { Key = "pms-cutover-state", Value = "ACTIVE" });
+            await db.SaveChangesAsync();
+            db.MaintenanceSchedules.Add(new() { ScheduleCode = "FRESH", PmsProtocolVersion = 2 });
+            await db.SaveChangesAsync();
+            await sync.ExecuteSyncAsync(default);
+            Assert.True(initialized);
+            Assert.Equal(1, deliveries);
+            db.ChangeTracker.Clear();
+            Assert.NotNull((await db.SyncQueue.SingleAsync(q => q.TableName == "maintenance_schedule")).SyncedAt);
+        }
+    }
+
+    [Fact]
     public async Task PmsCapabilitySync_RenamedMasterRankQueuesNewSnapshotWithoutRewritingOriginalEvent()
     {
         var epoch = Guid.NewGuid(); var stream = Guid.NewGuid(); var codes = new List<string>();

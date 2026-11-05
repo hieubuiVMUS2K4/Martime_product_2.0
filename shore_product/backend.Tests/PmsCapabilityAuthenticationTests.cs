@@ -18,6 +18,15 @@ namespace ProductApi.Tests;
 
 public class PmsCapabilityAuthenticationTests
 {
+    [Fact]
+    public void InitializationPostUsesSyncAuthentication()
+    {
+        var http = new DefaultHttpContext();
+        http.Request.Method = "POST";
+        http.Request.Path = "/api/sync/pms-initialize";
+        Assert.True(SyncRequestVerificationMiddleware.IsProtectedSyncRequest(http.Request));
+    }
+
     [Theory]
     [InlineData("/api/sync/pms-capabilities")]
     [InlineData("/api/Sync/pms-capabilities")]

@@ -66,6 +66,9 @@ public sealed class SyncRequestVerificationMiddleware : IMiddleware
         if (request.Method.Equals(HttpMethods.Get, StringComparison.OrdinalIgnoreCase) && remaining.Equals("/pms-capabilities", StringComparison.OrdinalIgnoreCase))
             return true;
 
+        if (request.Method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase) && remaining.Equals("/pms-initialize", StringComparison.OrdinalIgnoreCase))
+            return true;
+
         if (request.Method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase) && remaining.Equals("/acknowledge", StringComparison.OrdinalIgnoreCase))
             return true;
 
