@@ -33,7 +33,7 @@ export const pms = {
   history: (id: string, params: Record<string, unknown>) => apiClient.get<Page<HistoryRow>>(`/pms/jobs/${id}/history`, { params }),
   completedReport: (jobId: string, id: string) => apiClient.get<Report>(`/pms/jobs/${jobId}/completed-reports/${id}`),
   legacyReport: (jobId: string, id: string) => apiClient.get<{ reportSnapshot?: string }>(`/pms/jobs/${jobId}/history/${id}`),
-  materials: (search: string, selectedIds?: string) => apiClient.get<Page<MaterialOption>>('/pms/work-orders/material-options', { params: { search, selectedIds, pageSize: selectedIds ? 200 : 30 } }),
+  materials: (search: string, selectedIds?: string, equipmentAssetId?: string, page = 1) => apiClient.get<Page<MaterialOption>>('/pms/work-orders/material-options', { params: { search, selectedIds, equipmentAssetId, page, pageSize: selectedIds ? 200 : 30 } }),
   counters: (params: Record<string, unknown>) => apiClient.get<Page<Counter>>('/pms/counters', { params }),
   updateCounter: (id: string, value: number) => apiClient.patch(`/equipment-assets/${id}/running-hours`, value),
 }

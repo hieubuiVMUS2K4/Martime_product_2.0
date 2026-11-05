@@ -153,7 +153,7 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
                 {
                     var report = System.Text.Json.Nodes.JsonNode.Parse(history.ReportSnapshot ?? "{}") ?? new System.Text.Json.Nodes.JsonObject();
                     report["ApprovalEvidence"] = System.Text.Json.JsonSerializer.SerializeToNode(new { ActionId = (Guid)http.Items["ApprovalActionId"]!, RevisionId = revision.Id,
-                        ContentHash = hash, actor.UserId, actor.Username, actor.Name, actor.Rank, actor.Authority, AuthenticationMethod = "password-reauthentication" });
+                        ContentHash = hash, actor.UserId, actor.Username, actor.Name, actor.Rank, actor.Authority, AuthenticationMethod = (string)http.Items["ApprovalAuthenticationMethod"]! });
                     history.ReportSnapshot = report.ToJsonString();
                     history.IsSynced = false;
                 }
@@ -166,7 +166,7 @@ public sealed class ApprovalActionFilter(EdgeDbContext db, ApprovalService appro
             var response = executed.Result is ObjectResult result ? JsonSerializer.Serialize(result.Value, new JsonSerializerOptions(JsonSerializerDefaults.Web)) : "{}";
             db.ApprovalActions.Add(new ApprovalAction { Id = (Guid)http.Items["ApprovalActionId"]!, DocumentId = document.Id, RevisionId = revision.Id,
                 OriginNode = node, ActorUserId = actor.UserId, ActorUsername = actor.Username, CrewId = actor.CrewId, ActorName = actor.Name, ActorRank = actor.Rank,
-                Authority = actor.Authority, Action = action, Reason = Uri.UnescapeDataString(http.Request.Headers["X-Approval-Reason"].ToString()), ContentHash = hash,
+                Authority = actor.Authority, Action = action, AuthenticationMethod = (string)http.Items["ApprovalAuthenticationMethod"]!, Reason = Uri.UnescapeDataString(http.Request.Headers["X-Approval-Reason"].ToString()), ContentHash = hash,
                 IdempotencyKey = idempotency, RequestHash = requestHash, ResponseJson = response });
             await db.SaveChangesAsync();
             if (transaction != null) await transaction.CommitAsync();

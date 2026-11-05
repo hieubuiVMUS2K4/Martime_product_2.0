@@ -72,6 +72,7 @@ function materialRequestFormFixture(getCatalog) {
   const Page = load('pages/MaterialRequest/MaterialRequestPage.tsx', {
     react: hooks,
     '@/components/common/CatalogSelect': { CatalogSelect: () => null },
+    '@/components/common/CrewNameSelect': { CrewNameSelect: () => null },
     '@/config/catalogs': { UNITS_OF_MEASURE: [] },
     '@/components/auth/PermissionGate': { PermissionGate: ({ children }) => children },
     '@/components/common/DataTable': { DataTable: () => null, TableActions: ({ children }) => children },
@@ -303,16 +304,17 @@ function client(fetch) {
   return load('services/api.client.ts', { '@/config/app.config': config, './approval': approval }, { fetch })
 }
 
-test('approval proof uses reviewed server identity and version; credentials remain transient headers', async () => {
+test('approval proof uses reviewed server identity, version and acknowledgement without a password', async () => {
   const context = { actor: { name: 'Officer', rank: 'Master', username: 'officer' }, module: 'sms', recordKey: 'record', action: 'approve', version: 4, revision: 2, contentHash: 'reviewed-hash', snapshot: { title: 'Reviewed content' } }
   const approval = load('services/approval.ts', { '@/config/app.config': { API_CONFIG: { BASE_URL: '/api' } } }, {
     fetch: async (url, options) => { assert.equal(url, '/api/approvals/sms/record/context?action=approve'); assert.equal(options.headers.Authorization, 'Bearer session'); return { ok: true, json: async () => context } }, crypto: require('node:crypto').webcrypto,
   })
-  approval.registerApprovalConfirmation(async value => { assert.equal(value.actor.username, 'officer'); assert.equal(value.snapshot.title, 'Reviewed content'); return { password: 'transient-password', reason: 'Checked' } })
+  approval.registerApprovalConfirmation(async value => { assert.equal(value.actor.username, 'officer'); assert.equal(value.snapshot.title, 'Reviewed content'); return { acknowledged: true, reason: 'Checked' } })
   const headers = await approval.prepareApproval('/sms/records/record/approve', {}, 'session')
   assert.equal(headers['X-Approval-Hash'], 'reviewed-hash')
   assert.equal(headers['X-Approval-Version'], '4')
-  assert.equal(headers['X-Approval-Password'], 'transient-password')
+  assert.equal(headers['X-Approval-Acknowledged'], 'true')
+  assert.equal(headers['X-Approval-Password'], undefined)
   assert.match(headers['X-Approval-Idempotency-Key'], /^[0-9a-f-]{36}$/)
 })
 
@@ -333,7 +335,7 @@ for (const [status, message] of [
     ? { ok: true, json: async () => ({ actor: {}, version: 1, contentHash: 'hash' }) }
     : { ok: false, status, statusText: 'Signing failed', json: async () => ({ message }) }
   const approval = load('services/approval.ts', { '@/config/app.config': config }, { fetch, crypto: require('node:crypto').webcrypto })
-  approval.registerApprovalConfirmation(async () => ({ password: 'test-only', reason: '' }))
+  approval.registerApprovalConfirmation(async () => ({ acknowledged: true, reason: '' }))
   const { apiClient } = load('services/api.client.ts', { '@/config/app.config': config, './approval': approval }, { fetch })
   const errors = []
   const { reportSigningError } = load('lib/signingFeedback.ts', { sonner: { toast: { error: value => errors.push(value), info: () => assert.fail('Not a cancellation') } } })

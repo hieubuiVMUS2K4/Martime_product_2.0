@@ -1,8 +1,9 @@
 import { translateMessage as tx, localizePmsMessage, useMessageLocale } from '@/i18n/messages'
 import { departmentName } from './departments'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { CheckCircle2, ChevronRight, Eye, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Eye, Search, Trash2 } from 'lucide-react'
+import { TablePagination } from '@/components/common/DataTable'
 import { useAuthStore } from '@/stores/auth.store'
 import { AdHocForm, CrewSelect, SupportSelect } from './Forms'
 import { ReasonDialog } from './JobPage'
@@ -33,10 +34,20 @@ function Execution({ detail }: { detail: WorkOrderDetail }) {
   const [dirty, setDirty] = useState(false), [search, setSearch] = useState(''), [settled, setSettled] = useState('')
   useEffect(() => { const timer = setTimeout(() => setSettled(search), 300); return () => clearTimeout(timer) }, [search])
   useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault() }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard) }, [dirty])
-  const materials = usePmsQuery(['material-options', settled], () => pms.materials(settled))
+  const [materialScope, setMaterialScope] = useState<'equipment' | 'all'>(w.equipmentAssetId ? 'equipment' : 'all')
+  const [materialPage, setMaterialPage] = useState(1)
+  const [materialsOpen, setMaterialsOpen] = useState(false), [activeMaterial, setActiveMaterial] = useState(0)
+  const materialListId = useId()
+  const materialSearch = useRef<HTMLInputElement>(null)
+  const materialEquipmentId = materialScope === 'equipment' ? w.equipmentAssetId : undefined
+  useEffect(() => { setMaterialPage(1) }, [settled, materialScope])
+  const materials = usePmsQuery(['material-options', settled, materialEquipmentId, materialPage], () => pms.materials(settled, undefined, materialEquipmentId, materialPage))
   const selectedIds = form.materials.map(m => m.materialItemId).sort().join(',')
   const selected = usePmsQuery(['selected-materials', selectedIds], () => pms.materials('', selectedIds), !!selectedIds)
   const names = new Map<string, MaterialOption>([...(selected.data?.items || []), ...(materials.data?.items || [])].map(m => [m.id, m]))
+  const availableMaterials = materials.data?.items.filter(material => !form.materials.some(row => row.materialItemId === material.id)) || []
+  useEffect(() => { setActiveMaterial(0) }, [settled, materialScope, materialPage])
+  useEffect(() => { if (materialsOpen) document.getElementById(`${materialListId}-${activeMaterial}`)?.scrollIntoView({ block: 'nearest' }) }, [activeMaterial, materialsOpen, materialListId])
   const command = useRef<{ body: string; id: string } | null>(null)
   const update = (patch: Partial<ExecutionResult>) => { setForm(f => ({ ...f, ...patch })); setDirty(true) }
   const save = async (submit: boolean) => {
@@ -53,7 +64,30 @@ function Execution({ detail }: { detail: WorkOrderDetail }) {
 
     <DetailTabs items={[
       { key: 'checklist', name: tx("pmsRework.executionChecklist"), count: form.checklist.length, content: <div className="overflow-auto"><table className="w-full min-w-[700px] text-xs"><thead className="bg-blue-50"><tr>{[tx("pmsRework.description"), tx("pmsRework.reading433"), tx("pmsRework.notes"), tx("pmsRework.complete")].map(s => <th key={s} className="border border-[#a3b1bc] p-2 text-center font-semibold">{s}</th>)}</tr></thead><tbody>{detail.checklist.map((c, i) => <tr key={c.id}><td className="border border-[#a3b1bc] p-2">{c.checkpointDescription}{c.requiresReading && <span className="ml-1 text-red-500">*</span>}<span className="block text-gray-400">{c.normalRangeMin ?? '—'} – {c.normalRangeMax ?? '—'} {c.unit}</span></td><td className="w-40 border border-[#a3b1bc] p-2"><input aria-label={tx("pmsRework.readingFor", { p0: c.checkpointDescription })} type="number" step="any" className={input} value={form.checklist[i].reading ?? ''} onChange={e => update({ checklist: form.checklist.map(v => v.id === c.id ? { ...v, reading: e.target.value === '' ? null : Number(e.target.value) } : v) })} /></td><td className="border border-[#a3b1bc] p-2"><input aria-label={tx("pmsRework.notesFor", { p0: c.checkpointDescription })} maxLength={1000} className={input} value={form.checklist[i].remarks} onChange={e => update({ checklist: form.checklist.map(v => v.id === c.id ? { ...v, remarks: e.target.value } : v) })} /></td><td className="w-20 border border-[#a3b1bc] p-2 text-center align-middle"><input aria-label={tx("pmsRework.complete437", { p0: c.checkpointDescription })} className="block mx-auto" type="checkbox" checked={form.checklist[i].completed} onChange={e => update({ checklist: form.checklist.map(v => v.id === c.id ? { ...v, completed: e.target.checked } : v) })} /></td></tr>)}</tbody></table>{!detail.checklist.length && <p className="p-3 text-xs text-gray-400">{tx("pmsRework.thisWOHasNoChecklistItems")}</p>}</div> },
-      { key: 'materials', name: tx("pmsRework.materialsUsed"), count: form.materials.length, content: <div><div className="mb-3"><input className={input} aria-label={tx("pmsRework.findUsedMaterials")} placeholder={tx("pmsRework.searchUsedMaterialCodeOrName")} value={search} onChange={e => setSearch(e.target.value)} /><div className="mt-2 flex max-h-28 flex-wrap gap-2 overflow-auto">{materials.data?.items.filter(m => !form.materials.some(p => p.materialItemId === m.id)).map(m => <button className={button} key={m.id} onClick={() => update({ materials: [...form.materials, { materialItemId: m.id, quantity: 1 }] })} disabled={form.materials.length >= 200}>{m.itemCode} · {m.name} ({m.unit || '—'})</button>)}</div>{materials.error && <ErrorBox error={materials.error} />}</div>
+      { key: 'materials', name: tx("pmsRework.materialsUsed"), count: form.materials.length, content: <div><div className="mb-3"><div className="mb-3 flex gap-2">{(['equipment', 'all'] as const).map(scope => <button type="button" key={scope} disabled={scope === 'equipment' && !w.equipmentAssetId} aria-pressed={materialScope === scope} className={`${button} ${materialScope === scope ? '!border-blue-500 !bg-blue-50 !text-blue-600' : ''}`} onClick={() => { setMaterialScope(scope); setMaterialPage(1) }}>{tx(scope === 'equipment' ? 'pmsRework.equipmentMaterials' : 'pmsRework.allMaterials')}</button>)}</div><div className="relative" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setMaterialsOpen(false) }}>
+        <Search size={14} className="pointer-events-none absolute left-2 top-2 text-slate-400" aria-hidden="true" />
+        <input ref={materialSearch} role="combobox" aria-expanded={materialsOpen} aria-controls={materialListId} aria-autocomplete="list" aria-activedescendant={materialsOpen && availableMaterials[activeMaterial] ? `${materialListId}-${activeMaterial}` : undefined}
+          className={`${input} !pl-7 !pr-8`} aria-label={tx('pmsRework.findUsedMaterials')} placeholder={tx('pmsRework.searchUsedMaterialCodeOrName')} autoComplete="off" value={search}
+          onClick={() => setMaterialsOpen(true)} onChange={event => { setSearch(event.target.value); setMaterialPage(1); setMaterialsOpen(true) }}
+          onKeyDown={event => {
+            if (event.key === 'Escape') { event.stopPropagation(); setMaterialsOpen(false) }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setMaterialsOpen(true); setActiveMaterial(index => materialsOpen ? Math.max(0, Math.min(availableMaterials.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))) : 0) }
+            if (event.key === 'Enter' && materialsOpen) { event.preventDefault(); const material = availableMaterials[activeMaterial]; if (material && form.materials.length < 200) { update({ materials: [...form.materials, { materialItemId: material.id, quantity: 1 }] }); setMaterialsOpen(false); setSearch('') } }
+          }} />
+        <button type="button" aria-label={tx('pmsRework.findUsedMaterials')} className="absolute right-2 top-2 text-slate-400" onClick={() => { materialSearch.current?.focus(); setMaterialsOpen(open => !open) }}><ChevronDown size={14} /></button>
+        {materialsOpen && <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-gray-300 bg-white shadow-lg" onMouseDown={event => event.preventDefault()}>
+          <div role="listbox" id={materialListId} aria-label={tx('pmsRework.findUsedMaterials')} className="max-h-56 overflow-y-auto py-1">
+            {materials.isFetching ? <p className="px-3 py-3 text-xs text-gray-500">{tx('pmsRework.loadingMaterialNames')}</p> : availableMaterials.map((material, index) => <button type="button" role="option" aria-selected={activeMaterial === index} id={`${materialListId}-${index}`} key={material.id} disabled={form.materials.length >= 200}
+              className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm disabled:opacity-40 ${activeMaterial === index ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-blue-50'}`}
+              onMouseEnter={() => setActiveMaterial(index)} onClick={() => { update({ materials: [...form.materials, { materialItemId: material.id, quantity: 1 }] }); setMaterialsOpen(false); setSearch('') }}>
+              <span className="min-w-0"><span className="block truncate font-medium">{material.name}</span><span className="block text-xs text-slate-500">{material.itemCode}</span></span><span className="shrink-0 text-xs text-slate-500">{material.unit || '—'}</span>
+            </button>)}
+            {!materials.isFetching && !materials.error && !availableMaterials.length && <p className="px-3 py-3 text-xs text-gray-500">{tx(materialScope === 'equipment' && !settled && !materials.data?.items.length ? 'pmsRework.noMaterialsAssignedToThisEquipment' : 'pmsRework.noMatchingMaterials')}</p>}
+            {materials.error && <ErrorBox error={materials.error} />}
+          </div>
+          {(materials.data?.total || 0) > 30 && <TablePagination page={materialPage} pageSize={30} totalItems={materials.data?.total || 0} onPageChange={setMaterialPage} />}
+        </div>}
+      </div></div>
       <table className="w-full text-xs"><thead className="bg-blue-50"><tr>{[tx("pmsRework.material"), tx("pmsRework.unit"), tx("pmsRework.quantityUsed"), ''].map((s, i) => <th key={i} className="border border-[#a3b1bc] p-2 text-center font-semibold">{s}</th>)}</tr></thead><tbody>{form.materials.map(m => <tr key={m.materialItemId}><td className="border border-[#a3b1bc] p-2">{names.get(m.materialItemId)?.name || tx("pmsRework.loadingMaterialNames")}</td><td className="border border-[#a3b1bc] p-2">{names.get(m.materialItemId)?.unit || '—'}</td><td className="w-40 border border-[#a3b1bc] p-2"><input aria-label={tx("pmsRework.quantityUsed444")} className={input} type="number" step="0.000001" min="0.000001" value={m.quantity} onChange={e => update({ materials: form.materials.map(p => p === m ? { ...p, quantity: Number(e.target.value) } : p) })} /></td><td className="w-12 border border-[#a3b1bc] p-2"><ActionIcon label={tx("pmsRework.removeMaterialRow")} icon={<Trash2 />} danger onClick={() => update({ materials: form.materials.filter(p => p !== m) })} /></td></tr>)}</tbody></table><p className="mt-3 text-xs text-gray-500">{tx("pmsRework.stockIsCheckedAndPostedWhenTheReport")}</p></div> },
     ]} />    </fieldset><div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-200 bg-white p-3"><button className={button} disabled={action.busy} onClick={() => { if (!dirty || confirm(tx("pmsRework.leaveThisPageAndDiscardUnsavedChanges"))) navigate(`/pms/work-orders/${w.id}`) }}>{tx("pmsRework.back")}</button><button className={button} disabled={action.busy} onClick={() => void save(false)}>{tx("pmsRework.saveProgress")}</button><button className={primary} disabled={action.busy || hours === ''} onClick={() => void save(true)}>{tx("pmsRework.submitForReview")}</button></div>
   </div>

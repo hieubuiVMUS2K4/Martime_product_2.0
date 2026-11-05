@@ -44,6 +44,7 @@ public class UserInfo
     public string RoleCode { get; set; } = string.Empty;
     public string? CrewId { get; set; }
     public string? FullName { get; set; }
+    public DateTime? DateOfBirth { get; set; }
     public string? Position { get; set; }
     public string? RankName { get; set; }
     public bool IsActive { get; set; }

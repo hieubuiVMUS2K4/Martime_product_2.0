@@ -18,6 +18,26 @@ namespace MaritimeEdge.Tests.Services.Core;
 [Collection("PMS inventory")]
 public class ApprovalTests(PmsDatabaseFixture fixture)
 {
+    [PmsPostgresFact]
+    public async Task SessionConfirmationRequiresTheAuthenticatedActiveAccount()
+    {
+        await using var db = fixture.CreateContext();
+        var user = await Admin(db);
+        var service = Service(db);
+        var http = new DefaultHttpContext();
+        http.Items["UserId"] = user.Id;
+        http.Request.Headers["X-Approval-Acknowledged"] = "true";
+        var actor = new ApprovalActor(user.Id, user.Username, null, user.Username, "ADMIN", "pms.work.approve");
+        await service.ReauthenticateAsync(http, actor);
+        Assert.Equal("session-confirmation", http.Items["ApprovalAuthenticationMethod"]);
+        http.Items.Remove("UserId");
+        Assert.Equal(401, (await Assert.ThrowsAsync<ApprovalException>(() => service.ReauthenticateAsync(http, actor))).Status);
+        http.Items["UserId"] = user.Id;
+        user.LockoutUntil = DateTime.UtcNow.AddMinutes(5);
+        await db.SaveChangesAsync();
+        Assert.Equal(403, (await Assert.ThrowsAsync<ApprovalException>(() => service.ReauthenticateAsync(http, actor))).Status);
+    }
+
     private static ApprovalService Service(EdgeDbContext db)
     {
         var runtime = new Mock<IEdgeRuntimeConfigService>();
@@ -130,6 +150,8 @@ public class ApprovalTests(PmsDatabaseFixture fixture)
         }
         var filter = new ApprovalActionFilter(db, service, Runtime());
         var first = Request(user, receipt.Id, hash, requestId);
+        first.HttpContext.Request.Headers.Remove("X-Approval-Password");
+        first.HttpContext.Request.Headers["X-Approval-Acknowledged"] = "true";
         await filter.OnActionExecutionAsync(first, () => Execute(first));
         Assert.Null(first.Result);
         Assert.Equal(1, count);
@@ -142,6 +164,7 @@ public class ApprovalTests(PmsDatabaseFixture fixture)
         await filter.OnActionExecutionAsync(stale, () => Execute(stale));
         Assert.Equal(409, Assert.IsType<ObjectResult>(stale.Result).StatusCode); Assert.Equal(1, count);
         var action = await db.ApprovalActions.SingleAsync(a => a.ActorUserId == user.Id);
+        Assert.Equal("session-confirmation", action.AuthenticationMethod);
         action.ActorName = "Forged";
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
     }

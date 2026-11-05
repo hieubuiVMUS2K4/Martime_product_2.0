@@ -68,6 +68,7 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
         if (q.AssignedTo != null) tasks = tasks.Where(t => t.AssignedTo == q.AssignedTo);
         if (q.Department != null) tasks = tasks.Where(t => t.AssignedDepartment == q.Department);
         if (q.Priority != null) tasks = tasks.Where(t => t.Priority == q.Priority);
+        if (q.HasCalendarDeadline.HasValue) tasks = tasks.Where(t => t.WorkOrderDueAt.HasValue == q.HasCalendarDeadline.Value);
         if (q.DueFrom.HasValue) tasks = tasks.Where(t => t.WorkOrderDueAt >= q.DueFrom);
         if (q.DueTo.HasValue) tasks = tasks.Where(t => t.WorkOrderDueAt <= q.DueTo);
         if (q.DueHoursFrom.HasValue) tasks = tasks.Where(t => t.WorkOrderDueHours >= q.DueHoursFrom);

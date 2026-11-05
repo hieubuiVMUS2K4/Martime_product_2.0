@@ -25,6 +25,13 @@ public class CrewController : ControllerBase
         _mapper = mapper;
     }
 
+    [HttpGet("options")]
+    public async Task<IActionResult> GetCrewOptions(CancellationToken token) => Ok(await _context.CrewMembers.AsNoTracking()
+        .Where(c => c.IsOnboard || c.OnboardStatus == "Approved")
+        .OrderBy(c => c.FullName)
+        .Select(c => new { c.CrewId, c.FullName, RankName = c.Rank != null ? c.Rank.RankName : null })
+        .ToListAsync(token));
+
     [HttpGet]
     public async Task<IActionResult> GetAllCrew(
         [FromQuery] int page = 1, 

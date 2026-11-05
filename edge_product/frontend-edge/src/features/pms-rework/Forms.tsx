@@ -65,8 +65,26 @@ export function CrewSelect({ value, onChange, crew }: { value?: string | null; o
  return <select className={input} value={value || ''} onChange={e => onChange(e.target.value || null)}><option value="">{tx("pmsRework.unassigned")}</option>{crew.map(c => <option key={c.crewId} value={c.crewId}>{c.fullName}</option>)}</select> }
 export function SupportSelect({ crew, pic, selected, onChange }: { crew: CrewOption[]; pic?: string | null; selected: string[]; onChange: (ids: string[]) => void }) {
   useMessageLocale()
-
-  return <div className="flex max-h-28 flex-wrap gap-x-4 gap-y-2 overflow-auto rounded border border-gray-200 p-2 text-xs">{crew.filter(c => c.crewId !== pic).map(c => <label key={c.crewId} className="flex items-center gap-1"><input type="checkbox" disabled={!pic} checked={selected.includes(c.crewId)} onChange={e => onChange(e.target.checked ? [...selected, c.crewId] : selected.filter(id => id !== c.crewId))} />{c.fullName}</label>)}{!pic && <span className="text-gray-400">{tx("pmsRework.selectThePersonInChargeBeforeAddingSupporting")}</span>}</div>
+  const [search, setSearch] = useState(''), [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const outside = (event: MouseEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', outside)
+    return () => document.removeEventListener('mousedown', outside)
+  }, [])
+  const available = crew.filter(person => person.crewId !== pic && foldVietnamese(`${person.fullName} ${person.crewId}`).includes(foldVietnamese(search)))
+  if (!pic) return <div className="rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-sm text-gray-500">{tx("pmsRework.selectThePersonInChargeBeforeAddingSupporting")}</div>
+  return <div ref={box} className="relative rounded border border-gray-300 bg-white" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false) }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false) } }}>
+    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2"><Search size={14} className="shrink-0 text-gray-400" /><input aria-label={tx("pmsRework.searchSupportingCrew")} placeholder={tx("pmsRework.searchSupportingCrew")} className="min-w-0 flex-1 bg-transparent text-sm outline-none" value={search} aria-expanded={open} onClick={() => setOpen(true)} onFocus={() => setOpen(true)} onChange={event => { setSearch(event.target.value); setOpen(true) }} /></div>
+      <span className="text-xs text-gray-500">{tx("pmsRework.supportingCrewSelected", { count: selected.length })}</span>
+    </div>
+    {!!selected.length && <div className="flex flex-wrap gap-2 border-b border-gray-200 px-3 py-2">{selected.map(id => <span key={id} className="inline-flex items-center gap-1.5 rounded border border-blue-100 bg-blue-50 px-2 py-1 text-xs text-blue-700">{crew.find(person => person.crewId === id)?.fullName || tx("pmsRework.unavailableCrew")}<button type="button" aria-label={tx("pmsRework.removeSupportingCrew", { name: crew.find(person => person.crewId === id)?.fullName || '' })} onClick={() => onChange(selected.filter(value => value !== id))}><X size={13} /></button></span>)}</div>}
+    {open && <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded border border-gray-300 bg-white py-1 shadow-lg" onMouseDown={event => event.preventDefault()}>
+      {available.map(person => <label key={person.crewId} className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 ${selected.includes(person.crewId) ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}><input type="checkbox" className="h-4 w-4 shrink-0 accent-blue-600" checked={selected.includes(person.crewId)} onChange={event => onChange(event.target.checked ? [...selected, person.crewId] : selected.filter(id => id !== person.crewId))} /><span className="min-w-0"><span className="block truncate text-sm" title={person.fullName}>{person.fullName}</span><span className="block text-xs text-gray-500">{person.crewId}</span></span></label>)}
+      {!available.length && <p className="col-span-full bg-white px-3 py-5 text-center text-sm text-gray-500">{tx("pmsRework.noMatchingCrew")}</p>}
+    </div>}
+  </div>
 }
 const num = (value: string) => value === '' ? null : Number(value)
 export function JobForm({ detail, onClose }: { detail?: JobDetail; onClose: () => void }) {
@@ -165,7 +183,7 @@ export function AdHocForm({ detail, onClose }: { detail?: WorkOrderDetail; onClo
       <Field name={tx("pmsRework.completionDeadlineVesselDate")}><input className={input} type="date" value={form.dueDate || ''} onChange={e => update({ dueDate: e.target.value || null })} /></Field><Field name={tx("pmsRework.runningHoursDeadline")}><input className={input} type="number" min={0} step="any" value={form.dueHours ?? ''} onChange={e => update({ dueHours: num(e.target.value) })} /></Field>
       <Field name={tx("pmsRework.responsibleDepartment")}><select className={input} value={form.department || ''} onChange={e => update({ department: e.target.value || null })}><option value="">{tx("pmsRework.notSelected")}</option>{Array.from(new Set([...Object.keys(departmentNames), ...(form.department ? [form.department] : [])])).map(code => <option key={code} value={code}>{departmentNames[code] || code}</option>)}</select></Field>
       <div className="md:col-span-3"><Field name={tx("pmsRework.instructions")}><textarea className={`${input} !h-24 py-2`} maxLength={20000} value={form.instructions || ''} onChange={e => update({ instructions: e.target.value || null })} /></Field></div>
-    </div></Section>{access.work('assign') && <Section title={tx("pmsRework.assignment")}><div className="grid gap-3 md:grid-cols-2"><Field name={tx("pmsRework.personInCharge")}><CrewSelect crew={refs.data || []} value={form.crewId} onChange={crewId => update({ crewId, supportingCrewIds: form.supportingCrewIds.filter(id => id !== crewId && crewId != null) })} /></Field><Field name={tx("pmsRework.supportingCrew")}><SupportSelect crew={refs.data || []} pic={form.crewId} selected={form.supportingCrewIds} onChange={supportingCrewIds => update({ supportingCrewIds })} /></Field></div>{refs.error && <ErrorBox error={refs.error} />}</Section>}
+    </div></Section>{access.work('assign') && <Section title={tx("pmsRework.assignment")}><div className="space-y-4"><Field name={tx("pmsRework.personInCharge")}><CrewSelect crew={refs.data || []} value={form.crewId} onChange={crewId => update({ crewId, supportingCrewIds: form.supportingCrewIds.filter(id => id !== crewId && crewId != null) })} /></Field><Field name={tx("pmsRework.supportingCrew")}><SupportSelect crew={refs.data || []} pic={form.crewId} selected={form.supportingCrewIds} onChange={supportingCrewIds => update({ supportingCrewIds })} /></Field></div>{refs.error && <ErrorBox error={refs.error} />}</Section>}
       <ChecklistEditor value={form.checklist} onChange={checklist => update({ checklist })} />
     </fieldset>
   </Modal>

@@ -15,9 +15,12 @@ export function GanttView({ orders, days, month, zone }: { orders: WorkOrder[]; 
   useEffect(() => {
     if (!month || !right.current) return
     const today = vesselDate(new Date().toISOString(), zone)
-    const focus = today.startsWith(month) ? today : firstDue ? vesselDate(firstDue, zone) : `${month}-01`
-    right.current.scrollLeft = Math.max(0, (Number(focus.slice(-2)) - 4) * 40)
-  }, [month, zone, firstDue])
+    const start = Date.parse(`${month}-01T00:00:00Z`)
+    const todayIndex = (Date.parse(`${today}T00:00:00Z`) - start) / 86400000
+    const focus = todayIndex >= 0 && todayIndex < days ? today : firstDue ? vesselDate(firstDue, zone) : `${month}-01`
+    const focusIndex = (Date.parse(`${focus}T00:00:00Z`) - start) / 86400000
+    right.current.scrollLeft = Math.max(0, (focusIndex - 3) * 40)
+  }, [month, days, zone, firstDue])
   const syncScroll = (source: HTMLDivElement, target: HTMLDivElement | null) => {
     if (target && target.scrollTop !== source.scrollTop) target.scrollTop = source.scrollTop
   }
@@ -49,12 +52,12 @@ export function GanttView({ orders, days, month, zone }: { orders: WorkOrder[]; 
     <div ref={right} className="min-h-0 min-w-0 flex-1 overflow-auto" aria-label={tx("pmsRework.ganttTimeline")} tabIndex={0} onScroll={e => syncScroll(e.currentTarget, left.current)}>
       <div className="min-h-full" style={{ width: days * 40, minWidth: '100%' }}>
         <div className="sticky top-0 z-10 flex h-12 bg-blue-50">{Array.from({ length: days }, (_, i) => {
-          const day = `${month}-${String(i + 1).padStart(2, '0')}`
+          const day = new Date(Date.parse(`${month}-01T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10)
           const weekday = new Date(`${day}T12:00:00Z`).getUTCDay()
-          return <div key={day} className={`flex h-12 w-10 shrink-0 flex-col items-center justify-center border-b border-r border-[#a3b1bc] text-xs ${weekday === 0 ? 'text-red-500' : 'text-gray-600'}`}><span className="font-semibold">{i + 1}</span><span>{new Intl.DateTimeFormat(messageLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))}</span></div>
+          return <div key={day} title={day} className={`flex h-12 w-10 shrink-0 flex-col items-center justify-center border-b border-r border-[#a3b1bc] text-xs ${weekday === 0 ? 'text-red-500' : 'text-gray-600'}`}><span className="font-semibold">{Number(day.slice(-2))}/{Number(day.slice(5, 7))}</span><span>{new Intl.DateTimeFormat(messageLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))}</span></div>
         })}</div>
         {orders.map((order, i) => {
-          const index = order.dueAt ? Number(vesselDate(order.dueAt, zone).slice(-2)) - 1 : 0
+          const index = order.dueAt ? (Date.parse(`${vesselDate(order.dueAt, zone)}T00:00:00Z`) - Date.parse(`${month}-01T00:00:00Z`)) / 86400000 : 0
           return <div key={order.id} className={`relative h-11 border-b border-[#a3b1bc] bg-[linear-gradient(to_right,#a3b1bc_1px,transparent_1px)] bg-[length:40px_100%] ${i % 2 ? 'bg-gray-50' : 'bg-white'}`}>
             <Link to={`/pms/work-orders/${order.id}`} title={`${order.name} · ${order.assignedName || tx("pmsRework.unassigned")} · ${order.dueAt ? vesselDate(order.dueAt, zone) : ''}`} aria-label={tx("pmsRework.due141", { p0: order.name })} className="absolute top-3 h-5 w-8 rounded bg-blue-400 hover:bg-blue-500" style={{ left: index * 40 + 4 }} />
           </div>
