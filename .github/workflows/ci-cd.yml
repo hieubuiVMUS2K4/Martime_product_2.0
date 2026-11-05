@@ -1,51 +1,166 @@
-name: Maritime System CI/CD Pipeline
+name: Build and deploy one application
 
 on:
-  push:
-    branches: [ "main", "feature/*", "release/*" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
-  backend-build-and-test:
-    runs-on: ubuntu-latest
-
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      image_prefix: ${{ steps.detect.outputs.image_prefix }}
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check deployment and change detection logic
+        run: python3 scripts/cicd/test_cicd.py
+      - id: detect
+        env:
+          APP: ${{ inputs.app }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 scripts/cicd/changes.py "$APP" "$BASE" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
-    - name: Setup .NET 8.0
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-
-    - name: Restore dependencies
-      run: dotnet restore product.sln
-
-    - name: Build Solution
-      run: dotnet build product.sln --configuration Release --no-restore
-
-    - name: Run Unit Tests
-      run: dotnet test product.sln --configuration Release --no-build --verbosity normal
-
-  frontend-build:
-    runs-on: ubuntu-latest
-
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-isolated-tests
+          POSTGRES_DB: codex_pms_tests_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d codex_pms_tests_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      APP: ${{ inputs.app }}
+      SHORE_PMS_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=codex_pms_tests_ci;Username=ci;Password=ci-isolated-tests
+      PMS_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=codex_pms_tests_ci;Username=ci;Password=ci-isolated-tests
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test and publish backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$APP" = shore ]; then
+            project=shore_product/backend/product-api.csproj
+            tests=shore_product/backend.Tests/product-api.Tests.csproj
+          else
+            project=edge_product/edge-services/EdgeCollector.csproj
+            tests=edge_product/edge-services.Tests/edge-services.Tests.csproj
+          fi
+          dotnet test "$tests" -c Release --logger 'trx;LogFileName=tests.trx' --results-directory test-results
+          dotnet publish "$project" -c Release -o .ci-context/backend
+          # Runtime settings are mounted from the existing server package.
+          find .ci-context/backend -maxdepth 1 -name 'appsettings*.json' -delete
+          docker build -f "${APP}_product/production/Dockerfile.backend" \
+            -t '${{ needs.changes.outputs.image_prefix }}-backend:${{ github.sha }}' .ci-context
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.app }}-backend-tests
+          path: test-results/*.trx
+      - name: Publish backend image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/production'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push '${{ needs.changes.outputs.image_prefix }}-backend:${{ github.sha }}'
 
-    - name: Setup Node.js 20
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      APP: ${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and test frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$APP" = shore ]; then frontend=shore_product/frontend; else frontend=edge_product/frontend-edge; fi
+          cd "$frontend"
+          npm ci
+          if [ "$APP" = edge ]; then
+            npm run test:auth
+            npm run test:pms
+          fi
+          npm run build
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p .ci-context/frontend
+          cp -a "$frontend/dist" .ci-context/frontend/dist
+          cp -a "${APP}_product/production/nginx" .ci-context/nginx
+          cp "${APP}_product/production/docker-entrypoint.sh" .ci-context/docker-entrypoint.sh
+          docker build -f "${APP}_product/production/Dockerfile.frontend" \
+            -t '${{ needs.changes.outputs.image_prefix }}-frontend:${{ github.sha }}' .ci-context
+      - name: Publish frontend image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/production'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push '${{ needs.changes.outputs.image_prefix }}-frontend:${{ github.sha }}'
 
-    - name: Build Shore Frontend
-      run: |
-        cd shore_product/frontend
-        npm ci
-        npm run build
-
-    - name: Build Edge Frontend
-      run: |
-        cd edge_product/frontend-edge
-        npm ci
-        npm run build
+  deploy:
+    needs: [changes, backend, frontend]
+    if: >-
+      always() && !cancelled() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/production' &&
+      vars.CI_DEPLOY_ENABLED == 'true' &&
+      needs.changes.result == 'success' &&
+      (needs.backend.result == 'success' || needs.backend.result == 'skipped') &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped') &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true')
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.app }}-production
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: deploy-${{ inputs.app }}-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy selected services over SSH
+        env:
+          APP: ${{ inputs.app }}
+          UPDATE_BACKEND: ${{ needs.changes.outputs.backend }}
+          UPDATE_FRONTEND: ${{ needs.changes.outputs.frontend }}
+          IMAGE_PREFIX: ${{ needs.changes.outputs.image_prefix }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DEPLOY_COMPOSE_FILES: ${{ vars.DEPLOY_COMPOSE_FILES }}
+          DEPLOY_PROJECT_NAME: ${{ vars.DEPLOY_PROJECT_NAME }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/cicd/ssh-deploy.sh

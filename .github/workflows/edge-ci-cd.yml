@@ -1,0 +1,15 @@
+name: Edge CI/CD
+on:
+  push:
+    branches: [production, master, main, dev, hiu67-rework, 'codex/**', 'feature/**', 'release/**']
+  pull_request:
+    branches: [production, master, main]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  edge:
+    uses: ./.github/workflows/ci-cd.yml
+    with:
+      app: edge
+    secrets: inherit
