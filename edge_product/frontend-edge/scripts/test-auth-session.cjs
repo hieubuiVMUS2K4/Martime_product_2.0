@@ -710,9 +710,13 @@ test('permission gates fail closed during loading/error and react to revoked gra
 
 test('rank editor uses the access switch for view and grouped action checkboxes', () => {
   const { renderToStaticMarkup } = require('react-dom/server')
-  const modules = [{ code: 'pms.assets', name: 'Thiết bị', group: 'Danh mục',
+  const modules = [
+    { code: 'dashboard', name: 'Tổng quan tàu', group: 'Tổng quan', routes: ['/dashboard'], actions: ['view'] },
+    { code: 'dashboard.superintendent', name: 'Bảng điều khiển', group: 'Tổng quan', routes: ['/dashboard/superintendent'], actions: ['view'] },
+    { code: 'pms.assets', name: 'Thiết bị', group: 'Danh mục',
     routes: ['/pms/catalog/assets'], actions: ['view', 'create', 'delete', 'import', 'update', 'assign'] }]
-  let grants = new Set(['pms.assets.access', 'pms.assets.view'])
+  let grants = new Set(['dashboard.access', 'dashboard.view', 'pms.assets.access', 'pms.assets.view'])
+  const toastErrors = []
   const overrides = { 0: [{ id: 1, rankName: 'Đại phó', department: 'DECK', version: 0, grants: [] }],
     1: 1, 5: grants, 6: new Set(['pms.assets']), 7: false }
   let index = 0
@@ -724,20 +728,26 @@ test('rank editor uses the access switch for view and grouped action checkboxes'
       } },
     '@/stores/permissions.store': { usePermissionsStore: () => ({ modules, isAdmin: true }) },
     '@/services/api.client': { apiClient: {} },
+    sonner: { toast: { error: message => toastErrors.push(message), success: () => {} } },
   }).default()
   const html = renderToStaticMarkup(page)
   assert.equal(html.includes('aria-label="Truy cập / xem Thiết bị"'), true)
   assert.equal(html.includes('aria-label="Xem: Thiết bị"'), false)
   assert.equal(html.includes('aria-label="Import: Thiết bị"'), false)
   assert.equal(html.includes('aria-label="Phân công / liên kết: Thiết bị"'), false)
-  const checkboxes = []
+  const checkboxes = []; const accessToggles = []
   function visit(node) {
     if (Array.isArray(node)) { node.forEach(visit); return }
     if (!node?.props) return
     if (node.props.label && node.props.onChange && node.type?.name === 'PermissionCheckbox') checkboxes.push(node)
+    if (node.props.label && node.props.onChange && node.type?.name === 'AccessToggle') accessToggles.push(node)
     visit(node.props.children)
   }
   visit(page)
+  accessToggles.find(toggle => toggle.props.label === 'Truy cập / xem Tổng quan tàu').props.onChange()
+  assert.equal(grants.has('dashboard.access'), true)
+  assert.equal(grants.has('dashboard.superintendent.access'), false)
+  assert.deepEqual(toastErrors, ['Phải bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển.'])
   checkboxes.find(c => c.props.label === 'Thêm / xóa: Thiết bị').props.onChange()
   for (const action of ['create', 'delete', 'import']) assert.equal(grants.has('pms.assets.' + action), true)
   checkboxes.find(c => c.props.label === 'Cập nhật: Thiết bị').props.onChange()

@@ -564,8 +564,9 @@ public class RankPermissionPostgresTests(PmsDatabaseFixture fixture)
         var controller = new RankPermissionsController(db, new(db)) { ControllerContext = new() { HttpContext = http } };
         var queueBefore = await db.SyncQueue.CountAsync();
         db.SuppressSyncQueue = false;
-        Assert.IsType<OkObjectResult>(await controller.Save(rank.Id, new(0, ["pms.assets.access", "pms.assets.view"])));
-        Assert.IsType<ConflictObjectResult>(await controller.Save(rank.Id, new(0, [])));
+        Assert.IsType<OkObjectResult>(await controller.Save(rank.Id, new(0,
+            ["dashboard.access", "dashboard.view", "pms.assets.access", "pms.assets.view"])));
+        Assert.IsType<ConflictObjectResult>(await controller.Save(rank.Id, new(0, ["dashboard.access", "dashboard.view"])));
         Assert.IsType<BadRequestObjectResult>(await controller.Save(rank.Id, new(1, ["unknown.grant"])));
         Assert.Equal(1, await db.RankPermissionConfigs.Where(c => c.RankId == rank.Id).Select(c => c.Version).SingleAsync());
         Assert.Equal(1, await db.SystemLogs.CountAsync(l => l.Action == "RANK_PERMISSIONS_CHANGED" && l.EntityId == rank.Id.ToString()));
