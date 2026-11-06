@@ -115,14 +115,26 @@ export default function RankPermissionsPage() {
       void loadRanks()
     }
   }
-  const toggleModule = (code: string) => changeGrants(prev => {
-    const next = new Set(prev)
-    if (next.has(code + '.access')) next.delete(code + '.access')
-    else { next.add(code + '.access'); next.add(code + '.view') }
-    return next
-  })
+  const toggleModule = (code: string) => {
+    const dashboardCodes = ['dashboard', 'dashboard.superintendent']
+    if (dashboardCodes.includes(code) && grants.has(code + '.access') &&
+      !dashboardCodes.some(other => other !== code && grants.has(other + '.access'))) {
+      toast.error('Phải bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển.')
+      return
+    }
+    changeGrants(prev => {
+      const next = new Set(prev)
+      if (next.has(code + '.access')) next.delete(code + '.access')
+      else { next.add(code + '.access'); next.add(code + '.view') }
+      return next
+    })
+  }
   const save = async () => {
     if (selected === null) return
+    if (!grants.has('dashboard.access') && !grants.has('dashboard.superintendent.access')) {
+      toast.error('Phải bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển.')
+      return
+    }
     setSaving(true)
     try {
       const data = await apiClient.put<Config>(`/permissions/ranks/${selected}`, { version: config.version, grants: [...grants] })
@@ -174,6 +186,7 @@ export default function RankPermissionsPage() {
               return <section key={group} aria-label={group}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
                   <h2 className="text-sm font-semibold text-gray-800">{group}</h2>
+                  {group === 'Tổng quan' && <p className="text-xs text-gray-500">Bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển.</p>}
                 </div>
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                   {rows.map(m => {

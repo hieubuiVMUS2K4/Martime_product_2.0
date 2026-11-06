@@ -36,13 +36,21 @@ public static class PermissionRegistry
     public static string[] ConfigurableGrants(IEnumerable<string> grants)
     {
         var source = grants.Where(Codes.Contains).ToHashSet();
-        return Codes.Where(g => !DefaultGrants.Contains(g) && Allows(source, g)).ToArray();
+        return Codes.Where(g => Allows(source, g)).ToArray();
     }
 
     // Map definition rights only. Legacy configuration never grants execution or review rights.
-    public static string[] ForPmsModel(IEnumerable<string> grants, bool rework) => ConfigurableGrants(rework
-        ? grants.Select(g => g.StartsWith("pms.config.", StringComparison.Ordinal) ? "pms.jobs." + g[11..] : g)
-        : grants);
+    public static bool HasDashboardAccess(IEnumerable<string> grants) => grants.Any(g =>
+        g is "dashboard.access" or "dashboard.superintendent.access");
+
+    public static string[] ForPmsModel(IEnumerable<string> grants, bool rework)
+    {
+        var normalized = ConfigurableGrants(rework
+            ? grants.Select(g => g.StartsWith("pms.config.", StringComparison.Ordinal) ? "pms.jobs." + g[11..] : g)
+            : grants);
+        // Older configurations predate configurable dashboard access.
+        return HasDashboardAccess(normalized) ? normalized : normalized.Concat(DefaultGrants).Distinct().ToArray();
+    }
 }
 
 public record EffectivePermissions(bool IsAdmin, int? RankId, string? RankName, string[] Grants, bool IsAccountActive = true);
@@ -62,8 +70,7 @@ public sealed class RankPermissionService(EdgeDbContext db, IConfiguration? conf
         if (crew?.Rank?.IsActive != true) return new(false, null, null, PermissionRegistry.DefaultGrants.ToArray());
         var config = await db.RankPermissionConfigs.AsNoTracking().SingleOrDefaultAsync(p => p.RankId == crew.RankId);
         return new(false, crew.RankId, crew.Rank.RankName,
-            PermissionRegistry.DefaultGrants.Concat(config == null ? [] :
-                PermissionRegistry.ForPmsModel(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? [], configuration?.GetValue<bool>("Pms:ReworkApiEnabled") == true))
-                .Distinct().ToArray());
+            config == null ? PermissionRegistry.DefaultGrants.ToArray() :
+                PermissionRegistry.ForPmsModel(JsonSerializer.Deserialize<string[]>(config.GrantsJson) ?? [], configuration?.GetValue<bool>("Pms:ReworkApiEnabled") == true));
     }
 }

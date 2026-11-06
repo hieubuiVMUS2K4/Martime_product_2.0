@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { usePermissionsStore, canOpen } from '@/stores/permissions.store'
 import {
-  LayoutDashboard, Navigation, Users, Ship, FileText, RefreshCw, Anchor, Boxes, ClipboardList, BookOpen,
+  LayoutDashboard, PanelsTopLeft, Navigation, Users, Ship, FileText, RefreshCw, Anchor, Boxes, ClipboardList, BookOpen,
   Droplets, Compass, Trash2, Waves, Clock, Calendar, Settings, ChevronDown, MapPin, Shield, PanelLeftClose,
   PanelLeftOpen, Warehouse, PackageCheck, BarChart3, Award, FileCheck, History, ListChecks, LifeBuoy,
   type LucideIcon,
@@ -26,7 +26,8 @@ const isSection = (c: Leaf | Section): c is Section => 'items' in c
 const leavesOf = (g: Group): Leaf[] => g.children.flatMap(c => (isSection(c) ? c.items : [c]))
 
 const getNavigation = (t: (key: string) => string): Entry[] => [
-  { name: t('nav.dashboard'), to: '/dashboard', icon: LayoutDashboard },
+  { name: t('superintendent.vesselOverview'), to: '/dashboard', icon: LayoutDashboard },
+  { name: t('nav.dashboard'), to: '/marine-superintendent', icon: PanelsTopLeft },
   { name: t('nav.navigation'), to: '/navigation', icon: Navigation },
   { name: t('nav.shipData') || 'Dữ liệu tàu', to: '/ship-data', icon: Anchor },
   {

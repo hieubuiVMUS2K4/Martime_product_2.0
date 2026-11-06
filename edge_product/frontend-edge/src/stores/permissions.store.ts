@@ -44,8 +44,6 @@ export function usePermission(code: string) {
   return usePermissionsStore(state => hasPermission(state, code))
 }
 export function canOpen(path: string) {
-  // AuthGuard protects the session; dashboard is the common authenticated landing page.
-  if (path === '/dashboard') return true
   const { modules, isAdmin, loaded, error } = usePermissionsStore.getState()
   if (!loaded || error) return false
   if (isAdmin) return true

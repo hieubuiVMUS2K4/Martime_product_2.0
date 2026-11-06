@@ -21,8 +21,7 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
     private string[] Grants(string? json) => PermissionRegistry.ForPmsModel(JsonSerializer.Deserialize<string[]>(json ?? "[]") ?? [], Rework);
 
     [HttpGet("catalog")]
-    public IActionResult Catalog() => Ok(PermissionRegistry.Data.Modules.Where(m => m.Code != "dashboard" &&
-        (Rework ? m.Code != "pms.config" : m.Code != "pms.jobs"))
+    public IActionResult Catalog() => Ok(PermissionRegistry.Data.Modules.Where(m => Rework ? m.Code != "pms.config" : m.Code != "pms.jobs")
         .Select(m => Rework && m.Code == "pms.work" ? m with { Name = "Work Order" } : m).ToArray());
 
     [HttpGet("ranks")]
@@ -60,6 +59,8 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
         if (!await IsAdmin()) return StatusCode(403);
         if (request.Grants == null || request.Grants.Any(g => !PermissionRegistry.Codes.Contains(g)))
             return BadRequest(new { error = "Có mã quyền không hợp lệ." });
+        if (!PermissionRegistry.HasDashboardAccess(request.Grants))
+            return BadRequest(new { error = "Phải bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển." });
         await using var transaction = await db.Database.BeginTransactionAsync();
         // Serialize first saves too; optimistic version detects stale browser edits.
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({2026100602}, {rankId})");

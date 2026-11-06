@@ -17,7 +17,7 @@
     },
     {
       "code": "dashboard",
-      "name": "Bảng điều khiển",
+      "name": "Tổng quan tàu",
       "group": "Tổng quan",
       "routes": [
         "/dashboard"
@@ -25,6 +25,13 @@
       "actions": [
         "view"
       ]
+    },
+    {
+      "code": "dashboard.superintendent",
+      "name": "Bảng điều khiển",
+      "group": "Tổng quan",
+      "routes": ["/marine-superintendent", "/dashboard/marine-superintendent"],
+      "actions": ["view"]
     },
     {
       "code": "navigation",
