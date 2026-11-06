@@ -60,7 +60,7 @@ function makeShipIcon(color: string, course?: number) {
 }
 
 /** Component hiển thị nhãn tiếng Việt cho Hoàng Sa và Trường Sa */
-function VietnameseLabels() {
+export function VietnameseLabels() {
   const map = useMap();
   useEffect(() => {
     const labels = [

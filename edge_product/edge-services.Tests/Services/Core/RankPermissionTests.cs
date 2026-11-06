@@ -265,10 +265,10 @@ public class RankPermissionTests
         Assert.Equal(2, rows.Length);
         var saved = rows.Single(r => r.GetProperty("Id").GetInt32() == rankId);
         Assert.Equal(3, saved.GetProperty("Version").GetInt64());
-        Assert.Equal(2, saved.GetProperty("Grants").GetArrayLength());
+        Assert.Equal(4, saved.GetProperty("Grants").GetArrayLength());
         var empty = rows.Single(r => r.GetProperty("RankCode").GetString() == "EMPTY");
         Assert.Equal(0, empty.GetProperty("Version").GetInt64());
-        Assert.Equal(0, empty.GetProperty("Grants").GetArrayLength());
+        Assert.Equal(2, empty.GetProperty("Grants").GetArrayLength());
         Assert.False(empty.GetProperty("IsConfigured").GetBoolean());
         Assert.Single(await db.RankPermissionConfigs.ToListAsync());
     }
@@ -458,7 +458,7 @@ public class RankPermissionTests
     }
 
     [Fact]
-    public async Task RemovedAndDefaultPermissions_DoNotLeakIntoEditableRankConfig()
+    public async Task DashboardPermissions_AreEditable_WhileRemovedActionsAreDiscarded()
     {
         await using var db = Database(); var (user, rankId) = await Seed(db);
         db.RankPermissionConfigs.Add(new() { RankId = rankId, GrantsJson =
@@ -472,9 +472,36 @@ public class RankPermissionTests
         context.Items["EffectivePermissions"] = new EffectivePermissions(true, null, null, []);
         var controller = new RankPermissionsController(db, new(db)) { ControllerContext = new() { HttpContext = context } };
         var catalog = Assert.IsType<PermissionModule[]>(Assert.IsType<OkObjectResult>(controller.Catalog()).Value);
-        Assert.DoesNotContain(catalog, m => m.Code == "dashboard");
+        Assert.Contains(catalog, m => m.Code == "dashboard");
+        Assert.Contains(catalog, m => m.Code == "dashboard.superintendent");
         var result = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.Get(rankId)).Value);
-        Assert.Equal(2, result.GetProperty("Grants").GetArrayLength());
+        Assert.Equal(4, result.GetProperty("Grants").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task DashboardSelection_PreservesLegacyDefault_AndAllowsSuperintendentOnly()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        var config = new MaritimeEdge.Models.RankPermissionConfig { RankId = rankId, GrantsJson = "[]" };
+        db.RankPermissionConfigs.Add(config); await db.SaveChangesAsync();
+        var service = new RankPermissionService(db);
+        Assert.Contains("dashboard.access", (await service.GetAsync(user.Id)).Grants);
+        config.GrantsJson = "[\"dashboard.superintendent.access\",\"dashboard.superintendent.view\"]";
+        await db.SaveChangesAsync();
+        var effective = await service.GetAsync(user.Id);
+        Assert.Contains("dashboard.superintendent.access", effective.Grants);
+        Assert.DoesNotContain("dashboard.access", effective.Grants);
+    }
+
+    [Fact]
+    public async Task SavingPermissions_RejectsDisablingBothDashboards()
+    {
+        await using var db = Database(); var (user, rankId) = await Seed(db);
+        var context = new DefaultHttpContext(); context.Items["UserId"] = user.Id;
+        context.Items["EffectivePermissions"] = new EffectivePermissions(true, null, null, []);
+        var controller = new RankPermissionsController(db, new(db)) { ControllerContext = new() { HttpContext = context } };
+        Assert.IsType<BadRequestObjectResult>(await controller.Save(rankId, new(0, [])));
+        Assert.False(await db.RankPermissionConfigs.AnyAsync());
     }
 
     [Fact]
@@ -510,7 +537,8 @@ public class RankPermissionTests
     public void EveryConfigurableAction_HasAnActualBindingOrReviewedRejectionDecision()
     {
         var direct = PermissionRegistry.Data.Bindings.SelectMany(b => b.Grants).ToHashSet();
-        var decisions = new HashSet<string> { "voyage.reject", "pms.work.reject" };
+        // Superintendent is a client-side demonstration dashboard with no data endpoint.
+        var decisions = new HashSet<string> { "voyage.reject", "pms.work.reject", "dashboard.superintendent.view" };
         foreach (var module in PermissionRegistry.Data.Modules)
             foreach (var action in module.Actions)
                 Assert.True(direct.Contains(module.Code + "." + action) || decisions.Contains(module.Code + "." + action),

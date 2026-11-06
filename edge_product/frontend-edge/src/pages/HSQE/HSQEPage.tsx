@@ -3,7 +3,7 @@
  * ISM Code / SOLAS Compliance
  */
 
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import '@/styles/OperationalTheme.css';
 import { FileText, AlertOctagon, Activity } from 'lucide-react';
 import { DocumentControl } from './components/DocumentControl';
@@ -13,7 +13,10 @@ import { RiskWorkPermits } from './components/RiskWorkPermits';
 type TabType = 'documents' | 'incidents' | 'permits';
 
 export function HSQEPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('documents');
+  const [params, setParams] = useSearchParams();
+  const requestedTab = params.get('tab');
+  const activeTab: TabType = requestedTab === 'incidents' || requestedTab === 'permits' ? requestedTab : 'documents';
+  const setActiveTab = (tab: TabType) => setParams(previous => { previous.set('tab', tab); return previous }, { replace: true });
 
   return (
     <div className="operations-page flex h-full min-h-0 flex-col bg-white dark:bg-slate-800 transition-colors duration-200">

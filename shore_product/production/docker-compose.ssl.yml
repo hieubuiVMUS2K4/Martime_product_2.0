@@ -1,0 +1,12 @@
+# Dedicated public Shore server.
+# docker compose -f docker-compose.yml -f docker-compose.ssl.yml up -d --build
+services:
+  backend:
+    environment:
+      Shore__PublicBaseUrl: https://shore.vesselmaritimevmu.site
+  frontend:
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+      - ./nginx/default.ssl.conf.template:/etc/nginx/templates/default.conf.template:ro

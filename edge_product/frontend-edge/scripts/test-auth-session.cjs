@@ -531,48 +531,42 @@ test('/admin and /admin/ resolve to the account route instead of dashboard/login
   }
 })
 
-test('authenticated root redirects to dashboard before checking module permissions', () => {
+for (const allowedDashboard of ['/dashboard', '/marine-superintendent']) {
+  for (const pathname of ['/', '/dashboard', '/marine-superintendent']) {
+    test(`dashboard entry ${pathname} uses permitted destination ${allowedDashboard}`, () => {
+      const router = require('react-router-dom')
+      const guard = load('components/auth/PermissionGuard.tsx', {
+        react: { useEffect: () => {} },
+        'react-router-dom': { Navigate: router.Navigate, useLocation: () => ({ pathname }) },
+        '@/stores/permissions.store': { usePermissionsStore: () => ({ loaded: true, error: null }), canOpen: path => path === allowedDashboard },
+        '@/stores/auth.store': { useAuthStore: selector => selector({ accessToken: 'crew-token' }) },
+      }).PermissionGuard({ children: 'dashboard-content' })
+      if (pathname === allowedDashboard) assert.equal(guard.props.children, 'dashboard-content')
+      else { assert.equal(guard.type, router.Navigate); assert.equal(guard.props.to, allowedDashboard) }
+    })
+  }
+}
+test('dashboard waits for permissions and does not redirect on permission service errors', () => {
   const router = require('react-router-dom')
-  for (const permissions of [
-    { loaded: false, error: null },
-    { loaded: true, error: null },
-    { loaded: true, error: 'Permission service unavailable' },
-  ]) {
-    let permissionChecks = 0
-    const { PermissionGuard } = load('components/auth/PermissionGuard.tsx', {
+  for (const state of [{ loaded: false, error: null }, { loaded: true, error: 'Unavailable' }, { loaded: true, error: null }]) {
+    const guard = load('components/auth/PermissionGuard.tsx', {
       react: { useEffect: () => {} },
       'react-router-dom': { Navigate: router.Navigate, useLocation: () => ({ pathname: '/' }) },
-      '@/stores/permissions.store': { usePermissionsStore: () => ({ modules: [], grants: [], ...permissions }),
-        canOpen: () => { permissionChecks++; return false } },
+      '@/stores/permissions.store': { usePermissionsStore: () => state, canOpen: () => false },
       '@/stores/auth.store': { useAuthStore: selector => selector({ accessToken: 'crew-token' }) },
-    })
-    const guard = PermissionGuard({ children: 'index-outlet' })
-    assert.equal(guard.type, router.Navigate)
-    assert.equal(guard.props.to, '/dashboard')
-    assert.equal(guard.props.replace, true)
-    assert.equal(permissionChecks, 0)
+    }).PermissionGuard({ children: 'content' })
+    assert.notEqual(guard.type, router.Navigate)
   }
 })
-
-test('dashboard remains the landing page without grants or when permissions are still loading', () => {
-  const router = require('react-router-dom')
-  const permissions = { loaded: false, error: null, modules: [], grants: [] }
-  const guard = load('components/auth/PermissionGuard.tsx', {
-    react: { useEffect: () => {} },
-    'react-router-dom': { Navigate: router.Navigate, useLocation: () => ({ pathname: '/dashboard' }) },
-    '@/stores/permissions.store': { usePermissionsStore: () => permissions, canOpen: () => false },
-    '@/stores/auth.store': { useAuthStore: selector => selector({ accessToken: 'crew-token' }) },
-  }).PermissionGuard({ children: 'dashboard-content' })
-  assert.equal(guard.props.children, 'dashboard-content')
-})
-
-test('dashboard is always open while protected modules still require configured access', () => {
+test('the two dashboard routes require their own access grants', () => {
   const permissions = load('stores/permissions.store.ts', { '@/services/api.client': { apiClient: {} } })
-  assert.equal(permissions.canOpen('/dashboard'), true)
-  assert.equal(permissions.canOpen('/logbooks/deck'), false)
-  permissions.usePermissionsStore.setState({ loaded: true, modules: [{ code: 'logbooks.deck', routes: ['/logbooks/deck'] }],
-    grants: ['logbooks.deck.access', 'logbooks.deck.view'] })
-  assert.equal(permissions.canOpen('/logbooks/deck'), true)
+  const modules = [{ code: 'dashboard', routes: ['/dashboard'], actions: ['view'] },
+    { code: 'dashboard.superintendent', routes: ['/marine-superintendent'], actions: ['view'] }]
+  assert.equal(permissions.canOpen('/dashboard'), false)
+  for (const module of modules) {
+    permissions.usePermissionsStore.setState({ loaded: true, error: null, modules, grants: [module.code + '.access'] })
+    for (const candidate of modules) assert.equal(permissions.canOpen(candidate.routes[0]), candidate === module)
+  }
 })
 
 for (const allowedLogbook of [false, true]) test(`sidebar hides empty logbook group; permitted child=${allowedLogbook}`, () => {
@@ -583,12 +577,13 @@ for (const allowedLogbook of [false, true]) test(`sidebar hides empty logbook gr
     'react-router-dom': { useLocation: () => ({ pathname: '/dashboard' }),
       NavLink: ({ children }) => React.createElement('a', null, typeof children === 'function' ? children({ isActive: false }) : children) },
     '@/stores/permissions.store': { usePermissionsStore: () => ({ grants: [], modules: [], loaded: true, isAdmin: false }),
-      canOpen: path => path === '/dashboard' || (allowedLogbook && path === '/logbooks/deck') },
+      canOpen: path => path === '/dashboard' || path === '/marine-superintendent' || (allowedLogbook && path === '/logbooks/deck') },
     '@/contexts/I18nContext': { useTranslationSafe: () => ({ t: key => key }) },
   }).Sidebar()
   const html = renderToStaticMarkup(sidebar)
   assert.equal(html.includes('nav.logbooks'), allowedLogbook)
   assert.equal(html.includes('nav.dashboard'), true)
+  assert.equal(html.includes('superintendent.vesselOverview'), true)
 })
 
 function actionPermissions(grants, isAdmin = false) {
