@@ -49,6 +49,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="TestData/nmea/**/*.nmea">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
