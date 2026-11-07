@@ -5,7 +5,7 @@ import { PermissionGuard } from '../auth/PermissionGuard'
 
 export function MainLayout() {
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="edge-shell flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
 

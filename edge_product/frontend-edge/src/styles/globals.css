@@ -1,6 +1,8 @@
 /* ============================================
    Font Scaling System for Settings
    ============================================ */
+@import './responsive.css';
+
 :root {
   --font-scale: 1;
 }

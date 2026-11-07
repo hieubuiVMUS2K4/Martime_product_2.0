@@ -26,5 +26,5 @@ export const TableIconButton: React.FC<{
 
 /** Khung xếp các nút thao tác trong một ô. */
 export const TableActions: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex items-center justify-center gap-1">{children}</div>
+  <div className="table-actions flex flex-wrap items-center justify-center gap-1">{children}</div>
 );

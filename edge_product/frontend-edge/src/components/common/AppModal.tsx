@@ -24,8 +24,8 @@ export function AppModal({ title, children, onClose, busy = false, footer }: { t
     document.addEventListener('keydown', key)
     return () => { document.removeEventListener('keydown', key); previous?.focus() }
   }, [busy])
-  return createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="flex max-h-[90vh] w-full max-w-[1280px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl outline-none">
+  return createPortal(<div className="edge-modal-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"><div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="edge-modal flex max-h-[90vh] w-full max-w-[1280px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl outline-none">
     <header className="flex items-center justify-between border-b border-gray-200 px-5 py-4"><h2 className="text-base font-semibold text-gray-900">{title}</h2><button type="button" className="p-1 text-gray-400 hover:text-gray-700" aria-label={tx("pmsRework.close")} onClick={onClose} disabled={busy}><X size={20} /></button></header>
-    <div className="min-h-0 flex-1 overflow-auto p-4">{children}</div><footer className="flex justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-3">{footer}<button type="button" className={button} disabled={busy} onClick={onClose}>{tx("pmsRework.close")}</button></footer>
+    <div className="min-h-0 flex-1 overflow-auto p-4">{children}</div><footer className="flex flex-wrap justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-3">{footer}<button type="button" className={button} disabled={busy} onClick={onClose}>{tx("pmsRework.close")}</button></footer>
   </div></div>, document.body)
 }

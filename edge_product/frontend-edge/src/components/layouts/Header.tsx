@@ -11,7 +11,7 @@ export function Header() {
   const { t } = useTranslationSafe()
 
   return (
-    <header className="h-16 shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4 px-[clamp(12px,1.5vw,24px)]">
+    <header className="edge-header h-16 shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4 px-[clamp(12px,1.5vw,24px)]">
       {/* Tiêu đề co lại và cắt "…" khi hẹp, không bị cụm bên phải đè lên */}
       <div className="flex min-w-0 items-center">
         <h1 className="truncate text-xl font-semibold text-gray-800 dark:text-white">

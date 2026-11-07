@@ -26,7 +26,7 @@ export function GanttView({ orders, days, month, zone }: { orders: WorkOrder[]; 
   }
   const header = 'h-12 border-b border-r border-[#a3b1bc] bg-blue-50 px-2 text-center text-xs font-semibold text-gray-600'
   const cell = 'h-11 border-b border-r border-[#a3b1bc] px-2 text-xs text-gray-700'
-  return <div ref={frame} className="flex min-h-0 flex-1 overflow-hidden border-t border-[#a3b1bc]" aria-label={tx("pmsRework.ganttChart")}>
+  return <div ref={frame} className="pms-gantt flex min-h-0 flex-1 overflow-hidden border-t border-[#a3b1bc]" aria-label={tx("pmsRework.ganttChart")}>
     <div className="flex min-w-0 shrink-0 flex-col" style={{ width: `calc(${split}% - 3px)` }}>
       <div ref={left} className="min-h-0 flex-1 overflow-auto" aria-label={tx("pmsRework.ganttTaskTable")} tabIndex={0} onScroll={e => syncScroll(e.currentTarget, right.current)}>
         <table className="w-full min-w-[600px] table-fixed border-separate border-spacing-0"><colgroup>{[28, 17, 22, 19, 14].map((width, i) => <col key={i} style={{ width: `${width}%` }} />)}</colgroup>
@@ -51,14 +51,14 @@ export function GanttView({ orders, days, month, zone }: { orders: WorkOrder[]; 
       onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setSplit(value => Math.max(25, Math.min(80, value + (e.key === 'ArrowLeft' ? -5 : 5)))) } }} onDoubleClick={() => setSplit(55)} />
     <div ref={right} className="min-h-0 min-w-0 flex-1 overflow-auto" aria-label={tx("pmsRework.ganttTimeline")} tabIndex={0} onScroll={e => syncScroll(e.currentTarget, left.current)}>
       <div className="min-h-full" style={{ width: days * 40, minWidth: '100%' }}>
-        <div className="sticky top-0 z-10 flex h-12 bg-blue-50">{Array.from({ length: days }, (_, i) => {
+        <div className="pms-gantt-heading sticky top-0 z-10 flex h-12 bg-blue-50">{Array.from({ length: days }, (_, i) => {
           const day = new Date(Date.parse(`${month}-01T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10)
           const weekday = new Date(`${day}T12:00:00Z`).getUTCDay()
-          return <div key={day} title={day} className={`flex h-12 w-10 shrink-0 flex-col items-center justify-center border-b border-r border-[#a3b1bc] text-xs ${weekday === 0 ? 'text-red-500' : 'text-gray-600'}`}><span className="font-semibold">{Number(day.slice(-2))}/{Number(day.slice(5, 7))}</span><span>{new Intl.DateTimeFormat(messageLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))}</span></div>
+          return <div key={day} title={day} className={`pms-gantt-heading flex h-12 w-10 shrink-0 flex-col items-center justify-center border-b border-r border-[#a3b1bc] text-xs ${weekday === 0 ? 'text-red-500' : 'text-gray-600'}`}><span className="font-semibold">{Number(day.slice(-2))}/{Number(day.slice(5, 7))}</span><span>{new Intl.DateTimeFormat(messageLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))}</span></div>
         })}</div>
         {orders.map((order, i) => {
           const index = order.dueAt ? (Date.parse(`${vesselDate(order.dueAt, zone)}T00:00:00Z`) - Date.parse(`${month}-01T00:00:00Z`)) / 86400000 : 0
-          return <div key={order.id} className={`relative h-11 border-b border-[#a3b1bc] bg-[linear-gradient(to_right,#a3b1bc_1px,transparent_1px)] bg-[length:40px_100%] ${i % 2 ? 'bg-gray-50' : 'bg-white'}`}>
+          return <div key={order.id} className={`pms-gantt-row relative h-11 border-b border-[#a3b1bc] bg-[linear-gradient(to_right,#a3b1bc_1px,transparent_1px)] bg-[length:40px_100%] ${i % 2 ? 'bg-gray-50' : 'bg-white'}`}>
             <Link to={`/pms/work-orders/${order.id}`} title={`${order.name} · ${order.assignedName || tx("pmsRework.unassigned")} · ${order.dueAt ? vesselDate(order.dueAt, zone) : ''}`} aria-label={tx("pmsRework.due141", { p0: order.name })} className="absolute top-3 h-5 w-8 rounded bg-blue-400 hover:bg-blue-500" style={{ left: index * 40 + 4 }} />
           </div>
         })}

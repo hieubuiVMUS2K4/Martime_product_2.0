@@ -1,0 +1,293 @@
+/* Full-HD touch displays also report a fine pointer when a mouse is connected. */
+@media (any-pointer: coarse) {
+  body button,
+  body [role="button"],
+  body [role="option"],
+  body .edge-action-icon,
+  body nav a {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  body button,
+  body input,
+  body select,
+  body textarea,
+  body .text-xs,
+  body .text-\[10px\],
+  body .text-\[11px\] {
+    font-size: max(14px, 0.875rem);
+    line-height: 1.5;
+  }
+
+  body input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]),
+  body select {
+    min-height: 44px;
+  }
+
+  body textarea {
+    min-height: 88px;
+  }
+
+  body input[type="checkbox"],
+  body input[type="radio"] {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
+
+  body [role="switch"] {
+    min-width: 52px;
+  }
+
+  body label:has(input[type="checkbox"]),
+  body label:has(input[type="radio"]) {
+    min-height: 44px;
+  }
+
+  body .pms-equipment-combobox input {
+    padding-right: 92px !important;
+  }
+
+  body .pms-equipment-combobox button {
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body .pms-equipment-open {
+    right: 0;
+  }
+
+  body .pms-equipment-clear {
+    right: 44px;
+  }
+
+  body th,
+  body td {
+    font-size: max(14px, 0.875rem);
+    line-height: 1.5;
+    height: 52px;
+  }
+
+  /* Reserve room for the enlarged column-menu target. */
+  body th[class] {
+    height: 56px;
+  }
+
+  body th[class]:has(button) {
+    padding-right: 48px;
+    min-height: 56px;
+  }
+
+  body .table-actions {
+    gap: 6px;
+  }
+
+  /* Both Gantt panes must keep exactly the same row and header heights. */
+  body .pms-gantt .pms-gantt-heading,
+  body .pms-gantt th {
+    height: 56px;
+  }
+
+  body .pms-gantt .pms-gantt-row,
+  body .pms-gantt td {
+    height: 52px;
+  }
+
+  body .pms-gantt-row a {
+    top: 4px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  body .pms-gantt [role="separator"] {
+    width: 44px;
+    background: linear-gradient(to right, transparent 19px, #94a3b8 19px, #94a3b8 25px, transparent 25px);
+  }
+
+  body .edge-sidebar nav a,
+  body .edge-sidebar nav button {
+    min-height: 48px;
+  }
+
+  body .edge-shell {
+    height: 100dvh;
+  }
+
+  body .edge-modal {
+    max-height: calc(100dvh - 32px);
+  }
+
+  body .edge-modal > header,
+  body .edge-modal > footer {
+    flex-shrink: 0;
+  }
+
+  body .marquee-cell:hover .marquee-text {
+    animation: none;
+  }
+
+  body .superintendent-table-card th,
+  body .superintendent-table-card td {
+    font-size: max(14px, 0.875rem);
+  }
+
+  body .superintendent-dashboard {
+    grid-template-columns: 380px minmax(0, 1fr);
+  }
+
+  body .superintendent-chart .recharts-text {
+    font-size: 12px;
+  }
+
+  body .superintendent-row,
+  body .superintendent-row + .superintendent-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 380px;
+    margin-bottom: 12px;
+  }
+
+  body .superintendent-workspace {
+    display: block;
+    overflow-y: auto;
+  }
+
+  body .superintendent-row > section:not([data-expanded="true"]) {
+    height: 380px;
+  }
+
+  body .superintendent-row > section:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (any-pointer: coarse) and (min-width: 1600px) {
+  body .superintendent-workspace {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  body .superintendent-row {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-rows: auto;
+    margin-bottom: 0;
+  }
+
+  body .superintendent-row + .superintendent-row {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.55fr) minmax(0, 1fr);
+    grid-auto-rows: auto;
+    margin-bottom: 0;
+  }
+
+  body .superintendent-row > section:first-child {
+    grid-column: auto;
+  }
+
+  body .superintendent-row > section:not([data-expanded="true"]) {
+    height: auto;
+  }
+}
+
+/* Portrait includes 1080px native width and 864/720px at Windows scaling. */
+@media (orientation: portrait) and (max-width: 1200px), (max-width: 767px) {
+  .pms-planning {
+    flex-direction: column;
+  }
+
+  .pms-planning .pms-equipment-toggle {
+    display: flex;
+    flex-shrink: 0;
+    min-height: 48px;
+  }
+
+  .pms-planning .pms-equipment-tree {
+    display: none;
+    width: 100%;
+    max-height: 30dvh;
+    border-right: 0;
+    border-bottom: 1px solid #d1d5db;
+  }
+
+  .pms-planning[data-tree-open="true"] .pms-equipment-tree {
+    display: flex;
+  }
+
+  .pms-planning > div {
+    min-height: 0;
+  }
+
+  .pms-planning-tabs {
+    overflow-x: auto;
+  }
+
+  .pms-planning-tabs > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .edge-modal-overlay {
+    padding: 12px;
+  }
+
+  .edge-modal {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .edge-modal .md\:grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edge-modal .md\:col-span-3 {
+    grid-column: 1 / -1;
+  }
+
+  .edge-header .lg\:block {
+    display: none;
+  }
+
+  .superintendent-dashboard {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  body .superintendent-row,
+  body .superintendent-row + .superintendent-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 380px;
+  }
+
+  body .superintendent-row > section:not([data-expanded="true"]) {
+    height: 380px;
+  }
+}
+
+@media (max-width: 800px) and (orientation: portrait) {
+  body .superintendent-dashboard {
+    display: block;
+    overflow-y: auto;
+  }
+
+  body .superintendent-summary {
+    max-height: 36dvh;
+    margin-bottom: 12px;
+  }
+
+  body .superintendent-workspace {
+    overflow: visible;
+  }
+}
+
+@media (max-width: 600px) {
+  .edge-modal .md\:grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .edge-modal .md\:col-span-2 {
+    grid-column: 1 / -1;
+  }
+}

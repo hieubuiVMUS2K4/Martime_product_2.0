@@ -15,7 +15,7 @@ export function ActionIcon({ label, icon, to, onClick, disabled = false, danger 
 }) {
   useMessageLocale()
 
-  const style = `inline-flex shrink-0 items-center justify-center rounded p-1 text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:h-4 [&>svg]:w-4 ${danger ? 'hover:bg-red-50 hover:text-red-600' : 'hover:bg-blue-100 hover:text-blue-600'}`
+  const style = `edge-action-icon inline-flex shrink-0 items-center justify-center rounded p-1 text-slate-500 disabled:cursor-not-allowed disabled:opacity-40 [&>svg]:h-4 [&>svg]:w-4 ${danger ? 'hover:bg-red-50 hover:text-red-600' : 'hover:bg-blue-100 hover:text-blue-600'}`
   return to && !disabled ? <Link to={to} className={style} title={label} aria-label={label}>{icon}</Link>
     : <button type="button" className={style} title={label} aria-label={label} onClick={onClick} disabled={disabled}>{icon}</button>
 }

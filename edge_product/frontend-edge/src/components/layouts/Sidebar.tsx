@@ -126,9 +126,9 @@ export function Sidebar() {
     setExpanded(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
   }
 
-  // Màn hẹp (< 1024px) tự thu gọn để nội dung không bị ép; rộng lại thì trả về lựa chọn đã lưu.
+  // Màn hẹp hoặc màn dọc tự thu gọn; màn ngang rộng trả về lựa chọn đã lưu.
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023px)')
+    const mq = window.matchMedia('(max-width: 1023px), (orientation: portrait) and (max-width: 1200px)')
     const apply = () => {
       if (mq.matches) setIsCollapsed(true)
       else {
@@ -167,7 +167,7 @@ export function Sidebar() {
   )
 
   return (
-    <div className={`${isCollapsed ? 'w-16' : 'w-64'} flex h-full shrink-0 flex-col border-r border-gray-200 bg-white transition-all duration-300 dark:border-gray-700 dark:bg-gray-800`}>
+    <div className={`edge-sidebar ${isCollapsed ? 'w-16' : 'w-64'} flex h-full shrink-0 flex-col border-r border-gray-200 bg-white transition-all duration-300 dark:border-gray-700 dark:bg-gray-800`}>
       {/* Logo */}
       <div className={`flex h-16 shrink-0 items-center gap-2.5 border-b border-gray-200 px-4 dark:border-gray-700 ${isCollapsed ? 'justify-center' : ''}`}>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
