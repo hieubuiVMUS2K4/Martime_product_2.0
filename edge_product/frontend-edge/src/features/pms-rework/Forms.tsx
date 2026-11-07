@@ -66,7 +66,24 @@ export function CrewSelect({ value, onChange, crew }: { value?: string | null; o
 export function SupportSelect({ crew, pic, selected, onChange }: { crew: CrewOption[]; pic?: string | null; selected: string[]; onChange: (ids: string[]) => void }) {
   useMessageLocale()
   const [search, setSearch] = useState(''), [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<CSSProperties>({})
   const box = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (!open || !box.current) return
+    const place = () => {
+      if (!box.current) return
+      const rect = box.current.getBoundingClientRect()
+      const below = window.innerHeight - rect.bottom - 12, above = rect.top - 12
+      const openAbove = below < 208 && above > below
+      setPosition({ left: rect.left, width: rect.width, top: openAbove ? undefined : rect.bottom + 4,
+        bottom: openAbove ? window.innerHeight - rect.top + 4 : undefined,
+        maxHeight: Math.max(0, Math.min(208, openAbove ? above : below)) })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
+  }, [open, selected.length])
   useEffect(() => {
     const outside = (event: MouseEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', outside)
@@ -80,7 +97,7 @@ export function SupportSelect({ crew, pic, selected, onChange }: { crew: CrewOpt
       <span className="text-xs text-gray-500">{tx("pmsRework.supportingCrewSelected", { count: selected.length })}</span>
     </div>
     {!!selected.length && <div className="flex flex-wrap gap-2 border-b border-gray-200 px-3 py-2">{selected.map(id => <span key={id} className="inline-flex items-center gap-1.5 rounded border border-blue-100 bg-blue-50 px-2 py-1 text-xs text-blue-700">{crew.find(person => person.crewId === id)?.fullName || tx("pmsRework.unavailableCrew")}<button type="button" aria-label={tx("pmsRework.removeSupportingCrew", { name: crew.find(person => person.crewId === id)?.fullName || '' })} onClick={() => onChange(selected.filter(value => value !== id))}><X size={13} /></button></span>)}</div>}
-    {open && <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded border border-gray-300 bg-white py-1 shadow-lg" onMouseDown={event => event.preventDefault()}>
+    {open && <div style={position} className="fixed z-30 overflow-y-auto rounded border border-gray-300 bg-white py-1 shadow-lg" onMouseDown={event => event.preventDefault()}>
       {available.map(person => <label key={person.crewId} className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 ${selected.includes(person.crewId) ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}><input type="checkbox" className="h-4 w-4 shrink-0 accent-blue-600" checked={selected.includes(person.crewId)} onChange={event => onChange(event.target.checked ? [...selected, person.crewId] : selected.filter(id => id !== person.crewId))} /><span className="min-w-0"><span className="block truncate text-sm" title={person.fullName}>{person.fullName}</span><span className="block text-xs text-gray-500">{person.crewId}</span></span></label>)}
       {!available.length && <p className="col-span-full bg-white px-3 py-5 text-center text-sm text-gray-500">{tx("pmsRework.noMatchingCrew")}</p>}
     </div>}
