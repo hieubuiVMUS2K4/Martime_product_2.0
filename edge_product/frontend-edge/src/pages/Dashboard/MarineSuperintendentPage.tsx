@@ -1,6 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CalendarDays, Maximize2, Minimize2, LocateFixed } from "lucide-react";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Maximize2,
+  Minimize2,
+  LocateFixed,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -24,8 +30,13 @@ import {
   TileLayer,
   useMap,
 } from "react-leaflet";
-import L from "leaflet";
-import { VietnameseLabels } from "@/components/ship-data/VesselMap";
+import { useQuery } from "@tanstack/react-query";
+import { fetchVesselNavigation } from "@/services/vessel-navigation";
+import { useAuthStore } from "@/stores/auth.store";
+import {
+  VietnameseLabels,
+  makeShipIcon,
+} from "@/components/ship-data/VesselMap";
 import "leaflet/dist/leaflet.css";
 import "./superintendent/dashboard.css";
 import { useTranslationSafe } from "@/contexts/I18nContext";
@@ -36,7 +47,6 @@ import {
   sampleHazards,
   sampleRiskCounts,
   sampleWorkRest,
-  sampleVesselTrack,
   sampleComplianceFeed,
 } from "./superintendent/data";
 
@@ -132,34 +142,7 @@ function Panel({
     </>
   );
 }
-const previousPosition = sampleVesselTrack[sampleVesselTrack.length - 2];
-const currentPosition = sampleVesselTrack[sampleVesselTrack.length - 1];
-const vesselCourse =
-  ((Math.atan2(
-    (currentPosition[1] - previousPosition[1]) *
-      Math.cos((currentPosition[0] * Math.PI) / 180),
-    currentPosition[0] - previousPosition[0],
-  ) *
-    180) /
-    Math.PI +
-    360) %
-  360;
-const vesselIcon = L.divIcon({
-  className: "superintendent-vessel-marker",
-  html: `<svg width="48" height="48" viewBox="-24 -24 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="Vessel" style="overflow:visible">
-    <g transform="rotate(${vesselCourse})">
-      <path d="M0-20C-5-15-8-10-8-5V14L-5 18H5L8 14V-5C8-10 5-15 0-20Z" fill="#2563eb" stroke="#fff" stroke-width="2"/>
-      <path d="M0-17V-10M-5-6H5V7H-5Z" fill="#93c5fd" stroke="#0f3c80" stroke-width="1"/>
-      <path d="M-5-2H5M-5 2H5" stroke="#2563eb" stroke-width="1.5"/>
-      <rect x="-5" y="9" width="10" height="5" rx="1" fill="#fff"/>
-    </g>
-  </svg>`,
-  iconSize: [48, 48],
-  iconAnchor: [24, 24],
-  popupAnchor: [0, -24],
-});
-
-function MapFocus() {
+function MapFocus({ position }: { position: [number, number] | null }) {
   const map = useMap();
   const { t } = useTranslationSafe();
   useEffect(() => {
@@ -180,8 +163,9 @@ function MapFocus() {
       className="absolute right-3 top-3 z-[1000] inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow hover:bg-blue-50"
       onClick={(event) => {
         event.stopPropagation();
-        map.flyTo(currentPosition, 9, { duration: 0.6 });
+        if (position) map.flyTo(position, 9, { duration: 0.6 });
       }}
+      disabled={!position}
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <LocateFixed size={16} />
@@ -192,6 +176,17 @@ function MapFocus() {
 
 export function MarineSuperintendentPage() {
   const { t } = useTranslationSafe();
+  const token = useAuthStore((state) => state.accessToken);
+  const navigation = useQuery({
+    queryKey: ["vessel-navigation", token, 24],
+    queryFn: () => fetchVesselNavigation(24),
+    enabled: !!token,
+    refetchInterval: 30000,
+    staleTime: 15000,
+    retry: false,
+  });
+  const position = navigation.data?.currentPosition;
+  const route = navigation.data?.route || [];
   const [metric, setMetric] = useState<InspectionMetric>("recent");
   const [inspection, setInspection] = useState<string | null>(null);
   const [activities, setActivities] = useState<{
@@ -214,9 +209,8 @@ export function MarineSuperintendentPage() {
     .map((row) => ({ name: auditName(row.key), value: row[metric] }));
   const total = (key: InspectionMetric) =>
     inspectionRows.reduce((sum, row) => sum + row[key], 0);
-  const latitude = 10.15,
-    longitude = 107.45;
-  const vesselName = "HP PIONEER VMU";
+  const latitude = position?.latitude;
+  const longitude = position?.longitude;
   const drillStats = {
     totalScheduled: 18,
     totalCompleted: 13,
@@ -693,8 +687,13 @@ export function MarineSuperintendentPage() {
             className="min-h-0"
           >
             <div className="relative isolate superintendent-chart">
+              {(navigation.isError || (!navigation.isPending && !position)) && (
+                <p className="absolute bottom-6 left-2 z-[1000] rounded bg-white/95 px-2 py-1 text-xs text-amber-700">
+                  {t("superintendent.positionUnavailable")}
+                </p>
+              )}
               <MapContainer
-                center={[latitude, longitude]}
+                center={[latitude ?? 13, longitude ?? 110]}
                 zoom={7}
                 scrollWheelZoom={false}
                 style={{ height: "100%", width: "100%" }}
@@ -703,23 +702,33 @@ export function MarineSuperintendentPage() {
                   attribution="&copy; OpenStreetMap"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <MapFocus />
+                <MapFocus
+                  position={
+                    position ? [position.latitude, position.longitude] : null
+                  }
+                />
                 <VietnameseLabels />
                 <Polyline
-                  positions={sampleVesselTrack}
+                  positions={route.map((point) => [
+                    point.latitude,
+                    point.longitude,
+                  ])}
                   pathOptions={{ color: "#2563eb", weight: 3, opacity: 0.9 }}
                 />
-                <Marker
-                  position={[latitude, longitude]}
-                  icon={vesselIcon}
-                  zIndexOffset={1000}
-                >
-                  <Popup>
-                    {vesselName}
-                    <br />
-                    {latitude.toFixed(5)}°, {longitude.toFixed(5)}°
-                  </Popup>
-                </Marker>
+                {position && (
+                  <Marker
+                    position={[position.latitude, position.longitude]}
+                    icon={makeShipIcon("#3b82f6", position.courseOverGround)}
+                    zIndexOffset={1000}
+                  >
+                    <Popup>
+                      {t("map.shipPosition")}
+                      <br />
+                      {position.latitude.toFixed(5)}°,{" "}
+                      {position.longitude.toFixed(5)}°
+                    </Popup>
+                  </Marker>
+                )}
               </MapContainer>
             </div>
             <div className="grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-200 py-3 text-center text-xs">
@@ -727,17 +736,19 @@ export function MarineSuperintendentPage() {
                 <p className="mb-1 text-[10px] text-slate-400">
                   {t("superintendent.latitude")}
                 </p>
-                {latitude.toFixed(4)}°
+                {latitude != null ? `${latitude.toFixed(4)}°` : "—"}
               </div>
               <div>
                 <p className="mb-1 text-[10px] text-slate-400">
                   {t("superintendent.longitude")}
                 </p>
-                {longitude.toFixed(4)}°
+                {longitude != null ? `${longitude.toFixed(4)}°` : "—"}
               </div>
               <div>
                 <p className="mb-1 text-[10px] text-slate-400">SOG</p>
-                {"12.4"} kn
+                {position?.speedOverGround != null
+                  ? `${position.speedOverGround.toFixed(1)} kn`
+                  : "—"}
               </div>
             </div>
           </Panel>

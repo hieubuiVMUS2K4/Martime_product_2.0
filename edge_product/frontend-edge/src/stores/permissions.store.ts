@@ -29,7 +29,7 @@ export function canPerform(code: string) {
 }
 export function hasPermission(state: Pick<PermissionsState, 'isAdmin' | 'grants' | 'loaded' | 'error' | 'modules'>, code: string): boolean {
   if (!state.loaded || state.error) return false
-  if (state.isAdmin) return true
+  if (state.isAdmin && !code.startsWith('dashboard.')) return true
   const index = code.lastIndexOf('.')
   const module = code.slice(0, index), action = code.slice(index + 1)
   if (!state.grants.includes(module + '.access')) return false
@@ -46,6 +46,9 @@ export function usePermission(code: string) {
 export function canOpen(path: string) {
   const { modules, isAdmin, loaded, error } = usePermissionsStore.getState()
   if (!loaded || error) return false
+  const dashboardCode = path === '/dashboard' ? 'dashboard'
+    : ['/marine-superintendent', '/dashboard/marine-superintendent'].includes(path) ? 'dashboard.superintendent' : null
+  if (dashboardCode) return canPerform(dashboardCode + '.view')
   if (isAdmin) return true
   if (path.startsWith('/admin/')) return false
   if (path === '/pms/work-planning') return ['pms.jobs', 'pms.work', 'pms.config', 'pms.counter'].some(m => canPerform(m + '.view'))

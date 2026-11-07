@@ -20,7 +20,7 @@ const actionGroups = [
   { label: 'Đình chỉ', actions: ['suspend'] },
   { label: 'Từ chối', actions: ['reject'] },
 ]
-const departments: Record<string, string> = { DECK: 'Bộ phận boong', ENGINE: 'Bộ phận máy', CATERING: 'Bộ phận phục vụ', OTHER: 'Khác' }
+const departments: Record<string, string> = { DECK: 'Bộ phận boong', ENGINE: 'Bộ phận máy', CATERING: 'Bộ phận phục vụ', OTHER: 'Khác', SYSTEM: 'Vai trò hệ thống' }
 const groupOrder = ['Tổng quan', 'Hàng hải', 'Thuyền viên', 'Khai thác', 'PMS – Danh mục', 'PMS – Kho vận', 'PMS – Công việc', 'An toàn', 'Nhật ký', 'Quản trị', 'HSQE']
 function AccessToggle({ checked, disabled, label, onChange }: { checked: boolean; disabled?: boolean; label: string; onChange: () => void }) {
   return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange}
@@ -140,7 +140,7 @@ export default function RankPermissionsPage() {
       const data = await apiClient.put<Config>(`/permissions/ranks/${selected}`, { version: config.version, grants: [...grants] })
       configCache.current.set(selected, data)
       setConfig(data); setGrants(new Set(data.grants))
-      toast.success('Đã lưu quyền cho chức danh')
+      toast.success(selected === 0 ? 'Đã lưu cấu hình dashboard cho Admin' : 'Đã lưu quyền cho chức danh')
       await loadRanks(); await usePermissionsStore.getState().load()
     } catch (e) {
       configCache.current.delete(selected)
@@ -169,7 +169,7 @@ export default function RankPermissionsPage() {
       </aside>
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
-          <div><div className="font-semibold text-gray-900">{rank?.rankName || 'Chọn chức danh để cấu hình'}</div>{rank && <div className={`mt-1 text-xs ${dirty ? 'text-amber-600' : 'text-gray-500'}`}>{dirty ? 'Có thay đổi chưa lưu' : 'Quyền áp dụng cho thuyền viên mang chức danh này'}</div>}</div>
+          <div><div className="font-semibold text-gray-900">{rank?.rankName || 'Chọn chức danh để cấu hình'}</div>{rank && <div className={`mt-1 text-xs ${dirty ? 'text-amber-600' : 'text-gray-500'}`}>{dirty ? 'Có thay đổi chưa lưu' : selected === 0 ? 'Cấu hình hai trang tổng quan cho vai trò Admin' : 'Quyền áp dụng cho thuyền viên mang chức danh này'}</div>}</div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative"><Search size={15} className="absolute left-3 top-2.5 text-gray-400" /><input aria-label="Tìm module" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm module…" className="h-9 w-52 rounded border border-gray-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-blue-500" /></div>
             <button type="button" disabled={loading || saving} onClick={() => void loadRanks()} className="inline-flex h-9 items-center gap-2 rounded border border-gray-300 px-3 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"><RefreshCw size={15} />Làm mới</button>
@@ -181,12 +181,13 @@ export default function RankPermissionsPage() {
           {error && <p className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{error}</p>}
           {loading ? <p className="p-2 text-gray-500">Đang tải cấu hình…</p> : !rank ? <p className="p-2 text-gray-500">Chọn một chức danh bên trái để xem và điều chỉnh quyền.</p> : !error && <div className="mx-auto max-w-6xl space-y-5">
             {groups.map(group => {
-              const rows = modules.filter(m => m.group === group && m.name.toLowerCase().includes(search.toLowerCase()))
+              const rows = modules.filter(m => m.group === group && m.name.toLowerCase().includes(search.toLowerCase()) &&
+                (selected !== 0 || ['dashboard', 'dashboard.superintendent'].includes(m.code)))
               if (!rows.length) return null
               return <section key={group} aria-label={group}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
                   <h2 className="text-sm font-semibold text-gray-800">{group}</h2>
-                  {group === 'Tổng quan' && <p className="text-xs text-gray-500">Bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển.</p>}
+                  {group === 'Tổng quan' && <p className="text-xs text-gray-500">Bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển.{selected === 0 && ' Admin vẫn giữ đầy đủ quyền quản trị hệ thống.'}</p>}
                 </div>
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                   {rows.map(m => {

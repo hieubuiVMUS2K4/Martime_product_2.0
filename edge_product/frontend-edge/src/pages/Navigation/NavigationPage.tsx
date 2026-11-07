@@ -1,24 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslationSafe } from '@/contexts/I18nContext';
 import { VesselMap, type GpsPoint } from '@/components/ship-data/VesselMap';
-import { API_CONFIG } from '@/config/app.config';
-import axios from 'axios';
-
-const API_BASE = API_CONFIG.BASE_URL;
-
-interface PositionDataResponse {
-  id: string;
-  timestamp: string;
-  latitude: number;
-  longitude: number;
-  altitude?: number;
-  speedOverGround?: number;
-  courseOverGround?: number;
-  fixQuality: number;
-  satellitesUsed: number;
-  hdop?: number;
-  source: string;
-}
+import { fetchVesselNavigation } from '@/services/vessel-navigation';
 
 export function NavigationPage() {
   const { t } = useTranslationSafe();
@@ -31,32 +14,9 @@ export function NavigationPage() {
 
   const fetchPosition = async () => {
     try {
-      // Lấy vị trí mới nhất
-      const latestRes = await axios.get<PositionDataResponse>(`${API_BASE}/telemetry/position/latest`);
-      const latest = latestRes.data;
-
-      setCurrentPosition({
-        latitude: latest.latitude,
-        longitude: latest.longitude,
-        speedOverGround: latest.speedOverGround,
-        courseOverGround: latest.courseOverGround,
-        timestamp: latest.timestamp,
-        satellitesUsed: latest.satellitesUsed,
-      });
-
-      // Lấy hành trình
-      const routeRes = await axios.get(`${API_BASE}/telemetry/position/history`, {
-        params: { hours: selectedHours, pageSize: 500 },
-      });
-      const routeData = (routeRes.data?.data || []).map((p: PositionDataResponse) => ({
-        latitude: p.latitude,
-        longitude: p.longitude,
-        speedOverGround: p.speedOverGround,
-        courseOverGround: p.courseOverGround,
-        timestamp: p.timestamp,
-      }));
-
-      setRoute(routeData);
+      const result = await fetchVesselNavigation(selectedHours);
+      setCurrentPosition(result.currentPosition);
+      setRoute(result.route);
       setError(null);
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'Failed to load position data');

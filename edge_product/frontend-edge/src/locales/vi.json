@@ -5223,6 +5223,7 @@
       "3": "Đáng kể",
       "4": "Cao"
     },
+    "positionUnavailable": "Chưa tải được dữ liệu GPS từ tàu",
     "focusVessel": "Về vị trí tàu",
     "vesselOverview": "Tổng quan tàu",
     "overdueFindings": "Phát hiện quá hạn",

@@ -31,7 +31,7 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
         var configs = await db.RankPermissionConfigs.AsNoTracking().ToDictionaryAsync(c => c.RankId);
         var ranks = await db.Ranks.AsNoTracking().Where(r => r.IsActive).OrderBy(r => r.SortOrder).ThenBy(r => r.RankName)
             .Select(r => new { r.Id, r.RankCode, r.RankName, r.Department }).ToListAsync();
-        return Ok(ranks.Select(r =>
+        var rows = ranks.Select(r =>
         {
             configs.TryGetValue(r.Id, out var config);
             return new
@@ -40,13 +40,28 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
                 Version = config?.Version ?? 0,
                 Grants = Grants(config?.GrantsJson)
             };
-        }).ToArray());
+        }).Cast<object>().ToList();
+        var adminRole = await db.Roles.AsNoTracking().SingleOrDefaultAsync(r => r.IsActive && r.RoleCode.ToUpper() == "ADMIN");
+        if (adminRole != null)
+        {
+            var adminConfig = await db.RolePermissionConfigs.AsNoTracking().SingleOrDefaultAsync(c => c.RoleId == adminRole.Id);
+            rows.Insert(0, new { Id = 0, RankCode = "ADMIN", RankName = "Admin", Department = "SYSTEM", IsConfigured = adminConfig != null,
+                Version = adminConfig?.Version ?? 0, Grants = PermissionRegistry.AdminGrants(adminConfig?.GrantsJson) });
+        }
+        return Ok(rows);
     }
 
     [HttpGet("ranks/{rankId:int}")]
     public async Task<IActionResult> Get(int rankId)
     {
         if (!await IsAdmin()) return StatusCode(403);
+        if (rankId == 0)
+        {
+            var role = await db.Roles.AsNoTracking().SingleOrDefaultAsync(r => r.IsActive && r.RoleCode.ToUpper() == "ADMIN");
+            if (role == null) return NotFound();
+            var admin = await db.RolePermissionConfigs.AsNoTracking().SingleOrDefaultAsync(c => c.RoleId == role.Id);
+            return Ok(new { Version = admin?.Version ?? 0, Grants = PermissionRegistry.AdminGrants(admin?.GrantsJson) });
+        }
         if (!await db.Ranks.AnyAsync(r => r.Id == rankId && r.IsActive)) return NotFound();
         var config = await db.RankPermissionConfigs.AsNoTracking().SingleOrDefaultAsync(c => c.RankId == rankId);
         return Ok(new { Version = config?.Version ?? 0, Grants = Grants(config?.GrantsJson) });
@@ -61,6 +76,7 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
             return BadRequest(new { error = "Có mã quyền không hợp lệ." });
         if (!PermissionRegistry.HasDashboardAccess(request.Grants))
             return BadRequest(new { error = "Phải bật ít nhất một mục Tổng quan tàu hoặc Bảng điều khiển." });
+        if (rankId == 0) return await SaveAdmin(request);
         await using var transaction = await db.Database.BeginTransactionAsync();
         // Serialize first saves too; optimistic version detects stale browser edits.
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({2026100602}, {rankId})");
@@ -84,4 +100,27 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
         await transaction.CommitAsync();
         return Ok(new { config.Version, Grants = grants });
     }
+    private async Task<IActionResult> SaveAdmin(SavePermissions request)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({2026100602}, {0})");
+        var role = await db.Roles.AsNoTracking().SingleOrDefaultAsync(r => r.IsActive && r.RoleCode.ToUpper() == "ADMIN");
+        if (role == null) return NotFound();
+        var config = await db.RolePermissionConfigs.SingleOrDefaultAsync(c => c.RoleId == role.Id);
+        if ((config?.Version ?? 0) != request.Version)
+            return Conflict(new { error = "Cấu hình đã được thay đổi. Hãy tải lại trước khi lưu." });
+        var before = config?.GrantsJson ?? "[]";
+        if (config == null) { config = new() { RoleId = role.Id, Version = 0 }; db.RolePermissionConfigs.Add(config); }
+        config.GrantsJson = JsonSerializer.Serialize(PermissionRegistry.ConfigurableGrants(request.Grants).Where(PermissionRegistry.IsDashboardPermission).Order());
+        config.Version++;
+        config.UpdatedAt = DateTime.UtcNow;
+        config.UpdatedBy = HttpContext.GetUserId()!.Value;
+        db.SystemLogs.Add(new SystemLog { Category = "SECURITY", Action = "ADMIN_DASHBOARDS_CHANGED", Level = "INFO",
+            UserId = config.UpdatedBy, Username = HttpContext.GetUsername(), EntityType = "RolePermissionConfig",
+            EntityId = role.Id.ToString(), OldValues = before, NewValues = config.GrantsJson });
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        return Ok(new { config.Version, Grants = PermissionRegistry.AdminGrants(config.GrantsJson) });
+    }
+
 }

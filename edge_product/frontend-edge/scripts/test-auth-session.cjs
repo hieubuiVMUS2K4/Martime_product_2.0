@@ -794,3 +794,30 @@ test('all journal and report signing routes require the common confirmation', ()
   ]
   for (const [path, module, action] of routes) assert.deepEqual(JSON.parse(JSON.stringify(approvalTarget(path, {}))), { module, key: 'record', action })
 })
+
+
+test('admin dashboard access follows saved grants while administration remains available', () => {
+  const permissions = load('stores/permissions.store.ts', { '@/services/api.client': { apiClient: {} } })
+  const modules = [{ code: 'dashboard', routes: ['/dashboard'], actions: ['view'] },
+    { code: 'dashboard.superintendent', routes: ['/marine-superintendent'], actions: ['view'] }]
+  permissions.usePermissionsStore.setState({ loaded: true, error: null, isAdmin: true, modules, grants: ['dashboard.superintendent.access'] })
+  assert.equal(permissions.canOpen('/dashboard'), false)
+  assert.equal(permissions.canOpen('/marine-superintendent'), true)
+  assert.equal(permissions.canOpen('/admin/accounts'), true)
+  assert.equal(permissions.canPerform('crew.delete'), true)
+})
+
+test('shared vessel navigation uses the live latest position and sorts the same history chronologically', async () => {
+  const latest = { latitude: 10, longitude: 107, courseOverGround: 45 }
+  const history = [{ ...latest, timestamp: '2026-11-07T02:00:00Z' }, { ...latest, timestamp: '2026-11-07T01:00:00Z' }]
+  const calls = []
+  const service = load('services/vessel-navigation.ts', { './api.client': { apiClient: { get: async (path, options) => {
+    calls.push([path, options]); return path.endsWith('/latest') ? latest : { data: history }
+  } } } })
+  const result = await service.fetchVesselNavigation(24)
+  assert.deepEqual(result.currentPosition, latest)
+  assert.equal(result.route[0].timestamp, history[1].timestamp)
+  assert.equal(history[0].timestamp, '2026-11-07T02:00:00Z')
+  assert.equal(calls[1][1].params.hours, 24)
+  assert.equal(calls[1][1].params.pageSize, 500)
+})

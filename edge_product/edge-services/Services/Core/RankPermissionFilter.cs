@@ -133,7 +133,7 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
                     property.SetValue(argument, actorId);
                 }
         }
-        if (current.IsAdmin) { await next(); return; }
+        if (current.IsAdmin && (required == null || !required.All(PermissionRegistry.IsDashboardPermission))) { await next(); return; }
         // Auth administration is reserved for ADMIN. Own-account endpoints are exempt above.
         if (controller == "Auth") { Deny(context); return; }
         if (required == null || !required.Any(p => PermissionRegistry.Allows(current.Grants.ToHashSet(), p)))

@@ -122,6 +122,7 @@ public class EdgeDbContext : DbContext
     // Authentication & Authorization
     public DbSet<Role> Roles { get; set; } = null!;
     public DbSet<RankPermissionConfig> RankPermissionConfigs { get; set; } = null!;
+    public DbSet<RolePermissionConfig> RolePermissionConfigs { get; set; } = null!;
     public DbSet<ApprovalDocument> ApprovalDocuments { get; set; } = null!;
         public DbSet<ApprovalRevision> ApprovalRevisions { get; set; } = null!;
         public DbSet<ApprovalAction> ApprovalActions { get; set; } = null!;
@@ -233,6 +234,14 @@ public class EdgeDbContext : DbContext
             entity.Property(e => e.Version).IsConcurrencyToken();
             entity.HasOne<Maritime.Shared.Models.Crew.Rank>().WithMany()
                 .HasForeignKey(e => e.RankId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RolePermissionConfig>(entity =>
+        {
+            entity.ToTable("role_permission_configs");
+            entity.Property(e => e.GrantsJson).HasColumnType("text");
+            entity.Property(e => e.Version).IsConcurrencyToken();
+            entity.HasOne<Role>().WithMany().HasForeignKey(e => e.RoleId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // PostgreSQL specific configurations

@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -262,7 +264,7 @@ public class RankPermissionTests
         var role = await db.Roles.SingleAsync(); role.RoleCode = "ADMIN"; await db.SaveChangesAsync();
         var result = Assert.IsType<OkObjectResult>(await controller.Ranks());
         var rows = JsonSerializer.SerializeToElement(result.Value).EnumerateArray().ToArray();
-        Assert.Equal(2, rows.Length);
+        Assert.Equal(3, rows.Length);
         var saved = rows.Single(r => r.GetProperty("Id").GetInt32() == rankId);
         Assert.Equal(3, saved.GetProperty("Version").GetInt64());
         Assert.Equal(4, saved.GetProperty("Grants").GetArrayLength());
@@ -271,6 +273,43 @@ public class RankPermissionTests
         Assert.Equal(2, empty.GetProperty("Grants").GetArrayLength());
         Assert.False(empty.GetProperty("IsConfigured").GetBoolean());
         Assert.Single(await db.RankPermissionConfigs.ToListAsync());
+    }
+
+    [Fact]
+    public void RolePermissionMigration_GeneratesRoleTableSql()
+    {
+        using var db = new EdgeDbContext(new DbContextOptionsBuilder<EdgeDbContext>()
+            .UseNpgsql("Host=localhost;Database=codex_model_validation;Username=unused;Password=unused").Options);
+        Assert.Contains("20261107090000_AddRolePermissionConfigs", db.Database.GetMigrations());
+        var migrations = db.Database.GetMigrations().ToArray();
+        var previous = migrations[Array.IndexOf(migrations, "20261107090000_AddRolePermissionConfigs") - 1];
+        var sql = db.GetService<IMigrator>().GenerateScript(previous, "20261107090000_AddRolePermissionConfigs");
+        Assert.Contains("CREATE TABLE public.role_permission_configs", sql);
+        Assert.Contains("REFERENCES public.roles", sql);
+        Assert.Equal("role_permission_configs", db.Model.FindEntityType(typeof(RolePermissionConfig))!.GetTableName());
+    }
+
+    [Fact]
+    public async Task AdminDashboards_RespectSavedAccess_WhileRetainingAdministration()
+    {
+        await using var db = Database(); var (user, _) = await Seed(db);
+        var role = await db.Roles.SingleAsync(); role.RoleCode = "ADMIN";
+        db.RolePermissionConfigs.Add(new() { RoleId = role.Id, Version = 3,
+            GrantsJson = "[\"dashboard.superintendent.access\",\"dashboard.superintendent.view\"]" });
+        await db.SaveChangesAsync();
+        var effective = await new RankPermissionService(db).GetAsync(user.Id);
+        Assert.True(effective.IsAdmin);
+        Assert.Contains("dashboard.superintendent.access", effective.Grants);
+        Assert.DoesNotContain("dashboard.access", effective.Grants);
+        Assert.Contains("crew.delete", effective.Grants);
+        Assert.False(await Call(db, user.Id, "Dashboard", "GetStats", "GET"));
+        Assert.True(await Call(db, user.Id, "Telemetry", "GetLatestPosition", "GET"));
+        var http = new DefaultHttpContext(); http.Items["UserId"] = user.Id;
+        var controller = new RankPermissionsController(db, new(db)) { ControllerContext = new() { HttpContext = http } };
+        var rows = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.Ranks()).Value).EnumerateArray();
+        Assert.Contains(rows, r => r.GetProperty("Id").GetInt32() == 0 && r.GetProperty("RankCode").GetString() == "ADMIN");
+        var config = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.Get(0)).Value);
+        Assert.Equal(3, config.GetProperty("Version").GetInt64());
     }
 
     [Fact]
@@ -549,6 +588,38 @@ public class RankPermissionTests
 [Collection("PMS inventory")]
 public class RankPermissionPostgresTests(PmsDatabaseFixture fixture)
 {
+    [PmsPostgresFact]
+    public async Task AdminSave_PersistsDashboardChoice_RejectsStaleWritesAndEmptySelection()
+    {
+        await using var db = fixture.CreateContext(); db.SuppressSyncQueue = true;
+        var role = await db.Roles.SingleOrDefaultAsync(r => r.RoleCode == "ADMIN");
+        if (role == null) { role = new Role { RoleCode = "ADMIN", RoleName = "Admin" }; db.Roles.Add(role); await db.SaveChangesAsync(); }
+        var user = new User { Username = "admin-dash-" + Guid.NewGuid().ToString("N")[..8], RoleId = role.Id, PasswordHash = "test" };
+        db.Users.Add(user); await db.SaveChangesAsync();
+        var original = await db.RolePermissionConfigs.AsNoTracking().SingleOrDefaultAsync(c => c.RoleId == role.Id);
+        var http = new DefaultHttpContext(); http.Items["UserId"] = user.Id;
+        var controller = new RankPermissionsController(db, new(db)) { ControllerContext = new() { HttpContext = http } };
+        try
+        {
+            var version = original?.Version ?? 0;
+            Assert.IsType<OkObjectResult>(await controller.Save(0, new(version, ["dashboard.superintendent.access"])));
+            Assert.IsType<ConflictObjectResult>(await controller.Save(0, new(version, ["dashboard.access"])));
+            Assert.IsType<BadRequestObjectResult>(await controller.Save(0, new(version + 1, [])));
+            var effective = await new RankPermissionService(db).GetAsync(user.Id);
+            Assert.True(effective.IsAdmin);
+            Assert.DoesNotContain("dashboard.access", effective.Grants);
+            Assert.Contains("dashboard.superintendent.access", effective.Grants);
+            Assert.Contains("crew.delete", effective.Grants);
+        }
+        finally
+        {
+            var changed = await db.RolePermissionConfigs.SingleAsync(c => c.RoleId == role.Id);
+            if (original == null) db.RolePermissionConfigs.Remove(changed);
+            else { changed.GrantsJson = original.GrantsJson; changed.Version = original.Version; changed.UpdatedAt = original.UpdatedAt; changed.UpdatedBy = original.UpdatedBy; }
+            await db.SaveChangesAsync();
+        }
+    }
+
     [PmsPostgresFact]
     public async Task Save_ValidatesVersionAndUnknownCodes_WritesAuditWithoutSyncEcho()
     {

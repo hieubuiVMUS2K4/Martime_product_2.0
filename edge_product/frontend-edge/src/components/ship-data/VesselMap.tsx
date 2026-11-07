@@ -37,7 +37,7 @@ const shipSvg = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://w
 </svg>`;
 
 /** Tạo icon tàu dạng mũi tên với màu tùy chỉnh và hướng đi */
-function makeShipIcon(color: string, course?: number) {
+export function makeShipIcon(color: string, course?: number) {
   const rotation = course != null ? course : 0;
   return new L.DivIcon({
     className: 'vessel-marker-arrow',

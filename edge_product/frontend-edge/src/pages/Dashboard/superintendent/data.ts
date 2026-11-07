@@ -94,19 +94,6 @@ export const sampleWorkRest = [
   { month: "06", hours: 6.4, violations: 0.4 },
 ];
 
-// Coastal passage terminating at the displayed vessel position.
-export const sampleVesselTrack: [number, number][] = [
-  [16.2, 108.6],
-  [15.5, 109.0],
-  [14.5, 109.6],
-  [13.3, 109.9],
-  [12.2, 109.7],
-  [11.4, 109.1],
-  [10.8, 108.6],
-  [10.4, 108.0],
-  [10.15, 107.45],
-];
-
 export const sampleComplianceFeed = [
   { reference: "SMS-2026-041", date: "06/11/2026" },
   { reference: "ENV-2026-018", date: "05/11/2026" },

@@ -5223,6 +5223,7 @@
       "3": "Significant",
       "4": "High"
     },
+    "positionUnavailable": "Vessel GPS data is unavailable",
     "focusVessel": "Focus vessel",
     "vesselOverview": "Vessel overview",
     "overdueFindings": "Overdue findings",

@@ -3279,7 +3279,8 @@
       "action": "GetLatestPosition",
       "grants": [
         "navigation.view",
-        "dashboard.view"
+        "dashboard.view",
+        "dashboard.superintendent.view"
       ]
     },
     {
@@ -3287,7 +3288,8 @@
       "action": "GetPositionHistory",
       "grants": [
         "navigation.view",
-        "dashboard.view"
+        "dashboard.view",
+        "dashboard.superintendent.view"
       ]
     },
     {

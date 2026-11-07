@@ -43,6 +43,15 @@ public static class PermissionRegistry
     public static bool HasDashboardAccess(IEnumerable<string> grants) => grants.Any(g =>
         g is "dashboard.access" or "dashboard.superintendent.access");
 
+    public static bool IsDashboardPermission(string permission) => permission.StartsWith("dashboard.", StringComparison.Ordinal);
+    public static string[] AdminGrants(string? savedJson)
+    {
+        var dashboards = savedJson == null ? Codes.Where(IsDashboardPermission).ToArray()
+            : ConfigurableGrants(JsonSerializer.Deserialize<string[]>(savedJson) ?? []).Where(IsDashboardPermission).ToArray();
+        if (!HasDashboardAccess(dashboards)) dashboards = DefaultGrants;
+        return Codes.Where(p => !IsDashboardPermission(p)).Concat(dashboards).ToArray();
+    }
+
     public static string[] ForPmsModel(IEnumerable<string> grants, bool rework)
     {
         var normalized = ConfigurableGrants(rework
@@ -63,7 +72,10 @@ public sealed class RankPermissionService(EdgeDbContext db, IConfiguration? conf
             .SingleOrDefaultAsync(u => u.Id == userId && u.IsActive);
         if (user == null || user.Role?.IsActive != true) return new(false, null, null, [], false);
         if (user.Role.RoleCode.Equals("ADMIN", StringComparison.OrdinalIgnoreCase))
-            return new(true, null, null, PermissionRegistry.Codes.ToArray());
+        {
+            var adminConfig = await db.RolePermissionConfigs.AsNoTracking().SingleOrDefaultAsync(p => p.RoleId == user.RoleId);
+            return new(true, null, "Admin", PermissionRegistry.AdminGrants(adminConfig?.GrantsJson));
+        }
         if (string.IsNullOrWhiteSpace(user.CrewId)) return new(false, null, null, PermissionRegistry.DefaultGrants.ToArray());
         var crew = await db.CrewMembers.AsNoTracking().Include(c => c.Rank)
             .SingleOrDefaultAsync(c => c.CrewId == user.CrewId);
