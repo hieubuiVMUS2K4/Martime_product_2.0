@@ -9,7 +9,7 @@ namespace ProductApi.Data
 {
     public static class SmsSeedData
     {
-        public static async Task SeedAsync(AppDbContext context)
+        public static async Task SeedElementsAsync(AppDbContext context)
         {
             // 1. Seed ISM Elements
             {
@@ -33,10 +33,18 @@ namespace ProductApi.Data
                     new IsmElement { Id = 16, ChapterName = "Hướng dẫn kỹ thuật (Technical Instructions)" }
                 };
 
+                await using var transaction = await context.Database.BeginTransactionAsync();
+                await context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(2026110801)");
                 var existingElementIds = await context.IsmElements.Select(e => e.Id).ToListAsync();
                 await context.IsmElements.AddRangeAsync(elements.Where(e => !existingElementIds.Contains(e.Id)));
                 await context.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
+        }
+
+        public static async Task SeedAsync(AppDbContext context)
+        {
+            await SeedElementsAsync(context);
 
             // 2. Seed Procedures and Form Templates
             {

@@ -860,6 +860,11 @@ namespace ProductApi.Controllers
                 }
 
                 // Check if code already exists under active state
+                if (!await _context.IsmElements.AnyAsync(e => e.Id == req.IsmElementId))
+                {
+                    return BadRequest(new { message = "Chương ISM đã chọn chưa có trong danh mục. Vui lòng tải lại trang và chọn chương hợp lệ." });
+                }
+
                 var exists = await _context.SmsProcedures
                     .AnyAsync(p => p.ProcedureCode == req.ProcedureCode && p.Status == "Active");
                 if (exists)

@@ -665,6 +665,7 @@ using (var seedScope = app.Services.CreateScope())
 {
     var added = await RankSeedData.SeedAsync(seedScope.ServiceProvider.GetRequiredService<AppDbContext>());
     app.Logger.LogInformation("Rank catalogue seeded: {Added} new ranks.", added);
+    await SmsSeedData.SeedElementsAsync(seedScope.ServiceProvider.GetRequiredService<AppDbContext>());
 }
 
 if (app.Environment.IsDevelopment())

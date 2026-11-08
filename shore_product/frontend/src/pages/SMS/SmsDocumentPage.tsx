@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { smsService, type SmsTreeChapter, type SmsProcedureDetail, type SmsFormTemplate, type SmsFilledRecord, type SignatureEntry, type SmsProcedure } from '@/services/sms.service';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
+import { SmsPdfPreview } from '@/components/common/SmsPdfPreview';
 import { printSmsDocument } from '@/lib/printUtils';
 import { maritimeService } from '@/services/maritime.service';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -82,24 +83,6 @@ function diffHtml(oldHtml: string, newHtml: string): string {
   
   return result.join('');
 }
-
-const formatPdfUrl = (pathStr?: string) => {
-  if (!pathStr) return '';
-  if (pathStr.startsWith('http://') || pathStr.startsWith('https://')) {
-    try {
-      const url = new URL(pathStr);
-      url.pathname = url.pathname.split('/').map(segment => encodeURIComponent(segment)).join('/');
-      url.hash = 'toolbar=0';
-      return url.toString();
-    } catch {
-      return `${pathStr}#toolbar=0`;
-    }
-  }
-  const cleanPath = pathStr.replace(/\\/g, '/');
-  const normalizedPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
-  const parts = normalizedPath.split('/').map(segment => encodeURIComponent(segment));
-  return `${parts.join('/')}#toolbar=0`;
-};
 
 const isPdfFile = (pathStr?: string) => {
   if (!pathStr) return false;
@@ -866,11 +849,11 @@ export function SmsDocumentPage() {
       setImportedFilePath(res.filePath);
       
       const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-      const codeMatch = file.name.match(/SOP-\d{2}-\d{2}/i) || file.name.match(/BM-\d{2}-\d{2}/i);
+      const codeMatch = file.name.match(/(?:BD-SP|SOP-|BM-)\d{2}-\d{2}/i);
       const suggestedCode = codeMatch ? codeMatch[0].toUpperCase() : '';
       
       let suggestedChapter = 7;
-      if (suggestedCode) {
+      if (suggestedCode && !suggestedCode.startsWith('BD-SP')) {
         const chapterPart = suggestedCode.split('-')[1];
         if (chapterPart && !isNaN(parseInt(chapterPart))) {
           suggestedChapter = parseInt(chapterPart);
@@ -879,8 +862,8 @@ export function SmsDocumentPage() {
 
       setImportForm({
         ismElementId: suggestedChapter,
-        procedureCode: suggestedCode || 'SOP-07-',
-        title: nameWithoutExt.replace(/SOP-\d{2}-\d{2}/i, '').replace(/[-_]/g, ' ').trim(),
+        procedureCode: suggestedCode,
+        title: nameWithoutExt.replace(codeMatch?.[0] || '', '').replace(/[-_]/g, ' ').trim(),
         version: 'Rev 1.0',
         changeNote: '',
         replaceExisting: false,
@@ -938,7 +921,8 @@ export function SmsDocumentPage() {
       }
       
       setIsImportingDocx(false);
-      fetchTree(undefined, true);
+      await fetchTree(undefined, true);
+      setExpandedChapters(prev => ({ ...prev, [importForm.ismElementId]: true }));
       if (newProcId) {
         setSelectedProcId(newProcId);
       }
@@ -1275,25 +1259,7 @@ export function SmsDocumentPage() {
                   className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-850 dark:text-white outline-none focus:ring-2 focus:ring-accent"
                 >
                   {Array.from({ length: 16 }, (_, idx) => idx + 1).map(num => (
-                    <option key={num} value={num}>Điều {num}: {
-                      num === 1 ? 'Chính sách chung' :
-                      num === 2 ? 'An toàn & Bảo vệ môi trường' :
-                      num === 3 ? 'Trách nhiệm & Quyền hạn Công ty' :
-                      num === 4 ? 'Người được chỉ định (DPA)' :
-                      num === 5 ? 'Trách nhiệm & Quyền hạn Thuyền trưởng' :
-                      num === 6 ? 'Nguồn lực & Nhân sự' :
-                      num === 7 ? 'Xây dựng kế hoạch hoạt động trên tàu' :
-                      num === 8 ? 'Chuẩn bị sẵn sàng ứng phó tình huống khẩn cấp' :
-                      num === 9 ? 'Báo cáo & Phân tích sự cố' :
-                      num === 10 ? 'Bảo dưỡng tàu và thiết bị' :
-                      num === 11 ? 'Kiểm soát tài liệu & dữ liệu' :
-                      num === 12 ? 'Đánh giá của công ty & xem xét của Ban giám đốc' :
-                      num === 13 ? 'Chứng nhận và Thời hạn hiệu lực' :
-                      num === 14 ? 'Chứng nhận tạm thời' :
-                      num === 15 ? 'Xác minh và Đánh giá' :
-                      num === 16 ? 'Mẫu Giấy chứng nhận' :
-                      `Điều khoản ${num}`
-                    }</option>
+                    <option key={num} value={num}>{t('sms.chapter', { id: num })}: {t(`sms.ismChapters.${num}`)}</option>
                   ))}
                 </select>
               </div>
@@ -1465,8 +1431,8 @@ export function SmsDocumentPage() {
               </div>
               <div className="flex-1 overflow-hidden h-full flex flex-col">
                 {importedFilePath ? (
-                  <iframe
-                    src={formatPdfUrl(importedFilePath)}
+                  <SmsPdfPreview
+                    path={importedFilePath}
                     className="w-full h-full min-h-[450px] border border-slate-200 dark:border-slate-800 bg-slate-105 dark:bg-slate-900 rounded-xl shadow-sm"
                     title="Import PDF Preview"
                   />
@@ -1873,8 +1839,8 @@ export function SmsDocumentPage() {
                       </div>
                     ) : selectedProcDetail?.filePath && isPdfFile(selectedProcDetail.filePath) ? (
                       /* PDF FULL VIEW */
-                      <iframe
-                        src={formatPdfUrl(selectedProcDetail.filePath)}
+                      <SmsPdfPreview
+                        path={selectedProcDetail.filePath}
                         className="w-full h-full min-h-[600px] border-0 bg-slate-100 dark:bg-slate-900"
                         title={selectedProcDetail.title}
                       />
