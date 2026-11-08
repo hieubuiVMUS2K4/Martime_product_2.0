@@ -51,6 +51,13 @@ server {
     proxy_set_header X-Internal-Api-Key "__INTERNAL_API_KEY__";
   }
 
+  # PDF.js uses an ES module worker, which requires a JavaScript MIME type.
+  location ~ \.mjs$ {
+    root /usr/share/nginx/html;
+    types { application/javascript mjs; }
+    try_files $uri =404;
+  }
+
   location / {
     try_files $uri $uri/ /index.html;
   }
