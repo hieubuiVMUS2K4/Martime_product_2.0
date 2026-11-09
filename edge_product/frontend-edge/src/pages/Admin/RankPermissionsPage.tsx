@@ -169,7 +169,7 @@ export default function RankPermissionsPage() {
       </aside>
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
-          <div><div className="font-semibold text-gray-900">{rank?.rankName || 'Chọn chức danh để cấu hình'}</div>{rank && <div className={`mt-1 text-xs ${dirty ? 'text-amber-600' : 'text-gray-500'}`}>{dirty ? 'Có thay đổi chưa lưu' : selected === 0 ? 'Cấu hình hai trang tổng quan cho vai trò Admin' : 'Quyền áp dụng cho thuyền viên mang chức danh này'}</div>}</div>
+          <div><div className="font-semibold text-gray-900">{rank?.rankName || 'Chọn chức danh để cấu hình'}</div>{rank && <div className={`mt-1 text-xs ${dirty ? 'text-amber-600' : 'text-gray-500'}`}>{dirty ? 'Có thay đổi chưa lưu' : selected === 0 ? 'Cấu hình các trang tổng quan cho vai trò Admin' : 'Quyền áp dụng cho thuyền viên mang chức danh này'}</div>}</div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative"><Search size={15} className="absolute left-3 top-2.5 text-gray-400" /><input aria-label="Tìm module" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm module…" className="h-9 w-52 rounded border border-gray-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-blue-500" /></div>
             <button type="button" disabled={loading || saving} onClick={() => void loadRanks()} className="inline-flex h-9 items-center gap-2 rounded border border-gray-300 px-3 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"><RefreshCw size={15} />Làm mới</button>
@@ -182,7 +182,7 @@ export default function RankPermissionsPage() {
           {loading ? <p className="p-2 text-gray-500">Đang tải cấu hình…</p> : !rank ? <p className="p-2 text-gray-500">Chọn một chức danh bên trái để xem và điều chỉnh quyền.</p> : !error && <div className="mx-auto max-w-6xl space-y-5">
             {groups.map(group => {
               const rows = modules.filter(m => m.group === group && m.name.toLowerCase().includes(search.toLowerCase()) &&
-                (selected !== 0 || ['dashboard', 'dashboard.superintendent'].includes(m.code)))
+                (selected !== 0 || m.code.startsWith('dashboard')))
               if (!rows.length) return null
               return <section key={group} aria-label={group}>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">

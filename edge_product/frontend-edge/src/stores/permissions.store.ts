@@ -47,6 +47,7 @@ export function canOpen(path: string) {
   const { modules, isAdmin, loaded, error } = usePermissionsStore.getState()
   if (!loaded || error) return false
   const dashboardCode = path === '/dashboard' ? 'dashboard'
+    : path === '/engine-summary' ? 'dashboard.engine-summary'
     : ['/marine-superintendent', '/dashboard/marine-superintendent'].includes(path) ? 'dashboard.superintendent' : null
   if (dashboardCode) return canPerform(dashboardCode + '.view')
   if (isAdmin) return true

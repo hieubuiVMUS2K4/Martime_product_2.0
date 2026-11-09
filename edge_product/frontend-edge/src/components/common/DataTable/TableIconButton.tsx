@@ -12,9 +12,10 @@ export const TableIconButton: React.FC<{
     type="button"
     onClick={onClick}
     disabled={disabled}
+    data-danger={variant === 'danger'}
     aria-label={label}
     title={label}
-    className={`inline-flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-white transition-colors disabled:opacity-40 [&>svg]:h-[15px] [&>svg]:w-[15px] ${
+    className={`table-icon-button inline-flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-white transition-colors disabled:opacity-40 [&>svg]:h-[15px] [&>svg]:w-[15px] ${
       variant === 'danger'
         ? 'text-red-600 hover:border-red-300 hover:bg-red-50'
         : 'text-gray-600 hover:border-blue-500/40 hover:bg-blue-50 hover:text-blue-600'

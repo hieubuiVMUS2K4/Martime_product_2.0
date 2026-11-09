@@ -1,0 +1,235 @@
+.engine-summary {
+  --engine-surface: #fff;
+  --engine-background: #f8fafc;
+  --engine-text: #173453;
+  --engine-muted: #64748b;
+  --engine-border: #d2dce7;
+  color: var(--engine-text);
+  background: var(--engine-background);
+  min-height: 100%;
+  font-size: 0.875rem;
+  padding: 12px;
+}
+.dark .engine-summary {
+  --engine-surface: #1f2937;
+  --engine-background: #111827;
+  --engine-text: #e2e8f0;
+  --engine-muted: #a8b7ca;
+  --engine-border: #475569;
+}
+.engine-summary button, .engine-summary select { font: inherit; }
+.engine-summary button { touch-action: manipulation; }
+.engine-summary button:focus-visible, .engine-summary select:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.engine-summary button:disabled { opacity: .35; cursor: not-allowed; }
+.engine-summary select, .engine-button {
+  min-height: 38px;
+  border: 1px solid var(--engine-border);
+  border-radius: 5px;
+  background: var(--engine-surface);
+  color: var(--engine-text);
+  padding: 7px 11px;
+}
+.engine-summary select { max-width: 100%; padding-right: 28px; }
+.engine-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.engine-detail-grid { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px 12px; align-items: stretch; }
+.engine-tabs { display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--engine-border); background: var(--engine-surface); }
+.engine-tabs button { flex-shrink: 0; min-height: 44px; padding: 9px 13px; display: flex; align-items: center; gap: 7px; border-bottom: 2px solid transparent; color: var(--engine-muted); }
+.engine-tabs button[aria-selected="true"] { color: #2563eb; border-color: #2563eb; background: #eff6ff; font-weight: 600; }
+.dark .engine-tabs button[aria-selected="true"] { background: #1e3a5f; color: #93c5fd; }
+.engine-detail-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+.engine-right-column { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.engine-panel { min-width: 0; background: var(--engine-surface); border: 1px solid var(--engine-border); border-radius: 7px; box-shadow: 0 1px 3px #0f172a0d; overflow: hidden; }
+.engine-panel > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 12px; border-bottom: 1px solid var(--engine-border); }
+.engine-panel h2 { font-size: 0.875rem; font-weight: 600; }
+.engine-panel-tools { display: flex; align-items: center; gap: 4px; }
+.engine-panel-tools select { font-size: 0.75rem; min-height: 34px; }
+.engine-icon-button { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; border: 1px solid transparent; border-radius: 5px; color: var(--engine-muted); }
+.engine-icon-button:not(:disabled):hover, .engine-button:hover { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+.dark .engine-icon-button:not(:disabled):hover, .dark .engine-button:hover { background: #1e3a5f; color: #bfdbfe; }
+.engine-panel-content { padding: 12px; min-width: 0; }
+.engine-equipment-subtitle { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; font-size: 0.75rem; color: var(--engine-muted); }
+.engine-state { padding: 3px 7px; border-radius: 4px; font-size: 0.6875rem; background: #f1f5f9; color: #64748b; }
+.engine-state.is-running { background: #ecfdf5; color: #047857; }
+.dark .engine-state { background: #334155; color: #cbd5e1; }
+.dark .engine-state.is-running { background: #064e3b; color: #a7f3d0; }
+.engine-instruments { display: flex; flex-direction: column; align-items: center; padding: 12px 0 5px; }
+.engine-gauge { display: block; width: min(100%, 340px); height: auto; overflow: visible; }
+.engine-gauge-small { width: min(55%, 180px); margin-top: -15px; }
+.gauge-rim { fill: none; stroke: var(--engine-border); stroke-width: 3; }
+.gauge-warning { fill: none; stroke: #ef4444; stroke-width: 6; }
+.gauge-tick { stroke: var(--engine-muted); stroke-width: 1.5; }
+.gauge-number { fill: var(--engine-text); font-size: 0.75rem; }
+.gauge-caption { fill: var(--engine-muted); font-size: 0.75rem; }
+.gauge-value { fill: var(--engine-text); font-weight: 700; font-size: 1.375rem; }
+.gauge-unit { fill: var(--engine-muted); font-size: 0.75rem; font-weight: 400; }
+.engine-gauge-small .gauge-number { font-size: 1.188rem; }
+.engine-gauge-small .gauge-caption { font-size: 1.062rem; }
+.engine-gauge-small .gauge-value { font-size: 1.75rem; }
+.engine-gauge-small .gauge-unit { font-size: 1.125rem; }
+.gauge-needle { transition: transform 1.2s ease-in-out; fill: var(--engine-text); }
+.gauge-hub { fill: var(--engine-surface); stroke: var(--engine-text); stroke-width: 3; }
+.engine-metrics { font-size: 0.8125rem; margin: 0; font-variant-numeric: tabular-nums; }
+.engine-metrics > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; }
+.engine-metrics dt { color: var(--engine-text); min-width: 0; }
+.engine-metrics dd { flex-shrink: 0; margin: 0; text-align: right; color: var(--engine-muted); }
+.engine-kpi > div { padding: 5px 0; }
+.engine-kpi dd { font-size: 0.9375rem; }
+.engine-kpi small { font-size: 0.75rem; }
+.engine-kpi-scope { display: flex; justify-content: space-between; gap: 6px; padding-top: 10px; color: var(--engine-muted); font-size: 0.6875rem; }
+.engine-trends h3 { display: flex; align-items: center; gap: 5px; font-size: 0.8125rem; font-weight: 500; margin-top: 12px; }
+.engine-chart { width: 100%; height: 220px; touch-action: pan-y; }
+.engine-chart-unit { color: var(--engine-muted); font-size: 0.6875rem; }
+.engine-summary .recharts-cartesian-grid line { stroke: var(--engine-border); }
+.engine-summary .recharts-cartesian-axis-tick-value { fill: var(--engine-muted); }
+.engine-summary .recharts-legend-wrapper { font-size: 0.75rem; }
+.engine-rates { font-size: 0.75rem; }
+.engine-chart-hint { color: var(--engine-muted); font-size: 0.6875rem; padding-top: 8px; }
+.engine-reading { display: flex; align-items: center; gap: 6px; font-size: 0.6875rem; background: var(--engine-background); padding: 5px; border: 1px solid var(--engine-border); border-radius: 4px; }
+.engine-navigation-panel { flex: 1; }
+.engine-compass { width: 100%; max-width: 510px; margin: auto; }
+.engine-compass > svg { display: block; width: 100%; max-height: 345px; }
+.compass-corners { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; font-size: 0.75rem; color: #3b82f6; }
+.compass-corners > div:last-child { text-align: right; color: #a855f7; }
+.compass-corners span, .compass-corners strong, .compass-corners small { display: block; }
+.compass-corners strong { font-size: 1rem; font-weight: 600; }
+.compass-bottom > div:first-child { color: #ca8a04; }
+.compass-bottom > div:last-child { color: #10b981; }
+.compass-ring { fill: none; stroke: var(--engine-muted); stroke-width: 3; }
+.compass-inner-ring { fill: none; stroke: var(--engine-border); stroke-width: 1; }
+.compass-bezel { fill: var(--engine-background); stroke: var(--engine-border); stroke-width: 4; }
+.compass-north { fill: #ef4444; font-size: 0.875rem; font-weight: 600; }
+.compass-direction { fill: var(--engine-text); font-size: 0.8125rem; }
+.compass-label { fill: var(--engine-text); font-size: 0.8125rem; font-weight: 600; }
+.compass-side { fill: var(--engine-muted); font-size: 0.625rem; }
+.engine-heading { border-top: 1px solid var(--engine-border); margin-top: 10px; padding-top: 8px; text-align: center; font-size: 0.75rem; color: var(--engine-muted); }
+.engine-heading strong { margin-left: 6px; color: var(--engine-text); }
+.engine-expanded { min-height: auto; }
+.engine-expanded .engine-chart { height: 300px; }
+.engine-expanded .engine-equipment { max-width: 650px; margin: auto; }
+.engine-operational-signals { margin-top: 12px; }
+.engine-fleet-chart { width: 100%; height: 300px; touch-action: pan-y; }
+.engine-hour-reading { background: var(--engine-background); border: 1px solid var(--engine-border); border-radius: 5px; padding: 9px; font-size: .8125rem; margin-top: 10px; }
+@media (max-width: 1399px) {
+  .engine-detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .engine-right-column { grid-column: 1; grid-row: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (orientation: portrait), (max-width: 760px) {
+  .engine-detail-content { grid-template-columns: minmax(0, 1fr); }
+  .engine-right-column { grid-template-columns: minmax(0, 1fr); }
+  .engine-info-panel .engine-gauge { width: min(100%, 370px); }
+  .engine-info-panel .engine-gauge-small { width: min(50%, 190px); }
+  .engine-info-panel .engine-metrics { max-width: 650px; margin: auto; }
+  .engine-chart { height: 270px; }
+}
+
+@media (any-pointer: coarse) {
+  .engine-summary :is(button, select, .engine-button) { min-height: 44px; }
+  .engine-summary .engine-icon-button { width: 44px; min-width: 44px; }
+  .engine-summary .engine-icon-button > svg { width: 24px; height: 24px; }
+  .engine-tabs button { min-height: 48px; padding: 10px 16px; }
+  .engine-summary :is(.engine-metrics, .engine-rates, .engine-panel-tools select, .engine-equipment-subtitle, .engine-live) { font-size: 0.875rem; }
+}
+@media (prefers-reduced-motion: reduce) { .gauge-needle { transition: none; } }
+
+.engine-schematic-scroll { overflow-x: auto; padding-top: 20px; }
+.engine-machine-schematic { display: block; width: 100%; min-width: 740px; max-height: 400px; }
+.system-cylinder-shell { fill: var(--engine-background); stroke: var(--engine-border); stroke-width: 2; }
+.system-pipe { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.exhaust-pipe { stroke: #f97316; color: #f97316; }
+.coolant-pipe { stroke: #3b82f6; color: #3b82f6; }
+.oil-pipe { stroke: #d99a17; color: #d99a17; }
+.air-pipe { stroke: #14b8a6; color: #14b8a6; }
+.fuel-pipe { stroke: #3b82f6; }
+.system-title { fill: var(--engine-text); font-size: 18px; font-weight: 600; }
+.system-caption { fill: var(--engine-muted); font-size: 15px; }
+.system-value { fill: var(--engine-text); font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.engine-fuel-flow { display: block; width: 100%; margin: 10px auto; max-width: 650px; }
+.fuel-total-value { fill: var(--engine-text); font-size: 29px; font-weight: 700; }
+.engine-fuel-scope { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--engine-border); }
+.engine-fuel-scope button { border: 1px solid var(--engine-border); background: var(--engine-surface); color: var(--engine-muted); padding: 7px 12px; border-radius: 5px; }
+.engine-fuel-scope button[aria-pressed=true] { border-color: #3b82f6; color: #2563eb; background: var(--engine-background); }
+.engine-helm { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12px; margin-top: 12px; border-top: 1px solid var(--engine-border); }
+.engine-helm > svg { width: 100%; }
+.engine-coordinates { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--engine-muted); font-size: .75rem; padding-top: 10px; }
+@media (max-width: 480px) { .engine-helm { grid-template-columns: 1fr; } }
+
+.engine-secondary-gauges { display: flex; justify-content: center; width: 100%; }
+.engine-secondary-gauges .engine-gauge-small { width: min(55%, 180px); }
+.engine-secondary-gauges.has-pair { max-width: 430px; gap: 12px; }
+.engine-secondary-gauges.has-pair .engine-gauge-small { width: calc(50% - 6px); max-width: 190px; }
+
+/* Fit the dashboard to the available area below the application header. */
+.engine-dashboard { min-height: 0; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; gap: 10px; }
+.engine-dashboard > .engine-detail-grid { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.engine-dashboard .engine-detail-content { min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.engine-dashboard .has-main-engine .engine-detail-content { grid-template-rows: minmax(0, 1.35fr) minmax(0, .85fr); }
+.engine-dashboard .engine-right-column { grid-row: 1; min-height: 0; }
+.engine-dashboard .engine-panel { display: flex; flex-direction: column; min-height: 0; }
+.engine-dashboard .engine-panel > header { flex-shrink: 0; padding: 6px 10px; }
+.engine-dashboard .engine-panel-content { min-height: 0; overflow: auto; padding: 10px; }
+.engine-dashboard .engine-info-panel > .engine-panel-content,
+.engine-dashboard .engine-trend-panel > .engine-panel-content { flex: 1; }
+.engine-dashboard .engine-machinery-panel { grid-column: 1 / -1; }
+.engine-dashboard .engine-machinery-panel > .engine-panel-content { flex: 1; overflow: hidden; }
+.engine-dashboard .engine-instruments { padding: 0; }
+.engine-dashboard .engine-instruments > .engine-gauge { width: auto; max-width: 100%; height: clamp(200px, 24vh, 265px); }
+.engine-dashboard .engine-secondary-gauges .engine-gauge-small { width: auto; max-width: 48%; height: clamp(120px, 13vh, 150px); margin-top: -8px; }
+.engine-dashboard .engine-equipment-subtitle { font-size: .75rem; }
+.engine-dashboard .engine-metrics > div { padding: 4px 0; }
+.engine-dashboard .engine-chart { height: clamp(100px, 12vh, 150px); }
+.engine-dashboard .engine-trends h3 { margin-top: 4px; }
+.engine-dashboard .engine-chart-hint { padding-top: 4px; }
+.engine-dashboard .engine-compass > svg { max-height: clamp(250px, 31vh, 350px); }
+.engine-dashboard .engine-navigation-panel > .engine-panel-content { flex: 1; }
+.engine-dashboard .compass-corners strong { font-size: .9375rem; }
+.engine-dashboard .engine-helm { margin-top: 4px; }
+.engine-dashboard .engine-helm > svg { max-height: 95px; }
+.engine-dashboard .engine-heading { margin-top: 4px; padding-top: 4px; }
+.engine-machinery-diagram { display: grid; grid-template-columns: minmax(0, .44fr) minmax(0, .56fr); gap: 16px; height: 100%; min-height: 0; }
+.engine-schematic-scroll { min-width: 0; min-height: 0; padding: 0; display: flex; justify-content: center; align-items: center; }
+.engine-machine-schematic { min-width: 0; width: 100%; height: 100%; max-height: none; }
+.engine-dashboard .engine-fuel-flow { max-height: 165px; }
+.engine-dashboard .engine-fleet-chart { height: 155px; }
+.engine-expanded .engine-machinery-diagram { height: min(70dvh, 650px); }
+@media (orientation: portrait), (max-width: 1100px) {
+  .engine-dashboard > .engine-detail-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .engine-dashboard .engine-detail-content { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .engine-dashboard .engine-right-column { grid-column: 1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: stretch; }
+  .engine-dashboard .engine-instruments > .engine-gauge { height: clamp(205px, 14vh, 270px); }
+  .engine-dashboard .engine-chart { height: clamp(110px, 10vh, 165px); }
+}
+@media (max-width: 700px) {
+  .engine-dashboard { overflow: auto; }
+  .engine-dashboard > .engine-detail-grid { display: flex; flex-direction: column; overflow: visible; flex: none; }
+  .engine-dashboard .engine-detail-content, .engine-dashboard .engine-right-column { display: flex; flex-direction: column; }
+  .engine-dashboard .engine-panel { flex-shrink: 0; }
+  .engine-dashboard .engine-machinery-panel .engine-machinery-diagram { height: 350px; }
+  .engine-system-dials { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.engine-system-dials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px 12px; min-height: 0; border-right: 1px solid var(--engine-border); padding-right: 12px; }
+.engine-system-dials figure { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 2px 4px; justify-content: center; min-height: 0; }
+.engine-system-dials figcaption { text-align: center; font-size: .8125rem; font-weight: 500; min-height: 1.5em; color: var(--engine-text); }
+.engine-system-dials svg { width: 100%; max-width: 215px; height: clamp(55px, 7vh, 80px); flex-shrink: 1; min-height: 0; overflow: visible; }
+.system-dial-track { fill: none; stroke: var(--engine-border); stroke-width: 9; stroke-linecap: round; }
+.system-dial-progress { fill: none; stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray 1s ease; }
+.system-dial-pointer { transition: transform 1s ease; }
+.system-dial-scale { font-size: 13px; fill: var(--engine-muted); }
+.engine-system-dials strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; margin-top: 3px; line-height: 1.2; }
+.engine-system-dials small { font-size: .8125rem; font-weight: 400; color: var(--engine-muted); }
+@media (orientation: portrait) {
+  .engine-dashboard > .engine-detail-grid { grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .engine-dashboard .engine-compass > svg { max-height: 370px; }
+}
+@media (max-width: 700px) {
+  .engine-system-dials { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .engine-dashboard .engine-machinery-panel .engine-machinery-diagram { height: 620px; }
+  .engine-machinery-diagram { grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr 1fr; }
+  .engine-system-dials { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--engine-border); padding-bottom: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .system-dial-progress, .system-dial-pointer { transition: none; } }
+
+.engine-dashboard .engine-info-panel .engine-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-top: 4px; }
+.engine-dashboard .engine-info-panel .engine-metrics > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border-top: 1px solid var(--engine-border); }
+.engine-dashboard .engine-info-panel .engine-metrics dt { font-size: .75rem; color: var(--engine-muted); }
+.engine-dashboard .engine-info-panel .engine-metrics dd { text-align: left; font-size: .9375rem; font-weight: 600; color: var(--engine-text); }

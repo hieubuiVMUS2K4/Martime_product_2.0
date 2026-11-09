@@ -34,6 +34,13 @@
       "actions": ["view"]
     },
     {
+      "code": "dashboard.engine-summary",
+      "name": "Tổng quan máy",
+      "group": "Tổng quan",
+      "routes": ["/engine-summary"],
+      "actions": ["view"]
+    },
+    {
       "code": "navigation",
       "name": "Hàng hải",
       "group": "Hàng hải",

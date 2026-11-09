@@ -12,6 +12,7 @@ import { LoginPage } from './pages/Auth/LoginPage'
 
 // Pages
 import { DashboardPage } from './pages/Dashboard/DashboardPage'
+import { EngineSummaryPage } from './pages/Dashboard/EngineSummaryPage'
 import { MarineSuperintendentPage } from './pages/Dashboard/MarineSuperintendentPage'
 import { CrewPage } from './pages/Crew/CrewPage'
 import { CrewCertificatePage } from './pages/Crew/CertificateMonitorView'
@@ -104,6 +105,7 @@ function App() {
       <Route path="/" element={<AuthGuard><MainLayout /></AuthGuard>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="engine-summary" element={<EngineSummaryPage />} />
         <Route path="marine-superintendent" element={<MarineSuperintendentPage />} />
         <Route path="dashboard/marine-superintendent" element={<Navigate to="/marine-superintendent" replace />} />
         <Route path="navigation" element={<NavigationPage />} />

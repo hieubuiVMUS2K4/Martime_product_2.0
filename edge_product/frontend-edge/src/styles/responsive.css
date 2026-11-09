@@ -1,3 +1,8 @@
+/* Frozen headers need an opaque surface while other columns scroll underneath. */
+.dark .pms-data-grid thead th {
+  background-color: #23324a !important;
+}
+
 /* Full-HD touch displays also report a fine pointer when a mouse is connected. */
 @media (any-pointer: coarse) {
   body button,
@@ -86,6 +91,120 @@
 
   body .table-actions {
     gap: 6px;
+  }
+
+  body col[data-actions="true"] {
+    width: 216px !important;
+  }
+
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a) {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    color: #334155;
+    transition: background-color 120ms, border-color 120ms, color 120ms;
+  }
+
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a) > svg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 1.8;
+  }
+
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a)[data-danger="true"] {
+    color: #dc2626;
+    border-color: #fecaca;
+    background-color: #fff7f7;
+  }
+
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a):not(:disabled):hover,
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a):not(:disabled):active {
+    color: #1d4ed8;
+    border-color: #93c5fd;
+    background-color: #eff6ff;
+  }
+
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a)[data-danger="true"]:not(:disabled):hover,
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a)[data-danger="true"]:not(:disabled):active {
+    color: #b91c1c;
+    border-color: #fca5a5;
+    background-color: #fee2e2;
+  }
+
+  body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a):focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  .dark body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a) {
+    color: #cbd5e1 !important;
+    border-color: #475569 !important;
+    background-color: #1e293b !important;
+  }
+
+  .dark body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a)[data-danger="true"] {
+    color: #fca5a5 !important;
+    border-color: #7f1d1d !important;
+    background-color: #451a1a !important;
+  }
+
+  .dark body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a):not(:disabled):is(:hover, :active) {
+    color: #bfdbfe !important;
+    border-color: #60a5fa !important;
+    background-color: #1e3a5f !important;
+  }
+
+  .dark body :is(.edge-action-icon, .table-icon-button, .table-actions > button, .table-actions > a)[data-danger="true"]:not(:disabled):is(:hover, :active) {
+    color: #fecaca !important;
+    border-color: #f87171 !important;
+    background-color: #7f1d1d !important;
+  }
+
+  /* Keep touch targets on one row and reserve their actual width in the table. */
+  body .pms-data-grid col[data-column] {
+    width: var(--touch-column-width) !important;
+  }
+
+  body .pms-data-grid col[data-column="index"],
+  body .pms-data-grid col[data-column="selection"] {
+    width: 52px !important;
+  }
+
+  body .pms-data-grid [data-column="selection"] {
+    left: 52px;
+  }
+
+  body .pms-data-grid [data-fixed="left"] {
+    left: 52px;
+  }
+
+  body .pms-data-grid[data-selection="true"] [data-fixed="left"] {
+    left: 104px;
+  }
+
+  body .pms-data-grid .table-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  body .pms-data-grid tbody td {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  body .column-filter-trigger {
+    top: 50%;
+    transform: translateY(-50%);
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+
+  body .column-filter-trigger[data-filtered="true"] {
+    color: #2563eb;
+    background: #eff6ff !important;
   }
 
   /* Both Gantt panes must keep exactly the same row and header heights. */

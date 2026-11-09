@@ -363,7 +363,7 @@ export function DataTable<T>({
           <colgroup>
             {selection && <col style={{ width: 40 }} />}
             {showIndex && <col style={{ width: 52 }} />}
-            {columns.map((col, i) => <col key={col.key} style={{ width: widths[i] }} />)}
+            {columns.map((col, i) => <col key={col.key} data-actions={col.key === 'actions' || undefined} style={{ width: widths[i] }} />)}
           </colgroup>
           <thead>
             <tr>

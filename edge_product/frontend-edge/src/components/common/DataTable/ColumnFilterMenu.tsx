@@ -147,12 +147,13 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
       <button
         type="button"
         ref={buttonRef}
+          data-filtered={isFiltered}
         onClick={() => (open ? setOpen(false) : show())}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={tx("pmsRework.filterAndSortColumn", { p0: label, p1: isFiltered ? tx("pmsRework.filtered") : '' })}
         title={isFiltered ? tx("pmsRework.filteringColumn", { p0: label }) : tx("pmsRework.filterAndSortColumn505", { p0: label })}
-        className={`absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-sm border transition-colors ${
+        className={`column-filter-trigger absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-sm border transition-colors ${
           isFiltered
             ? 'border-blue-600 bg-blue-600 text-white'
             : 'border-[#a3b1bc] bg-white text-gray-600 hover:border-blue-600 hover:text-blue-600'
