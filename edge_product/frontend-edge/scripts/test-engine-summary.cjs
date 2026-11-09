@@ -130,16 +130,19 @@ test('all 27 spreadsheet signal keys have finite readings and separate RPM chann
   close(signals.mainRpm, signals.propRpm) // Configured direct-drive ratio is 1:1.
 })
 
-test('signal groups retain samples between their 1/3/5 second boundaries', () => {
-  const start = Math.floor(now / 15000) * 15000
-  const first = model.signalsAt(start), second = model.signalsAt(start + 1000)
+test('live instruments refresh every 1.5 seconds with visible changes within twelve seconds', () => {
+  const start = Math.floor(now / 1500) * 1500
+  const first = model.signalsAt(start), second = model.signalsAt(start + 1500)
+  assert.deepEqual(model.signalTimes(start + 1499), model.signalTimes(start))
   assert.notEqual(first.rudder, second.rudder)
-  assert.equal(first.lat, second.lat)
-  assert.equal(first.coolTemp, second.coolTemp)
-  assert.equal(first.fuelDaily, second.fuelDaily)
-  assert.deepEqual(Array.from(first.exhaustTemp), Array.from(second.exhaustTemp))
-  assert.notEqual(first.lat, model.signalsAt(start + 3000).lat)
-  assert.notEqual(first.fuelDaily, model.signalsAt(start + 5000).fuelDaily)
+  assert.notEqual(first.lat, second.lat)
+  assert.notEqual(first.coolTemp, second.coolTemp)
+  assert.notEqual(first.fuelDaily, second.fuelDaily)
+  const samples = Array.from({ length: 9 }, (_, i) => model.signalsAt(start + i * 1500))
+  for (const key of ['propRpm', 'mainRpm', 'coolTemp', 'luboPress', 'luboTemp', 'startAirPress',
+    'windSpeed', 'windDir', 'compass', 'depth', 'currentSpeed', 'currentDir', 'sog']) {
+    assert.ok(new Set(samples.map(sample => sample[key].toFixed(1))).size > 1, `${key} appears frozen`)
+  }
 })
 
 test('vessel fuel rate includes main and auxiliary signals with tonnes conversion', () => {

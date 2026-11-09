@@ -13,7 +13,7 @@ function useClock() {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     const update = () => { if (!document.hidden) setNow(Date.now()) }
-    const timer = window.setInterval(update, 1000)
+    const timer = window.setInterval(update, 1500)
     document.addEventListener('visibilitychange', update)
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', update) }
   }, [])

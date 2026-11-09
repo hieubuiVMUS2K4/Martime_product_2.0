@@ -24,14 +24,14 @@ export function rangeStart(time: number, days: Period) {
 export function vesselAt(time: number) {
   const phase = time / HOUR
   return {
-    speed: 12.4 + Math.sin(phase / 3) * .8,
-    heading: (68 + Math.sin(phase / 4) * 15 + 360) % 360,
-    course: (70 + Math.sin(phase / 4) * 16 + 360) % 360,
-    wind: 9 + Math.sin(phase) * 2,
-    windDirection: (44 + Math.sin(phase / 2) * 20 + 360) % 360,
-    current: 1.2 + Math.sin(phase / 2) * .3,
-    currentDirection: 110 + Math.sin(phase) * 10,
-    depth: 45 + Math.sin(phase / 3) * 8,
+    speed: 12.4 + Math.sin(phase / 3) * .8 + Math.sin(time / 12000) * .3,
+    heading: (68 + Math.sin(phase / 4) * 15 + Math.sin(time / 50000) * 1.5 + 360) % 360,
+    course: (70 + Math.sin(phase / 4) * 16 + Math.sin(time / 50000) * 1.5 + 360) % 360,
+    wind: 9 + Math.sin(phase) * 2 + Math.sin(time / 9000) * .7,
+    windDirection: (44 + Math.sin(phase / 2) * 20 + Math.sin(time / 16000) * 4 + 360) % 360,
+    current: 1.2 + Math.sin(phase / 2) * .3 + Math.sin(time / 11000) * .15,
+    currentDirection: 110 + Math.sin(phase) * 10 + Math.sin(time / 18000) * 3,
+    depth: 45 + Math.sin(phase / 3) * 8 + Math.sin(time / 14000) * .8,
     roll: Math.sin(time / 9500) * 3,
     pitch: Math.sin(time / 13000) * 2,
   }
@@ -42,6 +42,7 @@ export function engineAt(engine: Engine, time: number) {
   const running = engine.kind === 'main' ? dayFraction > .04 && dayFraction < .97
     : Math.floor(phase / 8) % 3 !== 0
   const wave = Math.sin(phase * 1.8) * .05 + Math.sin(phase * 7.1) * .012
+    + Math.sin(time / 12000) * .025 + Math.sin(time / 4700) * .008
   const load = running ? .72 + wave : 0
   const power = engine.ratedPower * load
   const efficiency = engine.kind === 'main' ? 195 + (1 - load) * 12 : 210 + (1 - load) * 18
@@ -140,7 +141,7 @@ export const SIGNAL_KEYS = [
   'cog', 'sog', 'rot', 'currentSpeed', 'currentDir', 'fuelTotal', 'fuelMain', 'fuelAux', 'fuelHourly',
   'fuelDaily', 'coolTemp', 'luboPress', 'luboTemp', 'exhaustTemp', 'mainRpm', 'startAirPress', 'fuelRack',
 ] as const
-export const SIGNAL_INTERVALS = { electric: 1000, engine: 3000, bridge: 5000 } as const
+export const SIGNAL_INTERVALS = { electric: 1500, engine: 1500, bridge: 1500 } as const
 export function signalTimes(time: number) {
   return {
     electric: Math.floor(time / SIGNAL_INTERVALS.electric) * SIGNAL_INTERVALS.electric,
@@ -188,17 +189,17 @@ export function signalsAt(time: number) {
     windSpeed: vessel.wind, windDir: vessel.windDirection, compass: vessel.heading,
     speedLog: vessel.speed - .25 + Math.sin(phase / 5) * .1,
     roll: vessel.roll, depth: vessel.depth, cog: vessel.course, sog: vessel.speed,
-    rot: 15 * Math.cos(times.electric / HOUR / 4) / 240,
+    rot: 15 * Math.cos(times.electric / HOUR / 4) / 240 + 1.8 * Math.cos(times.electric / 50000),
     currentSpeed: vessel.current, currentDir: vessel.currentDirection,
     fuelTotal: (main.consumption + aux.consumption) / 1000,
     fuelMain: main.consumption / 1000, fuelAux: aux.consumption / 1000,
     fuelHourly: fuel.currentHour, fuelDaily: fuel.total,
-    coolTemp: main.running ? 79 + main.load * .06 + Math.sin(times.bridge / HOUR) : 35,
-    luboPress: electric.running ? 4.6 + electric.load * .005 + Math.sin(times.electric / 15000) * .08 : 0,
-    luboTemp: main.running ? 51 + main.load * .08 : 29,
+    coolTemp: main.running ? 79 + main.load * .06 + Math.sin(times.bridge / HOUR) + Math.sin(times.bridge / 9000) * .4 : 35,
+    luboPress: electric.running ? 4.6 + electric.load * .005 + Math.sin(times.electric / 6000) * .15 : 0,
+    luboTemp: main.running ? 51 + main.load * .08 + Math.sin(times.bridge / 11000) * .5 : 29,
     // Six independently identified cylinders, kept in sequence for future channel mapping.
     exhaustTemp: Array.from({ length: 6 }, (_, i) => engine.running ? 280 + engine.load * 1.15 + Math.sin(phase * 3 + i) * 9 : 36 + i),
-    startAirPress: 27 + Math.sin(phase / 2) * 1.5,
+    startAirPress: 27 + Math.sin(phase / 2) * 1.5 + Math.sin(times.engine / 15000) * .4,
     fuelRack: electric.load,
   }
 }
