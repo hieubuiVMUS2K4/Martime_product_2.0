@@ -576,8 +576,11 @@ public class RankPermissionTests
     public void EveryConfigurableAction_HasAnActualBindingOrReviewedRejectionDecision()
     {
         var direct = PermissionRegistry.Data.Bindings.SelectMany(b => b.Grants).ToHashSet();
-        // Superintendent is a client-side demonstration dashboard with no data endpoint.
-        var decisions = new HashSet<string> { "voyage.reject", "pms.work.reject", "dashboard.superintendent.view" };
+        // These dashboards render client-side data, so their view rights have no API binding.
+        var decisions = new HashSet<string>
+        {
+            "voyage.reject", "pms.work.reject", "dashboard.superintendent.view", "dashboard.engine-summary.view"
+        };
         foreach (var module in PermissionRegistry.Data.Modules)
             foreach (var action in module.Actions)
                 Assert.True(direct.Contains(module.Code + "." + action) || decisions.Contains(module.Code + "." + action),
