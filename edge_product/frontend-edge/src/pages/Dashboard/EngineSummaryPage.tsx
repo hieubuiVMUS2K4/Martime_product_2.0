@@ -99,6 +99,7 @@ function Kpi({ engine, time, period, vessel }: { engine: Engine; time: number; p
   return <><dl className="engine-metrics engine-kpi">{rows.map(([key, value, unit]) => <div key={key}><dt>{t(`engineSummary.${key}`)}</dt><dd>{format(value)} <small>{unit}</small></dd></div>)}</dl>
     <div className="engine-kpi-scope"><span>{vessel ? t('engineSummary.signals.fleetFuel') : `${t(`engineSummary.${engine.kind}`)} · ${engine.id}`}</span><Info size={15} aria-label={t(vessel ? 'engineSummary.signals.fleetKpiHelp' : 'engineSummary.kpiHelp')}><title>{t(vessel ? 'engineSummary.signals.fleetKpiHelp' : 'engineSummary.kpiHelp')}</title></Info></div></>
 }
+// This dashboard renders local telemetry; its view permission has no backend data endpoint.
 export function EngineSummaryPage() {
   const { t, locale } = useTranslationSafe()
   const view = useEngineSummary()
