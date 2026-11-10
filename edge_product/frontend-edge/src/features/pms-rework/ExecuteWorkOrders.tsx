@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { ChevronDown, ChevronRight, ClipboardList, FolderOpen } from 'lucide-react'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 import { useEquipment } from './Forms'
@@ -17,6 +17,30 @@ export default function ExecuteWorkOrders() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [treeOpen, setTreeOpen] = useState(false)
+  const headerDrag = useRef<{ pointerId: number; x: number; scrollLeft: number; region: HTMLElement; moved: boolean } | null>(null)
+  const startHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
+    headerDrag.current = null
+    if (event.pointerType === 'touch' || event.button !== 0) return
+    const target = event.target as HTMLElement
+    if (target.closest('button, input, select, a, [role=button]')) return
+    const region = target.closest('th')?.closest('table')?.parentElement
+    if (!region || region.scrollWidth <= region.clientWidth) return
+    headerDrag.current = { pointerId: event.pointerId, x: event.clientX, scrollLeft: region.scrollLeft, region, moved: false }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault()
+  }
+  const moveHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = headerDrag.current
+    if (!drag || drag.pointerId !== event.pointerId || !event.buttons) return
+    const distance = event.clientX - drag.x
+    if (!drag.moved && Math.abs(distance) < 6) return
+    drag.moved = true
+    drag.region.scrollLeft = drag.scrollLeft - distance
+    event.preventDefault()
+  }
+  const endHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
   const tree = useMemo(() => {
     const rows = equipment.data || []
     const byId = new Map(rows.map(row => [row.id, row]))
@@ -65,7 +89,13 @@ export default function ExecuteWorkOrders() {
       {open && render(row.id, depth + 1)}
     </div>
   })
-  return <div className="execute-work-orders execute-work-orders-list">
+  return <div className="execute-work-orders execute-work-orders-list"
+    onPointerDown={startHeaderDrag} onPointerMove={moveHeaderDrag} onPointerUp={endHeaderDrag}
+    onPointerCancel={event => { endHeaderDrag(event); headerDrag.current = null }}
+    onClickCapture={event => {
+      if (headerDrag.current?.moved) { event.preventDefault(); event.stopPropagation() }
+      headerDrag.current = null
+    }}>
     <button className="execute-tree-toggle" type="button" aria-expanded={treeOpen} aria-controls="execute-equipment" onClick={() => setTreeOpen(!treeOpen)}><FolderOpen />{t('pmsRework.allEquipment')}<ChevronDown /></button>
     <aside id="execute-equipment" className="execute-equipment" data-open={treeOpen}>
       <header><FolderOpen />{t('pmsRework.allEquipment')}</header>

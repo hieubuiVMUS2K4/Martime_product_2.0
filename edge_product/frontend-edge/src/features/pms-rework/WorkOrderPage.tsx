@@ -1,3 +1,4 @@
+import { useDragScroll } from './useDragScroll'
 import { TouchNumberCombo, isWholeUnit } from './TouchNumberCombo'
 import { translateMessage as tx, localizePmsMessage, useMessageLocale } from '@/i18n/messages'
 import { departmentName } from './departments'
@@ -44,6 +45,7 @@ function Execution({ detail, information, lastUpdated }: { detail: WorkOrderDeta
   const [materialPage, setMaterialPage] = useState(1)
   const [materialsOpen, setMaterialsOpen] = useState(false), [activeMaterial, setActiveMaterial] = useState(0)
   const materialListId = useId()
+  const materialDragScroll = useDragScroll()
   const materialSearch = useRef<HTMLInputElement>(null)
   const materialEquipmentId = materialScope === 'equipment' ? w.equipmentAssetId : undefined
   useEffect(() => { setMaterialPage(1) }, [settled, materialScope])
@@ -79,7 +81,7 @@ function Execution({ detail, information, lastUpdated }: { detail: WorkOrderDeta
           }} />
         <button type="button" aria-label={tx('pmsRework.findUsedMaterials')} className="absolute right-2 top-2 text-slate-400" onClick={() => { materialSearch.current?.focus(); setMaterialsOpen(open => !open) }}><ChevronDown size={14} /></button>
         {materialsOpen && <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-gray-300 bg-white shadow-lg" onMouseDown={event => event.preventDefault()}>
-          <div role="listbox" id={materialListId} aria-label={tx('pmsRework.findUsedMaterials')} className="max-h-56 overflow-y-auto py-1">
+          <div role="listbox" id={materialListId} aria-label={tx('pmsRework.findUsedMaterials')} className={`max-h-56 overflow-auto ${touchExecution ? "execute-material-listbox" : "py-1"}`} {...(touchExecution ? materialDragScroll : {})}>
             {materials.isFetching ? <p className="px-3 py-3 text-xs text-gray-500">{tx('pmsRework.loadingMaterialNames')}</p> : touchExecution ? <table className="execute-material-options"><thead><tr><th>{tx('pmsRework.materialCode')}</th><th>{tx('pmsRework.material')}</th><th>{tx('pmsRework.unit')}</th><th>{tx('pmsRework.availableStock')}</th></tr></thead><tbody>{availableMaterials.map((material, index) => <tr role="option" tabIndex={-1} aria-selected={activeMaterial === index} id={`${materialListId}-${index}`} key={material.id} onMouseEnter={() => setActiveMaterial(index)} onClick={() => { if (form.materials.length >= 200) return; update({ materials: [...form.materials, { materialItemId: material.id, quantity: 1 }] }); setMaterialsOpen(false); setSearch('') }}><td>{material.itemCode}</td><td>{material.name}</td><td>{material.unit || '—'}</td><td>{material.onHand == null ? '—' : material.onHand.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td></tr>)}</tbody></table> : availableMaterials.map((material, index) => <button type="button" role="option" aria-selected={activeMaterial === index} id={`${materialListId}-${index}`} key={material.id} disabled={form.materials.length >= 200}
               className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm disabled:opacity-40 ${activeMaterial === index ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-blue-50'}`}
               onMouseEnter={() => setActiveMaterial(index)} onClick={() => { update({ materials: [...form.materials, { materialItemId: material.id, quantity: 1 }] }); setMaterialsOpen(false); setSearch('') }}>
@@ -164,7 +166,7 @@ export default function WorkOrderPage({ mode = 'view' }: { mode?: 'view' | 'exec
     {mode === 'view' && canReview && <Link className={primary} to={`${orderBase}/${id}/review`}>{tx("pmsRework.reviewApprove")}</Link>}
     {mode === 'view' && access.work('update') && ['UNASSIGNED', 'ASSIGNED', 'IN_PROGRESS', 'RECTIFY'].includes(w.status) && <button className={button} onClick={() => setCancelling(true)}>{tx("pmsRework.cancelWO")}</button>}
     {mode !== 'view' && <Link className={button} to={`${orderBase}/${id}`}>{tx("pmsRework.woDetails")}</Link>}{mode === 'review' && canReview && <div aria-label={tx("pmsRework.woReviewDecision")} className="flex items-center gap-2">{access.work('reject') && <button className={button} disabled={action.busy || !!selfReview || !report.data || report.data.revision !== w.reportRevision} onClick={() => void approve(false)}>{tx("pmsRework.return")}</button>}{access.work('approve') && <button className={primary} disabled={action.busy || !!selfReview || !report.data || report.data.revision !== w.reportRevision} onClick={() => void approve(true)}>{tx("pmsRework.approve")}</button>}</div>}{w.updatedAt && <div className="ml-2 border-l border-gray-200 pl-3 text-xs"><p className="mb-1 text-slate-400">{tx("pmsRework.lastUpdated470")}</p><p className="text-slate-600">{date(w.updatedAt)}</p></div>}
-  </div></header><div aria-label={tx("pmsRework.woDetailLayout")} className={`grid items-start gap-4 p-4 ${mode === 'execute' ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]'}`}><main className="min-w-0 space-y-4">{information}
+  </div></header><div aria-label={tx("pmsRework.woDetailLayout")} className={`execute-work-order-detail-layout grid items-start gap-4 p-4 ${mode === 'execute' ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]'}`}><main className="min-w-0 space-y-4">{information}
     {!!detail.missingInformation.length && <p className="rounded bg-amber-50 p-3 text-xs text-amber-800">{tx("pmsRework.requiredBeforeIssuing") + " "}{detail.missingInformation.map(localizePmsMessage).join(', ')}.</p>}
     {mode === 'execute' && (executor && w.status === 'IN_PROGRESS' ? <Execution key={w.id} detail={detail} /> : executor && ['ASSIGNED', 'RECTIFY'].includes(w.status) ? <button className={primary} disabled={action.busy} onClick={() => void action.run(async () => { await pms.start(w); await refresh() }, tx("pmsRework.workAcceptedAndStarted"))}>{tx("pmsRework.acceptAndStart")}{w.status === 'RECTIFY' ? tx("pmsRework.rework") : ''}</button> : <p className="text-sm text-gray-500">{tx("pmsRework.onlyAssignedOrSupportingCrewWithExecutionPermission")}</p>)}
     {mode === 'review' && <>{!canReview && <p className="text-sm text-gray-500">{tx("pmsRework.theWOIsNoLongerPendingApprovalOr")}</p>}{selfReview && <p className="rounded bg-amber-50 p-3 text-xs text-amber-800">{tx("pmsRework.contributorsCannotReviewOrApproveTheirOwnReports")}</p>}</>}
@@ -175,7 +177,7 @@ export default function WorkOrderPage({ mode = 'view' }: { mode?: 'view' | 'exec
       <ol className="ml-1 border-l border-blue-100">{detail.timeline.map(e => <li key={e.id} className="relative grid gap-1 pb-4 pl-5 text-xs sm:grid-cols-[140px_minmax(0,1fr)_110px] sm:gap-3"><span className="absolute -left-[4px] top-1 h-2 w-2 rounded-full border-2 border-white bg-blue-500" /><time className="text-slate-500">{date(e.changedAt)}</time><p className="break-words text-slate-700">{e.reason || tx("pmsRework.workOrderUpdated")}</p><span className="break-words font-medium text-slate-600">{person(e.changedBy)}</span></li>)}</ol>
     </Section>}
     </main>
-    {mode !== 'execute' && <aside aria-label={tx("pmsRework.woExecutionResult")} className="min-w-0 space-y-4">
+    {mode !== 'execute' && <aside aria-label={tx("pmsRework.woExecutionResult")} className={`min-w-0 ${orderBase === "/pms/execute-work-orders" ? "execute-work-order-results flex flex-col gap-6" : "space-y-4"}`}>
       <Section title={tx("pmsRework.checklistAndReadings")} scrollable="table" actions={<span className="rounded bg-blue-50 px-2 py-0.5 text-xs text-slate-500">{submitted ? `${submitted.checklist.filter(c => c.completed).length} / ${submitted.checklist.length}` : '0'}</span>}>
         {report.data ? <ReportContent report={report.data} section="checklist" compact bounded /> : <p className="py-4 text-center text-xs text-slate-500">{revision ? tx("pmsRework.loadingReport") : tx("pmsRework.noExecutionReportYet")}</p>}
       </Section>

@@ -82,9 +82,34 @@
 .touch-number-options { position: absolute; top: 100%; left: 0; right: 0; z-index: 40; max-height: 280px; overflow: auto; background: var(--execute-surface); border: 1px solid #a3b1bc; border-radius: 4px; box-shadow: 0 6px 18px #0002; }
 .touch-number-options > button { display: block; width: 100%; padding: 10px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
 .touch-number-options > button:hover, .touch-number-options > button[aria-selected=true] { background: var(--execute-hover); color: #2563eb; }
-.execute-work-orders table.execute-material-options { width: 100%; min-width: 650px; border-collapse: collapse; }
+.execute-work-orders .execute-material-listbox {
+  padding: 0;
+  isolation: isolate;
+  background: var(--execute-surface);
+}
+.execute-work-orders table.execute-material-options {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: inherit;
+}
+.execute-work-order-panels .execute-material-options thead { position: static; }
+.execute-work-orders .execute-material-options th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #eff6ff;
+}
+.dark .execute-work-orders .execute-material-options th { background: #23324a; }
 .execute-material-options th { background: #eff6ff; text-align: left; }
-.execute-material-options :is(td, th) { border: 1px solid #a3b1bc; padding: 12px 16px; }
+.execute-material-options :is(td, th) {
+  border: solid #a3b1bc;
+  border-width: 0 1px 1px 0;
+  padding: 12px 16px;
+  font-size: inherit;
+}
+.execute-material-options :is(td, th):last-child { border-right: 0; }
 .execute-material-options tr[role=option] { cursor: pointer; min-height: 56px; }
 .execute-material-options tr[aria-selected=true], .execute-material-options tr[role=option]:hover { background: var(--execute-hover); }
 .execute-material-options :is(th, td):last-child { text-align: right; font-variant-numeric: tabular-nums; }
@@ -112,4 +137,54 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+}
+
+.execute-work-orders-list th {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.execute-work-orders-list th:active { cursor: grabbing; }
+.execute-work-orders-list th button { cursor: pointer; }
+.execute-work-orders :is(.touch-number-options, [role=listbox]) {
+  touch-action: pan-x pan-y pinch-zoom;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.execute-work-orders :is(.touch-number-options, [role=listbox]):active { cursor: grabbing; }
+.execute-work-orders .touch-number-options { max-height: min(280px, 40vh); }
+
+/* Give submitted results room for every column at the touch interface's text size. */
+.execute-work-orders-detail .execute-work-order-detail-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.execute-work-orders .execute-work-order-results > section > header { padding: 16px; }
+.execute-work-orders .execute-work-order-results > section > [role=region] { padding: 16px; }
+.execute-work-orders .execute-work-order-results table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+  font-size: inherit;
+}
+.execute-work-orders .execute-work-order-results :is(th, td) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  vertical-align: top;
+  font-size: inherit;
+  line-height: 1.45;
+}
+.execute-work-orders .execute-work-order-results th:first-child { width: 30%; }
+.execute-work-orders .execute-work-order-results th:nth-child(2) { width: 28%; }
+.execute-work-orders .execute-work-order-results th:nth-child(3) { width: 18%; }
+.execute-work-orders .execute-work-order-results th:last-child { width: 24%; }
+.execute-work-orders .execute-work-order-results > section:last-child th:first-child { width: 22%; }
+.execute-work-orders .execute-work-order-results > section:last-child th:nth-child(2) { width: 38%; }
+.execute-work-orders .execute-work-order-results > section:last-child th:nth-child(3) { width: 16%; }
+@media (min-width: 1600px) {
+  .execute-work-orders-detail .execute-work-order-detail-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }

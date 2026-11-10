@@ -1,3 +1,4 @@
+import { useDragScroll } from './useDragScroll'
 import { useEffect, useId, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { input } from './ui'
@@ -11,6 +12,7 @@ export function TouchNumberCombo({ value, onChange, label, whole = false, sugges
 }) {
   const [text, setText] = useState(String(value ?? '')), [open, setOpen] = useState(false), [active, setActive] = useState(0)
   const id = useId()
+  const dragScroll = useDragScroll()
   useEffect(() => { setText(current => Number(current.replace(',', '.')) === Number(value) && current !== '' && value !== null ? current : String(value ?? '')) }, [value])
   const values = [...new Set(suggestions.filter(n => Number.isFinite(n) && n >= min && (!whole || Number.isInteger(n))))].sort((a, b) => a - b)
   const choose = (n: number) => { setText(String(n)); onChange(String(n)); setOpen(false) }
@@ -29,7 +31,7 @@ export function TouchNumberCombo({ value, onChange, label, whole = false, sugges
         if (e.key === 'Enter' && open && values[active] !== undefined) { e.preventDefault(); choose(values[active]) }
       }} />
     <button type="button" aria-label={label} aria-expanded={open} onClick={() => { setActive(0); setOpen(v => !v) }}><ChevronDown size={22} /></button>
-    {open && values.length > 0 && <div id={id} role="listbox" aria-label={label} className="touch-number-options" onMouseDown={e => e.preventDefault()}>
+    {open && values.length > 0 && <div id={id} role="listbox" aria-label={label} className="touch-number-options" {...dragScroll} onMouseDown={e => e.preventDefault()}>
       {values.map((n, i) => <button type="button" id={`${id}-${i}`} role="option" aria-selected={Number(text.replace(',', '.')) === n && text !== ''} key={n} onMouseEnter={() => setActive(i)} onClick={() => choose(n)}>{n.toLocaleString(undefined, { maximumFractionDigits: 6 })}</button>)}
     </div>}
   </div>
