@@ -475,15 +475,25 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     state = 'COMPLETED'
     longContent = true
     await evaluate(`window.testUser(true);window.testNavigate('/pms/execute-work-orders/${woId}')`)
-    await wait(`document.querySelectorAll('.execute-work-order-results tbody tr').length >= 100`)
+    await wait(`document.querySelectorAll('.execute-work-order-results tbody tr').length === 50`)
     for (const size of [{width:1920,height:1080},{width:1080,height:1920}]) {
       await call('Emulation.setDeviceMetricsOverride', { ...size, deviceScaleFactor: 1, mobile: false })
       assert.equal(await evaluate(`Array.from(document.querySelectorAll('.execute-work-order-results [role=region]')).every(region=>{const table=region.querySelector('table'),r=region.getBoundingClientRect(),cells=Array.from(table.querySelectorAll('thead th'));return region.scrollWidth<=region.clientWidth+1 && cells.length===4 && cells.every(c=>c.getBoundingClientRect().right<=r.right+1 && parseFloat(getComputedStyle(c).fontSize)>=22) && parseFloat(getComputedStyle(region).paddingTop)>=16})`),true)
+      await evaluate(`Array.from(document.querySelectorAll('main [role=tab]')).find(t=>t.textContent.includes('Báo cáo')).click()`)
+      await wait(`!!document.querySelector('main select')`)
+      assert.equal(await evaluate(`document.querySelector('main select').options.length > 0`), true)
+      await evaluate(`Array.from(document.querySelectorAll('main [role=tab]')).find(t=>t.textContent.includes('Lịch sử')).click()`)
+      assert.equal(await evaluate(`document.querySelector('main').textContent.includes('Các lượt báo cáo')`), false)
+      await evaluate(`Array.from(document.querySelectorAll('main [role=tab]'))[0].click();Array.from(document.querySelectorAll('.execute-work-order-results [role=tab]'))[1].click()`)
+      await wait(`document.querySelector('.execute-work-order-results').textContent.includes('GASKET')`)
       await screen(size.width===1920 ? 'execute-result-cards-landscape' : 'execute-result-cards-portrait')
+      await evaluate(`Array.from(document.querySelectorAll('.execute-work-order-results [role=tab]'))[0].click()`)
+
     }
     await call('Emulation.setTouchEmulationEnabled', { enabled: false })
     assert.deepEqual(failures, [])
     const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-open-default-and-all-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
+    checks.push('execute-completed-detail-tabs', 'execute-report-selector-in-summary', 'execute-history-without-report-list')
     checks.push('execute-result-cards-all-columns-landscape', 'execute-result-cards-all-columns-portrait')
     checks.push('execute-material-picker-sticky-header-without-row-bleed')
     checks.push('execute-number-touch-selection-after-swipe')

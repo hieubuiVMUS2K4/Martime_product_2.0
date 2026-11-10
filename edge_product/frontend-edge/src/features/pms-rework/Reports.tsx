@@ -1,18 +1,18 @@
 import { translateMessage as tx, messageLocale, useMessageLocale } from '@/i18n/messages'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Eye } from 'lucide-react'
 import { pms, snapshot, usePmsQuery, usePmsClock } from './data'
 import { ActionIcon, Badge, DetailTabs, InfoField, ErrorBox, Grid, Modal, Section, type GridColumn } from './ui'
 import type { Job, HistoryRow, Report, Submission } from './types'
 import { serverFilters } from './time'
 import { readableCode } from './presentation'
-export function ReportContent({ report, section, showName = true, compact = false, bounded = false }: { report: Report; section: 'summary' | 'checklist' | 'materials'; showName?: boolean; compact?: boolean; bounded?: boolean }) {
+export function ReportContent({ report, section, showName = true, compact = false, bounded = false, revisionControl }: { revisionControl?: ReactNode; report: Report; section: 'summary' | 'checklist' | 'materials'; showName?: boolean; compact?: boolean; bounded?: boolean }) {
   useMessageLocale()
 
   const {date,due}=usePmsClock(); const crew = usePmsQuery(['wo-crew'], pms.crew); const person = (id?: string) => crew.data?.find(c => c.crewId === id || c.id === id)?.fullName || readableCode(id) || tx("pmsRework.noInformationYet"); let data: Submission | null
   try { data = snapshot<Submission>(report.snapshotJson) } catch (error) { return <ErrorBox error={error} /> }
   if (!data) return <p className="text-sm text-gray-500">{tx("pmsRework.noSubmittedReportYet")}</p>
-  return <>{section === 'summary' && <Section title={tx("pmsRework.submittedReport")} actions={<><span className="text-xs text-slate-500">{tx("pmsRework.revision") + " "}{report.revision}</span><Badge value={report.decision || 'PENDING_APPROVAL'} /></>}>
+  return <>{section === 'summary' && <Section title={tx("pmsRework.submittedReport")} actions={<><>{revisionControl || <span className="text-xs text-slate-500">{tx("pmsRework.revision") + " "}{report.revision}</span>}</><Badge value={report.decision || 'PENDING_APPROVAL'} /></>}>
     {showName && <p className="mb-4 text-sm font-semibold text-slate-800">{data.name}</p>}
     <dl className="grid grid-cols-2 gap-x-6 gap-y-4 lg:grid-cols-4">
       <InfoField name={tx("pmsRework.submittedBy")}>{person(data.submittedByCrewId)}</InfoField>

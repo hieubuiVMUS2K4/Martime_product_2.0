@@ -161,8 +161,8 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
-.execute-work-orders .execute-work-order-results > section > header { padding: 16px; }
-.execute-work-orders .execute-work-order-results > section > [role=region] { padding: 16px; }
+.execute-work-orders .execute-work-order-results section > header { padding: 16px; }
+.execute-work-orders .execute-work-order-results section > [role=region] { padding: 16px; }
 .execute-work-orders .execute-work-order-results table {
   min-width: 0;
   width: 100%;
@@ -180,9 +180,9 @@
 .execute-work-orders .execute-work-order-results th:nth-child(2) { width: 28%; }
 .execute-work-orders .execute-work-order-results th:nth-child(3) { width: 18%; }
 .execute-work-orders .execute-work-order-results th:last-child { width: 24%; }
-.execute-work-orders .execute-work-order-results > section:last-child th:first-child { width: 22%; }
-.execute-work-orders .execute-work-order-results > section:last-child th:nth-child(2) { width: 38%; }
-.execute-work-orders .execute-work-order-results > section:last-child th:nth-child(3) { width: 16%; }
+.execute-work-orders .execute-work-order-results .execute-material-result th:first-child { width: 22%; }
+.execute-work-orders .execute-work-order-results .execute-material-result th:nth-child(2) { width: 38%; }
+.execute-work-orders .execute-work-order-results .execute-material-result th:nth-child(3) { width: 16%; }
 @media (min-width: 1600px) {
   .execute-work-orders-detail .execute-work-order-detail-layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
