@@ -125,6 +125,26 @@ function Execution({ detail, information, lastUpdated }: { detail: WorkOrderDeta
   </fieldset><div className="sticky bottom-0 flex justify-end gap-2 border-t border-gray-200 bg-white p-3"><button className={button} disabled={action.busy} onClick={() => { if (!dirty || confirm(tx("pmsRework.leaveThisPageAndDiscardUnsavedChanges"))) navigate(`${orderBase}/${w.id}`) }}>{tx("pmsRework.back")}</button><button className={button} disabled={action.busy} onClick={() => void save(false)}>{tx("pmsRework.saveProgress")}</button><button className={primary} disabled={action.busy || hours === ''} onClick={() => void save(true)}>{tx("pmsRework.submitForReview")}</button></div>
   </div>
 }
+function ReportRevisionPicker({ reports, value, onChange }: {
+  reports: WorkOrderDetail['reports']; value: number; onChange: (revision: number) => void;
+}) {
+  const [open, setOpen] = useState(false)
+  const dragScroll = useDragScroll()
+  const { date } = usePmsClock()
+  return <>
+    <button type="button" className="execute-revision-trigger" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+      <span>{tx("pmsRework.revision")} {value}</span><ChevronDown size={24} aria-hidden="true" />
+    </button>
+    {open && <Modal title={tx("pmsRework.submittedReport")} onClose={() => setOpen(false)}>
+      <div className="execute-revision-options" aria-label={tx("pmsRework.submittedReport")} {...dragScroll}>
+        {reports.map(report => <button type="button" key={report.id} className="execute-revision-option" aria-pressed={report.revision === value} onClick={() => { onChange(report.revision); setOpen(false) }}>
+          <span className="execute-revision-option-copy"><strong>{tx("pmsRework.revision")} {report.revision}</strong><time>{date(report.submittedAt)}</time></span>
+          <span className="inline-flex items-center gap-3"><Badge value={report.decision || 'PENDING_APPROVAL'} />{report.revision === value && <CheckCircle2 size={26} aria-hidden="true" />}</span>
+        </button>)}
+      </div>
+    </Modal>}
+  </>
+}
 export default function WorkOrderPage({ mode = 'view' }: { mode?: 'view' | 'execute' | 'review' }) {
   const orderBase = useOrderBase()
   const listPath = orderBase === '/pms/execute-work-orders' ? orderBase : '/pms/work-planning?tab=orders'
@@ -159,7 +179,7 @@ export default function WorkOrderPage({ mode = 'view' }: { mode?: 'view' | 'exec
       {w.jobId && access.job('view') && <div className="mt-3 border-t border-gray-200 pt-2">{w.status === 'CANCELLED' && <p className="mb-2 text-xs text-amber-700">{tx("pmsRework.thisWOWasCancelledAndIsRetainedFor")}</p>}<Link className="text-xs text-blue-600 hover:underline" to={`/pms/jobs/${w.jobId}`}>{w.status === 'CANCELLED' ? tx("pmsRework.openJobAndResolveCancelledCycle") : tx("pmsRework.viewSourceJob")}</Link></div>}    </Section>
   const touchDetail = orderBase === '/pms/execute-work-orders'
   const completedTouchDetail = touchDetail && mode === 'view' && w.status === 'COMPLETED'
-  const submittedReport = !!revision && (report.error ? <ErrorBox error={report.error} retry={() => void report.refetch()} /> : report.data ? <ReportContent report={report.data} section="summary" showName={false} revisionControl={touchDetail ? <label className="inline-flex items-center gap-1 text-slate-600"><span>{tx("pmsRework.revision")}</span><select aria-label={tx("pmsRework.reportRevisions")} className="min-h-11 rounded border border-gray-300 bg-white px-2" value={revision} onChange={e => setRevision(Number(e.target.value))}>{detail.reports.map(r => <option key={r.id} value={r.revision}>{r.revision}</option>)}</select></label> : undefined} /> : <p className="text-xs text-gray-500">{tx("pmsRework.loadingSubmittedReport")}</p>)
+  const submittedReport = !!revision && (report.error ? <ErrorBox error={report.error} retry={() => void report.refetch()} /> : report.data ? <ReportContent report={report.data} section="summary" showName={false} revisionControl={touchDetail ? <ReportRevisionPicker reports={detail.reports} value={revision} onChange={setRevision} /> : undefined} /> : <p className="text-xs text-gray-500">{tx("pmsRework.loadingSubmittedReport")}</p>)
   const workflowHistory = mode !== 'execute' && <Section title={tx("pmsRework.historyNotes")} scrollable actions={<span className="text-xs text-slate-500">{detail.timeline.length}{" " + tx("pmsRework.events")}</span>}>
       {!touchDetail && mode === 'view' && detail.reports.length > 0 && <details className="mb-4 rounded border border-gray-200"><summary className="cursor-pointer bg-gray-50 px-3 py-2 text-xs font-medium text-slate-600">{tx("pmsRework.reportRevisions")}{detail.reports.length})</summary><div className="p-3"><div><table className="w-full text-xs"><thead className="bg-blue-50 [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-blue-50"><tr>{[tx("pmsRework.revision"), tx("pmsRework.submittedOn"), tx("pmsRework.submittedBy"), tx("pmsRework.decision"), tx("pmsRework.actions")].map(s => <th key={s} className="border border-[#a3b1bc] p-2 text-center font-semibold">{s}</th>)}</tr></thead><tbody>{detail.reports.map(r => <tr key={r.id}><td className="border border-[#a3b1bc] p-2">{r.revision}</td><td className="border border-[#a3b1bc] p-2">{date(r.submittedAt)}</td><td className="border border-[#a3b1bc] p-2">{person(r.submittedByCrewId)}</td><td className="border border-[#a3b1bc] p-2">{label[r.decision || 'PENDING_APPROVAL']}</td><td className="border border-[#a3b1bc] p-2"><ActionIcon label={tx("pmsRework.viewSubmission")} icon={<Eye />} onClick={() => setRevision(r.revision)} /></td></tr>)}</tbody></table>{!detail.reports.length && <p className="p-3 text-xs text-gray-400">{tx("pmsRework.noReportSubmittedForReviewYet")}</p>}</div></div></details>}
       {!detail.timeline.length && <p className="text-xs text-gray-500">{tx("pmsRework.noWorkflowHistoryYet")}</p>}

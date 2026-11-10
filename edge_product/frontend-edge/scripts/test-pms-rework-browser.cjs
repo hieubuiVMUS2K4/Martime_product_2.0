@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..')
 const artifacts = path.resolve(root, '../../artifacts/test-results/pms-ui-2026-10-26')
 const html = path.join(root, 'pms-rework-preview.local.html')
 const jobId = '11111111-1111-4111-8111-111111111111', woId = '22222222-2222-4222-8222-222222222222', assetId = '33333333-3333-4333-8333-333333333333', materialId = '44444444-4444-4444-8444-444444444444'
-let state = 'PENDING_APPROVAL', version = 3, invalidApproval = false, longContent = false
+let state = 'PENDING_APPROVAL', version = 3, invalidApproval = false, longContent = false, revisionCount = 1
 let cancelledCycle = false
 let bulkMode = false, touchMode = false
 const deletedJobs = new Set()
@@ -42,7 +42,7 @@ function fixture(url, method, body) {
     const rows = touchMode ? Array.from({ length: 20 }, (_, i) => ({ ...work(), id: i === 0 ? woId : `touch-order-${i}`, name: `${job.name} ${i + 1}` })) : [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }, { ...work(), id: '66666666-6666-4666-8666-666666666666', name: 'WO đã hủy cần ẩn', status: 'CANCELLED' }]
     return page(rows.filter(w => (params.get('status') === 'ALL' || params.get('status') === 'OPEN' ? params.get('status') === 'ALL' || !['COMPLETED','CANCELLED','DRAFT'].includes(w.status) : w.status === params.get('status')) && (params.get('excludeCancelled') !== 'true' || w.status !== 'CANCELLED')))
   }
-  if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: [report], timeline: longContent ? Array.from({length: 70}, (_,i)=>({id: `event-${i}`,changedAt: '2026-10-27T04:00:00Z',changedBy: 'THIRD-OFFICER',reason: `Sự kiện bảo trì ${i+1}`})) : [{id:'event-1',changedAt:'2026-10-26T03:00:00Z',changedBy:'THIRD-OFFICER',reason:'Nhận và bắt đầu công việc'},{id:'event-2',changedAt:'2026-10-26T04:00:00Z',changedBy:'THIRD-OFFICER',reason:'Gửi kết quả kiểm tra'}], actualDurationMinutes: 90 }
+  if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: Array.from({length: revisionCount}, (_, i) => ({...report, id: `report-${i+1}`, revision: i+1})), timeline: longContent ? Array.from({length: 70}, (_,i)=>({id: `event-${i}`,changedAt: '2026-10-27T04:00:00Z',changedBy: 'THIRD-OFFICER',reason: `Sự kiện bảo trì ${i+1}`})) : [{id:'event-1',changedAt:'2026-10-26T03:00:00Z',changedBy:'THIRD-OFFICER',reason:'Nhận và bắt đầu công việc'},{id:'event-2',changedAt:'2026-10-26T04:00:00Z',changedBy:'THIRD-OFFICER',reason:'Gửi kết quả kiểm tra'}], actualDurationMinutes: 90 }
   if (p.includes('/reports/1')) {
     if (!longContent) return report
     const content = JSON.parse(report.snapshotJson)
@@ -474,14 +474,25 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await wait(`!!document.querySelector('.execute-work-orders-list')`)
     state = 'COMPLETED'
     longContent = true
+    revisionCount = 20
     await evaluate(`window.testUser(true);window.testNavigate('/pms/execute-work-orders/${woId}')`)
     await wait(`document.querySelectorAll('.execute-work-order-results tbody tr').length === 50`)
     for (const size of [{width:1920,height:1080},{width:1080,height:1920}]) {
       await call('Emulation.setDeviceMetricsOverride', { ...size, deviceScaleFactor: 1, mobile: false })
       assert.equal(await evaluate(`Array.from(document.querySelectorAll('.execute-work-order-results [role=region]')).every(region=>{const table=region.querySelector('table'),r=region.getBoundingClientRect(),cells=Array.from(table.querySelectorAll('thead th'));return region.scrollWidth<=region.clientWidth+1 && cells.length===4 && cells.every(c=>c.getBoundingClientRect().right<=r.right+1 && parseFloat(getComputedStyle(c).fontSize)>=22) && parseFloat(getComputedStyle(region).paddingTop)>=16})`),true)
       await evaluate(`Array.from(document.querySelectorAll('main [role=tab]')).find(t=>t.textContent.includes('Báo cáo')).click()`)
-      await wait(`!!document.querySelector('main select')`)
-      assert.equal(await evaluate(`document.querySelector('main select').options.length > 0`), true)
+      await wait(`!!document.querySelector('.execute-revision-trigger')`)
+      assert.equal(await evaluate(`document.querySelector('.execute-revision-trigger').getBoundingClientRect().height >= 56`), true)
+      await evaluate(`document.querySelector('.execute-revision-trigger').click()`)
+      await wait(`document.querySelectorAll('.execute-revision-option').length === 20`)
+      await swipe('.execute-revision-options', 0, -180)
+      await wait(`document.querySelector('.execute-revision-options').scrollTop > 30`)
+      assert.equal(await evaluate(`document.querySelectorAll('.execute-revision-option[aria-pressed=true]').length`), 1)
+      await evaluate(`document.querySelector('.execute-revision-options').scrollTop=0`)
+      await new Promise(resolve=>setTimeout(resolve,500))
+      await evaluate(`document.querySelector('.execute-revision-option').click()`)
+      await wait(`!document.querySelector('.execute-revision-options')`)
+
       await evaluate(`Array.from(document.querySelectorAll('main [role=tab]')).find(t=>t.textContent.includes('Lịch sử')).click()`)
       assert.equal(await evaluate(`document.querySelector('main').textContent.includes('Các lượt báo cáo')`), false)
       await evaluate(`Array.from(document.querySelectorAll('main [role=tab]'))[0].click();Array.from(document.querySelectorAll('.execute-work-order-results [role=tab]'))[1].click()`)
