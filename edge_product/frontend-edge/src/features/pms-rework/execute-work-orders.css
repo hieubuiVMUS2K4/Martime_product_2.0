@@ -88,3 +88,28 @@
 .execute-material-options tr[role=option] { cursor: pointer; min-height: 56px; }
 .execute-material-options tr[aria-selected=true], .execute-material-options tr[role=option]:hover { background: var(--execute-hover); }
 .execute-material-options :is(th, td):last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Native touch panning keeps inertia, diagonal swipes and pinch zoom available. */
+.execute-work-orders {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.execute-work-orders,
+.execute-work-orders * {
+  scrollbar-width: none;
+}
+.execute-work-orders::-webkit-scrollbar,
+.execute-work-orders *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.execute-work-orders :is(.overflow-auto, .overflow-x-auto, .overflow-y-auto, .execute-equipment-nodes, .touch-number-options, [role=tabpanel], [role=listbox]) {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.execute-work-orders-detail:not(.execute-work-orders-working) {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}

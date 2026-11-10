@@ -9,7 +9,7 @@ const html = path.join(root, 'pms-rework-preview.local.html')
 const jobId = '11111111-1111-4111-8111-111111111111', woId = '22222222-2222-4222-8222-222222222222', assetId = '33333333-3333-4333-8333-333333333333', materialId = '44444444-4444-4444-8444-444444444444'
 let state = 'PENDING_APPROVAL', version = 3, invalidApproval = false, longContent = false
 let cancelledCycle = false
-let bulkMode = false
+let bulkMode = false, touchMode = false
 const deletedJobs = new Set()
 const requests = [], failures = []
 const job = { id: jobId, code: 'FIRE-PUMP-001', name: 'Kiểm tra và bảo dưỡng máy bơm cứu hỏa', equipmentAssetId: assetId, equipmentName: 'Máy bơm cứu hỏa', category: 'PERIODIC', intervalType: 'CALENDAR', intervalMonths: 3, state: 'ACTIVE', version: 1, department: 'DECK', nextDueAt: '2026-10-27T00:00:00Z', responsibleName: 'Đại phó' }
@@ -39,7 +39,7 @@ function fixture(url, method, body) {
   if (p === '/api/pms/work-orders/material-options') return page([{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS', onHand: 10 }])
   if (p === '/api/pms/work-orders') {
     const params = new URL(url).searchParams
-    const rows = [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }, { ...work(), id: '66666666-6666-4666-8666-666666666666', name: 'WO đã hủy cần ẩn', status: 'CANCELLED' }]
+    const rows = touchMode ? Array.from({ length: 20 }, (_, i) => ({ ...work(), id: i === 0 ? woId : `touch-order-${i}`, name: `${job.name} ${i + 1}` })) : [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }, { ...work(), id: '66666666-6666-4666-8666-666666666666', name: 'WO đã hủy cần ẩn', status: 'CANCELLED' }]
     return page(rows.filter(w => (params.get('status') === 'ALL' || params.get('status') === 'OPEN' ? params.get('status') === 'ALL' || !['COMPLETED','CANCELLED','DRAFT'].includes(w.status) : w.status === params.get('status')) && (params.get('excludeCancelled') !== 'true' || w.status !== 'CANCELLED')))
   }
   if (p === `/api/pms/work-orders/${woId}`) return { workOrder: work(), taskType: 'PERIODIC', missingInformation: [], jobSnapshot: JSON.stringify({ Instructions: 'Kiểm tra bơm và ghi nhận áp suất' }), checklist: [{ id: 'check-1', checkpointDescription: 'Đo áp suất bơm', requiresReading: true, sequenceOrder: 1, isCompleted: false, unit: 'bar' }], reports: [report], timeline: longContent ? Array.from({length: 70}, (_,i)=>({id: `event-${i}`,changedAt: '2026-10-27T04:00:00Z',changedBy: 'THIRD-OFFICER',reason: `Sự kiện bảo trì ${i+1}`})) : [{id:'event-1',changedAt:'2026-10-26T03:00:00Z',changedBy:'THIRD-OFFICER',reason:'Nhận và bắt đầu công việc'},{id:'event-2',changedAt:'2026-10-26T04:00:00Z',changedBy:'THIRD-OFFICER',reason:'Gửi kết quả kiểm tra'}], actualDurationMinutes: 90 }
@@ -65,12 +65,12 @@ async function main() {
   const { createServer } = await import('vite')
   const server = await createServer({ root, server: { host: '127.0.0.1', port: 15307, strictPort: true } })
   await server.listen()
-  const modules = [{ code: 'pms.jobs', actions: ['view', 'create', 'delete', 'import', 'update'], routes: ['/pms/jobs'] }, { code: 'pms.work', actions: ['view', 'create', 'delete', 'update', 'assign', 'execute', 'approve', 'reject'], routes: ['/pms/work-orders'] }, { code: 'pms.counter', actions: ['view', 'update'], routes: [] }]
+  const modules = [{ code: 'pms.execute', actions: ['view', 'execute'], routes: ['/pms/execute-work-orders'] }, { code: 'pms.jobs', actions: ['view', 'create', 'delete', 'import', 'update'], routes: ['/pms/jobs'] }, { code: 'pms.work', actions: ['view', 'create', 'delete', 'update', 'assign', 'execute', 'approve', 'reject'], routes: ['/pms/work-orders'] }, { code: 'pms.counter', actions: ['view', 'update'], routes: [] }]
   fs.writeFileSync(html, `<html><body style="margin:0"><div id="root" style="height:100vh"></div><script type="module">
 import {I18nProvider} from '/src/contexts/I18nContext.tsx';import {useSettingsStore} from '/src/stores/settings.store.ts';import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
-import '/src/styles/globals.css';import InventoryPage from '/src/pages/Inventory/InventoryPage.tsx';import Planning from '/src/features/pms-rework/Planning.tsx';import JobPage from '/src/features/pms-rework/JobPage.tsx';import WorkOrderPage from '/src/features/pms-rework/WorkOrderPage.tsx';import {ApprovalDialog} from '/src/components/ApprovalDialog.tsx';import {usePermissionsStore} from '/src/stores/permissions.store.ts';import {useAuthStore} from '/src/stores/auth.store.ts';
+import ExecuteWorkOrders, {ExecuteWorkOrderDetail} from '/src/features/pms-rework/ExecuteWorkOrders.tsx';import '/src/styles/globals.css';import InventoryPage from '/src/pages/Inventory/InventoryPage.tsx';import Planning from '/src/features/pms-rework/Planning.tsx';import JobPage from '/src/features/pms-rework/JobPage.tsx';import WorkOrderPage from '/src/features/pms-rework/WorkOrderPage.tsx';import {ApprovalDialog} from '/src/components/ApprovalDialog.tsx';import {usePermissionsStore} from '/src/stores/permissions.store.ts';import {useAuthStore} from '/src/stores/auth.store.ts';
 useSettingsStore.getState().setLanguage('vi');const modules=${JSON.stringify(modules)};const qc=new QueryClient();window.testUser=(execute=false,readonly=false)=>{useAuthStore.setState({accessToken:'browser-fixture-token',user:{id:execute?2:1,crewId:execute?'THIRD-OFFICER':null,username:'fixture'}});usePermissionsStore.setState({loaded:true,error:null,isAdmin:false,modules,grants:modules.flatMap(m=>readonly?[m.code+'.access']:['access',...m.actions].map(a=>m.code+'.'+a))});qc.clear()};window.testUser();window.testNavigate=p=>{history.pushState({},'',p);window.dispatchEvent(new PopStateEvent('popstate'))};history.replaceState({},'','/pms/work-planning');
-const h=React.createElement;createRoot(document.getElementById('root')).render(h(I18nProvider,null,h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/inventory-test',element:h(InventoryPage)}),h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})}))))));
+const h=React.createElement;createRoot(document.getElementById('root')).render(h(I18nProvider,null,h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/pms/execute-work-orders',element:h(ExecuteWorkOrders)}),h(Route,{path:'/pms/execute-work-orders/:id/execute',element:h(ExecuteWorkOrderDetail,{mode:'execute'})}),h(Route,{path:'/inventory-test',element:h(InventoryPage)}),h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})}))))));
 </script></body></html>`)
   const chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=15308', `--user-data-dir=${path.join(artifacts, 'chrome-profile-' + process.pid + '-' + Date.now())}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' })
   let ws, closing = false
@@ -367,8 +367,43 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     assert.equal(await evaluate(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Thêm công việc'))`), false)
     await call('Emulation.setDeviceMetricsOverride', { width: 900, height: 780, deviceScaleFactor: 1, mobile: false }); await screen('readonly-responsive')
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); assert.equal(await evaluate(`!!document.querySelector('input[aria-label^="Giờ chạy mới"]')`), false)
+    // Real touchscreen gestures must pan content even though scrollbar tracks are hidden.
+    touchMode = true
+    state = 'IN_PROGRESS'
+    await call('Emulation.setDeviceMetricsOverride', { width: 1080, height: 1920, deviceScaleFactor: 1, mobile: false })
+    await call('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+    await evaluate(`window.testUser(true);window.testNavigate('/pms/execute-work-orders')`)
+    await wait(`document.querySelectorAll('.execute-work-orders tbody tr').length === 20`)
+    const gridSelector = '.execute-work-orders [aria-label="Bảng dữ liệu, có thể cuộn ngang"]'
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(gridSelector)})).scrollbarWidth`), 'none')
+    const swipe = async (selector, xDistance, yDistance) => {
+      const point = await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.left+r.width*0.75,y:r.top+Math.min(r.height*0.65,400)}})()`)
+      await call('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 1 }] })
+      for (let step = 1; step <= 12; step++) {
+        await call('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x + xDistance * step / 12, y: point.y + yDistance * step / 12, id: 1 }] })
+        await new Promise(resolve => setTimeout(resolve, 20))
+      }
+      await call('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    }
+    await screen('execute-touch-before-swipe')
+    await swipe(gridSelector, -420, 0)
+    await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft > 100`)
+    await call('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false })
+    await swipe(gridSelector, 0, -420)
+    await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollTop > 100`)
+    await screen('execute-touch-swipe-list')
+    await evaluate(`window.testNavigate('/pms/execute-work-orders/${woId}/execute')`)
+    await wait(`!!document.querySelector('.execute-work-order-workspace')`)
+    await click('Báo cáo thực hiện')
+    await call('Emulation.setDeviceMetricsOverride', { width: 1080, height: 600, deviceScaleFactor: 1, mobile: false })
+    await swipe('.execute-work-order-panels [role=tabpanel]', 0, -320)
+    await wait(`document.querySelector('.execute-work-order-panels [role=tabpanel]').scrollTop > 50`)
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.execute-work-order-panels [role=tabpanel]')).scrollbarWidth`), 'none')
+    await screen('execute-touch-swipe-report')
+    await call('Emulation.setTouchEmulationEnabled', { enabled: false })
     assert.deepEqual(failures, [])
     const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-open-default-and-all-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
+    checks.push('execute-touch-horizontal-swipe', 'execute-touch-vertical-swipe', 'execute-touch-panel-swipe', 'execute-hidden-scrollbars')
     checks.push('equipment-search-name-without-accents-and-code', 'equipment-keyboard-selection', 'equipment-search-escape-keeps-selection')
     checks.push('cancelled-cycle-replace-with-reason-and-navigation', 'cancelled-cycle-skip-with-reason')
     checks.push('job-import-preview-and-inline-errors', 'job-bulk-delete-only-eligible-rows', 'inventory-history-material-code-name-and-dialog')
