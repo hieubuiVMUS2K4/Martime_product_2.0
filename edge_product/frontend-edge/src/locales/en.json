@@ -5029,6 +5029,8 @@
     "progressSaved": "Progress saved.",
     "reworkRequested": "Rework requested:",
     "executionReport": "Execution report",
+    "availableStock": "In stock",
+    "executionMaterials": "Materials used",
     "workDurationHoursRequired": "Work duration (hours) *",
     "recordedRunningHours431": "Recorded running hours{p0}",
     "executionChecklist": "Execution checklist",

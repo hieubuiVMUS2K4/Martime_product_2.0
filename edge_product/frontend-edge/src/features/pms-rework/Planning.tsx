@@ -3,11 +3,12 @@ import { isManualJob } from './manualJobs'
 import { departmentName, departmentNames } from './departments'
 import { readableCode } from './presentation'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { BarChart3, Calendar, ChevronDown, ChevronRight, ClipboardCheck, ClipboardList, Eye, FolderOpen, Gauge, History, Pencil, Plus, Table2, Trash2 } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth.store'
+import { BarChart3, Calendar, ChevronDown, ChevronRight, ClipboardCheck, ClipboardList, Eye, FolderOpen, Gauge, History, Pencil, Play, Plus, Table2, Trash2 } from 'lucide-react'
 import { TableActions } from '@/components/common/DataTable'
 import { useEquipment, JobForm, AdHocForm } from './Forms'
-import { pms, usePmsPermissions, usePmsQuery, usePmsRefresh, label, cycle, usePmsClock, message } from './data'
+import { pms, snapshot, usePmsPermissions, usePmsQuery, usePmsRefresh, label, cycle, usePmsClock, message } from './data'
 import { ActionIcon, Badge, Grid, button, input, primary, useAction, ErrorBox, Modal, type GridColumn } from './ui'
 import type { Job, WorkOrder } from './types'
 import { JobHistory } from './Reports'
@@ -75,27 +76,48 @@ function Jobs({ equipmentAssetId }: { equipmentAssetId: string }) {
   ]
   return <><Grid columns={columns} selection={selection} result={result.data} loading={result.isFetching} error={result.error} {...filter} toolbar={<>{access.job('delete') && <button className={button} disabled={action.busy || !chosen.length} onClick={() => setConfirmDelete(true)}><Trash2 size={14} />{tx("pmsRework.bulkDelete")}{chosen.length ? ` (${chosen.length})` : ''}</button>}{access.job('import') && <button className={button} onClick={() => setImporting(true)}>{tx("pmsRework.importExcel")}</button>}{access.job('create') && <button className={primary} onClick={() => setCreate(true)}><Plus size={14} />{tx("pmsRework.addJob")}</button>}</>} />{create && <JobForm onClose={() => setCreate(false)} />}{history && <JobHistory job={history} onClose={() => setHistory(null)} />}{importing && <ImportJobs onClose={() => setImporting(false)} />}{confirmDelete && <Modal title={tx("pmsRework.deleteSelectedJobs")} onClose={() => setConfirmDelete(false)} busy={action.busy} footer={<button className={`${primary} !bg-red-600 hover:!bg-red-700`} disabled={action.busy || !chosen.length} onClick={() => void deleteSelected()}>{tx("pmsRework.delete") + " "}{chosen.length}{" " + tx("pmsRework.jobs")}</button>}><p className="mb-3 text-sm text-slate-600">{tx("pmsRework.onlyJobsWithoutWOsOrMaintenanceHistoryCan")}</p><ul className="max-h-60 space-y-2 overflow-auto text-sm">{chosen.map(j => <li key={j.id} className="border-b border-gray-100 py-2">{j.code} · {j.name}</li>)}</ul></Modal>}</>
 }
-function Orders({ equipmentAssetId }: { equipmentAssetId: string }) {
+export function Orders({ equipmentAssetId = '', equipmentAssetIds = '', executionOnly = false }: { equipmentAssetId?: string; equipmentAssetIds?: string; executionOnly?: boolean }) {
   useMessageLocale()
 
+  const user = useAuthStore(state => state.user)
+  const navigate = useNavigate(), action = useAction(), refresh = usePmsRefresh()
+  const orderBase = executionOnly ? '/pms/execute-work-orders' : '/pms/work-orders'
   const { due } = usePmsClock()
-  const access = usePmsPermissions(); const filter = useFilters({ status: 'OPEN' }, 'due'); const params: Record<string, unknown> = { ...filter.params, equipmentAssetId: equipmentAssetId || undefined }
+  const access = usePmsPermissions(); const filter = useFilters({ status: 'OPEN' }, 'due'); const params: Record<string, unknown> = { ...filter.params, equipmentAssetId: equipmentAssetId || undefined, equipmentAssetIds: equipmentAssetIds || undefined }
   if (!params.status) params.status = 'ALL'
   const result = usePmsQuery(['orders', params], () => pms.orders(params), access.work('view'))
   const crew = usePmsQuery(['wo-crew'], pms.crew, access.work('view'))
   const [create, setCreate] = useState(false)
   const columns: GridColumn<WorkOrder>[] = [
-    { key: 'name', title: tx("pmsRework.jobName"), fixed: 'left', width: 260, sort: 'name', filter: 'name', render: w => <Link className="text-blue-600 hover:underline" title={w.name} to={`/pms/work-orders/${w.id}`}>{w.name || tx("pmsRework.untitledDraftWO")}</Link> },
+    { key: 'name', title: tx("pmsRework.jobName"), fixed: 'left', width: executionOnly ? 300 : 260, sort: 'name', filter: 'name', render: w => <Link className="text-blue-600 hover:underline" title={w.name} to={`${orderBase}/${w.id}`}>{w.name || tx("pmsRework.untitledDraftWO")}</Link> },
     { key: 'code', title: tx("pmsRework.woCode"), width: 180, filter: 'code', sort: 'code', render: w => <span>{readableCode(w.code) || '—'}</span> },
     { key: 'equipment', title: tx("pmsRework.equipment"), width: 220, filter: 'equipment', render: w => <span title={w.equipmentName}>{w.equipmentName || '—'}</span> },
     { key: 'due', title: tx("pmsRework.completionDeadline"), width: 190, sort: 'due', dateRange: ['dueFrom', 'dueTo'], render: w => due(w.dueAt, w.dueHours) },
     { key: 'pic', title: tx("pmsRework.assignee"), width: 180, filter: 'assignedTo', options: [['', tx("pmsRework.all")], ...(crew.data || []).map(c => [c.crewId, c.fullName] as [string, string])], render: w => w.assignedName || tx("pmsRework.unassigned") },
-    { key: 'department', title: tx("pmsRework.responsibleDepartment"), width: 120, filter: 'department', options: Object.entries(departmentNames), render: w => departmentName(w.department) },
+    { key: 'department', title: tx("pmsRework.responsibleDepartment"), width: executionOnly ? 220 : 120, filter: 'department', options: Object.entries(departmentNames), render: w => departmentName(w.department) },
     { key: 'priority', title: tx("pmsRework.priority"), sort: 'priority', filter: 'priority', options: [['', tx("pmsRework.all")], ...['LOW', 'NORMAL', 'HIGH', 'CRITICAL'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.priority} /> },
     { key: 'dueState', title: tx("pmsRework.dueStatus"), filter: 'dueState', width: 160, options: [['', tx("pmsRework.all")], ...['NOT_DUE', 'UPCOMING', 'DUE', 'OVERDUE'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.dueState} /> },
     { key: 'status', title: tx("pmsRework.progress"), sort: 'status', filter: 'status', width: 180, options: [['', tx("pmsRework.all")], ['OPEN', tx("pmsRework.open")], ...['DRAFT', 'UNASSIGNED', 'ASSIGNED', 'IN_PROGRESS', 'RECTIFY', 'PENDING_APPROVAL', 'COMPLETED', 'CANCELLED'].map(s => [s, label[s]] as [string, string])], render: w => <Badge value={w.status} /> },
     { key: 'actions', title: tx("pmsRework.actions"), width: 115, touchWidth: 168, fixed: 'right', render: w => <TableActions><ActionIcon label={tx("pmsRework.woDetails")} icon={<Eye />} to={`/pms/work-orders/${w.id}`} />{w.status === 'DRAFT' && access.work('update') && <ActionIcon label={tx("pmsRework.editDraft")} icon={<Pencil />} to={`/pms/work-orders/${w.id}?edit=1`} />}{w.status === 'PENDING_APPROVAL' && (access.work('approve') || access.work('reject')) && <ActionIcon label={tx("pmsRework.reviewAndApproveWO")} icon={<ClipboardCheck />} to={`/pms/work-orders/${w.id}/review`} />}</TableActions> },
   ]
+  if (executionOnly) {
+    columns[columns.length - 1] = {
+      key: 'actions', title: tx('pmsRework.actions'), width: 140, touchWidth: 140, fixed: 'right',
+      render: w => {
+        const support = snapshot<string[]>(w.supportingCrewIds) || []
+        const assigned = !!user?.crewId && (w.assignedTo === user.crewId || support.includes(user.crewId))
+        const executable = assigned && access.work('execute') && ['ASSIGNED', 'IN_PROGRESS', 'RECTIFY'].includes(w.status)
+        const start = async () => {
+          await action.run(async () => {
+            if (w.status !== 'IN_PROGRESS') await pms.start(w)
+            await refresh()
+            navigate(`${orderBase}/${w.id}/execute`)
+          }, tx('pmsRework.workAcceptedAndStarted'))
+        }
+        return <TableActions><ActionIcon label={tx('pmsRework.woDetails')} icon={<Eye />} to={`${orderBase}/${w.id}`} />{executable && <ActionIcon label={tx(w.status === 'IN_PROGRESS' ? 'pmsRework.continueExecution' : 'pmsRework.acceptStart')} icon={<Play />} disabled={action.busy} onClick={() => void start()} />}</TableActions>
+      },
+    }
+  }
   return <><Grid columns={columns} result={result.data} loading={result.isFetching} error={result.error} {...filter} toolbar={access.work('create') && <button className={primary} onClick={() => setCreate(true)}><Plus size={14} />{tx("pmsRework.createAdHocWO")}</button>} />{create && <AdHocForm onClose={() => setCreate(false)} />}</>
 }
 export default function Planning() {

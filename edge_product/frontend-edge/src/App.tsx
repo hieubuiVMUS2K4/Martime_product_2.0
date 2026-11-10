@@ -33,6 +33,7 @@ import ApprovalDashboardPage from './pages/PMS/ApprovalDashboardPage'
 import PmsPlanningEntry from './features/pms-rework/Entry'
 import PmsJobPage from './features/pms-rework/JobPage'
 import PmsWorkOrderPage from './features/pms-rework/WorkOrderPage'
+import ExecuteWorkOrders, { ExecuteWorkOrderDetail } from './features/pms-rework/ExecuteWorkOrders'
 import WorkReportPage from './pages/PMS/WorkReportPage'
 import { MaintenanceHistoryPage } from './pages/PMS/MaintenanceHistoryPage'
 import StoreLocationPage from './pages/StoreLocation/StoreLocationPage'
@@ -156,6 +157,9 @@ function App() {
         <Route path="pms/approval-dashboard" element={<ApprovalDashboardPage />} />
         <Route path="pms/maintenance-history" element={<MaintenanceHistoryPage />} />
         <Route path="pms/work-planning" element={<PmsPlanningEntry />} />
+        <Route path="pms/execute-work-orders" element={<ExecuteWorkOrders />} />
+        <Route path="pms/execute-work-orders/:id" element={<ExecuteWorkOrderDetail />} />
+        <Route path="pms/execute-work-orders/:id/execute" element={<ExecuteWorkOrderDetail mode="execute" />} />
         <Route path="pms/jobs/:id" element={<PmsJobPage />} />
         <Route path="pms/work-orders/:id" element={<PmsWorkOrderPage />} />
         <Route path="pms/work-orders/:id/execute" element={<PmsWorkOrderPage mode="execute" />} />

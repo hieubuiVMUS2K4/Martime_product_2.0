@@ -252,6 +252,18 @@
       ]
     },
     {
+      "code": "pms.execute",
+      "name": "Execute Work Order",
+      "group": "PMS – Công việc",
+      "routes": [
+        "/pms/execute-work-orders"
+      ],
+      "actions": [
+        "view",
+        "execute"
+      ]
+    },
+    {
       "code": "pms.config",
       "name": "Cấu hình công việc",
       "group": "PMS – Công việc",
@@ -563,14 +575,16 @@
       "controller": "PmsWorkOrders",
       "action": "List",
       "grants": [
-        "pms.work.view"
+        "pms.work.view",
+        "pms.execute.view"
       ]
     },
     {
       "controller": "PmsWorkOrders",
       "action": "Detail",
       "grants": [
-        "pms.work.view"
+        "pms.work.view",
+        "pms.execute.view"
       ]
     },
     {
@@ -4049,21 +4063,24 @@
       "controller": "PmsWorkOrders",
       "action": "Start",
       "grants": [
-        "pms.work.execute"
+        "pms.work.execute",
+        "pms.execute.execute"
       ]
     },
     {
       "controller": "PmsWorkOrders",
       "action": "Save",
       "grants": [
-        "pms.work.execute"
+        "pms.work.execute",
+        "pms.execute.execute"
       ]
     },
     {
       "controller": "PmsWorkOrders",
       "action": "Submit",
       "grants": [
-        "pms.work.execute"
+        "pms.work.execute",
+        "pms.execute.execute"
       ]
     },
     {
@@ -4091,7 +4108,8 @@
       "controller": "PmsWorkOrders",
       "action": "Report",
       "grants": [
-        "pms.work.view"
+        "pms.work.view",
+        "pms.execute.view"
       ]
     },
     {
@@ -4134,14 +4152,16 @@
       "controller": "PmsWorkOrders",
       "action": "References",
       "grants": [
-        "pms.work.view"
+        "pms.work.view",
+        "pms.execute.view"
       ]
     },
     {
       "controller": "PmsWorkOrders",
       "action": "MaterialOptions",
       "grants": [
-        "pms.work.execute"
+        "pms.work.execute",
+        "pms.execute.execute"
       ]
     },
     {
@@ -4158,7 +4178,8 @@
         "pms.work.view",
         "pms.jobs.view",
         "pms.config.view",
-        "pms.counter.view"
+        "pms.counter.view",
+        "pms.execute.view"
       ]
     },
     {
@@ -4168,7 +4189,16 @@
         "pms.work.view",
         "pms.jobs.view",
         "pms.config.view",
-        "pms.counter.view"
+        "pms.counter.view",
+        "pms.execute.view"
+      ]
+    },
+    {
+      "controller": "PmsWorkOrders",
+      "action": "Search",
+      "grants": [
+        "pms.work.view",
+        "pms.execute.view"
       ]
     }
   ]

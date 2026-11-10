@@ -20,6 +20,7 @@ function fixture(url, method, body) {
   const p = new URL(url).pathname
   requests.push({ path: p, method, body, url })
   if (p === '/api/pms/work-orders/equipment-tree') return [{ id: 'folder', assetName: 'Thiết bị boong', category: 'SYSTEM', isActive: true }, { id: assetId, parentId: 'folder', assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
+  if (p === '/api/pms/jobs/import-equipment') return [{ id: assetId, assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
   if (p === '/api/pms/jobs/references') return { crew: [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }], ranks: [{ id: 1, rankName: 'Đại phó', department: 'DECK' }, { id: 2, rankName: 'Máy trưởng', department: 'ENGINE' }] }
   if (p === '/api/pms/jobs/preview') return { previousDueAt: null, nextDueAt: job.nextDueAt, state: 'ACTIVE', openWorkOrders: 0, baselineChanged: false, reasonRequired: false, usesApprovedExecution: false, automaticReleaseRequested: false, missingInformation: [] }
   if (p.startsWith('/api/pms/jobs/') && method === 'DELETE') { deletedJobs.add(p.split('/').at(-1)); return {} }
@@ -66,10 +67,10 @@ async function main() {
   await server.listen()
   const modules = [{ code: 'pms.jobs', actions: ['view', 'create', 'delete', 'import', 'update'], routes: ['/pms/jobs'] }, { code: 'pms.work', actions: ['view', 'create', 'delete', 'update', 'assign', 'execute', 'approve', 'reject'], routes: ['/pms/work-orders'] }, { code: 'pms.counter', actions: ['view', 'update'], routes: [] }]
   fs.writeFileSync(html, `<html><body style="margin:0"><div id="root" style="height:100vh"></div><script type="module">
-import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {I18nProvider} from '/src/contexts/I18nContext.tsx';import {useSettingsStore} from '/src/stores/settings.store.ts';import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route} from 'react-router-dom';import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
 import '/src/styles/globals.css';import InventoryPage from '/src/pages/Inventory/InventoryPage.tsx';import Planning from '/src/features/pms-rework/Planning.tsx';import JobPage from '/src/features/pms-rework/JobPage.tsx';import WorkOrderPage from '/src/features/pms-rework/WorkOrderPage.tsx';import {ApprovalDialog} from '/src/components/ApprovalDialog.tsx';import {usePermissionsStore} from '/src/stores/permissions.store.ts';import {useAuthStore} from '/src/stores/auth.store.ts';
-const modules=${JSON.stringify(modules)};const qc=new QueryClient();window.testUser=(execute=false,readonly=false)=>{useAuthStore.setState({accessToken:'browser-fixture-token',user:{id:execute?2:1,crewId:execute?'THIRD-OFFICER':null,username:'fixture'}});usePermissionsStore.setState({loaded:true,error:null,isAdmin:false,modules,grants:modules.flatMap(m=>readonly?[m.code+'.access']:['access',...m.actions].map(a=>m.code+'.'+a))});qc.clear()};window.testUser();window.testNavigate=p=>{history.pushState({},'',p);window.dispatchEvent(new PopStateEvent('popstate'))};history.replaceState({},'','/pms/work-planning');
-const h=React.createElement;createRoot(document.getElementById('root')).render(h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/inventory-test',element:h(InventoryPage)}),h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})})))));
+useSettingsStore.getState().setLanguage('vi');const modules=${JSON.stringify(modules)};const qc=new QueryClient();window.testUser=(execute=false,readonly=false)=>{useAuthStore.setState({accessToken:'browser-fixture-token',user:{id:execute?2:1,crewId:execute?'THIRD-OFFICER':null,username:'fixture'}});usePermissionsStore.setState({loaded:true,error:null,isAdmin:false,modules,grants:modules.flatMap(m=>readonly?[m.code+'.access']:['access',...m.actions].map(a=>m.code+'.'+a))});qc.clear()};window.testUser();window.testNavigate=p=>{history.pushState({},'',p);window.dispatchEvent(new PopStateEvent('popstate'))};history.replaceState({},'','/pms/work-planning');
+const h=React.createElement;createRoot(document.getElementById('root')).render(h(I18nProvider,null,h(QueryClientProvider,{client:qc},h(BrowserRouter,null,h(ApprovalDialog),h(Routes,null,h(Route,{path:'/inventory-test',element:h(InventoryPage)}),h(Route,{path:'/pms/work-planning',element:h(Planning)}),h(Route,{path:'/pms/jobs/:id',element:h(JobPage)}),h(Route,{path:'/pms/work-orders/:id',element:h(WorkOrderPage)}),h(Route,{path:'/pms/work-orders/:id/execute',element:h(WorkOrderPage,{mode:'execute'})}),h(Route,{path:'/pms/work-orders/:id/review',element:h(WorkOrderPage,{mode:'review'})}))))));
 </script></body></html>`)
   const chrome = spawn(process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=15308', `--user-data-dir=${path.join(artifacts, 'chrome-profile-' + process.pid + '-' + Date.now())}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' })
   let ws, closing = false
@@ -95,7 +96,9 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     }
     const { targetId } = await send('Target.createTarget', { url: 'about:blank' }); const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true })
     const call = (method, params) => send(method, params, sessionId)
-    await call('Runtime.enable'); await call('Page.enable'); await call('Fetch.enable', { patterns: [{ urlPattern: 'http://127.0.0.1:15307/api/*' }] })
+    await call('Runtime.enable'); await call('Page.enable');
+    // Keep calendar fixtures independent of the day this regression suite runs.
+    await call('Page.addScriptToEvaluateOnNewDocument', { source: `const NativeDate = Date; window.Date = class extends NativeDate { constructor(...args) { super(...(args.length ? args : ['2026-10-26T06:00:00Z'])) } static now() { return NativeDate.parse('2026-10-26T06:00:00Z') } };` }); await call('Fetch.enable', { patterns: [{ urlPattern: 'http://127.0.0.1:15307/api/*' }] })
     await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false })
     await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] })
     const evaluate = async expression => { const result = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw Error(result.exceptionDetails.text); return result.result.value }
@@ -261,10 +264,15 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     assert.equal(await evaluate(`document.body.textContent.includes('WO đã hủy cần ẩn')`), true)
     assert.equal(await evaluate(`!!document.querySelector('button[aria-label="Lọc và sắp xếp cột Tiến độ"]')`), true)
     await screen('work-orders')
-    await click('Lịch'); await wait(`document.body.textContent.includes('T2') && !!document.querySelector('input[aria-label="Chọn tháng"]')`); await screen('calendar')
+    await click('Lịch'); await wait(`document.querySelectorAll('section h4').length >= 28 && !!document.querySelector('input[aria-label="Chọn tháng"]')`); await screen('calendar')
     await wait(`document.body.textContent.includes('Bảo dưỡng đã hoàn thành')`)
     assert.equal(await evaluate(`document.body.textContent.includes('WO đã hủy cần ẩn')`), false)
     assert.equal(new URL(requests.filter(r=>r.path==='/api/pms/work-orders').at(-1).url).searchParams.get('excludeCancelled'), 'true')
+    const originalMonth = await evaluate(`document.querySelector('input[aria-label="Chọn tháng"]').value`)
+    await evaluate(`document.querySelector('button[aria-label="Tháng sau"]').click()`)
+    await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value!==${JSON.stringify(originalMonth)}`)
+    await evaluate(`document.querySelector('button[aria-label="Tháng trước"]').click()`)
+    await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value===${JSON.stringify(originalMonth)}`)
     await click('Gantt chart'); await wait(`!!document.querySelector('[aria-label="Biểu đồ Gantt"]')`)
     assert.equal(await evaluate(`document.body.textContent.includes('WO đã hủy cần ẩn')`), false)
     assert.equal(await evaluate(`document.querySelector('[aria-label="Bảng công việc Gantt"]').textContent.includes('Phó ba')`), true)
@@ -277,11 +285,6 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:separator.x-100,y:separator.y,button:'left',clickCount:1})
     assert.notEqual(await evaluate(`document.querySelector('[role=separator]').getAttribute('aria-valuenow')`), separator.value)
     await screen('gantt-resized')
-    const originalMonth = await evaluate(`document.querySelector('input[aria-label="Chọn tháng"]').value`)
-    await evaluate(`document.querySelector('button[aria-label="Tháng sau"]').click()`)
-    await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value!==${JSON.stringify(originalMonth)}`)
-    await evaluate(`document.querySelector('button[aria-label="Tháng trước"]').click()`)
-    await wait(`document.querySelector('input[aria-label="Chọn tháng"]').value===${JSON.stringify(originalMonth)}`)
     await click('Counter'); await wait(`document.body.textContent.includes('Giờ chạy hiện tại')`); await screen('counter')
     await evaluate(`window.testNavigate('/pms/work-orders/${woId}/review')`); await wait(`document.body.textContent.includes('Báo cáo đã gửi')`)
     assert.equal(await evaluate(`Array.from(document.querySelectorAll('section>header')).some(h=>h.textContent.includes('Thông tin lệnh thực hiện') && h.textContent.includes('Chờ duyệt'))`), true)
@@ -291,16 +294,16 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     assert.equal(await evaluate(`(()=>{const m=document.querySelector('[aria-label="Bố cục chi tiết WO"] main').getBoundingClientRect(),a=document.querySelector('[aria-label="Kết quả thực hiện WO"]').getBoundingClientRect();return a.left>=m.right && Math.abs(a.top-m.top)<2})()`), true)
     assert.equal(await evaluate(`document.body.textContent.includes('Lưu kết quả')`), false)
     assert.equal(await evaluate(`document.body.textContent.includes('WO-${woId.replaceAll('-', '')}')`), false)
-    await screen('work-order-review'); await click('Trả lại'); await wait(`document.body.textContent.includes('Nhập lại mật khẩu')`)
-    assert.equal(await evaluate(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('${woId}')`), false)
-    await evaluate(`document.querySelector('[aria-label="Ký xác nhận"] summary').click()`)
-    await evaluate(`Array.from(document.querySelectorAll('[aria-label="Ký xác nhận"] [role="tab"]')).find(b=>b.textContent.includes('Vật tư đã sử dụng')).click()`)
-    await wait(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('Gioăng bơm')`)
-    assert.equal(await evaluate(`document.querySelector('[aria-label="Ký xác nhận"] pre')!==null`), false)
-    assert.equal(await evaluate(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('ContentHash')`), false)
+    await screen('work-order-review'); await click('Trả lại'); await wait(`!!document.querySelector('[role="dialog"]')`)
+    assert.equal(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('${woId}')`), false)
+    await evaluate(`document.querySelector('[role="dialog"] summary').click()`)
+    await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] [role="tab"]')).find(b=>b.textContent.includes('Vật tư đã sử dụng')).click()`)
+    await wait(`document.querySelector('[role="dialog"]').textContent.includes('Gioăng bơm')`)
+    assert.equal(await evaluate(`document.querySelector('[role="dialog"] pre')!==null`), false)
+    assert.equal(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('ContentHash')`), false)
     await screen('approval-readable-summary')
-    await evaluate(`(()=>{const p=document.querySelector('input[type=password]');const r=document.querySelector('[aria-label="Ký xác nhận"] textarea');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(p,'fixture-password');p.dispatchEvent(new Event('input',{bubbles:true}));Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(r,'Kiểm tra lại áp suất');r.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[aria-label="Ký xác nhận"] input[type=checkbox]').click()})()`)
-    await click('Xác nhận'); await wait(`document.body.textContent.includes('Cần làm lại')`)
+    await evaluate(`(()=>{const r=document.querySelector('[role="dialog"] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(r,'Kiểm tra lại áp suất');r.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[role="dialog"] input[type=checkbox]').click()})()`)
+    await evaluate(`document.querySelector('[role=dialog] button[type=submit]').click()`); await wait(`document.body.textContent.includes('Cần làm lại')`)
     const returned = requests.find(r => r.path.endsWith('/return')); assert.equal(returned.body.reason, 'Kiểm tra lại áp suất'); assert.equal(returned.body.reportHash, 'report-hash')
     const startsBefore = requests.filter(r=>r.path.endsWith('/start')).length
     await evaluate(`window.testUser(true);window.testNavigate('/pms/work-orders/${woId}')`)
@@ -312,8 +315,10 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await evaluate(`window.testUser(true);window.testNavigate('/pms/work-orders/${woId}/execute')`); await wait(`document.body.textContent.includes('Lưu kết quả')`); await screen('execution')
     await evaluate(`(()=>{document.querySelector('input[aria-label="Hoàn tất Đo áp suất bơm"]').click();const el=document.querySelector('input[aria-label="Số đo Đo áp suất bơm"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'5');el.dispatchEvent(new Event('input',{bubbles:true}))})()`)
     await evaluate(`Array.from(document.querySelectorAll('[role="tab"]')).find(b=>b.textContent.includes('Vật tư đã sử dụng')).click()`)
-    await wait(`Array.from(document.querySelectorAll('[role="tabpanel"] button')).some(b=>b.textContent.includes('Gioăng bơm'))`)
-    await evaluate(`Array.from(document.querySelectorAll('[role="tabpanel"] button')).find(b=>b.textContent.includes('Gioăng bơm')).click()`)
+    await click('Toàn bộ vật tư')
+    await evaluate(`document.querySelector('input[role=combobox]').click()`)
+    await wait(`Array.from(document.querySelectorAll('[role=option]')).some(b=>b.textContent.includes('Gioăng bơm'))`)
+    await evaluate(`Array.from(document.querySelectorAll('[role=option]')).find(b=>b.textContent.includes('Gioăng bơm')).click()`)
     await wait(`!!document.querySelector('input[aria-label="Số lượng đã sử dụng"]')`)
     await screen('execution-material-tab')
     await evaluate(`Array.from(document.querySelectorAll('[role="tab"]')).find(b=>b.textContent.includes('Checklist thực hiện')).click()`)
@@ -324,15 +329,15 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await evaluate(`window.testUser();window.testNavigate('/pms/work-orders/${woId}/review')`)
     await wait(`document.body.textContent.includes('Báo cáo đã gửi')`)
     invalidApproval = true
-    await click('Phê duyệt'); await wait(`!!document.querySelector('[aria-label="Ký xác nhận"]')`)
-    await evaluate(`document.querySelector('[aria-label="Ký xác nhận"] summary').click()`)
-    await wait(`document.querySelector('[aria-label="Ký xác nhận"]').textContent.includes('Không đọc được bản báo cáo')`)
-    assert.equal(await evaluate(`Array.from(document.querySelectorAll('[aria-label="Ký xác nhận"] button')).find(b=>b.textContent==='Xác nhận').disabled`), true)
+    await click('Phê duyệt'); await wait(`!!document.querySelector('[role="dialog"]')`)
+    await evaluate(`document.querySelector('[role="dialog"] summary').click()`)
+    await wait(`document.querySelector('[role="dialog"]').textContent.includes('Không đọc được bản báo cáo')`)
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(b=>b.type==='submit').disabled`), true)
     await evaluate(`document.querySelector('button[aria-label="Đóng xác nhận"]').click()`)
     invalidApproval = false
-    await click('Phê duyệt'); await wait(`!!document.querySelector('[aria-label="Ký xác nhận"]')`)
-    await evaluate(`(()=>{const p=document.querySelector('input[type=password]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(p,'fixture-password');p.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[aria-label="Ký xác nhận"] input[type=checkbox]').click()})()`)
-    await click('Xác nhận'); await wait(`!!document.querySelector('h1') && document.querySelector('h1').textContent.includes('Chi tiết WO')`)
+    await click('Phê duyệt'); await wait(`!!document.querySelector('[role="dialog"]')`)
+    await evaluate(`(()=>{document.querySelector('[role="dialog"] input[type=checkbox]').click()})()`)
+    await evaluate(`document.querySelector('[role=dialog] button[type=submit]').click()`); await wait(`!!document.querySelector('h1') && document.querySelector('h1').textContent.includes('Chi tiết WO')`)
     assert.equal(requests.find(r=>r.path.endsWith('/approve')).body.reportHash, 'report-hash')
     await wait(`!!document.querySelector('[aria-label="Kết quả thực hiện WO"]')`)
     await evaluate(`Array.from(document.querySelectorAll('summary')).find(b=>b.textContent.includes('Các lượt báo cáo')).click()`)

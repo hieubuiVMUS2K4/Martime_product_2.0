@@ -29,6 +29,7 @@ const getNavigation = (t: (key: string) => string): Entry[] => [
   { name: t('superintendent.vesselOverview'), to: '/dashboard', icon: LayoutDashboard },
   { name: t('nav.dashboard'), to: '/marine-superintendent', icon: PanelsTopLeft },
   { name: t('engineSummary.title'), to: '/engine-summary', icon: Gauge },
+  { name: 'Execute Work Order', to: '/pms/execute-work-orders', icon: ClipboardList },
   { name: t('nav.navigation'), to: '/navigation', icon: Navigation },
   { name: t('nav.shipData') || 'Dữ liệu tàu', to: '/ship-data', icon: Anchor },
   {

@@ -14,6 +14,9 @@ public sealed class PmsWorkOrdersController(PmsWorkOrderReadService orders, PmsW
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] PmsWorkOrderQuery query, CancellationToken token) => Ok(await orders.ListAsync(query, token));
 
+    [HttpPost("search")]
+    public async Task<IActionResult> Search(PmsWorkOrderQuery query, CancellationToken token) => Ok(await orders.ListAsync(query, token));
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Detail(Guid id, CancellationToken token) => Ok(await orders.DetailAsync(id, token));
 

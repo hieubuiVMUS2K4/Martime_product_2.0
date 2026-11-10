@@ -5,6 +5,19 @@ namespace MaritimeEdge.Services.Maintenance;
 
 public static class PmsEquipmentScope
 {
+    public static async Task<Guid[]> DescendantsAsync(EdgeDbContext db, Guid[] roots, CancellationToken token = default)
+    {
+        var links = await db.EquipmentAssets.AsNoTracking().Select(a => new { a.Id, a.ParentId }).ToListAsync(token);
+        var children = links.Where(a => a.ParentId.HasValue).ToLookup(a => a.ParentId!.Value);
+        var existing = links.Select(a => a.Id).ToHashSet();
+        var result = roots.Where(existing.Contains).ToHashSet();
+        var queue = new Queue<Guid>(result);
+        while (queue.TryDequeue(out var parent))
+            foreach (var child in children[parent])
+                if (result.Add(child.Id)) queue.Enqueue(child.Id);
+        return result.ToArray();
+    }
+
     public static async Task<Guid[]> DescendantsAsync(EdgeDbContext db, Guid root, CancellationToken token = default)
     {
         if (db.Database.IsNpgsql())

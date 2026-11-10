@@ -5029,6 +5029,8 @@
     "progressSaved": "Đã lưu kết quả.",
     "reworkRequested": "Yêu cầu làm lại:",
     "executionReport": "Báo cáo thực hiện",
+    "availableStock": "Tồn kho",
+    "executionMaterials": "Vật tư sử dụng",
     "workDurationHoursRequired": "Thời gian thực hiện (giờ) *",
     "recordedRunningHours431": "Giờ chạy ghi nhận{p0}",
     "executionChecklist": "Checklist thực hiện",

@@ -60,6 +60,7 @@ public sealed class PmsJobQuery
 
 public sealed class PmsWorkOrderQuery
 {
+    [MaxLength(40000)] public string? EquipmentAssetIds { get; set; }
     [Range(1, 100000)] public int Page { get; set; } = 1;
     [Range(1, 100)] public int PageSize { get; set; } = 20;
     [MaxLength(200)] public string? Name { get; set; }
@@ -138,7 +139,7 @@ public sealed record PmsJobRow(Guid Id, string Code, string? WorkCode, string Na
 public sealed record PmsWorkOrderRow(Guid Id, string Code, Guid? JobId, string Name,
     Guid? EquipmentAssetId, string? EquipmentName, DateTime? DueAt, double? DueHours,
     string? DueState, string Status, string? AssignedTo, string? AssignedName, string? Department,
-    string Priority, int ReportRevision, DateTime UpdatedAt, int WorkflowVersion = 0);
+    string Priority, int ReportRevision, DateTime UpdatedAt, int WorkflowVersion = 0, string? SupportingCrewIds = null);
 
 public sealed class PmsRequestException(int status, string message) : Exception(message)
 {

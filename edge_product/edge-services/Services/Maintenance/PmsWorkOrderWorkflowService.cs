@@ -239,7 +239,10 @@ public sealed partial class PmsWorkOrderWorkflowService(EdgeDbContext db, RankPe
         if (db.Database.IsNpgsql() && crew?.RankId is int rank)
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(2026100602, {rank})", token);
         var effective = await permissions.GetAsync(userId);
-        if (!effective.IsAccountActive || !PermissionRegistry.Allows(effective.Grants.ToHashSet(), grant)) throw new PmsRequestException(403, "Bạn chưa có quyền thao tác này.");
+        var grants = effective.Grants.ToHashSet();
+        var allowed = PermissionRegistry.Allows(grants, grant) ||
+            grant == "pms.work.execute" && PermissionRegistry.Allows(grants, "pms.execute.execute");
+        if (!effective.IsAccountActive || !allowed) throw new PmsRequestException(403, "Bạn chưa có quyền thao tác này.");
         if (grant == "pms.work.execute" && (crew?.Rank?.IsActive != true || !(crew.IsOnboard || crew.OnboardStatus == "Approved")))
             throw new PmsRequestException(403, "Cần tài khoản liên kết thuyền viên đang trên tàu để thực hiện.");
         return new(userId, user.Username, crew?.CrewId, crew?.FullName ?? user.Username, crew?.Rank?.RankName ?? "ADMIN", grant);

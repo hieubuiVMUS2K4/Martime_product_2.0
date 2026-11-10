@@ -807,6 +807,23 @@ test('admin dashboard access follows saved grants while administration remains a
   assert.equal(permissions.canPerform('crew.delete'), true)
 })
 
+test('touch WO access is independent from the general Work Order module', () => {
+  const permissions = load('stores/permissions.store.ts', { '@/services/api.client': { apiClient: {} } })
+  const registry = JSON.parse(fs.readFileSync(path.join(__dirname, '../../edge-services/permissions.registry.json'), 'utf8'))
+  permissions.usePermissionsStore.setState({ loaded: true, error: null, isAdmin: false,
+    modules: registry.modules, grants: ['pms.execute.access'] })
+  assert.equal(permissions.canOpen('/pms/execute-work-orders'), true)
+  assert.equal(permissions.canOpen('/pms/execute-work-orders/order/execute'), true)
+  assert.equal(permissions.canOpen('/pms/work-orders/order'), false)
+  assert.equal(permissions.canOpen('/pms/work-planning'), false)
+  assert.equal(permissions.canPerform('pms.execute.execute'), false)
+  permissions.usePermissionsStore.setState({ grants: ['pms.execute.access', 'pms.execute.execute'] })
+  assert.equal(permissions.canPerform('pms.execute.execute'), true)
+  assert.equal(permissions.canPerform('pms.work.approve'), false)
+  permissions.usePermissionsStore.setState({ grants: ['pms.work.access', 'pms.work.execute'] })
+  assert.equal(permissions.canOpen('/pms/execute-work-orders'), false)
+})
+
 test('shared vessel navigation uses the live latest position and sorts the same history chronologically', async () => {
   const latest = { latitude: 10, longitude: 107, courseOverGround: 45 }
   const history = [{ ...latest, timestamp: '2026-11-07T02:00:00Z' }, { ...latest, timestamp: '2026-11-07T01:00:00Z' }]

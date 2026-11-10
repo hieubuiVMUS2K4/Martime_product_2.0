@@ -28,6 +28,7 @@ export interface JobImpact {
   usesApprovedExecution: boolean; automaticReleaseRequested: boolean; missingInformation: string[];
 }
 export interface WorkOrder {
+  supportingCrewIds?: string;
   id: string; code: string; jobId?: string; name: string; equipmentAssetId?: string; equipmentName?: string;
   dueAt?: string; dueHours?: number; dueState: string; status: string; assignedTo?: string; assignedName?: string; department?: string;
   priority: string; reportRevision: number; workflowVersion: number; updatedAt: string;

@@ -1,5 +1,6 @@
 import { translateMessage as tx, localizePmsMessage, messageLocale, useMessageLocale } from '@/i18n/messages'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { apiClient } from '@/services/api.client'
 import { useAuthStore } from '@/stores/auth.store'
 import { hasPermission, usePermissionsStore } from '@/stores/permissions.store'
@@ -13,7 +14,9 @@ export const pms = {
   resolveCycle: (detail: JobDetail, action: 'REPLACE' | 'SKIP', reason: string) => apiClient.post<{ workOrderId?: string }>(`/pms/jobs/${detail.job.id}/resolve-cycle`, { expectedJobVersion: detail.job.version, expectedCycleKey: detail.cycleKey, cancelledWorkOrderId: detail.cancelledWorkOrderId, action, reason }),
   deleteJob: (job: Job) => apiClient.delete(`/pms/jobs/${job.id}?expectedVersion=${job.version}`),
   jobReferences: () => apiClient.get<{ crew: CrewOption[]; ranks: RankOption[] }>('/pms/jobs/references'),
-  orders: (params: Record<string, unknown>) => apiClient.get<Page<WorkOrder>>('/pms/work-orders', { params }),
+  orders: (params: Record<string, unknown>) => params.equipmentAssetIds
+    ? apiClient.post<Page<WorkOrder>>('/pms/work-orders/search', params)
+    : apiClient.get<Page<WorkOrder>>('/pms/work-orders', { params }),
   order: (id: string) => apiClient.get<WorkOrderDetail>(`/pms/work-orders/${id}`),
   crew: () => apiClient.get<CrewOption[]>('/pms/work-orders/references'),
   settings: () => apiClient.get<{ vesselTimeZone: string; automaticReleaseEnabled: boolean; pmsDatasetId?: string }>('/pms/work-orders/settings'),
@@ -47,9 +50,12 @@ export function usePmsRefresh() {
 }
 export function usePmsPermissions() {
   const state = usePermissionsStore()
+  const executionOnly = useLocation().pathname.startsWith('/pms/execute-work-orders')
   return { enabled: state.loaded && state.modules.some(m => m.code === 'pms.jobs'),
-    job: (action: string) => hasPermission(state, `pms.jobs.${action}`) || hasPermission(state, `pms.config.${action}`),
-    work: (action: string) => hasPermission(state, `pms.work.${action}`), counter: (action: string) => hasPermission(state, `pms.counter.${action}`) }
+    job: (action: string) => !executionOnly && (hasPermission(state, `pms.jobs.${action}`) || hasPermission(state, `pms.config.${action}`)),
+    work: (action: string) => executionOnly
+      ? ['view', 'execute'].includes(action) && hasPermission(state, `pms.execute.${action}`)
+      : hasPermission(state, `pms.work.${action}`), counter: (action: string) => hasPermission(state, `pms.counter.${action}`) }
 }
 export function usePmsClock() {
   useMessageLocale()

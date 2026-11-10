@@ -46,7 +46,7 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
         x.Task.Id, x.Task.WorkOrderCode ?? x.Task.TaskId, x.Task.ScheduleId, x.Task.TaskDescription, x.Task.EquipmentAssetId,
         x.Task.EquipmentAssetName, x.Task.WorkOrderDueAt, x.Task.WorkOrderDueHours, x.DueState, x.Task.Status,
         x.Task.AssignedTo, db.CrewMembers.Where(c => c.CrewId == x.Task.AssignedTo).Select(c => c.FullName).FirstOrDefault(),
-        x.Task.AssignedDepartment, x.Task.Priority, x.Task.ReportRevision ?? 0, x.Task.UpdatedAt, x.Task.WorkflowVersion ?? 0));
+        x.Task.AssignedDepartment, x.Task.Priority, x.Task.ReportRevision ?? 0, x.Task.UpdatedAt, x.Task.WorkflowVersion ?? 0, x.Task.SupportingCrewIds));
 
     public async Task<PmsPage<PmsWorkOrderRow>> ListAsync(PmsWorkOrderQuery q, CancellationToken token = default)
     {
@@ -57,6 +57,14 @@ public sealed class PmsWorkOrderReadService(EdgeDbContext db, IConfiguration con
         if (q.EquipmentAssetId.HasValue)
         {
             var ids = await PmsEquipmentScope.DescendantsAsync(db, q.EquipmentAssetId.Value, token);
+            tasks = tasks.Where(t => t.EquipmentAssetId.HasValue && ids.Contains(t.EquipmentAssetId.Value));
+        }
+        if (!string.IsNullOrWhiteSpace(q.EquipmentAssetIds))
+        {
+            var keys = q.EquipmentAssetIds.Split(',');
+            if (keys.Length > 1000 || keys.Any(key => !Guid.TryParse(key, out _)))
+                throw new PmsRequestException(400, "Danh sách thiết bị không hợp lệ.");
+            var ids = await PmsEquipmentScope.DescendantsAsync(db, keys.Select(Guid.Parse).Distinct().ToArray(), token);
             tasks = tasks.Where(t => t.EquipmentAssetId.HasValue && ids.Contains(t.EquipmentAssetId.Value));
         }
         if (q.Name != null) { var term = q.Name.Trim().ToLowerInvariant(); tasks = tasks.Where(t => t.TaskDescription.ToLower().Contains(term)); }
