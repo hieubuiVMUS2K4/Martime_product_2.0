@@ -366,3 +366,36 @@ body.execute-hand-mode .edge-modal-overlay :is(.overflow-auto, .overflow-y-auto,
   width: 52px;
   height: 52px;
 }
+
+.execute-material-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; min-width: 0; }
+.execute-material-card { display: flex; flex-direction: column; min-width: 0; height: max(440px, min(700px, calc(100dvh - 280px))); border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: var(--execute-surface); }
+.execute-material-card > header { display: flex; flex-shrink: 0; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid #cbd5e1; background: #eff6ff; color: #1e3a8a; }
+.execute-material-card h2 { font-size: inherit; font-weight: 600; }
+.execute-material-card h2 span { color: #2563eb; }
+.execute-material-tools { display: flex; flex-direction: column; flex-shrink: 0; gap: 12px; padding: 16px; border-bottom: 1px solid #cbd5e1; }
+.execute-material-search { display: flex; align-items: center; position: relative; }
+.execute-material-search > svg { position: absolute; left: 14px; color: #64748b; pointer-events: none; }
+.execute-material-search input { padding-left: 48px; }
+.execute-material-catalog-scroll, .execute-material-selected-scroll { flex: 1; min-height: 0; overflow: auto; touch-action: pan-x pan-y pinch-zoom; overscroll-behavior: contain; }
+.execute-work-orders .execute-material-catalog { width: 100%; min-width: 680px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: inherit; }
+.execute-work-orders .execute-material-catalog :is(th,td) { padding: 12px; border-bottom: 1px solid #a3b1bc; border-right: 1px solid #a3b1bc; font-size: inherit; line-height: 1.5; overflow-wrap: anywhere; vertical-align: middle; }
+.execute-material-catalog th { position: sticky; top: 0; z-index: 1; background: #eff6ff; text-align: center; }
+.execute-material-catalog tbody tr:nth-child(even) { background: var(--execute-hover); }
+.execute-material-card .execute-used-materials { min-width: 800px; border-top: 0; border-left: 0; }
+.execute-material-card .used-material-code { width: 140px; }
+.execute-material-card .used-material-unit { width: 90px; }
+.execute-material-card .used-material-stock { width: 110px; }
+.execute-material-card .used-material-quantity { width: 210px; }
+.execute-material-card > footer { flex-shrink: 0; padding: 16px; border-top: 1px solid #cbd5e1; background: #f8fafc; }
+.execute-material-card > footer p { margin-top: 8px; font-size: 18px; line-height: 1.5; color: #64748b; }
+.dark .execute-material-card > header { background: #1e3a5f; color: #dbeafe; }
+.dark .execute-material-catalog th { background: #23324a; }
+.dark .execute-material-card > footer { background: #1f2937; }
+@media (max-width: 1599px) {
+  .execute-material-columns { grid-template-columns: minmax(0,1fr); }
+  .execute-material-card { height: auto; }
+  .execute-material-catalog-scroll, .execute-material-selected-scroll { max-height: 440px; flex: auto; }
+}
+
+.execute-material-columns thead { position: static; }
+.execute-material-card th { position: sticky; top: 0; z-index: 1; background: #eff6ff; }

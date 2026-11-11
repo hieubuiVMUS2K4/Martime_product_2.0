@@ -503,20 +503,13 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await evaluate(`Array.from(document.querySelectorAll('[role=tab]')).find(e=>e.textContent.includes('Vật tư sử dụng')).click()`)
     for (const scope of ['Vật tư của thiết bị','Toàn bộ vật tư']) {
       await click(scope)
-      await evaluate(`document.querySelector('input[aria-label="Tìm vật tư sử dụng"]').click()`)
-      await wait(`document.querySelectorAll('.execute-material-options tbody tr').length === 30`)
-      const picker = '.execute-work-order-panels [role=listbox]'
-      await swipe(picker, 0, -150)
-      await wait(`document.querySelector(${JSON.stringify(picker)}).scrollTop > 50`)
-      assert.equal(await evaluate(`(()=>{const menu=document.querySelector(${JSON.stringify(picker)}), head=menu.querySelector('th');return Math.abs(head.getBoundingClientRect().top-menu.getBoundingClientRect().top)<2 && getComputedStyle(head).position==='sticky' && parseFloat(getComputedStyle(head).fontSize)>=22 && parseFloat(getComputedStyle(menu).paddingTop)===0})()`), true)
-
-      assert.equal(await evaluate(`document.querySelectorAll('.execute-used-materials tbody tr input').length`), 0)
-      assert.equal(await evaluate(`document.querySelector('input[aria-label="Tìm vật tư sử dụng"]').getAttribute('aria-expanded')`), 'true')
+      await wait(`document.querySelectorAll('.execute-material-catalog tbody tr').length === 30`)
+      await swipe('.execute-material-catalog-scroll', 0, -150)
+      await wait(`document.querySelector('.execute-material-catalog-scroll').scrollTop>50`)
+      assert.equal(await evaluate(`document.querySelectorAll('.execute-used-materials tbody tr input').length`),0)
       await screen(scope === 'Toàn bộ vật tư' ? 'execute-all-materials-swipe' : 'execute-equipment-materials-swipe')
-      await evaluate(`document.querySelector('input[aria-label="Tìm vật tư sử dụng"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`)
     }
-    await evaluate(`document.querySelector('input[aria-label="Tìm vật tư sử dụng"]').click()`)
-    await evaluate(`document.querySelector('.execute-material-options tbody tr').click()`)
+    await evaluate(`document.querySelector('.execute-material-catalog tbody button').click()`)
     await wait(`!!document.querySelector('input[aria-label="Số lượng đã sử dụng"]')`)
     await evaluate(`document.querySelector('input[aria-label="Số lượng đã sử dụng"]').click()`)
     await swipe('.touch-number-options', 0, -120)
@@ -527,7 +520,15 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     assert.equal(await evaluate(`document.querySelector('.execute-used-materials .used-material-stock-value').classList.contains('used-material-stock-short')`),true)
     assert.equal(await evaluate(`Array.from(document.querySelectorAll('.execute-used-materials th')).length`),6)
     assert.equal(await evaluate(`Array.from(document.querySelectorAll('.execute-used-materials th,.execute-used-materials td')).every(cell=>parseFloat(getComputedStyle(cell).fontSize)>=22)`),true)
+    assert.equal(await evaluate(`document.querySelector('.execute-material-catalog tbody button').disabled`),true)
     await screen('execute-selected-materials-with-stock')
+    assert.equal(await evaluate(`(()=>{const cards=document.querySelectorAll('.execute-material-card');return Math.abs(cards[0].getBoundingClientRect().top-cards[1].getBoundingClientRect().top)<2})()`),true)
+    await call('Emulation.setDeviceMetricsOverride',{width:1080,height:1920,deviceScaleFactor:1,mobile:false})
+    assert.equal(await evaluate(`(()=>{const cards=document.querySelectorAll('.execute-material-card');return cards[1].getBoundingClientRect().top>=cards[0].getBoundingClientRect().bottom})()`),true)
+    await screen('execute-materials-two-panels-portrait')
+    await evaluate(`document.querySelector('.execute-used-materials button[aria-label="Bỏ dòng vật tư"]').click()`)
+    await wait(`!document.querySelector('.execute-used-materials input') && !document.querySelector('.execute-material-catalog tbody button').disabled`)
+
 
     await evaluate(`window.testNavigate('/pms/execute-work-orders')`)
     await wait(`!!document.querySelector('.execute-work-orders-list')`)
@@ -576,9 +577,9 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-open-default-and-all-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
     checks.push('execute-completed-detail-tabs', 'execute-report-selector-in-summary', 'execute-history-without-report-list')
     checks.push('execute-result-cards-all-columns-landscape', 'execute-result-cards-all-columns-portrait')
-    checks.push('execute-material-picker-sticky-header-without-row-bleed')
+    checks.push('execute-material-cards-landscape-and-portrait', 'execute-material-catalog-prevents-duplicate', 'execute-material-removal-restores-catalog-add')
     checks.push('execute-number-touch-selection-after-swipe')
-    checks.push('execute-duration-dropdown-swipe-without-selection', 'execute-number-mouse-drag-without-selection', 'execute-running-hours-dropdown-swipe', 'execute-reading-dropdown-swipe', 'execute-equipment-material-dropdown-swipe', 'execute-all-material-dropdown-swipe', 'execute-quantity-dropdown-swipe')
+    checks.push('execute-duration-dropdown-swipe-without-selection', 'execute-number-mouse-drag-without-selection', 'execute-running-hours-dropdown-swipe', 'execute-reading-dropdown-swipe', 'execute-equipment-material-catalog-swipe', 'execute-all-material-catalog-swipe', 'execute-quantity-dropdown-swipe')
     checks.push('execute-tree-checkbox-mouse-and-touch-after-drag', 'execute-tree-mouse-drag-without-text-selection', 'execute-tree-touch-swipe-without-checking', 'execute-pinned-columns-at-large-font')
     checks.push('execute-row-drag-without-text-selection', 'execute-row-link-click-after-drag', 'execute-filter-selection-scoped-to-text-fields')
     checks.push('execute-selected-materials-stock-zero', 'execute-selected-materials-stock-columns')
