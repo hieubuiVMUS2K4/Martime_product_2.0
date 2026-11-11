@@ -374,6 +374,7 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await call('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
     await evaluate(`window.testUser(true);window.testNavigate('/pms/execute-work-orders')`)
     await wait(`document.querySelectorAll('.execute-work-orders tbody tr').length === 20`)
+    assert.equal(await evaluate(`document.body.classList.contains('execute-hand-mode') && getComputedStyle(document.querySelector('.execute-equipment-row label')).cursor==='grab'`),true)
     const gridSelector = '.execute-work-orders [aria-label="Bảng dữ liệu, có thể cuộn ngang"]'
     assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(gridSelector)})).scrollbarWidth`), 'none')
     const swipe = async (selector, xDistance, yDistance) => {
@@ -397,6 +398,19 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft >= 240`)
     await dragHeader('.execute-work-orders thead th:nth-child(5)', 250)
     await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft < 10`)
+
+    await dragHeader('.execute-work-orders tbody tr:first-child td[data-column=equipment]', -180)
+    await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft > 150`)
+    assert.equal(await evaluate(`location.pathname`),'/pms/execute-work-orders')
+    assert.equal(await evaluate(`window.getSelection().toString()`),'')
+    await evaluate(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft=0`)
+    await new Promise(resolve=>setTimeout(resolve,100))
+    await evaluate(`document.querySelector('.execute-work-orders th[data-column=name] button').click()`)
+    await wait(`!!document.querySelector('.execute-work-order-filter')`)
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.execute-work-order-filter button')).userSelect`),'none')
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.execute-work-order-filter input')).userSelect`),'text')
+    await evaluate(`document.querySelector('.execute-work-order-filter form button[type=submit]').click()`)
+    await wait(`!document.querySelector('.execute-work-order-filter')`)
     await screen('execute-touch-before-swipe')
     await swipe(equipmentHeader, -250, 0)
     await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft > 100`)
@@ -433,6 +447,11 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await wait(`!!document.querySelector('[aria-busy=false]')`)
     await new Promise(resolve=>setTimeout(resolve,400))
 
+    await evaluate(`document.querySelector(${JSON.stringify(gridSelector)}).scrollLeft=0;document.querySelector(${JSON.stringify(gridSelector)}).scrollTop=0`)
+    const rowLinkPoint = await evaluate(`(()=>{const r=document.querySelector('.execute-work-orders tbody tr:first-child td[data-column=name] a').getBoundingClientRect();return {x:r.left+20,y:r.top+r.height/2}})()`)
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',...rowLinkPoint,button:'left',clickCount:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',...rowLinkPoint,button:'left',clickCount:1})
+    await wait(`location.pathname==='/pms/execute-work-orders/${woId}'`)
     await evaluate(`window.testUser(true);window.testNavigate('/pms/execute-work-orders/${woId}/execute')`)
     await wait(`!!document.querySelector('.execute-work-order-workspace')`)
     await click('Báo cáo thực hiện')
@@ -514,6 +533,13 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
       assert.equal(await evaluate(`document.querySelector('.execute-revision-trigger').getBoundingClientRect().height >= 56`), true)
       await evaluate(`document.querySelector('.execute-revision-trigger').click()`)
       await wait(`document.querySelectorAll('.execute-revision-option').length === 20`)
+      const revisionPoint = await evaluate(`(()=>{const r=document.querySelectorAll('.execute-revision-option')[3].getBoundingClientRect();return {x:r.left+40,y:r.top+25}})()`)
+      await call('Input.dispatchMouseEvent',{type:'mousePressed',...revisionPoint,button:'left',clickCount:1})
+      await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:revisionPoint.x,y:revisionPoint.y-160,button:'left',buttons:1})
+      await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:revisionPoint.x,y:revisionPoint.y-160,button:'left',clickCount:1})
+      await wait(`!!document.querySelector('.execute-revision-options') && document.querySelector('.execute-revision-options').scrollTop>100`)
+      assert.equal(await evaluate(`window.getSelection().toString()`),'')
+
       await swipe('.execute-revision-options', 0, -180)
       await wait(`document.querySelector('.execute-revision-options').scrollTop > 30`)
       assert.equal(await evaluate(`document.querySelectorAll('.execute-revision-option[aria-pressed=true]').length`), 1)
@@ -531,6 +557,8 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
 
     }
     await call('Emulation.setTouchEmulationEnabled', { enabled: false })
+    await evaluate(`window.testNavigate('/pms/work-planning?tab=orders')`)
+    await wait(`!!document.querySelector('nav[aria-label="PMS"]') && !document.body.classList.contains('execute-hand-mode')`)
     assert.deepEqual(failures, [])
     const checks = ['job-list', 'column-date-filter', 'job-form-focus-and-contrast', 'job-impact-no-write-before-confirmation', 'job-impact-invalidated-after-edit', 'history-report', 'nested-dialog-escape', 'work-orders', 'calendar', 'gantt', 'counter', 'review-readonly', 'signed-return-reason', 'approval-readable-snapshot', 'approval-no-raw-json', 'approval-malformed-report-blocked', 'signed-approve', 'uuid-hidden', 'wo-two-column-layout', 'wo-report-revision-navigation', 'wo-narrow-layout', 'wo-independent-long-content-scroll', 'wo-sticky-table-headings', 'job-group-help', 'job-help-escape-and-focus', 'job-department-follows-rank', 'job-warning-fields-follow-interval', 'execution', 'submit-hours-to-minutes', 'readonly-permissions', 'responsive', 'readonly-counter', 'separate-borders-and-pinned-columns', 'no-sort-arrow', 'toolbar-server-search', 'no-filter-banner', 'job-detail-breadcrumb', 'job-detail-readonly-materials', 'job-edit-link', 'work-orders-open-default-and-all-reset', 'icon-only-actions', 'gantt-assignee', 'gantt-row-alignment', 'gantt-pointer-resize', 'month-navigation']
     checks.push('execute-completed-detail-tabs', 'execute-report-selector-in-summary', 'execute-history-without-report-list')
@@ -539,6 +567,8 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     checks.push('execute-number-touch-selection-after-swipe')
     checks.push('execute-duration-dropdown-swipe-without-selection', 'execute-number-mouse-drag-without-selection', 'execute-running-hours-dropdown-swipe', 'execute-reading-dropdown-swipe', 'execute-equipment-material-dropdown-swipe', 'execute-all-material-dropdown-swipe', 'execute-quantity-dropdown-swipe')
     checks.push('execute-tree-checkbox-mouse-and-touch-after-drag', 'execute-tree-mouse-drag-without-text-selection', 'execute-tree-touch-swipe-without-checking', 'execute-pinned-columns-at-large-font')
+    checks.push('execute-row-drag-without-text-selection', 'execute-row-link-click-after-drag', 'execute-filter-selection-scoped-to-text-fields')
+    checks.push('execute-hand-mode-global-cursor', 'execute-hand-mode-portal-button-drag-without-selection', 'execute-hand-mode-cleanup-on-exit')
     checks.push('execute-header-drag-both-directions', 'execute-header-touch-swipe')
     checks.push('execute-touch-horizontal-swipe', 'execute-touch-vertical-swipe', 'execute-touch-panel-swipe', 'execute-hidden-scrollbars')
     checks.push('equipment-search-name-without-accents-and-code', 'equipment-keyboard-selection', 'equipment-search-escape-keeps-selection')

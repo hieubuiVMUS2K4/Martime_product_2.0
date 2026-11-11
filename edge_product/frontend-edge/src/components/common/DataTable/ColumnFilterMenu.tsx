@@ -50,6 +50,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
   useMessageLocale()
 
   const [open, setOpen] = useState(false);
+  const [touchWorkspace, setTouchWorkspace] = useState(false);
   const [search, setSearch] = useState('');
   /** Bản nháp, chỉ ghi vào bộ lọc thật khi bấm Áp dụng. */
   const [draft, setDraft] = useState<string[]>(values);
@@ -60,6 +61,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
   const isFiltered = selected !== null;
 
   const show = () => {
+    setTouchWorkspace(!!buttonRef.current?.closest('.execute-work-orders'));
     setDraft(selected ?? values);
     setSearch('');
     setOpen(true);
@@ -170,7 +172,7 @@ export const ColumnFilterMenu: React.FC<ColumnFilterMenuProps> = ({
           role="dialog"
           aria-label={tx("pmsRework.columnFilter", { p0: label })}
           style={{ ...style, width: PANEL_WIDTH }}
-          className="fixed z-[1350] flex flex-col overflow-hidden rounded-md border border-gray-300 bg-white p-1.5 text-left font-normal normal-case tracking-normal shadow-xl"
+          className={`fixed z-[1350] flex flex-col overflow-hidden rounded-md border border-gray-300 bg-white p-1.5 text-left font-normal normal-case tracking-normal shadow-xl ${touchWorkspace ? 'execute-work-order-filter' : ''}`}
         >
           {sortable && (
             <>

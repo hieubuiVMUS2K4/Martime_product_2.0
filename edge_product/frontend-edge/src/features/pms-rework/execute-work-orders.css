@@ -266,3 +266,43 @@
   text-align: center;
 }
 .execute-work-orders-list .pms-data-grid [data-fixed="left"] { left: 64px !important; }
+
+/* Prevent text selection while navigating the touch workspace and its portal menus. */
+.execute-work-orders,
+.execute-work-orders *,
+.execute-work-order-filter,
+.execute-work-order-filter * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.execute-work-orders :is(input, textarea, [contenteditable=true]),
+.execute-work-order-filter :is(input, textarea, [contenteditable=true]) {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.execute-work-orders-list :is(td, th) { cursor: grab; }
+.execute-work-orders-list :is(td, th):active { cursor: grabbing; }
+.execute-work-orders-list :is(td, th) :is(button, a) { cursor: pointer; }
+.execute-work-order-filter { touch-action: pan-y pinch-zoom; }
+.execute-work-order-filter :is(.overflow-y-auto, .overflow-auto) { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+/* The hand mode includes portalled dialogs while this workspace is mounted. */
+body.execute-hand-mode :is(.execute-work-orders, .execute-work-orders *, .edge-modal-overlay, .edge-modal-overlay *, .execute-work-order-filter, .execute-work-order-filter *) {
+  cursor: grab !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+body.execute-hand-dragging :is(.execute-work-orders, .execute-work-orders *, .edge-modal-overlay, .edge-modal-overlay *, .execute-work-order-filter, .execute-work-order-filter *) { cursor: grabbing !important; }
+body.execute-hand-mode :is(.execute-work-orders, .edge-modal-overlay, .execute-work-order-filter) :is(input:not([type=checkbox]):not([type=radio]), textarea, [contenteditable=true]) {
+  cursor: text !important;
+  user-select: text;
+  -webkit-user-select: text;
+}
+body.execute-hand-mode :is(.execute-work-orders, .edge-modal-overlay, .execute-work-order-filter) :is(button:disabled, input:disabled, select:disabled) { cursor: not-allowed !important; }
+body.execute-hand-mode .edge-modal-overlay :is(.overflow-auto, .overflow-y-auto, .execute-revision-options) {
+  touch-action: pan-x pan-y pinch-zoom;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

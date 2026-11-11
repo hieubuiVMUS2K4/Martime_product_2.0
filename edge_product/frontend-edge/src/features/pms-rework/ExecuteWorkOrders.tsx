@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, ClipboardList, FolderOpen } from 'lucide-react'
 import { useTranslationSafe } from '@/contexts/I18nContext'
 import { useEquipment } from './Forms'
 import { Orders } from './Planning'
 import WorkOrderPage from './WorkOrderPage'
 import { ErrorBox } from './ui'
-import { useDragScroll } from './useDragScroll'
+import { useExecuteHandPan } from './useExecuteHandPan'
 import type { EquipmentNode } from './types'
 import './execute-work-orders.css'
 
@@ -18,31 +18,7 @@ export default function ExecuteWorkOrders() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [treeOpen, setTreeOpen] = useState(false)
-  const treeDragScroll = useDragScroll()
-  const headerDrag = useRef<{ pointerId: number; x: number; scrollLeft: number; region: HTMLElement; moved: boolean } | null>(null)
-  const startHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
-    headerDrag.current = null
-    if (event.pointerType === 'touch' || event.button !== 0) return
-    const target = event.target as HTMLElement
-    if (target.closest('button, input, select, a, [role=button]')) return
-    const region = target.closest('th')?.closest('table')?.parentElement
-    if (!region || region.scrollWidth <= region.clientWidth) return
-    headerDrag.current = { pointerId: event.pointerId, x: event.clientX, scrollLeft: region.scrollLeft, region, moved: false }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    event.preventDefault()
-  }
-  const moveHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
-    const drag = headerDrag.current
-    if (!drag || drag.pointerId !== event.pointerId || !event.buttons) return
-    const distance = event.clientX - drag.x
-    if (!drag.moved && Math.abs(distance) < 6) return
-    drag.moved = true
-    drag.region.scrollLeft = drag.scrollLeft - distance
-    event.preventDefault()
-  }
-  const endHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-  }
+  useExecuteHandPan()
   const tree = useMemo(() => {
     const rows = equipment.data || []
     const byId = new Map(rows.map(row => [row.id, row]))
@@ -91,19 +67,13 @@ export default function ExecuteWorkOrders() {
       {open && render(row.id, depth + 1)}
     </div>
   })
-  return <div className="execute-work-orders execute-work-orders-list"
-    onPointerDown={startHeaderDrag} onPointerMove={moveHeaderDrag} onPointerUp={endHeaderDrag}
-    onPointerCancel={event => { endHeaderDrag(event); headerDrag.current = null }}
-    onClickCapture={event => {
-      if (headerDrag.current?.moved) { event.preventDefault(); event.stopPropagation() }
-      headerDrag.current = null
-    }}>
+  return <div className="execute-work-orders execute-work-orders-list">
     <button className="execute-tree-toggle" type="button" aria-expanded={treeOpen} aria-controls="execute-equipment" onClick={() => setTreeOpen(!treeOpen)}><FolderOpen />{t('pmsRework.allEquipment')}<ChevronDown /></button>
     <aside id="execute-equipment" className="execute-equipment" data-open={treeOpen}>
       <header><FolderOpen />{t('pmsRework.allEquipment')}</header>
       <div className="execute-equipment-search"><input type="search" aria-label={t('pmsRework.searchEquipment')} placeholder={t('pmsRework.searchEquipment')} value={search} onChange={event => setSearch(event.target.value)} /></div>
       <label className="execute-all-equipment"><input type="checkbox" checked={!selected.size} onChange={() => setSelected(new Set())} />{t('pmsRework.allEquipment')}</label>
-      <div className="execute-equipment-nodes" {...treeDragScroll}>
+      <div className="execute-equipment-nodes">
         {equipment.error ? <ErrorBox error={equipment.error} retry={() => void equipment.refetch()} /> : equipment.isLoading ? <p>{t('pmsRework.loading')}</p> : render('', 0)}
         {!equipment.isLoading && !equipment.error && !tree.visible.size && <p>{t('pmsRework.noMatchingData')}</p>}
       </div>
@@ -113,5 +83,6 @@ export default function ExecuteWorkOrders() {
 }
 
 export function ExecuteWorkOrderDetail({ mode = 'view' }: { mode?: 'view' | 'execute' }) {
+  useExecuteHandPan()
   return <div className={`execute-work-orders execute-work-orders-detail ${mode === 'execute' ? 'execute-work-orders-working' : ''}`}><WorkOrderPage mode={mode} /></div>
 }

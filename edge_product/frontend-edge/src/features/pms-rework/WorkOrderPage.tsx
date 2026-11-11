@@ -1,4 +1,3 @@
-import { useDragScroll } from './useDragScroll'
 import { TouchNumberCombo, isWholeUnit } from './TouchNumberCombo'
 import { translateMessage as tx, localizePmsMessage, useMessageLocale } from '@/i18n/messages'
 import { departmentName } from './departments'
@@ -45,7 +44,6 @@ function Execution({ detail, information, lastUpdated }: { detail: WorkOrderDeta
   const [materialPage, setMaterialPage] = useState(1)
   const [materialsOpen, setMaterialsOpen] = useState(false), [activeMaterial, setActiveMaterial] = useState(0)
   const materialListId = useId()
-  const materialDragScroll = useDragScroll()
   const materialSearch = useRef<HTMLInputElement>(null)
   const materialEquipmentId = materialScope === 'equipment' ? w.equipmentAssetId : undefined
   useEffect(() => { setMaterialPage(1) }, [settled, materialScope])
@@ -81,7 +79,7 @@ function Execution({ detail, information, lastUpdated }: { detail: WorkOrderDeta
           }} />
         <button type="button" aria-label={tx('pmsRework.findUsedMaterials')} className="absolute right-2 top-2 text-slate-400" onClick={() => { materialSearch.current?.focus(); setMaterialsOpen(open => !open) }}><ChevronDown size={14} /></button>
         {materialsOpen && <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded border border-gray-300 bg-white shadow-lg" onMouseDown={event => event.preventDefault()}>
-          <div role="listbox" id={materialListId} aria-label={tx('pmsRework.findUsedMaterials')} className={`max-h-56 overflow-auto ${touchExecution ? "execute-material-listbox" : "py-1"}`} {...(touchExecution ? materialDragScroll : {})}>
+          <div role="listbox" id={materialListId} aria-label={tx('pmsRework.findUsedMaterials')} className={`max-h-56 overflow-auto ${touchExecution ? "execute-material-listbox" : "py-1"}`}>
             {materials.isFetching ? <p className="px-3 py-3 text-xs text-gray-500">{tx('pmsRework.loadingMaterialNames')}</p> : touchExecution ? <table className="execute-material-options"><thead><tr><th>{tx('pmsRework.materialCode')}</th><th>{tx('pmsRework.material')}</th><th>{tx('pmsRework.unit')}</th><th>{tx('pmsRework.availableStock')}</th></tr></thead><tbody>{availableMaterials.map((material, index) => <tr role="option" tabIndex={-1} aria-selected={activeMaterial === index} id={`${materialListId}-${index}`} key={material.id} onMouseEnter={() => setActiveMaterial(index)} onClick={() => { if (form.materials.length >= 200) return; update({ materials: [...form.materials, { materialItemId: material.id, quantity: 1 }] }); setMaterialsOpen(false); setSearch('') }}><td>{material.itemCode}</td><td>{material.name}</td><td>{material.unit || '—'}</td><td>{material.onHand == null ? '—' : material.onHand.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td></tr>)}</tbody></table> : availableMaterials.map((material, index) => <button type="button" role="option" aria-selected={activeMaterial === index} id={`${materialListId}-${index}`} key={material.id} disabled={form.materials.length >= 200}
               className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm disabled:opacity-40 ${activeMaterial === index ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-blue-50'}`}
               onMouseEnter={() => setActiveMaterial(index)} onClick={() => { update({ materials: [...form.materials, { materialItemId: material.id, quantity: 1 }] }); setMaterialsOpen(false); setSearch('') }}>
@@ -129,14 +127,13 @@ function ReportRevisionPicker({ reports, value, onChange }: {
   reports: WorkOrderDetail['reports']; value: number; onChange: (revision: number) => void;
 }) {
   const [open, setOpen] = useState(false)
-  const dragScroll = useDragScroll()
   const { date } = usePmsClock()
   return <>
     <button type="button" className="execute-revision-trigger" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
       <span>{tx("pmsRework.revision")} {value}</span><ChevronDown size={24} aria-hidden="true" />
     </button>
     {open && <Modal title={tx("pmsRework.submittedReport")} onClose={() => setOpen(false)}>
-      <div className="execute-revision-options" aria-label={tx("pmsRework.submittedReport")} {...dragScroll}>
+      <div className="execute-revision-options" aria-label={tx("pmsRework.submittedReport")}>
         {reports.map(report => <button type="button" key={report.id} className="execute-revision-option" aria-pressed={report.revision === value} onClick={() => { onChange(report.revision); setOpen(false) }}>
           <span className="execute-revision-option-copy"><strong>{tx("pmsRework.revision")} {report.revision}</strong><time>{date(report.submittedAt)}</time></span>
           <span className="inline-flex items-center gap-3"><Badge value={report.decision || 'PENDING_APPROVAL'} />{report.revision === value && <CheckCircle2 size={26} aria-hidden="true" />}</span>
