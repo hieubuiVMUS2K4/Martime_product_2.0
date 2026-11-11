@@ -19,7 +19,7 @@ const page = items => ({ items, total: items.length, page: 1, pageSize: 20 })
 function fixture(url, method, body) {
   const p = new URL(url).pathname
   requests.push({ path: p, method, body, url })
-  if (p === '/api/pms/work-orders/equipment-tree') return [{ id: 'folder', assetName: 'Thiết bị boong', category: 'SYSTEM', isActive: true }, { id: assetId, parentId: 'folder', assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
+  if (p === '/api/pms/work-orders/equipment-tree') return [{ id: 'folder', assetName: 'Thiết bị boong', category: 'SYSTEM', isActive: true }, { id: assetId, parentId: 'folder', assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }, ...Array.from({length:40},(_,i)=>({id:`tree-${i}`,assetCode:`TREE-${i}`,assetName:`Thiết bị thử ${i+1}`,category:'SYSTEM',isActive:true}))]
   if (p === '/api/pms/jobs/import-equipment') return [{ id: assetId, assetCode: 'PUMP-001', assetName: job.equipmentName, category: 'DECK', isActive: true }]
   if (p === '/api/pms/jobs/references') return { crew: [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }], ranks: [{ id: 1, rankName: 'Đại phó', department: 'DECK' }, { id: 2, rankName: 'Máy trưởng', department: 'ENGINE' }] }
   if (p === '/api/pms/jobs/preview') return { previousDueAt: null, nextDueAt: job.nextDueAt, state: 'ACTIVE', openWorkOrders: 0, baselineChanged: false, reasonRequired: false, usesApprovedExecution: false, automaticReleaseRequested: false, missingInformation: [] }
@@ -37,8 +37,8 @@ function fixture(url, method, body) {
   if (p === '/api/pms/work-orders/settings') return { vesselTimeZone: 'Asia/Ho_Chi_Minh', automaticReleaseEnabled: false }
   if (p === '/api/pms/work-orders/references') return [{ id: assetId, crewId: 'THIRD-OFFICER', fullName: 'Phó ba' }]
   if (p === '/api/pms/work-orders/material-options') return page(touchMode ? Array.from({ length: 30 }, (_, i) => ({ id: i === 0 ? materialId : `touch-material-${i}`, itemCode: `PART-${i}`, name: i === 0 ? 'Gioăng bơm' : `Vật tư ${i}`, unit: 'PCS', onHand: 100 })) : [{ id: materialId, itemCode: 'GASKET', name: 'Gioăng bơm', unit: 'PCS', onHand: 10 }])
-  if (p === '/api/pms/work-orders') {
-    const params = new URL(url).searchParams
+  if (p === '/api/pms/work-orders' || p === '/api/pms/work-orders/search') {
+    const params = p.endsWith('/search') ? new URLSearchParams({status: body?.status || 'OPEN'}) : new URL(url).searchParams
     const rows = touchMode ? Array.from({ length: 20 }, (_, i) => ({ ...work(), id: i === 0 ? woId : `touch-order-${i}`, name: `${job.name} ${i + 1}` })) : [work(), { ...work(), id: '55555555-5555-4555-8555-555555555555', code: 'WO-COMPLETED', name: 'Bảo dưỡng đã hoàn thành', status: 'COMPLETED' }, { ...work(), id: '66666666-6666-4666-8666-666666666666', name: 'WO đã hủy cần ẩn', status: 'CANCELLED' }]
     return page(rows.filter(w => (params.get('status') === 'ALL' || params.get('status') === 'OPEN' ? params.get('status') === 'ALL' || !['COMPLETED','CANCELLED','DRAFT'].includes(w.status) : w.status === params.get('status')) && (params.get('excludeCancelled') !== 'true' || w.status !== 'CANCELLED')))
   }
@@ -404,7 +404,36 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     await swipe(gridSelector, 0, -420)
     await wait(`document.querySelector(${JSON.stringify(gridSelector)}).scrollTop > 100`)
     await screen('execute-touch-swipe-list')
-    await evaluate(`window.testNavigate('/pms/execute-work-orders/${woId}/execute')`)
+    for (const font of ['16px', '24px']) {
+      await evaluate(`document.documentElement.style.fontSize='${font}'`)
+      assert.equal(await evaluate(`(()=>{const index=document.querySelector('.execute-work-orders tbody [data-column=index]').getBoundingClientRect();const name=document.querySelector('.execute-work-orders tbody [data-fixed=left]').getBoundingClientRect();return Math.abs(index.right-name.left)<2})()`),true)
+    }
+    await evaluate(`document.documentElement.style.fontSize='16px';document.querySelector('.execute-equipment-nodes').scrollTop=0`)
+    const treePoint = await evaluate(`(()=>{const r=document.querySelectorAll('.execute-equipment-row label span')[5].getBoundingClientRect();return {x:r.left+30,y:r.top+15}})()`)
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',...treePoint,button:'left',clickCount:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:treePoint.x,y:treePoint.y-180,button:'left',buttons:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:treePoint.x,y:treePoint.y-180,button:'left',clickCount:1})
+    await wait(`document.querySelector('.execute-equipment-nodes').scrollTop>100`)
+    assert.equal(await evaluate(`document.querySelectorAll('.execute-equipment-nodes input:checked').length`),0)
+    assert.equal(await evaluate(`window.getSelection().toString()`),'')
+    await swipe('.execute-equipment-nodes',0,-220)
+    await wait(`document.querySelector('.execute-equipment-nodes').scrollTop>220`)
+    assert.equal(await evaluate(`document.querySelectorAll('.execute-equipment-nodes input:checked').length`),0)
+    await screen('execute-tree-after-drag-and-swipe')
+    await evaluate(`document.querySelector('.execute-equipment-nodes').scrollTop=0`)
+    await new Promise(resolve=>setTimeout(resolve,500))
+    const checkboxPoint = await evaluate(`(()=>{const r=document.querySelector('.execute-equipment-nodes input').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`)
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',...checkboxPoint,button:'left',clickCount:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',...checkboxPoint,button:'left',clickCount:1})
+    await wait(`document.querySelectorAll('.execute-equipment-nodes input:checked').length===1`)
+    await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...checkboxPoint,id:1}]})
+    await new Promise(resolve=>setTimeout(resolve,80))
+    await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+    await wait(`document.querySelectorAll('.execute-equipment-nodes input:checked').length===0`)
+    await wait(`!!document.querySelector('[aria-busy=false]')`)
+    await new Promise(resolve=>setTimeout(resolve,400))
+
+    await evaluate(`window.testUser(true);window.testNavigate('/pms/execute-work-orders/${woId}/execute')`)
     await wait(`!!document.querySelector('.execute-work-order-workspace')`)
     await click('Báo cáo thực hiện')
     await call('Emulation.setDeviceMetricsOverride', { width: 1080, height: 600, deviceScaleFactor: 1, mobile: false })
@@ -509,6 +538,7 @@ const h=React.createElement;createRoot(document.getElementById('root')).render(h
     checks.push('execute-material-picker-sticky-header-without-row-bleed')
     checks.push('execute-number-touch-selection-after-swipe')
     checks.push('execute-duration-dropdown-swipe-without-selection', 'execute-number-mouse-drag-without-selection', 'execute-running-hours-dropdown-swipe', 'execute-reading-dropdown-swipe', 'execute-equipment-material-dropdown-swipe', 'execute-all-material-dropdown-swipe', 'execute-quantity-dropdown-swipe')
+    checks.push('execute-tree-checkbox-mouse-and-touch-after-drag', 'execute-tree-mouse-drag-without-text-selection', 'execute-tree-touch-swipe-without-checking', 'execute-pinned-columns-at-large-font')
     checks.push('execute-header-drag-both-directions', 'execute-header-touch-swipe')
     checks.push('execute-touch-horizontal-swipe', 'execute-touch-vertical-swipe', 'execute-touch-panel-swipe', 'execute-hidden-scrollbars')
     checks.push('equipment-search-name-without-accents-and-code', 'equipment-keyboard-selection', 'equipment-search-escape-keeps-selection')

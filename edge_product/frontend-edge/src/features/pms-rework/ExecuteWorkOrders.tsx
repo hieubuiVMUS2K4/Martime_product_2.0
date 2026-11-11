@@ -5,6 +5,7 @@ import { useEquipment } from './Forms'
 import { Orders } from './Planning'
 import WorkOrderPage from './WorkOrderPage'
 import { ErrorBox } from './ui'
+import { useDragScroll } from './useDragScroll'
 import type { EquipmentNode } from './types'
 import './execute-work-orders.css'
 
@@ -17,6 +18,7 @@ export default function ExecuteWorkOrders() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [treeOpen, setTreeOpen] = useState(false)
+  const treeDragScroll = useDragScroll()
   const headerDrag = useRef<{ pointerId: number; x: number; scrollLeft: number; region: HTMLElement; moved: boolean } | null>(null)
   const startHeaderDrag = (event: PointerEvent<HTMLDivElement>) => {
     headerDrag.current = null
@@ -101,7 +103,7 @@ export default function ExecuteWorkOrders() {
       <header><FolderOpen />{t('pmsRework.allEquipment')}</header>
       <div className="execute-equipment-search"><input type="search" aria-label={t('pmsRework.searchEquipment')} placeholder={t('pmsRework.searchEquipment')} value={search} onChange={event => setSearch(event.target.value)} /></div>
       <label className="execute-all-equipment"><input type="checkbox" checked={!selected.size} onChange={() => setSelected(new Set())} />{t('pmsRework.allEquipment')}</label>
-      <div className="execute-equipment-nodes">
+      <div className="execute-equipment-nodes" {...treeDragScroll}>
         {equipment.error ? <ErrorBox error={equipment.error} retry={() => void equipment.refetch()} /> : equipment.isLoading ? <p>{t('pmsRework.loading')}</p> : render('', 0)}
         {!equipment.isLoading && !equipment.error && !tree.visible.size && <p>{t('pmsRework.noMatchingData')}</p>}
       </div>
