@@ -306,3 +306,63 @@ body.execute-hand-mode .edge-modal-overlay :is(.overflow-auto, .overflow-y-auto,
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+
+.execute-material-workspace { min-width: 0; }
+.execute-work-orders .execute-used-materials {
+  width: 100%;
+  min-width: 1100px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-top: 1px solid #a3b1bc;
+  border-left: 1px solid #a3b1bc;
+  font-size: inherit;
+}
+.execute-used-materials .used-material-code { width: 170px; }
+.execute-used-materials .used-material-unit { width: 110px; }
+.execute-used-materials .used-material-stock { width: 150px; }
+.execute-used-materials .used-material-quantity { width: 230px; }
+.execute-used-materials .used-material-action { width: 76px; }
+.execute-work-orders .execute-used-materials :is(th, td) {
+  border: 0;
+  border-right: 1px solid #a3b1bc;
+  border-bottom: 1px solid #a3b1bc;
+  padding: 14px;
+  font-size: inherit;
+  line-height: 1.5;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.execute-used-materials tbody tr:nth-child(even) { background: var(--execute-hover); }
+.used-material-stock-value {
+  display: inline-block;
+  min-width: 64px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #166534;
+  background: #f0fdf4;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.used-material-stock-short { color: #b91c1c; background: #fef2f2; }
+.execute-used-materials .used-material-empty { height: 110px; text-align: center; color: #64748b; }
+.dark .used-material-stock-value { color: #86efac; background: #14532d; }
+.dark .used-material-stock-short { color: #fca5a5; background: #7f1d1d; }
+
+.execute-material-workspace > div:first-child {
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: var(--execute-surface);
+  margin-bottom: 20px;
+}
+.execute-material-workspace .relative > svg { top: 15px; left: 14px; }
+.execute-material-workspace .relative > button {
+  top: 0;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+}
