@@ -88,7 +88,16 @@ public sealed class PmsWorkOrdersController(PmsWorkOrderReadService orders, PmsW
         var total = await source.CountAsync(token);
         var items = await source.OrderBy(m => m.Name).ThenBy(m => m.Id).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
             .Select(m => new { m.Id, m.ItemCode, m.Name, m.Unit, onHand = db.InventoryStocks.Where(s => s.MaterialItemId == m.Id).Sum(s => (decimal?)s.Quantity) ?? 0m }).ToListAsync(token);
-        return Ok(new { items, total, query.Page, query.PageSize });
+        var materialIds = items.Select(item => item.Id).ToArray();
+        var warehouseStocks = await (from stock in db.InventoryStocks.AsNoTracking()
+            join location in db.StoreLocations.AsNoTracking() on stock.StoreLocationId equals location.Id
+            where materialIds.Contains(stock.MaterialItemId)
+            group stock by new { stock.MaterialItemId, location.Id, location.LocationCode, location.Name } into warehouse
+            select new { warehouse.Key.MaterialItemId, warehouse.Key.Id, code = warehouse.Key.LocationCode, name = warehouse.Key.Name, quantity = warehouse.Sum(stock => stock.Quantity) })
+            .OrderBy(stock => stock.name).ThenBy(stock => stock.Id).ToListAsync(token);
+        var byMaterial = warehouseStocks.ToLookup(stock => stock.MaterialItemId);
+        return Ok(new { items = items.Select(item => new { item.Id, item.ItemCode, item.Name, item.Unit, item.onHand,
+            warehouses = byMaterial[item.Id].Select(stock => new { stock.Id, stock.code, stock.name, stock.quantity }) }), total, query.Page, query.PageSize });
     }
     [HttpGet("equipment-tree")]
     public async Task<IActionResult> EquipmentTree(CancellationToken token) => Ok(await db.EquipmentAssets.AsNoTracking()

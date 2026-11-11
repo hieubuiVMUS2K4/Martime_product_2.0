@@ -5030,6 +5030,8 @@
     "reworkRequested": "Yêu cầu làm lại:",
     "executionReport": "Báo cáo thực hiện",
     "materialSelected": "Đã chọn",
+    "warehouse": "Kho",
+    "totalStock": "Tổng tồn",
     "materialStore": "Kho vật tư",
     "selectedMaterialsTitle": "Vật tư đã chọn",
     "addMaterial": "Thêm",

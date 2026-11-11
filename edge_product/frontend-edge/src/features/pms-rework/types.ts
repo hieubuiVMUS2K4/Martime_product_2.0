@@ -61,6 +61,6 @@ export interface Submission {
   contributors: { userId: number; crewId: string }[];
 }
 export interface HistoryRow { id: string; workOrderId: string; workOrderCode?: string; sourceExecutedAt: string; submittedAt?: string; approvedAt?: string; completedBy?: string; approvedBy?: string; executedRunningHours?: number; isLegacy: boolean; hasReport: boolean }
-export interface MaterialOption { id: string; itemCode: string; name: string; unit?: string; onHand: number }
+export interface MaterialOption { id: string; itemCode: string; name: string; unit?: string; onHand: number; warehouses?: { id: string; code: string; name: string; quantity: number }[] }
 export interface Counter { id: string; assetCode: string; assetName: string; currentRunningHours?: number; lastRunningHoursUpdate?: string }
 export interface EquipmentNode { id: string; assetCode: string; assetName: string; category: string; parentId?: string; isActive: boolean; status: string }

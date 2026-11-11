@@ -3,7 +3,7 @@ import { translateMessage as tx, localizePmsMessage, useMessageLocale } from '@/
 import { departmentName } from './departments'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Eye, Package, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Eye, Plus, Search, Trash2 } from 'lucide-react'
 import { TablePagination } from '@/components/common/DataTable'
 import { useAuthStore } from '@/stores/auth.store'
 import { AdHocForm, CrewSelect, SupportSelect } from './Forms'
@@ -70,39 +70,48 @@ function Execution({ detail, information, lastUpdated }: { detail: WorkOrderDeta
     setDirty(true)
   }
   const usedMaterialsTable = <><table className={touchExecution ? 'execute-used-materials' : 'w-full text-xs'}>
-        {touchExecution && <colgroup><col className="used-material-code" /><col /><col className="used-material-unit" /><col className="used-material-stock" /><col className="used-material-quantity" /><col className="used-material-action" /></colgroup>}
-        <thead className="bg-blue-50"><tr>{[...(touchExecution ? [tx("pmsRework.materialCode")] : []), tx("pmsRework.material"), tx("pmsRework.unit"), ...(touchExecution ? [tx("pmsRework.availableStock")] : []), tx("pmsRework.quantityUsed"), ''].map((title, index) => <th key={index} className="border border-[#a3b1bc] p-2 text-center font-semibold">{title}</th>)}</tr></thead>
+        {touchExecution && <colgroup><col className="used-material-code" /><col /><col className="used-material-unit" /><col className="used-material-warehouse" /><col className="used-material-stock" /><col className="used-material-quantity" /><col className="used-material-action" /></colgroup>}
+        <thead className="bg-blue-50"><tr>{[...(touchExecution ? [tx("pmsRework.materialCode")] : []), tx("pmsRework.material"), tx("pmsRework.unit"), ...(touchExecution ? [tx("pmsRework.warehouse"), tx("pmsRework.totalStock")] : []), tx("pmsRework.quantityUsed"), touchExecution ? tx("pmsRework.actions") : ''].map((title, index) => <th key={index} className="border border-[#a3b1bc] p-2 text-center font-semibold">{title}</th>)}</tr></thead>
         <tbody>{form.materials.map(m => {
           const material = names.get(m.materialItemId)
           return <tr key={m.materialItemId}>
             {touchExecution && <td className="border border-[#a3b1bc] p-2">{material?.itemCode || '—'}</td>}
             <td className="border border-[#a3b1bc] p-2">{material?.name || tx("pmsRework.loadingMaterialNames")}</td>
             <td className="border border-[#a3b1bc] p-2 text-center">{material?.unit || '—'}</td>
+            {touchExecution && <td className="border border-[#a3b1bc] p-2">{material?.warehouses?.map(stock => stock.name || stock.code).join(', ') || '—'}</td>}
             {touchExecution && <td className="border border-[#a3b1bc] p-2 text-center"><span className={`used-material-stock-value ${material?.onHand != null && material.onHand < m.quantity ? 'used-material-stock-short' : ''}`}>{material?.onHand == null ? '—' : material.onHand.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span></td>}
             <td className="w-40 border border-[#a3b1bc] p-2">{touchExecution ? <TouchNumberCombo label={tx("pmsRework.quantityUsed444")} min={0.000001} whole={isWholeUnit(material?.unit)} value={m.quantity} suggestions={isWholeUnit(material?.unit) ? [1, 2, 3, 5, 10, 20, 50] : [0.25, 0.5, 1, 2, 5, 10, 20]} onChange={value => update({ materials: form.materials.map(p => p === m ? { ...p, quantity: value === "" ? 0 : Number(value) } : p) })} /> : <input aria-label={tx("pmsRework.quantityUsed444")} className={input} type="number" step="0.000001" min="0.000001" value={m.quantity} onChange={e => update({ materials: form.materials.map(p => p === m ? { ...p, quantity: Number(e.target.value) } : p) })} />}</td>
             <td className="w-12 border border-[#a3b1bc] p-2 text-center"><ActionIcon label={tx("pmsRework.removeMaterialRow")} icon={<Trash2 />} danger onClick={() => update({ materials: form.materials.filter(p => p !== m) })} /></td>
           </tr>
-        })}{touchExecution && !form.materials.length && <tr><td colSpan={6} className="used-material-empty">{tx("pmsRework.noMaterialUsageRecordedYet")}</td></tr>}</tbody>
+        })}{touchExecution && !form.materials.length && <tr><td colSpan={7} className="used-material-empty">{tx("pmsRework.noMaterialUsageRecordedYet")}</td></tr>}</tbody>
       </table>
       {touchExecution && selected.error && <ErrorBox error={selected.error} retry={() => void selected.refetch()} />}</>
   const touchMaterials = <div className="execute-material-columns">
     <section className="execute-material-card">
-      <header><Package size={28} aria-hidden="true" /><h2>{tx('pmsRework.materialStore')}</h2></header>
       <div className="execute-material-tools">
         <div className="flex flex-wrap gap-2">{(['equipment', 'all'] as const).map(scope => <button type="button" key={scope} disabled={scope === 'equipment' && !w.equipmentAssetId} aria-pressed={materialScope === scope} className={`${button} ${materialScope === scope ? '!border-blue-500 !bg-blue-50 !text-blue-600' : ''}`} onClick={() => { setMaterialScope(scope); setMaterialPage(1) }}>{tx(scope === 'equipment' ? 'pmsRework.equipmentMaterials' : 'pmsRework.allMaterials')}</button>)}</div>
         <label className="execute-material-search"><Search size={24} aria-hidden="true" /><input className={input} type="search" aria-label={tx('pmsRework.findUsedMaterials')} placeholder={tx('pmsRework.searchUsedMaterialCodeOrName')} value={search} onChange={event => { setSearch(event.target.value); setMaterialPage(1) }} /></label>
       </div>
       <div className="execute-material-catalog-scroll" tabIndex={0} aria-label={tx('pmsRework.materialStore')}>
-        <table className="execute-material-catalog"><colgroup><col style={{width:150}} /><col /><col style={{width:100}} /><col style={{width:130}} /><col style={{width:130}} /></colgroup><thead><tr>{[tx('pmsRework.materialCode'), tx('pmsRework.material'), tx('pmsRework.unit'), tx('pmsRework.availableStock'), tx('pmsRework.actions')].map(title => <th key={title}>{title}</th>)}</tr></thead><tbody>
-          {(materials.data?.items || []).map(material => <tr key={material.id}><td>{material.itemCode}</td><td>{material.name}</td><td className="text-center">{material.unit || '—'}</td><td className="text-center">{material.onHand == null ? '—' : material.onHand.toLocaleString(undefined, {maximumFractionDigits:6})}</td><td className="text-center"><button type="button" className={button} disabled={form.materials.length >= 200 || form.materials.some(row => row.materialItemId === material.id)} aria-label={`${tx('pmsRework.addMaterial')} ${material.name}`} onClick={() => addMaterial(material)}>{form.materials.some(row => row.materialItemId === material.id) ? tx('pmsRework.materialSelected') : <><Plus size={22} aria-hidden="true" />{tx('pmsRework.addMaterial')}</>}</button></td></tr>)}
-          {!materials.data?.items.length && <tr><td colSpan={5} className="used-material-empty">{tx(materials.isFetching ? 'pmsRework.loadingMaterialNames' : 'pmsRework.noMatchingMaterials')}</td></tr>}
-        </tbody></table>
+        <table className="execute-material-catalog"><colgroup><col style={{width:140}} /><col /><col style={{width:90}} /><col style={{width:190}} /><col style={{width:120}} /><col style={{width:130}} /></colgroup>
+          <thead><tr>{[tx('pmsRework.materialCode'), tx('pmsRework.material'), tx('pmsRework.unit'), tx('pmsRework.warehouse'), tx('pmsRework.availableStock'), tx('pmsRework.actions')].map(title => <th key={title}>{title}</th>)}</tr></thead>
+          <tbody>{(materials.data?.items || []).flatMap(material => {
+            const stocks = material.warehouses?.length ? material.warehouses : [{id:'unassigned', name:'—', code:'', quantity:material.onHand}]
+            const picked = form.materials.some(row => row.materialItemId === material.id)
+            return stocks.map((stock, index) => <tr key={`${material.id}-${stock.id}`}>
+              {index === 0 && <><td rowSpan={stocks.length}>{material.itemCode}</td><td rowSpan={stocks.length}>{material.name}</td><td rowSpan={stocks.length} className="text-center">{material.unit || '—'}</td></>}
+              <td>{stock.name || stock.code}</td><td className="text-center">{stock.quantity == null ? '—' : stock.quantity.toLocaleString(undefined, {maximumFractionDigits:6})}</td>
+              {index === 0 && <td rowSpan={stocks.length} className="material-catalog-action text-center"><button type="button" className={button} disabled={form.materials.length >= 200 || picked} aria-label={`${tx('pmsRework.addMaterial')} ${material.name}`} onClick={() => addMaterial(material)}>{picked ? tx('pmsRework.materialSelected') : <><Plus size={22} aria-hidden="true" />{tx('pmsRework.addMaterial')}</>}</button></td>}
+            </tr>)
+          })}
+          {!materials.data?.items.length && <tr><td colSpan={6} className="used-material-empty">{tx(materials.isFetching ? 'pmsRework.loadingMaterialNames' : 'pmsRework.noMatchingMaterials')}</td></tr>}
+          </tbody>
+        </table>
         {materials.error && <ErrorBox error={materials.error} retry={() => void materials.refetch()} />}
       </div>
       <TablePagination page={materialPage} pageSize={30} totalItems={materials.data?.total || 0} onPageChange={setMaterialPage} />
     </section>
     <section className="execute-material-card">
-      <header><CheckCircle2 size={28} aria-hidden="true" /><h2>{tx('pmsRework.selectedMaterialsTitle')} <span>({form.materials.length})</span></h2></header>
       <div className="execute-material-selected-scroll" tabIndex={0} aria-label={tx('pmsRework.selectedMaterialsTitle')}>{usedMaterialsTable}</div>
       <footer><strong>{tx('pmsRework.materialTypeCount', {p0:form.materials.length})}</strong><p>{tx('pmsRework.stockIsCheckedAndPostedWhenTheReport')}</p></footer>
     </section>

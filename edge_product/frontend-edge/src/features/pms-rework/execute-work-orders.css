@@ -381,11 +381,11 @@ body.execute-hand-mode .edge-modal-overlay :is(.overflow-auto, .overflow-y-auto,
 .execute-work-orders .execute-material-catalog :is(th,td) { padding: 12px; border-bottom: 1px solid #a3b1bc; border-right: 1px solid #a3b1bc; font-size: inherit; line-height: 1.5; overflow-wrap: anywhere; vertical-align: middle; }
 .execute-material-catalog th { position: sticky; top: 0; z-index: 1; background: #eff6ff; text-align: center; }
 .execute-material-catalog tbody tr:nth-child(even) { background: var(--execute-hover); }
-.execute-material-card .execute-used-materials { min-width: 800px; border-top: 0; border-left: 0; }
-.execute-material-card .used-material-code { width: 140px; }
-.execute-material-card .used-material-unit { width: 90px; }
-.execute-material-card .used-material-stock { width: 110px; }
-.execute-material-card .used-material-quantity { width: 210px; }
+.execute-material-card .execute-used-materials { min-width: 880px; border-top: 0; border-left: 0; }
+.execute-material-card .used-material-code { width: 120px; }
+.execute-material-card .used-material-unit { width: 80px; }
+.execute-material-card .used-material-stock { width: 90px; }
+.execute-material-card .used-material-quantity { width: 180px; }
 .execute-material-card > footer { flex-shrink: 0; padding: 16px; border-top: 1px solid #cbd5e1; background: #f8fafc; }
 .execute-material-card > footer p { margin-top: 8px; font-size: 18px; line-height: 1.5; color: #64748b; }
 .dark .execute-material-card > header { background: #1e3a5f; color: #dbeafe; }
@@ -399,3 +399,17 @@ body.execute-hand-mode .edge-modal-overlay :is(.overflow-auto, .overflow-y-auto,
 
 .execute-material-columns thead { position: static; }
 .execute-material-card th { position: sticky; top: 0; z-index: 1; background: #eff6ff; }
+
+.execute-material-card .used-material-warehouse { width: 140px; }
+.execute-work-orders .execute-material-catalog { min-width: 850px; }
+.execute-material-catalog .material-catalog-action,
+.execute-used-materials tbody td:last-child:not([colspan]) {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--execute-surface);
+  box-shadow: -1px 0 #a3b1bc;
+}
+.execute-material-card :is(.execute-material-catalog, .execute-used-materials) th:last-child { right: 0; z-index: 3; box-shadow: -1px 0 #a3b1bc; }
+
+.execute-material-card .used-material-action { width: 110px; }

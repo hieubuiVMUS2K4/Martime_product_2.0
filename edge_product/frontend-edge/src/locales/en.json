@@ -5030,6 +5030,8 @@
     "reworkRequested": "Rework requested:",
     "executionReport": "Execution report",
     "materialSelected": "Selected",
+    "warehouse": "Warehouse",
+    "totalStock": "Total stock",
     "materialStore": "Material store",
     "selectedMaterialsTitle": "Selected materials",
     "addMaterial": "Add",

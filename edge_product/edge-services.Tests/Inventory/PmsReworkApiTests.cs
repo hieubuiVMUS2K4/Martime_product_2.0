@@ -105,6 +105,30 @@ public class PmsReworkApiTests
 [Collection("PMS inventory")]
 public class PmsReworkApiPostgresTests(PmsDatabaseFixture fixture)
 {
+    [Fact]
+    public async Task MaterialSelectorIncludesStockGroupedByWarehouse()
+    {
+        await using var db = fixture.CreateContext();
+        var code = "WAREHOUSE-" + Guid.NewGuid().ToString("N")[..8];
+        var category = new MaterialCategory { CategoryCode = code, Name = code };
+        db.Add(category); await db.SaveChangesAsync();
+        var material = new MaterialItem { ItemCode = code, Name = code, Unit = "PCS", CategoryId = category.Id };
+        var engine = new StoreLocation { LocationCode = code + "-E", Name = "Engine store" };
+        var deck = new StoreLocation { LocationCode = code + "-D", Name = "Deck store" };
+        db.AddRange(material, engine, deck);
+        db.InventoryStocks.AddRange(new() { MaterialItemId = material.Id, StoreLocationId = engine.Id, Quantity = 5 },
+            new() { MaterialItemId = material.Id, StoreLocationId = deck.Id, Quantity = 2 });
+        await db.SaveChangesAsync();
+        var config = new ConfigurationBuilder().Build();
+        var controller = new PmsWorkOrdersController(new(db, config), new(db, new(db), config), db, Mock.Of<IEdgeRuntimeConfigService>(), config);
+        var response = JsonSerializer.SerializeToElement(Assert.IsType<OkObjectResult>(await controller.MaterialOptions(new() { SelectedIds = material.Id.ToString() }, default)).Value);
+        var item = Assert.Single(response.GetProperty("items").EnumerateArray());
+        Assert.Equal(7m, item.GetProperty("onHand").GetDecimal());
+        var stocks = item.GetProperty("warehouses").EnumerateArray().ToArray();
+        Assert.Equal(2, stocks.Length);
+        Assert.Contains(stocks, stock => stock.GetProperty("name").GetString() == engine.Name && stock.GetProperty("quantity").GetDecimal() == 5m);
+        Assert.Contains(stocks, stock => stock.GetProperty("name").GetString() == deck.Name && stock.GetProperty("quantity").GetDecimal() == 2m);
+    }
     [PmsPostgresFact]
     public async Task CounterGridAndMaterialSelectorPageAtDatabase_ExposeOnlyNeededFields()
     {
