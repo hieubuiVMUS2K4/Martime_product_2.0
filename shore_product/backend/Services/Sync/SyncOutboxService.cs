@@ -288,10 +288,18 @@ public class SyncOutboxService : ISyncOutboxService
 
             await VesselSyncIdentity.BindPendingRoutesAsync(_context, nodeId);
             await EnsurePendingCrewReferencesAsync(nodeId);
+            var pendingSmsChapters = await EnsureSmsChaptersAsync(nodeId);
             var query = _context.SyncOutbox
                 .Where(o => (o.TargetNode != nodeId ? !_context.SyncOutboxDeliveries.Any(d => d.OutboxId == o.Id && d.NodeId == nodeId) : o.DeliveredAt == null))
                 .Where(o => o.TargetNode == nodeId || (o.TargetNode == "*" && SharedCatalogTableList.Contains(o.TableName)))
                 .Where(o => o.Id > afterId);
+
+            // A fresh Edge may have no ISM chapters. Wait for their ACK before sending
+            // procedures/templates, even when old procedure events precede the repair
+            // snapshots in the outbox or the response is split across pages.
+            if (pendingSmsChapters)
+                query = query.Where(o => o.TableName != "sms_procedure" && o.TableName != "sms_procedures" &&
+                    o.TableName != "sms_form_template" && o.TableName != "sms_form_templates");
 
             if (since.HasValue)
                 query = query.Where(o => o.CreatedAt >= since.Value);
@@ -435,6 +443,25 @@ public class SyncOutboxService : ISyncOutboxService
         states.Add(new SyncStreamState { Key = "outbox", Epoch = epoch });
         await _context.SaveChangesAsync();
         return epoch;
+    }
+
+    private async Task<bool> EnsureSmsChaptersAsync(string nodeId)
+    {
+        if (!await _context.SmsProcedures.AsNoTracking().AnyAsync()) return false;
+
+        // Seed data is not automatically published. Bootstrap each receiver from
+        // Shore's actual catalog, and repair queues created before this dependency
+        // was included. Targeted snapshots give each vessel its own delivery ACK.
+        var queuedKeys = await _context.SyncOutbox.AsNoTracking()
+            .Where(o => o.TargetNode == nodeId && (o.TableName == "ism_element" || o.TableName == "ism_elements") &&
+                o.ActionType != SyncActionType.DELETE)
+            .Select(o => o.RecordKey).ToListAsync();
+        foreach (var chapter in await _context.IsmElements.AsNoTracking().OrderBy(e => e.Id).ToListAsync())
+            if (!queuedKeys.Contains(chapter.Id.ToString()))
+                await EnqueueAsync(nodeId, "ism_element", chapter.Id.ToString(), SyncActionType.SNAPSHOT, chapter);
+
+        return await _context.SyncOutbox.AsNoTracking().AnyAsync(o => o.DeliveredAt == null && o.TargetNode == nodeId &&
+            (o.TableName == "ism_element" || o.TableName == "ism_elements") && o.ActionType != SyncActionType.DELETE);
     }
 
     private async Task EnsurePendingCrewReferencesAsync(string nodeId)
