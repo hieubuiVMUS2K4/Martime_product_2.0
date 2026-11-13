@@ -18,6 +18,40 @@ const translationCore = load('contexts/I18nContext.tsx', { ...catalogImports, '@
 testMessages = load('i18n/messages.ts', { ...catalogImports, '@/contexts/I18nContext': translationCore, '@/stores/settings.store': { useSettingsStore: { getState: () => ({ language: testLanguage }) } } })
 const time = load('features/pms-rework/time.ts')
 
+test('execution checklist only offers measurements for required items in touch and regular WO views', () => {
+  const React = require('react')
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const touchNumbers = load('features/pms-rework/TouchNumberCombo.tsx', { './ui': { input: '' } })
+  const { ExecutionChecklistTable, normalizeChecklistReadings } = load('features/pms-rework/ExecutionChecklistTable.tsx', {
+    './TouchNumberCombo': touchNumbers, './ui': { input: '' },
+  })
+  const item = { id: 'inspection', checkpointDescription: 'Inspect seals', requiresReading: false, sequenceOrder: 1 }
+  const measurement = { id: 'temperature', checkpointDescription: 'Temperature', requiresReading: true, sequenceOrder: 2, normalRangeMin: 0, normalRangeMax: 100, unit: '°C' }
+  const value = (id, reading) => ({ id, completed: true, reading, remarks: 'Checked' })
+  const render = (items, touch) => renderToStaticMarkup(React.createElement(ExecutionChecklistTable, {
+    items, touch, values: items.map(i => value(i.id, 0)), onChange() {},
+  }))
+  for (const touch of [false, true]) {
+    const booleanOnly = render([item], touch)
+    assert.doesNotMatch(booleanOnly, /type="number"|role="combobox"|Giá trị đo|—/)
+    assert.match(booleanOnly, /type="checkbox"/)
+    assert.match(booleanOnly, /Checked/)
+    const mixed = render([item, measurement], touch)
+    assert.equal((mixed.match(touch ? /role="combobox"/g : /type="number"/g) || []).length, 1)
+    assert.match(mixed, /0 – 100/)
+    assert.match(mixed, /value="0"/)
+    assert.equal((mixed.match(/type="checkbox"/g) || []).length, 2)
+    assert.doesNotMatch(render([{ ...measurement, normalRangeMin: undefined, normalRangeMax: undefined, unit: undefined }], touch), /— – —/)
+  }
+  const draft = [value(item.id, 12), value(measurement.id, 0)]
+  const normalized = normalizeChecklistReadings([item, measurement], draft)
+  assert.equal(normalized[0].reading, null)
+  assert.equal(normalized[1].reading, 0)
+  assert.equal(normalized[0].completed, true)
+  assert.equal(normalized[0].remarks, 'Checked')
+  assert.equal(draft[0].reading, 12)
+})
+
 test('PMS catalogs have matching keys and placeholders; switching language refreshes utility labels without changing user text', () => {
   assert.deepEqual(Object.keys(enCatalog.pmsRework).sort(), Object.keys(viCatalog.pmsRework).sort())
   for (const [key, value] of Object.entries(enCatalog.pmsRework)) {
