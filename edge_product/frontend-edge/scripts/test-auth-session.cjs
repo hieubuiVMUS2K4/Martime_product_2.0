@@ -701,14 +701,14 @@ test('permission gates fail closed during loading/error and react to revoked gra
   state.grants = ['pms.assets.access']
   assert.equal(gate({ permission: 'pms.assets.create', children: 'add' }), null)
   state.isAdmin = true
-  assert.equal(permissions.hasPermission(state, 'pms.assets.create'), true)
+  assert.equal(permissions.hasPermission(state, 'pms.assets.create'), false)
   state.error = 'network failure'
   assert.equal(permissions.hasPermission(state, 'pms.assets.create'), false)
   state.error = null; state.loaded = false
   assert.equal(permissions.hasPermission(state, 'pms.assets.create'), false)
 })
 
-test('rank editor uses the access switch for view and grouped action checkboxes', () => {
+for (const selectedRank of [1, 0]) test(`rank editor ${selectedRank} uses the access switch for view and grouped action checkboxes`, () => {
   const { renderToStaticMarkup } = require('react-dom/server')
   const modules = [
     { code: 'dashboard', name: 'Tổng quan tàu', group: 'Tổng quan', routes: ['/dashboard'], actions: ['view'] },
@@ -717,8 +717,8 @@ test('rank editor uses the access switch for view and grouped action checkboxes'
     routes: ['/pms/catalog/assets'], actions: ['view', 'create', 'delete', 'import', 'update', 'assign'] }]
   let grants = new Set(['dashboard.access', 'dashboard.view', 'pms.assets.access', 'pms.assets.view'])
   const toastErrors = []
-  const overrides = { 0: [{ id: 1, rankName: 'Đại phó', department: 'DECK', version: 0, grants: [] }],
-    1: 1, 5: grants, 6: new Set(['pms.assets']), 7: false }
+  const overrides = { 0: [{ id: selectedRank, rankName: selectedRank === 0 ? 'Admin' : 'Đại phó', department: 'DECK', version: 0, grants: [] }],
+    1: selectedRank, 5: grants, 6: new Set(['pms.assets']), 7: false }
   let index = 0
   const page = load('pages/Admin/RankPermissionsPage.tsx', {
     react: { useEffect: () => {}, useMemo: fn => fn(), useCallback: fn => fn, useRef: current => ({ current }),
@@ -760,6 +760,10 @@ test('read-only drill attachments retain viewing but hide upload and removal', (
   const { permissions, state } = actionPermissions(['drills.access'])
   const zone = load('components/drill/DocumentUploadZone.tsx', {
     react: { useState: initial => [initial, () => {}], useCallback: fn => fn },
+    '@/contexts/I18nContext': { useTranslationSafe: () => ({ locale: 'en', t: key => {
+      const en = require('../src/locales/en.json')
+      return key.split('.').reduce((value, part) => value[part], en)
+    } }) },
     '@/stores/permissions.store': { usePermission: code => permissions.hasPermission(state, code) },
     '@/services/drill.service': {}, '@/config/app.config': { API_CONFIG: { BASE_URL: '/api' } },
   }).DocumentUploadZone
@@ -772,6 +776,41 @@ test('read-only drill attachments retain viewing but hide upload and removal', (
   const writable = renderToStaticMarkup(zone(props))
   assert.equal(writable.includes('type="file"'), true)
   assert.equal(writable.includes('title="Remove document"'), true)
+})
+
+for (const language of ['vi', 'en']) for (const tab of ['datacard', 'documents', 'template', 'participants'])
+test(`drill editor translates its ${tab} tab in ${language} without changing stored enum values`, () => {
+  const { renderToStaticMarkup } = require('react-dom/server')
+  const dictionary = require(`../src/locales/${language}.json`)
+  const translate = (key, params = {}) => {
+    const value = key.split('.').reduce((value, part) => value?.[part], dictionary)
+    assert.equal(typeof value, 'string', `Missing ${language} translation ${key}`)
+    return value.replace(/\{(\w+)\}/g, (_, key) => String(params[key]))
+  }
+  let stateIndex = 0
+  const page = load('components/drill/DrillEditModal.tsx', {
+    react: { useEffect: () => {}, useState: initial => {
+      const index = stateIndex++
+      let value = typeof initial === 'function' ? initial() : initial
+      if (index === 2) value = tab
+      if (index === 5) value = { ...value, isCrewMemberRequired: true }
+      return [value, () => {}]
+    } },
+    '@/contexts/I18nContext': { useTranslationSafe: () => ({ locale: language, t: translate }) },
+    '@/components/auth/PermissionGate': { PermissionGate: ({ children }) => children },
+    '@/types/drill.types': { DRILL_CATEGORY_NAMES: { STATION_DRILLS: 'Station Drills', EXERCISES: 'Exercises', EDUCATION: 'Education', TRAINING: 'Training', CHECKS: 'Checks', ISPS: 'ISPS Security' } },
+    '@/services/drill.service': { formatDateDMY: value => value.slice(0, 10) },
+    '@/services/crew.service': {}, './DocumentUploadZone': { DocumentUploadZone: () => null },
+    sonner: { toast: {} },
+  }).DrillEditModal({ isOpen: true, onClose: () => {}, onSave: () => {} })
+  const html = renderToStaticMarkup(page)
+  assert.ok(html.includes(dictionary.drillEditor.add))
+  assert.ok(html.includes(dictionary.drillEditor.fixedIntervals))
+  assert.ok(html.includes(dictionary.drillEditor.STATION_DRILLS))
+  assert.ok(html.includes('value="STATION_DRILLS"'))
+  assert.ok(html.includes('value="months"'))
+  assert.ok(!html.includes('drillEditor.'))
+  assert.ok(html.includes(dictionary.drillEditor[{ datacard: 'instructionPlaceholder', documents: 'documentHint', template: 'templateSoon', participants: 'noCrew' }[tab]]))
 })
 
 test('all journal and report signing routes require the common confirmation', () => {
@@ -796,15 +835,21 @@ test('all journal and report signing routes require the common confirmation', ()
 })
 
 
-test('admin dashboard access follows saved grants while administration remains available', () => {
+test('admin business access follows saved grants while account administration remains available', () => {
   const permissions = load('stores/permissions.store.ts', { '@/services/api.client': { apiClient: {} } })
   const modules = [{ code: 'dashboard', routes: ['/dashboard'], actions: ['view'] },
-    { code: 'dashboard.superintendent', routes: ['/marine-superintendent'], actions: ['view'] }]
+    { code: 'dashboard.superintendent', routes: ['/marine-superintendent'], actions: ['view'] },
+    { code: 'pms.assets', routes: ['/pms/catalog/assets'], actions: ['view', 'create', 'update'] }]
   permissions.usePermissionsStore.setState({ loaded: true, error: null, isAdmin: true, modules, grants: ['dashboard.superintendent.access'] })
   assert.equal(permissions.canOpen('/dashboard'), false)
   assert.equal(permissions.canOpen('/marine-superintendent'), true)
   assert.equal(permissions.canOpen('/admin/accounts'), true)
-  assert.equal(permissions.canPerform('crew.delete'), true)
+  assert.equal(permissions.canPerform('crew.delete'), false)
+  assert.equal(permissions.canOpen('/admin/accounts?tab=permissions'), true)
+  assert.equal(permissions.canOpen('/pms/catalog/assets'), false)
+  permissions.usePermissionsStore.setState({ grants: ['dashboard.superintendent.access', 'pms.assets.access'] })
+  assert.equal(permissions.canOpen('/pms/catalog/assets'), true)
+  assert.equal(permissions.canPerform('pms.assets.create'), false)
 })
 
 test('touch WO access is independent from the general Work Order module', () => {

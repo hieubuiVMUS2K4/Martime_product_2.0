@@ -111,11 +111,11 @@ public sealed class RankPermissionsController(EdgeDbContext db, RankPermissionSe
             return Conflict(new { error = "Cấu hình đã được thay đổi. Hãy tải lại trước khi lưu." });
         var before = config?.GrantsJson ?? "[]";
         if (config == null) { config = new() { RoleId = role.Id, Version = 0 }; db.RolePermissionConfigs.Add(config); }
-        config.GrantsJson = JsonSerializer.Serialize(PermissionRegistry.ConfigurableGrants(request.Grants).Where(PermissionRegistry.IsDashboardPermission).Order());
+        config.GrantsJson = PermissionRegistry.SaveAdminGrants(PermissionRegistry.ForPmsModel(request.Grants, Rework));
         config.Version++;
         config.UpdatedAt = DateTime.UtcNow;
         config.UpdatedBy = HttpContext.GetUserId()!.Value;
-        db.SystemLogs.Add(new SystemLog { Category = "SECURITY", Action = "ADMIN_DASHBOARDS_CHANGED", Level = "INFO",
+        db.SystemLogs.Add(new SystemLog { Category = "SECURITY", Action = "ADMIN_PERMISSIONS_CHANGED", Level = "INFO",
             UserId = config.UpdatedBy, Username = HttpContext.GetUsername(), EntityType = "RolePermissionConfig",
             EntityId = role.Id.ToString(), OldValues = before, NewValues = config.GrantsJson });
         await db.SaveChangesAsync();

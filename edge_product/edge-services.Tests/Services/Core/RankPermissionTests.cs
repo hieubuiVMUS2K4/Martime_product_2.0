@@ -290,6 +290,31 @@ public class RankPermissionTests
     }
 
     [Fact]
+    public async Task AdminFullConfiguration_EnforcesModuleAndActionGrants_WithoutLosingAdministration()
+    {
+        await using var db = Database(); var (user, _) = await Seed(db);
+        var role = await db.Roles.SingleAsync(); role.RoleCode = "ADMIN";
+        var config = new RolePermissionConfig { RoleId = role.Id,
+            GrantsJson = PermissionRegistry.SaveAdminGrants(["dashboard.superintendent.access", "pms.assets.access"]) };
+        db.RolePermissionConfigs.Add(config); await db.SaveChangesAsync();
+        var permissions = await new RankPermissionService(db).GetAsync(user.Id);
+        Assert.True(permissions.IsAdmin);
+        Assert.True(await Call(db, user.Id, "EquipmentAsset", "GetAll", "GET"));
+        Assert.False(await Call(db, user.Id, "EquipmentAsset", "Create", "POST"));
+        Assert.False(await Call(db, user.Id, "PmsWorkOrders", "List", "GET"));
+        Assert.True(await Call(db, user.Id, "Auth", "GetUsers", "GET"));
+        Assert.True(await Call(db, user.Id, "RankPermissions", "Ranks", "GET"));
+        config.GrantsJson = PermissionRegistry.SaveAdminGrants(["dashboard.superintendent.access", "pms.assets.access", "pms.assets.create"]);
+        await db.SaveChangesAsync();
+        Assert.True(await Call(db, user.Id, "EquipmentAsset", "Create", "POST"));
+        Assert.DoesNotContain("pms.assets.update", (await new RankPermissionService(db).GetAsync(user.Id)).Grants);
+        config.GrantsJson = PermissionRegistry.SaveAdminGrants(["dashboard.superintendent.access"]);
+        await db.SaveChangesAsync();
+        Assert.False(await Call(db, user.Id, "EquipmentAsset", "GetAll", "GET"));
+        Assert.True(await Call(db, user.Id, "RankPermissions", "Save", "PUT"));
+    }
+
+    [Fact]
     public async Task AdminDashboards_RespectSavedAccess_WhileRetainingAdministration()
     {
         await using var db = Database(); var (user, _) = await Seed(db);
@@ -592,7 +617,7 @@ public class RankPermissionTests
 public class RankPermissionPostgresTests(PmsDatabaseFixture fixture)
 {
     [PmsPostgresFact]
-    public async Task AdminSave_PersistsDashboardChoice_RejectsStaleWritesAndEmptySelection()
+    public async Task AdminSave_PersistsModuleActions_RejectsStaleWritesAndEmptySelection()
     {
         await using var db = fixture.CreateContext(); db.SuppressSyncQueue = true;
         var role = await db.Roles.SingleOrDefaultAsync(r => r.RoleCode == "ADMIN");
@@ -605,14 +630,19 @@ public class RankPermissionPostgresTests(PmsDatabaseFixture fixture)
         try
         {
             var version = original?.Version ?? 0;
-            Assert.IsType<OkObjectResult>(await controller.Save(0, new(version, ["dashboard.superintendent.access"])));
+            Assert.IsType<OkObjectResult>(await controller.Save(0, new(version,
+                ["dashboard.superintendent.access", "pms.assets.access", "pms.assets.update"])));
             Assert.IsType<ConflictObjectResult>(await controller.Save(0, new(version, ["dashboard.access"])));
             Assert.IsType<BadRequestObjectResult>(await controller.Save(0, new(version + 1, [])));
             var effective = await new RankPermissionService(db).GetAsync(user.Id);
             Assert.True(effective.IsAdmin);
             Assert.DoesNotContain("dashboard.access", effective.Grants);
             Assert.Contains("dashboard.superintendent.access", effective.Grants);
-            Assert.Contains("crew.delete", effective.Grants);
+            Assert.DoesNotContain("crew.delete", effective.Grants);
+            Assert.Contains("pms.assets.update", effective.Grants);
+            Assert.DoesNotContain("pms.assets.create", effective.Grants);
+            Assert.Equal(2, JsonDocument.Parse((await db.RolePermissionConfigs.SingleAsync(c => c.RoleId == role.Id)).GrantsJson)
+                .RootElement.GetProperty("schemaVersion").GetInt32());
         }
         finally
         {

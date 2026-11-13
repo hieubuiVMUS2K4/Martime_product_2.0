@@ -78,7 +78,7 @@ export default function ExecuteWorkOrders() {
         {!equipment.isLoading && !equipment.error && !tree.visible.size && <p>{t('pmsRework.noMatchingData')}</p>}
       </div>
     </aside>
-    <main className="execute-orders-main"><header><ClipboardList />Execute Work Order</header><Orders key={selectionKey} equipmentAssetIds={selectionKey} executionOnly /></main>
+    <main className="execute-orders-main"><header><ClipboardList />{t('nav.executeWorkOrder')}</header><Orders key={selectionKey} equipmentAssetIds={selectionKey} executionOnly /></main>
   </div>
 }
 

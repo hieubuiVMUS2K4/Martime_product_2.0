@@ -46,11 +46,29 @@ public static class PermissionRegistry
     public static bool IsDashboardPermission(string permission) => permission.StartsWith("dashboard.", StringComparison.Ordinal);
     public static string[] AdminGrants(string? savedJson)
     {
+        // Legacy arrays configured dashboards only. The versioned object marks an
+        // explicit full-module configuration, including intentionally empty modules.
+        if (savedJson != null)
+        {
+            using var document = JsonDocument.Parse(savedJson);
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("grants", out var grants))
+            {
+                var configured = ConfigurableGrants(grants.Deserialize<string[]>() ?? []);
+                return HasDashboardAccess(configured) ? configured : configured.Concat(DefaultGrants).Distinct().ToArray();
+            }
+        }
         var dashboards = savedJson == null ? Codes.Where(IsDashboardPermission).ToArray()
             : ConfigurableGrants(JsonSerializer.Deserialize<string[]>(savedJson) ?? []).Where(IsDashboardPermission).ToArray();
         if (!HasDashboardAccess(dashboards)) dashboards = DefaultGrants;
         return Codes.Where(p => !IsDashboardPermission(p)).Concat(dashboards).ToArray();
     }
+
+    public static string SaveAdminGrants(IEnumerable<string> grants) => JsonSerializer.Serialize(new
+    {
+        schemaVersion = 2,
+        grants = ConfigurableGrants(grants).Order().ToArray()
+    });
 
     public static string[] ForPmsModel(IEnumerable<string> grants, bool rework)
     {

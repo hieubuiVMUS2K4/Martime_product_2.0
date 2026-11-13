@@ -1,3 +1,4 @@
+import { useTranslationSafe } from '@/contexts/I18nContext';
 import { PermissionGate } from '@/components/auth/PermissionGate'
 /**
  * Drill Edit Modal Component
@@ -32,6 +33,7 @@ interface DrillEditModalProps {
 }
 
 export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEditModalProps) {
+  const { t } = useTranslationSafe();
   const [loading, setLoading] = useState(false);
   const [drillTypes, setDrillTypes] = useState<DrillType[]>([]);
   const [activeTab, setActiveTab] = useState<'datacard' | 'documents' | 'template' | 'participants'>('datacard');
@@ -85,7 +87,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
         setDrillTypes(types);
       } catch (error) {
         console.error('Failed to load drill types:', error);
-        toast.error('Failed to load drill types');
+        toast.error(t('drillEditor.loadTypesFailed'));
       }
     };
     
@@ -129,7 +131,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
         });
       } catch (error) {
         console.error('Failed to load schedule:', error);
-        toast.error('Failed to load schedule');
+        toast.error(t('drillEditor.loadScheduleFailed'));
       } finally {
         setLoading(false);
       }
@@ -152,7 +154,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
         setCrewList(crew);
       } catch (error) {
         console.error('Failed to load crew:', error);
-        toast.error('Failed to load crew list');
+        toast.error(t('drillEditor.loadCrewFailed'));
       } finally {
         setLoadingCrew(false);
       }
@@ -182,33 +184,33 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
       
       // Validate required fields
       if (!formData.drillTypeId || formData.drillTypeId.trim() === '') {
-        toast.error('Please select a drill type');
+        toast.error(t('drillEditor.typeRequired'));
         return;
       }
       
       if (!formData.description || formData.description.trim() === '') {
-        toast.error('Please enter a description');
+        toast.error(t('drillEditor.descriptionRequired'));
         return;
       }
       
       if (new Date(formData.dueDate) <= new Date(formData.startDate)) {
-        toast.error('Due date must be after start date');
+        toast.error(t('drillEditor.invalidDue'));
         return;
       }
       
       // Validate dates are valid
       if (isNaN(new Date(formData.startDate).getTime()) || isNaN(new Date(formData.dueDate).getTime())) {
-        toast.error('Invalid date format');
+        toast.error(t('drillEditor.invalidDate'));
         return;
       }
       
       // Create or update schedule
       if (scheduleId) {
         await updateDrillSchedule(scheduleId, formData);
-        toast.success('Drill schedule updated successfully');
+        toast.success(t('drillEditor.updated'));
       } else {
         await createDrillSchedule(formData);
-        toast.success('Drill schedule created successfully');
+        toast.success(t('drillEditor.created'));
       }
       
       onSave(); // Trigger parent refresh
@@ -217,7 +219,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
     } catch (error: any) {
       console.error('Failed to save drill schedule:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to save drill schedule';
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || t('drillEditor.saveFailed');
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -263,10 +265,11 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
         {/* Header */}
         <div className="operations-section-title flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            {scheduleId ? 'Edit Drill' : 'Add New Drill'}
+            {t(scheduleId ? 'drillEditor.edit' : 'drillEditor.add')}
           </h2>
           <button
             onClick={handleClose}
+            aria-label={t('drillEditor.close')}
             className="p-2 hover:bg-gray-100 rounded-lg transition"
           >
             <X className="w-5 h-5 text-gray-500" />
@@ -278,18 +281,18 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
           <div className="grid grid-cols-3 gap-6">
             {/* Left column - Drill details (2/3 width) */}
             <div className="col-span-2 space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase">Drill Details</h3>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase">{t('drillEditor.details')}</h3>
               
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  {t('drillEditor.description')}
                 </label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="e.g., Fire drill"
+                  placeholder={t('drillEditor.descriptionPlaceholder')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -297,15 +300,15 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
               {/* Category dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
+                  {t('drillEditor.category')}
                 </label>
                 <select
                   value={formData.category}
                   onChange={(e) => handleCategoryChange(e.target.value as DrillCategory)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {Object.entries(DRILL_CATEGORY_NAMES).map(([key, name]) => (
-                    <option key={key} value={key}>{name}</option>
+                  {Object.entries(DRILL_CATEGORY_NAMES).map(([key]) => (
+                    <option key={key} value={key}>{t(`drillEditor.${key}`)}</option>
                   ))}
                 </select>
               </div>
@@ -313,14 +316,14 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
               {/* Drill Type selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Drill Type
+                  {t('drillEditor.drillType')}
                 </label>
                 <select
                   value={formData.drillTypeId}
                   onChange={(e) => handleDrillTypeChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="">Select drill type...</option>
+                  <option value="">{t('drillEditor.selectType')}</option>
                   {drillTypes.filter(dt => dt.category === formData.category).map(dt => (
                     <option key={dt.id} value={dt.id}>{dt.drillName}</option>
                   ))}
@@ -330,7 +333,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
               {/* Type radio buttons: Interval / One-time */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Type
+                  {t('drillEditor.type')}
                 </label>
                 <div className="flex items-center gap-6">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -340,7 +343,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                       onChange={() => setFormData(prev => ({ ...prev, isInterval: true }))}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-sm text-gray-700">Interval</span>
+                    <span className="text-sm text-gray-700">{t('drillEditor.interval')}</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -349,7 +352,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                       onChange={() => setFormData(prev => ({ ...prev, isInterval: false }))}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-sm text-gray-700">One-time</span>
+                    <span className="text-sm text-gray-700">{t('drillEditor.oneTime')}</span>
                   </label>
                 </div>
               </div>
@@ -359,7 +362,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Interval
+                      {t('drillEditor.interval')}
                     </label>
                     <input
                       type="number"
@@ -371,17 +374,17 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Unit
+                      {t('drillEditor.unit')}
                     </label>
                     <select
                       value={formData.intervalUnit}
                       onChange={(e) => setFormData(prev => ({ ...prev, intervalUnit: e.target.value as any }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="days">days</option>
-                      <option value="weeks">weeks</option>
-                      <option value="months">months</option>
-                      <option value="years">years</option>
+                      <option value="days">{t('drillEditor.days')}</option>
+                      <option value="weeks">{t('drillEditor.weeks')}</option>
+                      <option value="months">{t('drillEditor.months')}</option>
+                      <option value="years">{t('drillEditor.years')}</option>
                     </select>
                   </div>
                 </div>
@@ -391,7 +394,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start date
+                    {t('drillEditor.startDate')}
                   </label>
                   <input
                     type="date"
@@ -405,7 +408,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Due date
+                    {t('drillEditor.dueDate')}
                   </label>
                   <input
                     type="date"
@@ -422,7 +425,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
               {/* Before due (warning days) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Before due
+                  {t('drillEditor.beforeDue')}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -432,7 +435,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     min="1"
                     className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                  <span className="text-sm text-gray-700">days</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.days')}</span>
                 </div>
               </div>
               
@@ -445,14 +448,14 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     onChange={(e) => setFormData(prev => ({ ...prev, hasNoExpiry: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm text-gray-700">No expiry</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.noExpiry')}</span>
                 </label>
               </div>
             </div>
             
             {/* Right column - Checkboxes (1/3 width) */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase">Options</h3>
+              <h3 className="text-sm font-semibold text-gray-700 uppercase">{t('drillEditor.options')}</h3>
               
               <div className="space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -462,7 +465,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     onChange={(e) => setFormData(prev => ({ ...prev, isFixedInterval: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm text-gray-700">Fixed intervals</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.fixedIntervals')}</span>
                 </label>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -472,7 +475,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     onChange={(e) => setFormData(prev => ({ ...prev, isDocumentRequired: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm text-gray-700">Document is required</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.documentRequired')}</span>
                 </label>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -482,7 +485,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     onChange={(e) => setFormData(prev => ({ ...prev, isSecureHistory: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm text-gray-700">Secure history</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.secureHistory')}</span>
                 </label>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -498,7 +501,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     }}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm text-gray-700">Crew Member Required</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.crewRequired')}</span>
                 </label>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -508,7 +511,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     onChange={(e) => setFormData(prev => ({ ...prev, isMandatorySignOnEvaluation: e.target.checked }))}
                     className="w-4 h-4 text-blue-600 rounded"
                   />
-                  <span className="text-sm text-gray-700">Mandatory sign on evaluation</span>
+                  <span className="text-sm text-gray-700">{t('drillEditor.mandatorySign')}</span>
                 </label>
               </div>
             </div>
@@ -526,7 +529,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  Data card
+                  {t('drillEditor.dataCard')}
                 </button>
                 <button
                   onClick={() => setActiveTab('documents')}
@@ -536,7 +539,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  Documents
+                  {t('drillEditor.documents')}
                 </button>
                 <button
                   onClick={() => setActiveTab('template')}
@@ -546,7 +549,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  Template
+                  {t('drillEditor.template')}
                 </button>
                 {formData.isCrewMemberRequired && (
                   <button
@@ -558,7 +561,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                     }`}
                   >
                     <Users className="w-4 h-4" />
-                    <span>Participants</span>
+                    <span>{t('drillEditor.participants')}</span>
                   </button>
                 )}
               </div>
@@ -572,13 +575,13 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                   <div className="border border-gray-300 rounded-lg">
                     <div className="bg-gray-50 px-3 py-2 border-b flex items-center gap-2 flex-wrap">
                       {/* Toolbar buttons (simplified) */}
-                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50">Undo</button>
-                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50">Redo</button>
+                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50">{t('drillEditor.undo')}</button>
+                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50">{t('drillEditor.redo')}</button>
                       <div className="w-px h-4 bg-gray-300 mx-1" />
                       <select className="px-2 py-1 text-xs bg-white border rounded">
-                        <option>Paragraph</option>
-                        <option>Heading 1</option>
-                        <option>Heading 2</option>
+                        <option>{t('drillEditor.paragraph')}</option>
+                        <option>{t('drillEditor.heading1')}</option>
+                        <option>{t('drillEditor.heading2')}</option>
                       </select>
                       <select className="px-2 py-1 text-xs bg-white border rounded">
                         <option>12px</option>
@@ -586,20 +589,20 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                         <option>16px</option>
                       </select>
                       <div className="w-px h-4 bg-gray-300 mx-1" />
-                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50 font-bold">B</button>
-                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50 italic">I</button>
-                      <button className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50 underline">U</button>
+                      <button title={t('drillEditor.bold')} className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50 font-bold">B</button>
+                      <button title={t('drillEditor.italic')} className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50 italic">I</button>
+                      <button title={t('drillEditor.underline')} className="px-2 py-1 text-xs bg-white border rounded hover:bg-gray-50 underline">U</button>
                     </div>
                     <textarea
                       value={formData.instructionContent}
                       onChange={(e) => setFormData(prev => ({ ...prev, instructionContent: e.target.value }))}
-                      placeholder="Enter drill instructions, requirements, and procedures here..."
+                      placeholder={t('drillEditor.instructionPlaceholder')}
                       rows={10}
                       className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-b-lg"
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Supports HTML formatting. Add detailed instructions for conducting this drill.
+                    {t('drillEditor.formatHint')}
                   </p>
                 </div>
               )}
@@ -608,11 +611,10 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                 <div>
                   <div className="mb-4">
                     <h3 className="text-base font-semibold text-gray-900 mb-2">
-                      Drill Documents
+                      {t('drillEditor.drillDocuments')}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Upload safety procedures, checklists, photos, or evidence documents for this drill.
-                      These will be available for quick preview from the timeline.
+                      {t('drillEditor.documentHint')}
                     </p>
                   </div>
                   
@@ -635,7 +637,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
               
               {activeTab === 'template' && (
                 <div className="text-center py-8 text-gray-500">
-                  Report template editor coming soon
+                  {t('drillEditor.templateSoon')}
                 </div>
               )}
               
@@ -643,14 +645,14 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                 <div>
                   {loadingCrew ? (
                     <div className="text-center py-8 text-gray-500">
-                      Loading crew list...
+                      {t('drillEditor.loadingCrew')}
                     </div>
                   ) : (
                     <>
                       {/* Selection counter */}
                       <div className="mb-4 flex items-center justify-between">
                         <p className="text-sm text-gray-700">
-                          {formData.participants?.length || 0}/{crewList?.length || 0} crew members selected
+                          {t('drillEditor.selectedCrew', { selected: formData.participants?.length || 0, total: crewList?.length || 0 })}
                         </p>
                         <div className="flex items-center gap-2">
                           <button
@@ -661,21 +663,21 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                             }))}
                             className="px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
                           >
-                            Select All
+                            {t('drillEditor.selectAll')}
                           </button>
                           <button
                             type="button"
                             onClick={() => setFormData(prev => ({ ...prev, participants: [] }))}
                             className="px-3 py-1 text-xs bg-gray-50 text-gray-700 rounded hover:bg-gray-100"
                           >
-                            Clear All
+                            {t('drillEditor.clearAll')}
                           </button>
                         </div>
                       </div>
                       
                       {/* Quick filters by rank group */}
                       <div className="mb-4 flex items-center gap-2">
-                        <span className="text-xs text-gray-600 font-medium">Quick filters:</span>
+                        <span className="text-xs text-gray-600 font-medium">{t('drillEditor.quickFilters')}</span>
                         {['Officers', 'Deck', 'Engine', 'Galley'].map(group => {
                           const groupCrew = crewList?.filter(c => c.rankGroup === group) || [];
                           const isGroupSelected = groupCrew.length > 0 && 
@@ -710,7 +712,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                               }`}
                             >
-                              {group} ({groupCrew.length})
+                              {t(`drillEditor.${group}`)} ({groupCrew.length})
                             </button>
                           );
                         })}
@@ -740,13 +742,13 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                                 />
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">
-                                Rank/Position
+                                {t('drillEditor.rank')}
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">
-                                Name
+                                {t('drillEditor.name')}
                               </th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">
-                                Department
+                                {t('drillEditor.department')}
                               </th>
                             </tr>
                           </thead>
@@ -754,7 +756,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
                             {!crewList || crewList.length === 0 ? (
                               <tr>
                                 <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
-                                  No onboard crew members found
+                                  {t('drillEditor.noCrew')}
                                 </td>
                               </tr>
                             ) : (
@@ -817,7 +819,7 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
             disabled={loading}
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
           >
-            Cancel
+            {t('drillEditor.cancel')}
           </button>
           <PermissionGate permission={scheduleId ? 'drills.update' : 'drills.create'}><button
             onClick={handleSave}
@@ -827,12 +829,12 @@ export function DrillEditModal({ isOpen, onClose, scheduleId, onSave }: DrillEdi
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Saving...
+                {t('drillEditor.saving')}
               </>
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                Save
+                {t('drillEditor.save')}
               </>
             )}
           </button></PermissionGate>

@@ -73,13 +73,11 @@ test('KPI conversions and zero distance are handled', () => {
   assert.equal(model.kpis({ fuel: 0, distance: 0 }).fuelPerMile, null)
   assert.equal(model.kpis({ fuel: 0, distance: 0 }).co2PerMile, null)
 })
-test('engine dashboard has a separate read permission and is configurable for Admin', () => {
+test('engine dashboard has a separate read permission in the shared module catalog', () => {
   const registry = JSON.parse(fs.readFileSync(path.join(root, '../edge-services/permissions.registry.json'), 'utf8'))
   const definition = registry.modules.find(m => m.code === 'dashboard.engine-summary')
   assert.deepEqual(definition.actions, ['view'])
   assert.deepEqual(definition.routes, ['/engine-summary'])
-  const admin = fs.readFileSync(path.join(root, 'src/pages/Admin/RankPermissionsPage.tsx'), 'utf8')
-  assert.ok(admin.includes("m.code.startsWith('dashboard')"))
 })
 test('VI and EN have complete matching labels, without a simulated-data banner', () => {
   const vi = JSON.parse(fs.readFileSync(path.join(root, 'src/locales/vi.json'), 'utf8')).engineSummary

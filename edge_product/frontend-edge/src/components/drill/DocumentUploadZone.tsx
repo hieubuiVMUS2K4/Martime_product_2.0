@@ -1,3 +1,4 @@
+import { useTranslationSafe } from '@/contexts/I18nContext';
 /**
  * Document Upload Zone Component
  * Professional drag & drop upload for maritime drill documents
@@ -28,6 +29,7 @@ export function DocumentUploadZone({
   maxFileSize = 10 * 1024 * 1024, // 10MB
   acceptedFileTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']
 }: DocumentUploadZoneProps) {
+  const { t, locale } = useTranslationSafe();
   const canUpload = usePermission('drills.create');
   const canUpdate = usePermission('drills.update');
   const [isDragging, setIsDragging] = useState(false);
@@ -39,12 +41,12 @@ export function DocumentUploadZone({
   const validateFile = (file: File): string | null => {
     // Check file size
     if (file.size > maxFileSize) {
-      return `File "${file.name}" is too large. Max size: ${(maxFileSize / 1024 / 1024).toFixed(1)}MB`;
+      return t('drillEditor.fileTooLarge', { name: file.name, size: (maxFileSize / 1024 / 1024).toFixed(1) });
     }
 
     // Check file type
     if (!acceptedFileTypes.includes(file.type)) {
-      return `File type "${file.type}" is not supported. Accepted: PDF, JPEG, PNG, WEBP, GIF`;
+      return t('drillEditor.unsupportedType', { type: file.type });
     }
 
     return null;
@@ -91,13 +93,13 @@ export function DocumentUploadZone({
       for (const file of fileArray) {
         const uploadedDoc = await uploadFile(file);
         onChange([...documents, uploadedDoc]);
-        toast.success(`"${file.name}" uploaded successfully`);
+        toast.success(t('drillEditor.uploaded', { name: file.name }));
       }
     } catch (error) {
       console.error('Upload failed:', error);
-      toast.error('Upload failed. Please try again.');
+      toast.error(t('drillEditor.uploadFailed'));
     }
-  }, [documents, onChange, canUpload]);
+  }, [documents, onChange, canUpload, t, maxFileSize, acceptedFileTypes]);
 
   /**
    * Handle drag events
@@ -149,7 +151,7 @@ export function DocumentUploadZone({
     if (!canUpload && !canUpdate) return;
     const newDocs = documents.filter((_, i) => i !== index);
     onChange(newDocs);
-    toast.success('Document removed');
+    toast.success(t('drillEditor.removed'));
   };
 
   /**
@@ -166,7 +168,7 @@ export function DocumentUploadZone({
    * Format file size
    */
   const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return 'Unknown';
+    if (!bytes) return t('drillEditor.unknown');
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -200,10 +202,10 @@ export function DocumentUploadZone({
         <div className="text-center">
           <Upload className={`w-12 h-12 mx-auto mb-4 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
           <p className="text-base font-medium text-gray-700 mb-1">
-            Kéo thả file vào đây hoặc click để chọn
+            {t('drillEditor.dropFiles')}
           </p>
           <p className="text-sm text-gray-500">
-            Hỗ trợ: PDF, JPEG, PNG, WEBP, GIF (tối đa {(maxFileSize / 1024 / 1024).toFixed(0)}MB)
+            {t('drillEditor.fileTypes', { size: (maxFileSize / 1024 / 1024).toFixed(0) })}
           </p>
         </div>
       </div>}
@@ -239,7 +241,7 @@ export function DocumentUploadZone({
         <div className="space-y-2">
           <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-600" />
-            Uploaded Documents ({documents.length})
+            {t('drillEditor.uploadedDocuments')} ({documents.length})
           </h4>
           
           {documents.map((doc, index) => (
@@ -260,7 +262,7 @@ export function DocumentUploadZone({
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span>{formatFileSize(doc.fileSize)}</span>
                   <span>•</span>
-                  <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                  <span>{new Date(doc.uploadedAt).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-GB')}</span>
                 </div>
               </div>
 
@@ -273,13 +275,13 @@ export function DocumentUploadZone({
                   className="px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  View
+                  {t('drillEditor.view')}
                 </a>
                 {(canUpload || canUpdate) && <button
                   type="button"
                   onClick={() => handleRemove(index)}
                   className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
-                  title="Remove document"
+                  title={t('drillEditor.removeDocument')}
                 >
                   <X className="w-4 h-4" />
                 </button>}
@@ -293,7 +295,7 @@ export function DocumentUploadZone({
       {documents.length === 0 && uploadingFiles.length === 0 && (
         <div className="text-center py-4 text-gray-400">
           <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No documents uploaded yet</p>
+          <p className="text-sm">{t('drillEditor.noDocuments')}</p>
         </div>
       )}
     </div>

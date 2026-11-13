@@ -29,7 +29,6 @@ export function canPerform(code: string) {
 }
 export function hasPermission(state: Pick<PermissionsState, 'isAdmin' | 'grants' | 'loaded' | 'error' | 'modules'>, code: string): boolean {
   if (!state.loaded || state.error) return false
-  if (state.isAdmin && !code.startsWith('dashboard.')) return true
   const index = code.lastIndexOf('.')
   const module = code.slice(0, index), action = code.slice(index + 1)
   if (!state.grants.includes(module + '.access')) return false
@@ -50,12 +49,11 @@ export function canOpen(path: string) {
     : path === '/engine-summary' ? 'dashboard.engine-summary'
     : ['/marine-superintendent', '/dashboard/marine-superintendent'].includes(path) ? 'dashboard.superintendent' : null
   if (dashboardCode) return canPerform(dashboardCode + '.view')
-  if (isAdmin) return true
-  if (path.startsWith('/admin/')) return false
+  if (path.startsWith('/admin/')) return isAdmin
   if (path === '/pms/work-planning') return ['pms.jobs', 'pms.work', 'pms.config', 'pms.counter'].some(m => canPerform(m + '.view'))
   if (path === '/pms/jobs' || path.startsWith('/pms/jobs/')) return canPerform('pms.jobs.view') || canPerform('pms.config.view')
   const matches = modules.flatMap(m => m.routes.map(route => ({ m, route })))
     .filter(({ route }) => path === route || path.startsWith(route.endsWith('/') ? route : route + '/'))
     .sort((a, b) => b.route.length - a.route.length)
-  return !!matches[0] && canPerform(matches[0].m.code + '.view')
+  return matches[0] ? canPerform(matches[0].m.code + '.view') : isAdmin
 }

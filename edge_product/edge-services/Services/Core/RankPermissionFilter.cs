@@ -103,7 +103,7 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
                 }
                 if (payload.TryGetProperty("assignedTo", out var assigned) && assigned.GetString() != task.AssignedTo)
                     extra.Add("pms.work.assign");
-                if (!current.IsAdmin && extra.Any(p => !PermissionRegistry.Allows(current.Grants.ToHashSet(), p)))
+                if (extra.Any(p => !PermissionRegistry.Allows(current.Grants.ToHashSet(), p)))
                 { Deny(context); return; }
             }
         }
@@ -133,7 +133,9 @@ public sealed class RankPermissionFilter(RankPermissionService permissions, Mari
                     property.SetValue(argument, actorId);
                 }
         }
-        if (current.IsAdmin && (required == null || !required.All(PermissionRegistry.IsDashboardPermission))) { await next(); return; }
+        // ADMIN retains system administration, but catalogued business endpoints
+        // obey its saved module/action grants exactly like professional ranks.
+        if (current.IsAdmin && (required == null || controller == "Auth")) { await next(); return; }
         // Auth administration is reserved for ADMIN. Own-account endpoints are exempt above.
         if (controller == "Auth") { Deny(context); return; }
         if (required == null || !required.Any(p => PermissionRegistry.Allows(current.Grants.ToHashSet(), p)))
