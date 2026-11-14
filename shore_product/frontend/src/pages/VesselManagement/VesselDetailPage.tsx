@@ -254,7 +254,7 @@ interface TelemetryRealtime {
 
 interface CrewLite {
   fullName?: string; name?: string; firstName?: string; lastName?: string;
-  rank?: string; rankName?: string; position?: string;
+  rank?: string; rankName?: string; rankCode?: string; position?: string;
 }
 
 interface VesselStatus {
@@ -320,15 +320,16 @@ export const VesselDetailPage: React.FC = () => {
         const [vData, posRes, crewRes] = await Promise.all([
           apiFetch<Vessel>(`${BASE}/vessels/${id}`),
           apiFetch<TelemetryRealtime>(`${BASE}/vessel-telemetry/vessel/${id}/realtime?hours=1`).catch(() => null),
-          apiFetch<CrewLite[] | { data?: CrewLite[] }>(`${BASE}/crew/vessel/${id}`).catch(() => null),
+          apiFetch<{ data: CrewLite[]; pagination: { totalCount: number } }>(`${BASE}/crew?shipId=${encodeURIComponent(id)}&isOnboard=true&page=1&pageSize=100`).catch(() => null),
         ]);
 
         setVessel(vData);
         setVesselStatus(prev => applyTelemetry(prev, posRes));
 
         if (crewRes) {
-          const crewList = Array.isArray(crewRes) ? crewRes : crewRes.data ?? [];
+          const crewList = crewRes.data ?? [];
           const captain = crewList.find(c =>
+            c.rankCode?.toUpperCase() === 'CAPT' ||
             c.rank?.toLowerCase()?.includes('captain') ||
             c.position?.toLowerCase()?.includes('master') ||
             c.rankName?.toLowerCase()?.includes('thuyền trưởng')
@@ -338,7 +339,7 @@ export const VesselDetailPage: React.FC = () => {
             captainName: captain
               ? (captain.fullName || captain.name || `${captain.firstName || ''} ${captain.lastName || ''}`.trim())
               : undefined,
-            crewCount: crewList.length,
+            crewCount: crewRes.pagination.totalCount,
           }));
         }
       } catch (e) {
