@@ -61,18 +61,23 @@ sẽ xử lý hàng đợi. `--verbose` hiển thị log đã che thông tin xá
 Không có lệnh xóa tự động. Registry cho phép nhận diện chính xác đợt dữ liệu khi cần dọn;
 việc xóa phải xét cả parent/detail, lịch sử, hàng đợi và dữ liệu đã nhận ở Shore.
 
-## Kiểm thử
-
 ## Chuẩn hóa nội dung đợt dữ liệu cũ
 
 `node scripts/db/normalize-seeded-reports.mjs` xem trước; thêm `--apply` để sao lưu
 và sửa nội dung trên cả Edge/Shore. Giữ nguyên ID, ngày báo cáo, số liệu và trạng thái.
 Registry được tạo trước khi bỏ marker cũ, bảo đảm chạy seed lại không trùng dữ liệu.
 Đã sửa 830 bản ghi Edge và 312 bản ghi Shore ngày 14/11/2026.
+Đã chuẩn hóa thêm 6 cảnh báo và 8 sự kiện động cơ trên mỗi node.
 
 `scripts/db/refresh-seeded-report-insights.py` chạy trên Shore để phân tích lại các
 báo cáo có kết quả API lỗi bằng cấu hình Groq hiện có. Script gửi thông số vận hành
 tới Groq; chỉ chạy khi được chủ hệ thống cho phép. Cần sao lưu database trước đó.
+Thêm `--all` để phân tích lại toàn bộ báo cáo trưa trong registry. Ngày 14/11/2026,
+đã chạy lại đủ 84/84; kiểm tra sau chạy: 0 lỗi API cũ, 0 kết quả chứa từ demo.
+Đơn vị đầu vào: nhiệt độ nước biển °C, FO MT/ngày báo cáo, vòng tua rpm, tốc độ knots;
+kèm bối cảnh vận hành để phân biệt ở cảng và chạy biển.
+
+## Kiểm thử
 
 `DemoReportSeedTests` kiểm tra đủ 5 loại, khóa lặp ổn định, DTO/business validation,
 thứ tự thời gian và cân đối nhiên liệu xuyên suốt cả đợt.

@@ -20,6 +20,9 @@ function sql(node, statement) {
 function rows(node, query) { return JSON.parse(sql(node, `SELECT coalesce(json_agg(x),'[]') FROM (${query}) x;`).trim()); }
 function clean(value) {
   return value.replace(/\[DEMO:reports-20261114:[^\]]+\]\s*/gi, '')
+    .replaceAll('[DEMO 20261114] ', '')
+    .replaceAll('DEMO-20261114', 'TRAINING-20261114')
+    .replaceAll('DEMO engine watch', 'Ca trực máy')
     .replaceAll('DEMO report seed', 'Bộ phận khai thác')
     .replaceAll('DEMO - not an actual signature', 'Xác nhận thực hành')
     .replaceAll('Demo workflow only; no real master certification.', 'Đã kiểm tra số liệu báo cáo thực hành.')
@@ -45,10 +48,14 @@ for (const [name, node] of Object.entries(nodes)) {
       .map(t => [t, `maritime_report_id IN (${ids})`])),
     weekly_performance_reports: "year=2026 AND week_number BETWEEN 33 AND 46 AND prepared_by IN ('DEMO report seed','Bộ phận khai thác')",
     monthly_summary_reports: "year=2026 AND month BETWEEN 8 AND 11 AND prepared_by IN ('DEMO report seed','Bộ phận khai thác')",
+    safety_alarms: "id IN (SELECT md5('demo-telemetry-20261114:alarm:'||n)::uuid FROM generate_series(1,6) n)",
+    engine_events: "id IN (SELECT md5('demo-telemetry-20261114:event:'||n)::uuid FROM generate_series(1,8) n)",
   } : {
     maritime_reports: `"Id" IN (${ids})`,
     ...Object.fromEntries(['noon_reports','departure_reports','arrival_reports','position_reports','bunker_reports']
       .map(t => [t, `"MaritimeReportId" IN (${ids})`])),
+    SafetyAlarms: `"Id" IN (SELECT md5('demo-telemetry-20261114:alarm:'||n)::uuid FROM generate_series(1,6) n)`,
+    EngineEvents: `"Id" IN (SELECT md5('demo-telemetry-20261114:event:'||n)::uuid FROM generate_series(1,8) n)`,
   };
   const statements = []; let changed = 0;
   for (const [table, filter] of Object.entries(where)) {
