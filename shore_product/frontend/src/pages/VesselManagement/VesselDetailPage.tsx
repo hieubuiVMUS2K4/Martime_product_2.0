@@ -18,6 +18,7 @@ import StockReceiptPage from '../Materials/StockReceiptPage';
 import InventoryPage from '../Materials/InventoryPage';
 import { VesselReportsTab } from '../Report/VesselReportsTab';
 import { useShoreModules } from '../../contexts/ShoreModulesContext';
+import { findVesselCaptain, type OverviewCrewMember } from '../../lib/crewOverview';
 
 // ============================================================
 // EXTENDED VESSEL TYPE with all fields from backend
@@ -252,10 +253,7 @@ interface TelemetryRealtime {
   engine?: { isRunning: boolean };
 }
 
-interface CrewLite {
-  fullName?: string; name?: string; firstName?: string; lastName?: string;
-  rank?: string; rankName?: string; rankCode?: string; position?: string;
-}
+type CrewLite = OverviewCrewMember;
 
 interface VesselStatus {
   latitude?: number;
@@ -328,17 +326,9 @@ export const VesselDetailPage: React.FC = () => {
 
         if (crewRes) {
           const crewList = crewRes.data ?? [];
-          const captain = crewList.find(c =>
-            c.rankCode?.toUpperCase() === 'CAPT' ||
-            c.rank?.toLowerCase()?.includes('captain') ||
-            c.position?.toLowerCase()?.includes('master') ||
-            c.rankName?.toLowerCase()?.includes('thuyền trưởng')
-          );
           setVesselStatus(prev => ({
             ...prev,
-            captainName: captain
-              ? (captain.fullName || captain.name || `${captain.firstName || ''} ${captain.lastName || ''}`.trim())
-              : undefined,
+            captainName: findVesselCaptain(crewList),
             crewCount: crewRes.pagination.totalCount,
           }));
         }
