@@ -450,6 +450,16 @@ namespace ProductApi.Controllers
             return particulars == null ? NotFound($"Vessel with ID {id} not found") : Ok(particulars);
         }
 
+        [HttpGet("{id:guid}/environmental-summary")]
+        public async Task<IActionResult> GetEnvironmentalSummary(Guid id, CancellationToken cancellationToken)
+        {
+            if (!await _context.Vessels.AnyAsync(v => v.Id == id, cancellationToken)) return NotFound();
+            var summary = await _context.VesselEnvironmentalSummaries.AsNoTracking()
+                .Where(s => s.VesselId == id).OrderByDescending(s => s.ReportingYear)
+                .FirstOrDefaultAsync(cancellationToken);
+            return summary == null ? NoContent() : Ok(summary);
+        }
+
         [HttpPut("{id:guid}/particulars")]
         public async Task<ActionResult<Dictionary<string, object?>>> UpdateParticulars(Guid id, [FromBody] JsonElement payload)
         {

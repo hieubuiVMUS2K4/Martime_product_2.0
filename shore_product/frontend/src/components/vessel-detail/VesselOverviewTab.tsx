@@ -24,6 +24,12 @@ interface VesselStatus {
 
 interface Props { vessel: Vessel; vesselStatus: VesselStatus | null; }
 
+interface EnvironmentalSummary {
+  reportingYear: number; ciiRating: string | null; attainedCii: number | null;
+  attainedEexi: number | null; mrvStatus: string;
+  periodStart: string; periodEnd: string; source: string; notes: string;
+}
+
 const BASE = ENV.API_BASE_URL;
 
 // ── Cảnh báo / sự kiện động cơ ──
@@ -107,6 +113,23 @@ const StatusItem: React.FC<{
 // Tab Tổng quan
 // ══════════════════════════════════════════════════
 export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => {
+  const [environment, setEnvironment] = useState<EnvironmentalSummary | null>(null);
+  const [environmentLoading, setEnvironmentLoading] = useState(true);
+  const [environmentError, setEnvironmentError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setEnvironment(null); setEnvironmentLoading(true); setEnvironmentError(false);
+    fetch(`${BASE}/vessels/${vessel.id}/environmental-summary`, { signal: controller.signal })
+      .then(async response => {
+        if (response.status === 204) return null;
+        if (!response.ok) throw new Error('Environmental summary unavailable');
+        return response.json() as Promise<EnvironmentalSummary>;
+      })
+      .then(value => { if (!controller.signal.aborted) setEnvironment(value); })
+      .catch(() => { if (!controller.signal.aborted) setEnvironmentError(true); })
+      .finally(() => { if (!controller.signal.aborted) setEnvironmentLoading(false); });
+    return () => controller.abort();
+  }, [vessel.id]);
   const eng = vesselStatus?.engineRunning ?? false;
   const speed = vesselStatus?.speedOverGround;
   const lat = vesselStatus?.latitude;
@@ -215,11 +238,18 @@ export const VesselOverviewTab: React.FC<Props> = ({ vessel, vesselStatus }) => 
       <div className="grid grid-cols-3 gap-4">
         <Card title="Tuân thủ & phát thải" icon={<Leaf />}>
           <InfoList rows={[
-            ['Xếp hạng CII', null],
-            ['Chỉ số EEXI', null],
-            ['Báo cáo EU MRV', null],
+            ['Xếp hạng CII', environment?.ciiRating ? `${environment.ciiRating} · ${environment.reportingYear} (tham chiếu)` : null],
+            ['CII đạt được', environment?.attainedCii != null ? `${environment.attainedCii.toLocaleString('vi-VN', { maximumFractionDigits: 3 })} g CO₂/(DWT·NM)` : null],
+            ['Chỉ số EEXI', environment?.attainedEexi != null ? `${environment.attainedEexi.toLocaleString('vi-VN', { maximumFractionDigits: 3 })} g CO₂/(DWT·NM)` : null],
+            ['Báo cáo EU MRV', environment ? `${environment.mrvStatus === 'DRAFT' ? 'Bản nháp · Chưa thẩm tra' : environment.mrvStatus} · ${environment.reportingYear}` : null],
           ]} />
-          <p className="border-t border-grid px-4 py-2 text-sm text-ink-muted">Chưa có dữ liệu phát thải từ tàu.</p>
+          <div className="space-y-1 border-t border-grid px-4 py-3 text-sm text-ink-muted">
+            {environment ? <>
+              <p className="font-semibold">{environment.source}</p>
+              <p>Kỳ dữ liệu: {new Date(environment.periodStart).toLocaleDateString('vi-VN')} – {new Date(environment.periodEnd).toLocaleDateString('vi-VN')}</p>
+              <p>{environment.notes}</p>
+            </> : <p>{environmentLoading ? 'Đang tải dữ liệu phát thải…' : environmentError ? 'Không thể tải dữ liệu phát thải. Vui lòng tải lại trang.' : 'Chưa có dữ liệu phát thải.'}</p>}
+          </div>
         </Card>
 
         <AlertsSection vesselId={vessel.id} className="col-span-2" />

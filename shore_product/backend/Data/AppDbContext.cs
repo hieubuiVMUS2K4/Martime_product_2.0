@@ -26,6 +26,7 @@ namespace ProductApi.Data
         
         // Maritime entities
         public DbSet<Vessel> Vessels { get; set; } = null!;
+        public DbSet<VesselEnvironmentalSummary> VesselEnvironmentalSummaries { get; set; } = null!;
         public DbSet<VesselPosition> VesselPositions { get; set; } = null!;
         public DbSet<FuelConsumption> FuelConsumptions { get; set; } = null!;
         public DbSet<Port> Ports { get; set; } = null!;
@@ -209,6 +210,8 @@ namespace ProductApi.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<VesselEnvironmentalSummary>().HasOne<Vessel>().WithMany()
+                .HasForeignKey(s => s.VesselId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ApprovalDocument>().HasIndex(d => new { d.OriginNode, d.Module, d.RecordKey }).IsUnique();
         modelBuilder.Entity<ApprovalRevision>().HasIndex(r => new { r.DocumentId, r.Revision }).IsUnique();
         modelBuilder.Entity<ApprovalRevision>().HasOne<ApprovalDocument>().WithMany().HasForeignKey(r => r.DocumentId).OnDelete(DeleteBehavior.Restrict);

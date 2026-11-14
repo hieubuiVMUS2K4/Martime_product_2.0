@@ -22,6 +22,25 @@ namespace productapi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ProductApi.Models.VesselEnvironmentalSummary", b =>
+            {
+                b.Property<Guid>("VesselId").HasColumnType("uuid");
+                b.Property<int>("ReportingYear").HasColumnType("integer");
+                b.Property<string>("CiiRating").HasMaxLength(1).HasColumnType("character varying(1)");
+                b.Property<double?>("AttainedCii").HasColumnType("double precision");
+                b.Property<double?>("AttainedEexi").HasColumnType("double precision");
+                b.Property<string>("MrvStatus").IsRequired().HasMaxLength(100).HasColumnType("character varying(100)");
+                b.Property<DateTime>("PeriodStart").HasColumnType("timestamp with time zone");
+                b.Property<DateTime>("PeriodEnd").HasColumnType("timestamp with time zone");
+                b.Property<string>("Source").IsRequired().HasMaxLength(200).HasColumnType("character varying(200)");
+                b.Property<string>("Notes").IsRequired().HasMaxLength(1000).HasColumnType("character varying(1000)");
+                b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
+                b.HasKey("VesselId", "ReportingYear");
+                b.ToTable("vessel_environmental_summaries");
+                b.HasOne("ProductApi.Models.Vessel", null).WithMany().HasForeignKey("VesselId")
+                    .OnDelete(DeleteBehavior.Cascade).IsRequired();
+            });
+
             modelBuilder.Entity("ProductApi.Models.ShoreModuleSettings", b =>
                 {
                     b.Property<int>("Id").HasColumnType("integer");
