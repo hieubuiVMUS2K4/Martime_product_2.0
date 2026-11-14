@@ -18,6 +18,30 @@ namespace ProductApi.Services.AI
         private static int _currentKeyIndex = 0;
         private static readonly object _keyLock = new object();
 
+        private string Model => string.IsNullOrWhiteSpace(_config["Groq:Model"])
+            ? "openai/gpt-oss-120b" : _config["Groq:Model"]!.Trim();
+
+        private Dictionary<string, object> CreateRequest(string prompt, bool evaluation)
+        {
+            var request = new Dictionary<string, object>
+            {
+                ["model"] = Model,
+                ["messages"] = new[] { new { role = "user", content = prompt } },
+                ["max_completion_tokens"] = evaluation ? 2048 : 4096
+            };
+            if (Model.StartsWith("openai/gpt-oss-", StringComparison.Ordinal))
+                request["reasoning_effort"] = "low";
+            if (evaluation) request["response_format"] = new { type = "json_object" };
+            return request;
+        }
+
+        private static string ApiErrorMessage(HttpStatusCode status) => status switch
+        {
+            HttpStatusCode.NotFound => "Model AI trên Groq không tồn tại hoặc tài khoản chưa được cấp quyền. Vui lòng kiểm tra cấu hình model.",
+            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => "Groq từ chối xác thực hoặc quyền truy cập. Vui lòng kiểm tra cấu hình API key.",
+            _ => $"Dịch vụ AI Groq trả lỗi {(int)status}. Vui lòng thử lại hoặc liên hệ quản trị viên."
+        };
+
         private string[] GetApiKeys()
         {
             var apiKeyString = _config["Groq:ApiKey"] ?? _config["Gemini:ApiKey"];
@@ -73,11 +97,7 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
                 {
                     _logger.LogInformation($"Calling Groq API... (Attempt {attempt + 1}/{keys.Length})");
                     
-                    var requestBody = new
-                    {
-                        model = "llama-3.3-70b-versatile",
-                        messages = new[] { new { role = "user", content = prompt } }
-                    };
+                    var requestBody = CreateRequest(prompt, evaluation: true);
 
                     var requestJson = JsonSerializer.Serialize(requestBody);
                     var requestContent = new StringContent(requestJson, Encoding.UTF8, "application/json");
@@ -85,9 +105,9 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
                     cts.CancelAfter(TimeSpan.FromMilliseconds(EVALUATION_TIMEOUT_MS));
 
-                    var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions") { Content = requestContent };
+                    using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions") { Content = requestContent };
                     reqMsg.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-                    var response = await _httpClient.SendAsync(reqMsg, cts.Token);
+                    using var response = await _httpClient.SendAsync(reqMsg, cts.Token);
 
                     var responseBody = await response.Content.ReadAsStringAsync(cts.Token);
                     _logger.LogInformation($"Groq API Status: {response.StatusCode}");
@@ -96,7 +116,7 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
                     {
                         if (response.StatusCode == HttpStatusCode.TooManyRequests)
                         {
-                            _logger.LogWarning($"Rate limit hit (429) for key {apiKey.Substring(0, 5)}... Switching key.");
+                            _logger.LogWarning("Groq rate limit (429); trying next configured key.");
                             continue; // Try next key
                         }
 
@@ -104,7 +124,7 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
                         if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
                             return new AiEvaluationResponse { Status = "Normal", ContentVi = "Dịch vụ AI tạm thời không khả dụng." };
                         
-                        return new AiEvaluationResponse { Status = "Normal", ContentVi = "Lỗi gọi API Gemini." };
+                        return new AiEvaluationResponse { Status = "Warning", ContentVi = ApiErrorMessage(response.StatusCode) };
                     }
 
                     using var jsonDoc = JsonDocument.Parse(responseBody);
@@ -181,23 +201,19 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
             {
                 _logger.LogInformation("Calling Groq Chat API...");
                 
-                var requestBody = new
-                {
-                    model = "llama-3.3-70b-versatile",
-                    messages = new[] { new { role = "user", content = prompt } }
-                };
+                var requestBody = CreateRequest(prompt, evaluation: false);
 
                 var requestJson = JsonSerializer.Serialize(requestBody);
                 var requestContent = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
-                var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
                 cts.CancelAfter(TimeSpan.FromMilliseconds(CHAT_TIMEOUT_MS));
 
                 _logger.LogInformation($"Sending request to Groq API with prompt length: {requestJson.Length}");
                 
-                var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions") { Content = requestContent };
+                using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions") { Content = requestContent };
                 reqMsg.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-                var response = await _httpClient.SendAsync(reqMsg, cts.Token);
+                using var response = await _httpClient.SendAsync(reqMsg, cts.Token);
 
                 var responseBody = await response.Content.ReadAsStringAsync(cts.Token);
 
@@ -210,7 +226,7 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
                         return new GeminiChatResult
                         {
                             Success = false,
-                            Content = "Dịch vụ AI (Gemini) tạm thời không khả dụng. Vui lòng thử lại trong vài giây.",
+                            Content = "Dịch vụ AI (Groq) tạm thời không khả dụng. Vui lòng thử lại trong vài giây.",
                             ErrorSource = "gemini_service_unavailable"
                         };
                     }
@@ -220,11 +236,11 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
                         var retryAfterSeconds = TryGetRetryAfterSeconds(response) ?? retryFromBodySeconds;
                         var messageText = quotaExceeded
                             ? (retryAfterSeconds.HasValue
-                                ? $"Gemini đã vượt quota hiện tại. Vui lòng thử lại sau {retryAfterSeconds.Value}s hoặc nâng gói/quota."
-                                : "Gemini đã vượt quota hiện tại. Vui lòng chờ reset quota hoặc nâng gói/quota.")
+                                ? $"Groq đã vượt quota hiện tại. Vui lòng thử lại sau {retryAfterSeconds.Value}s hoặc nâng gói/quota."
+                                : "Groq đã vượt quota hiện tại. Vui lòng chờ reset quota hoặc nâng gói/quota.")
                             : (retryAfterSeconds.HasValue
-                                ? $"Gemini đang giới hạn tần suất yêu cầu. Vui lòng thử lại sau {retryAfterSeconds.Value}s."
-                                : "Gemini đang giới hạn tần suất yêu cầu. Vui lòng chờ một chút rồi thử lại.");
+                                ? $"Groq đang giới hạn tần suất yêu cầu. Vui lòng thử lại sau {retryAfterSeconds.Value}s."
+                                : "Groq đang giới hạn tần suất yêu cầu. Vui lòng chờ một chút rồi thử lại.");
 
                         return new GeminiChatResult
                         {
@@ -239,7 +255,7 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
                         return new GeminiChatResult
                         {
                             Success = false,
-                            Content = "Lỗi gọi Gemini API: " + response.StatusCode,
+                            Content = ApiErrorMessage(response.StatusCode),
                             ErrorSource = "gemini_api"
                         };
                     }
@@ -299,7 +315,7 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
                 return new GeminiChatResult
                 {
                     Success = false,
-                    Content = "Yêu cầu tới Gemini vượt thời gian chờ.",
+                    Content = "Yêu cầu tới Groq vượt thời gian chờ.",
                     ErrorSource = "gemini_timeout"
                 };
             }
@@ -309,7 +325,7 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
                 return new GeminiChatResult
                 {
                     Success = false,
-                    Content = "Lỗi kết nối mạng khi gọi Gemini.",
+                    Content = "Lỗi kết nối mạng khi gọi Groq.",
                     ErrorSource = "gemini_network"
                 };
             }
@@ -319,7 +335,7 @@ Trình bày phân tích chi tiết, đánh giá rủi ro, và khuyến nghị r�
                 return new GeminiChatResult
                 {
                     Success = false,
-                    Content = "Lỗi hệ thống khi gọi Gemini.",
+                    Content = "Lỗi hệ thống khi gọi Groq.",
                     ErrorSource = "gemini_internal"
                 };
             }
