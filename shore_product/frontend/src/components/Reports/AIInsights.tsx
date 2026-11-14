@@ -3,7 +3,7 @@ import { CheckCircle, AlertTriangle, AlertOctagon, BrainCircuit } from 'lucide-r
 import { ENV } from '../../config/env';
 
 interface IAiInsight {
-  status: 'Normal' | 'Warning' | 'Critical';
+  status: 'Normal' | 'Warning' | 'Critical' | 'Unavailable';
   contentVi: string;
 }
 
@@ -12,9 +12,11 @@ export const AIInsights = ({ reportId }: { reportId: string }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
+    setInsight(null);
     fetch(`${ENV.API_BASE_URL}/reports/${reportId}/ai-insights`)
-      .then(res => res.json())
-      .then((data: IAiInsight) => setInsight(data))
+      .then(res => res.ok ? res.json() : null)
+      .then((data: IAiInsight | null) => setInsight(data && typeof data.contentVi === 'string' ? data : null))
       .catch(() => setInsight(null))
       .finally(() => setLoading(false));
   }, [reportId]);
@@ -24,9 +26,11 @@ export const AIInsights = ({ reportId }: { reportId: string }) => {
 
   const getStyle = () => {
     switch(insight.status) {
+      case 'Unavailable': return { color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: <AlertTriangle size={20} /> };
       case 'Critical': return { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', icon: <AlertOctagon size={20} /> };
       case 'Warning': return { color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', icon: <AlertTriangle size={20} /> };
-      default: return { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', icon: <CheckCircle size={20} /> };
+      case 'Normal': return { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', icon: <CheckCircle size={20} /> };
+      default: return { color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: <AlertTriangle size={20} /> };
     }
   };
 

@@ -174,6 +174,7 @@ namespace ProductApi.Controllers
         public async Task<ActionResult<AiEvaluationResponse>> GetInsights(Guid id)
         {
             var evaluation = await _context.ReportEvaluations
+                .OrderByDescending(e => e.CreatedDate)
                 .FirstOrDefaultAsync(e => e.ReportId == id);
 
             if (evaluation == null)

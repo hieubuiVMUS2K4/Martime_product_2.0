@@ -42,51 +42,46 @@ namespace ProductApi.Services.Background
                         }
 
                         var maritimeReport = await dbContext.Set<MaritimeReport>().FindAsync(new object[] { report.MaritimeReportId }, stoppingToken);
+                        if (maritimeReport == null || maritimeReport.DeletedAt != null) continue;
                         var voyageId = maritimeReport?.VoyageId;
 
-                        var historyQuery = dbContext.NoonReports.AsQueryable();
-                    
-                        if (voyageId.HasValue)
-                        {
-                            historyQuery = from nr in dbContext.NoonReports
-                                           join mr in dbContext.Set<MaritimeReport>() on nr.MaritimeReportId equals mr.Id
-                                           where mr.VoyageId == voyageId.Value && nr.ReportDate >= report.ReportDate.AddDays(-7)
+                        // Compare only earlier reports from this vessel, never another vessel or future dates.
+                        var historyQuery = from nr in dbContext.NoonReports.AsNoTracking()
+                                           join mr in dbContext.Set<MaritimeReport>().AsNoTracking() on nr.MaritimeReportId equals mr.Id
+                                           where mr.OriginNode == maritimeReport.OriginNode && mr.DeletedAt == null
+                                               && (!voyageId.HasValue || mr.VoyageId == voyageId.Value)
+                                               && nr.ReportDate >= report.ReportDate.AddDays(-7) && nr.ReportDate < report.ReportDate
                                            select nr;
-                        }
-                        else
-                        {
-                            historyQuery = historyQuery.Where(r => r.ReportDate >= report.ReportDate.AddDays(-7));
-                        }
 
                         var history = await historyQuery
                             .OrderBy(r => r.ReportDate)
                             .Select(r => new ShipMetricsDto 
                             {
                                 ReportDate = r.ReportDate,
-                                EngineTemp = r.SeaTemperature ?? 0.0, 
+                                SeaTemperature = r.SeaTemperature ?? 0.0, 
                                 FuelConsumption = r.FuelOilConsumed ?? 0.0, 
                                 Rpm = r.MainEngineRPM ?? 0.0,
                                 Speed = r.SpeedOverGround ?? 0.0
                             })
                             .ToListAsync(stoppingToken);
 
-                        var currentReport = history.FirstOrDefault(r => r.ReportDate.Date == report.ReportDate.Date) ?? new ShipMetricsDto
+                        var currentReport = new ShipMetricsDto
                         {
                             ReportDate = report.ReportDate,
-                            EngineTemp = report.SeaTemperature ?? 0.0, 
+                            SeaTemperature = report.SeaTemperature ?? 0.0, 
                             FuelConsumption = report.FuelOilConsumed ?? 0.0, 
                             Rpm = report.MainEngineRPM ?? 0.0,
                             Speed = report.SpeedOverGround ?? 0.0
                         };
 
-                        var past7Days = history.Where(r => r.ReportDate.Date != report.ReportDate.Date).ToList();
+                        var past7Days = history;
 
                         var payload = new 
                         {
                             CurrentReport = currentReport,
                             Past7DaysAverage = new 
                             {
-                                AvgEngineTemp = past7Days.Any() ? past7Days.Average(x => x.EngineTemp) : 0,
+                                AvgSeaTemperature = past7Days.Any() ? past7Days.Average(x => x.SeaTemperature) : 0,
                                 AvgFuelConsumption = past7Days.Any() ? past7Days.Average(x => x.FuelConsumption) : 0,
                                 AvgRpm = past7Days.Any() ? past7Days.Average(x => x.Rpm) : 0,
                                 AvgSpeed = past7Days.Any() ? past7Days.Average(x => x.Speed) : 0,
@@ -98,13 +93,17 @@ namespace ProductApi.Services.Background
 
                         var aiResult = await aiService.EvaluateReportAsync(jsonData, stoppingToken);
 
-                        dbContext.Set<ReportEvaluation>().Add(new ReportEvaluation
+                        var evaluation = await dbContext.Set<ReportEvaluation>()
+                            .OrderByDescending(e => e.CreatedDate)
+                            .FirstOrDefaultAsync(e => e.ReportId == reportId, stoppingToken);
+                        if (evaluation == null)
                         {
-                            Id = Guid.NewGuid(),
-                            ReportId = reportId,
-                            Status = aiResult.Status,
-                            ContentVi = aiResult.ContentVi
-                        });
+                            evaluation = new ReportEvaluation { Id = Guid.NewGuid(), ReportId = reportId };
+                            dbContext.Set<ReportEvaluation>().Add(evaluation);
+                        }
+                        evaluation.Status = aiResult.Status;
+                        evaluation.ContentVi = aiResult.ContentVi;
+                        evaluation.CreatedDate = DateTime.UtcNow;
 
                         await dbContext.SaveChangesAsync(stoppingToken);
                     }

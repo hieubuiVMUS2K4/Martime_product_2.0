@@ -133,7 +133,7 @@ namespace MaritimeEdge
             // Load .env file TRƯỚC KHI khởi tạo builder
             LoadDotEnv();
 
-            var builder = WebApplication.CreateBuilder(args);
+            var builder = WebApplication.CreateBuilder(args.Contains("--seed-demo-reports") ? Array.Empty<string>() : args);
             ApplyLegacyShoreApiEnvironment(builder.Configuration);
             ApplyLegacySyncSecurityEnvironment(builder.Configuration);
 
@@ -447,6 +447,14 @@ namespace MaritimeEdge
             }
 
             var app = builder.Build();
+
+            // Explicit maintenance command: no HTTP listener, workers, migrations or startup seeds.
+            if (args.Contains("--seed-demo-reports"))
+            {
+                Environment.ExitCode = await DemoReportSeedCommand.RunAsync(app.Services, args);
+                await app.DisposeAsync();
+                return;
+            }
 
             // Initialize database with migrations
             using (var scope = app.Services.CreateScope())

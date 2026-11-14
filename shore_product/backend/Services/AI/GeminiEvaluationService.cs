@@ -75,7 +75,7 @@ namespace ProductApi.Services.AI
             if (keys.Length == 0)
             {
                 _logger.LogWarning("AI API Key is missing.");
-                return new AiEvaluationResponse { Status = "Normal", ContentVi = "API Key chưa được cấu hình." };
+                return new AiEvaluationResponse { Status = "Unavailable", ContentVi = "API Key chưa được cấu hình." };
             }
 
             var prompt = $@"Bạn là chuyên gia máy trưởng hàng hải. 
@@ -86,6 +86,7 @@ YÊU CẦU BẮT BUỘC:
 - Nhận xét phải tập trung trực tiếp vào số liệu của báo cáo hiện tại (CurrentReport).
 - Đánh giá xem số liệu của ngày hôm nay có bất thường hay tốt/xấu hơn như thế nào so với xu hướng 7 ngày qua (Past7DaysAverage). 
 - Tuyệt đối KHÔNG trả lời theo kiểu tổng kết cả tuần.
+- SeaTemperature là nhiệt độ nước biển, không phải nhiệt độ động cơ. Không kết luận máy an toàn khi thiếu cảm biến kỹ thuật. RPM và tốc độ bằng 0 có thể là tàu ở cảng, không tự xem là hỏng máy.
 Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Critical"", ""contentVi"": ""Nhận xét tiếng Việt khoảng 100 chữ""}}";
 
             Exception? lastException = null;
@@ -122,9 +123,9 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
 
                         _logger.LogError($"API Error: {response.StatusCode} - {responseBody}");
                         if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-                            return new AiEvaluationResponse { Status = "Normal", ContentVi = "Dịch vụ AI tạm thời không khả dụng." };
+                            return new AiEvaluationResponse { Status = "Unavailable", ContentVi = "Dịch vụ AI tạm thời không khả dụng." };
                         
-                        return new AiEvaluationResponse { Status = "Warning", ContentVi = ApiErrorMessage(response.StatusCode) };
+                        return new AiEvaluationResponse { Status = "Unavailable", ContentVi = ApiErrorMessage(response.StatusCode) };
                     }
 
                     using var jsonDoc = JsonDocument.Parse(responseBody);
@@ -143,15 +144,16 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
                             {
                                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                                 var result = JsonSerializer.Deserialize<AiEvaluationResponse>(text, opts);
-                                if (result != null)
+                                if (result != null && new[] { "Normal", "Warning", "Critical" }.Contains(result.Status)
+                                    && !string.IsNullOrWhiteSpace(result.ContentVi))
                                     return result;
                             }
                             catch { }
                             
-                            return new AiEvaluationResponse { Status = "Normal", ContentVi = text };
+                            return new AiEvaluationResponse { Status = "Unavailable", ContentVi = "AI trả kết quả không đúng định dạng. Vui lòng thử lại." };
                         }
                     }
-                    return new AiEvaluationResponse { Status = "Normal", ContentVi = "Không thể phân tích." };
+                    return new AiEvaluationResponse { Status = "Unavailable", ContentVi = "Không thể phân tích." };
                 }
                 catch (OperationCanceledException ex)
                 {
@@ -168,9 +170,9 @@ Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Cr
             }
 
             if (lastException is OperationCanceledException)
-                 return new AiEvaluationResponse { Status = "Warning", ContentVi = "Yêu cầu AI vượt thời gian chờ." };
+                 return new AiEvaluationResponse { Status = "Unavailable", ContentVi = "Yêu cầu AI vượt thời gian chờ." };
 
-            return new AiEvaluationResponse { Status = "Warning", ContentVi = "Toàn bộ API Key đã bị Rate Limit hoặc có lỗi xảy ra." };
+            return new AiEvaluationResponse { Status = "Unavailable", ContentVi = "Dịch vụ AI bị giới hạn tần suất hoặc chưa khả dụng. Vui lòng thử lại sau." };
         }
 
         public async Task<GeminiChatResult> ChatWithReportsAsync(string message, string reportsJson, CancellationToken token)

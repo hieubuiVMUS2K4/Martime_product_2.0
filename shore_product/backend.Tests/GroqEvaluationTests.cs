@@ -59,4 +59,15 @@ public class GroqEvaluationTests
         Assert.Contains("Groq", result.Content);
         Assert.DoesNotContain("Gemini", result.Content);
     }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, "{}")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "{}")]
+    [InlineData(HttpStatusCode.OK, "{\"choices\":[{\"message\":{\"content\":\"invalid JSON\"}}]}")]
+    public async Task EvaluationFailureNeverReturnsHealthyStatus(HttpStatusCode status, string body)
+    {
+        var result = await Service(new Handler(status, body)).EvaluateReportAsync("{}", default);
+        Assert.Equal("Unavailable", result.Status);
+        Assert.False(string.IsNullOrWhiteSpace(result.ContentVi));
+    }
 }
