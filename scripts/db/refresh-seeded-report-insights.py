@@ -1,5 +1,6 @@
 """Run on Shore through SSH. Repairs failed fixture insights using the configured AI service."""
-import json, subprocess, time, uuid
+import json, subprocess, time, sys
+from concurrent.futures import ThreadPoolExecutor
 
 DB = 'production-postgres-1'
 def sql(statement):
@@ -17,7 +18,7 @@ reports = json.loads(sql('''SELECT coalesce(json_agg(x),'[]') FROM (
  ORDER BY n."ReportDate" DESC) x;'''))
 failed = set(json.loads(sql('''SELECT coalesce(json_agg(DISTINCT "ReportId"),'[]') FROM "ReportEvaluations"
  WHERE "ContentVi" ILIKE '%Lỗi gọi%API%' OR "Status"='Unavailable';''')))
-pending = [r for r in reports if r['Id'] in failed]
+pending = [r for r in reports if '--all' in sys.argv or r['Id'] in failed]
 print(json.dumps({'reports':len(reports),'failed':len(pending)}),flush=True)
 
 def repair(report):
@@ -27,10 +28,14 @@ def repair(report):
     current = {k:report.get(v) for k,v in fields.items()}
     current['ReportDate']=report['ReportDate']
     averages = {'Avg'+k:sum((r.get(v) or 0) for r in history)/len(history) if history else None for k,v in fields.items()}
-    data={'CurrentReport':current,'Past7DaysAverage':averages,'DetailedHistoryCount':len(history)}
+    data={'CurrentReport':current,'Past7DaysAverage':averages,'DetailedHistoryCount':len(history),
+          'OperationalContext':report.get('OperationalRemarks'),
+          'Units':{'SeaTemperature':'deg C','FuelConsumption':'MT per reporting day','Rpm':'rpm','Speed':'knots'}}
     prompt = ('Đánh giá báo cáo hiện tại so với 7 ngày trước, chỉ dùng số liệu JSON dưới đây. '
         'SeaTemperature là nhiệt độ nước biển, không phải động cơ. RPM/tốc độ 0 có thể là ở cảng. '
         'Không suy đoán hỏng máy hay chứng nhận an toàn khi thiếu cảm biến. Nếu không có lịch sử hãy nói rõ. '
+        'FuelConsumption là MT/ngày báo cáo, không phải lít/giờ. Dùng đúng đơn vị Units. '
+        'Xem OperationalContext để phân biệt ở cảng/chạy biển; trung bình gồm cả hai chế độ. Không coi ở cảng là bất thường. '
         'Trả JSON gồm status (Normal/Warning/Critical), contentVi (tiếng Việt khoảng 100 chữ).\n'+json.dumps(data))
     payload={'model':model,'messages':[{'role':'user','content':prompt}], 'max_completion_tokens':2048,'response_format':{'type':'json_object'}}
     if model.startswith('openai/gpt-oss-'): payload['reasoning_effort']='low'
@@ -54,9 +59,9 @@ def repair(report):
     return False
 
 success=0
-# Keep request volume below the provider's minute quota.
-for i,report in enumerate(pending):
-    success += int(repair(report))
-    print(json.dumps({'processed':i+1,'repaired':success,'total':len(pending)}),flush=True)
-    time.sleep(3)
+# Bound concurrency and retry rate-limit responses without overloading the server.
+with ThreadPoolExecutor(max_workers=2) as pool:
+    for i,ok in enumerate(pool.map(repair,pending)):
+        success += int(ok)
+        print(json.dumps({'processed':i+1,'repaired':success,'total':len(pending)}),flush=True)
 print(json.dumps({'completed':success,'remaining':len(pending)-success}),flush=True)

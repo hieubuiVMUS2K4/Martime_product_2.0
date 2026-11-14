@@ -43,7 +43,7 @@ namespace ProductApi.Services.Background
 
                         var maritimeReport = await dbContext.Set<MaritimeReport>().FindAsync(new object[] { report.MaritimeReportId }, stoppingToken);
                         if (maritimeReport == null || maritimeReport.DeletedAt != null) continue;
-                        var voyageId = maritimeReport?.VoyageId;
+                        var voyageId = maritimeReport.VoyageId;
 
                         // Compare only earlier reports from this vessel, never another vessel or future dates.
                         var historyQuery = from nr in dbContext.NoonReports.AsNoTracking()
@@ -78,6 +78,8 @@ namespace ProductApi.Services.Background
 
                         var payload = new 
                         {
+                            Units = new { SeaTemperature = "deg C", FuelConsumption = "MT per reporting day", Rpm = "rpm", Speed = "knots" },
+                            OperationalContext = report.OperationalRemarks,
                             CurrentReport = currentReport,
                             Past7DaysAverage = new 
                             {

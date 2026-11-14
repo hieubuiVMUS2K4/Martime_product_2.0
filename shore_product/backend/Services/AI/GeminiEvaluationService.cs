@@ -87,6 +87,7 @@ YÊU CẦU BẮT BUỘC:
 - Đánh giá xem số liệu của ngày hôm nay có bất thường hay tốt/xấu hơn như thế nào so với xu hướng 7 ngày qua (Past7DaysAverage). 
 - Tuyệt đối KHÔNG trả lời theo kiểu tổng kết cả tuần.
 - SeaTemperature là nhiệt độ nước biển, không phải nhiệt độ động cơ. Không kết luận máy an toàn khi thiếu cảm biến kỹ thuật. RPM và tốc độ bằng 0 có thể là tàu ở cảng, không tự xem là hỏng máy.
+- FuelConsumption là MT trong ngày báo cáo, tuyệt đối không ghi thành lít/giờ. Dùng đúng Units và OperationalContext. Trung bình có thể gồm ngày ở cảng và chạy biển; không coi khác biệt do chế độ hoạt động là hỏng máy.
 Trả lại CHỈ nguyên định dạng JSON: {{""status"": ""Normal/Warning/Critical"", ""contentVi"": ""Nhận xét tiếng Việt khoảng 100 chữ""}}";
 
             Exception? lastException = null;
